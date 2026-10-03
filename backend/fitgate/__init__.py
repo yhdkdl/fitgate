@@ -1,0 +1,1 @@
+"""FitGate Django project package."""

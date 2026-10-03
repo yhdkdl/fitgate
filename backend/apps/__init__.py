@@ -1,0 +1,1 @@
+"""FitGate apps package."""
