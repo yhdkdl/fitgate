@@ -1,0 +1,1 @@
+"""FitGate settings package."""

@@ -1,0 +1,39 @@
+openapi: 3.0.3
+info:
+  title: FitGate API
+  version: 1.0.0
+  description: Multi-tenant Gym Management Platform API for Ethiopian Gyms
+paths:
+  /api/health/:
+    get:
+      operationId: health_retrieve
+      description: Returns the operational status of the FitGate backend service.
+      summary: Health check
+      tags:
+      - health
+      security:
+      - cookieAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthCheckResponse'
+          description: ''
+components:
+  schemas:
+    HealthCheckResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          default: ok
+        app:
+          type: string
+          default: FitGate API
+  securitySchemes:
+    cookieAuth:
+      type: apiKey
+      in: cookie
+      name: sessionid

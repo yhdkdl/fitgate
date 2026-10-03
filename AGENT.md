@@ -1,0 +1,94 @@
+# FitGate — Agent Operating Instructions
+
+This file is read automatically at the start of every session in this repo. It is the operating contract for how work gets done here — not a description of the product. For what to build, see `docs/SPEC.md`. For what to build next, see `docs/SPRINTS.md`.
+
+`docs/SPEC.md` is the source of truth for every requirement, data model field, and use case. If a request conflicts with it, say so — do not silently pick a side. If `docs/SPEC.md` itself is ambiguous or internally inconsistent on a point (see "Known conflicts" at its end), do not resolve it unilaterally; ask.
+
+## Confirmed technical stack
+
+- Backend: Django + Django REST Framework
+- Frontend: React SPA (Vite) — React Router, TanStack Query (no Redux), Workbox service worker for offline-first PWA
+- Database: PostgreSQL, multi-tenant via `gym_id` row-level scoping (not schema-per-tenant — see Known Conflicts in docs/SPEC.md)
+- Environment: Docker Compose (Django, Postgres, Redis, **pgAdmin**) for **local development only**. pgAdmin is a dev convenience connected to the same `postgres` container — it must never be part of the production setup. Production does not use Docker — see Deployment below. Local and production are not the same environment; parity between them (especially around scheduled/async jobs) must be deliberately maintained, not assumed.
+- Testing: pytest-django
+- Deployment: **Yegara Host Premium — shared/managed cPanel hosting, no root or SSH access.** This reverses an earlier assumption (unmanaged VPS + Docker + Caddy); do not design against that old assumption anywhere. Concretely:
+  - Django runs via cPanel's Python App Manager (Passenger WSGI), not a container.
+  - PostgreSQL is provided directly by cPanel — confirmed available.
+  - TLS is handled by cPanel AutoSSL, not Caddy. AutoSSL runs on a periodic scan (not instant on creation), so a freshly created subdomain can exist over HTTP before it has a valid certificate — see the Sprint 4 acceptance criteria in `docs/SPRINTS.md` for the required safeguard (no forced HTTPS redirect and no login allowed until the cert is confirmed valid).
+  - Gym subdomains are provisioned by calling cPanel's UAPI (API token access is confirmed available on this plan) at approval time — not via wildcard DNS, which isn't available without root.
+  - No persistent background worker process (Celery's model) is assumed viable on shared hosting. Scheduled jobs (e.g., nightly expiry sweep) use cPanel Cron Jobs calling a Django management command. Jobs that need to run outside the request/response cycle (e.g., AI plan generation, if it risks the WSGI request timeout) use a DB-backed job table polled by a cron-triggered management command, not a live task queue.
+  - Redis's availability in production (as opposed to local dev, where it's confirmed via Docker Compose) is **unconfirmed** — check whether cPanel offers it as an add-on before assuming production can use it for caching or anything else.
+- Domain: not finalized (candidates: fitgate.org, a tebebtech.com subdomain for interim/demo) — always a `DOMAIN` env var, never hardcoded anywhere
+- Team: solo-committer. Full feature-branch/PR discipline is still enforced as a practice, but review and merge of a PR is done by the same person who authored it
+- AI Personal Training Engine integration layer: **LiteLLM**, self-hosted inside the Django backend (not a hosted gateway service — it's an open-source Python library you call directly, so it carries no markup fee). It sits behind the swappable-provider interface the spec already calls for, so the actual underlying model(s) it routes to can change via config, not code.
+
+Items below are proposed but not yet confirmed by the project owner — do not treat as settled, flag if a sprint depends on one:
+
+- Which underlying model(s) LiteLLM routes to — plan is to evaluate candidates via OpenRouter's free tier first (cheap to compare output quality across model families, especially for Ethiopian-context nutrition content), then configure LiteLLM to call the winner directly once chosen. Not yet run.
+- File/image storage backend (local Docker volume vs S3-compatible object storage) for profile photos and gym branding assets — resolve with the added constraint that shared hosting may not support S3-compatible self-hosted storage (e.g., MinIO) the way a Docker-based VPS would have.
+- Whether Redis (and therefore any caching built around it) is available at all in production — see Deployment above.
+
+## Workflow rules
+
+1. Work in sprints, one sprint per session, matching the scope defined in `docs/SPRINTS.md`. Do not blend two sprints into one session.
+2. Never rewrite existing code unless there is no reasonable way to avoid it. Prefer the smallest diff that correctly implements the sprint's scope.
+3. When modifying an existing file, show and apply only the exact lines that must change.
+4. Maintain clean architecture from the start — no shortcuts that create technical debt without flagging them explicitly to the project owner first.
+5. Every sprint that adds real logic (not pure scaffolding) includes automated tests for that logic, in the same PR. Not deferred.
+6. Explain what the code does and why in prose (PR description / chat response), not as inline comments explaining basics — the project owner is learning the codebase, not just accepting output.
+7. Recap the previous sprint's outcome briefly before starting a new one.
+8. Keep backend and frontend contracts mechanically aligned: regenerate the OpenAPI schema (drf-spectacular) and the generated TypeScript types whenever a serializer or endpoint changes. Do not let the frontend hand-maintain types that duplicate the backend contract.
+9. One feature branch per sprint, branched from `develop`, named `feature/sprint-N-short-name`.
+10. Never commit directly to `main`. `main` = production only. `develop` = integration branch.
+11. Open a PR with a written description (what changed, why, what was tested) at the end of every sprint. The project owner reviews and merges their own PRs — do not merge automatically, and do not treat "tests pass" as equivalent to "reviewed and approved."
+12. If less than 90% sure how a requirement should be implemented, stop and ask rather than guessing.
+13. If a better or more optimal approach exists than what was asked for, say so and recommend it — don't silently comply with a suboptimal request.
+14. Secrets and environment-specific values (Chapa keys, JWT signing secret, `DOMAIN`, AI provider key, DB credentials) are environment variables only, sourced from `.env` (gitignored). Never hardcoded, never committed, never placed in a default in code.
+15. When a task needs something the agent cannot do itself — creating an external account, obtaining an API key or credential, configuring DNS, installing software on the host machine or the VPS, anything requiring a browser or a service's own dashboard — stop and give the project owner explicit, numbered, step-by-step instructions for that manual action, including exactly what to do with the result (e.g., "paste the key into `.env` as `CHAPA_SECRET_KEY`"). Do not guess, stub around it silently, or describe the need vaguely and move on.
+
+## Before writing any code in a sprint
+
+- Read the relevant section(s) of `docs/SPEC.md` for the feature in scope.
+- Read the current sprint's entry in `docs/SPRINTS.md`, including its stated dependencies on earlier sprints.
+- Run the existing test suite to confirm a clean baseline before making changes.
+
+## Definition of done, per sprint
+
+- [ ] Migrations included, and apply cleanly against a fresh database
+- [ ] Tests written and passing for all new logic
+- [ ] Lint/format clean (ruff + black on the backend, eslint + prettier on the frontend)
+- [ ] OpenAPI schema and generated TS types regenerated if any endpoint or serializer changed
+- [ ] PR description written, covering what changed, why, and what was tested
+- [ ] No secrets, and no hardcoded domain or environment-specific values, introduced
+- [ ] `docs/SPRINTS.md` updated to mark the sprint complete
+
+## Common commands
+
+```bash
+# Start all local development services (Django, Postgres, Redis, pgAdmin, React)
+docker compose up -d
+
+# Stop local development services
+docker compose down
+
+# Run backend tests
+docker compose exec backend pytest
+
+# Apply database migrations
+docker compose exec backend python manage.py migrate
+
+# Generate OpenAPI schema and mechanical TypeScript contract
+docker compose exec backend python manage.py spectacular --file schema.yaml
+npm --prefix frontend run generate:types
+
+# Frontend lint and format checks
+npm --prefix frontend run lint
+npm --prefix frontend run format:check
+
+# Backend lint and format checks
+.venv\Scripts\ruff.exe check backend
+.venv\Scripts\black.exe --check backend
+
+# Pre-commit hook manual trigger
+.venv\Scripts\pre-commit.exe run --all-files
+```

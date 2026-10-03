@@ -1,0 +1,14 @@
+[tool.ruff]
+line-length = 88
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I"]
+ignore = ["E501"]
+
+[tool.ruff.lint.per-file-ignores]
+"**/settings/*.py" = ["F403", "F405"]
+
+[tool.black]
+line-length = 88
+target-version = ["py312"]
