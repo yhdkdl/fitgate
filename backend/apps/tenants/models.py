@@ -120,9 +120,25 @@ class TenantAwareModel(models.Model):
         abstract = True
 
     def save(self, *args, **kwargs):
-        """Auto-populate gym foreign key from context if not already set."""
-        if not getattr(self, "gym_id", None):
-            current_tenant = get_current_tenant()
-            if current_tenant is not None:
+        """
+        Validate tenant context and auto-populate gym foreign key.
+
+        Fails closed:
+        - If tenant context is active and instance carries a mismatched gym, raises ValidationError.
+        - If tenant context is active and instance has no gym, auto-assigns current_tenant.
+        - If no tenant context is active and instance has no gym, raises ValidationError.
+        """
+        current_tenant = get_current_tenant()
+        if current_tenant is not None:
+            if self.gym_id and str(self.gym_id) != str(current_tenant.id):
+                raise ValidationError(
+                    "Cannot assign or modify record for a different tenant."
+                )
+            if not self.gym_id:
                 self.gym = current_tenant
+        else:
+            if not getattr(self, "gym_id", None):
+                raise ValidationError(
+                    "Tenant context or explicit gym assignment is required to save a tenant-scoped record."
+                )
         super().save(*args, **kwargs)

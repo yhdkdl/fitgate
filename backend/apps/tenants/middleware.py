@@ -25,8 +25,8 @@ class TenantSubdomainMiddleware:
         self.get_response = get_response
 
     def __call__(self, request: HttpRequest) -> HttpResponse:
-        host = request.get_host().split(":")[0].strip().lower()
-        domain = getattr(settings, "DOMAIN", "localhost").strip().lower()
+        host = request.get_host().split(":")[0].strip().lower().rstrip(".")
+        domain = getattr(settings, "DOMAIN", "").strip().lower().rstrip(".")
 
         tenant: Optional[GymTenant] = None
         subdomain: Optional[str] = None

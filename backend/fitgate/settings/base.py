@@ -18,7 +18,7 @@ elif (BASE_DIR / ".env").exists():
     environ.Env.read_env(str(BASE_DIR / ".env"))
 
 SECRET_KEY = env("DJANGO_SECRET_KEY")
-DOMAIN = env("DOMAIN", default="localhost")
+DOMAIN = env("DOMAIN")
 
 # Application definition
 INSTALLED_APPS = [

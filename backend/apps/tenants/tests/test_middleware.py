@@ -117,6 +117,57 @@ class TestTenantSubdomainMiddleware:
         assert response.status_code == 404
         assert json.loads(response.content) == {"detail": "Gym tenant not found."}
 
+    @override_settings(
+        DOMAIN="fitgate.tebebtech.com",
+        ALLOWED_HOSTS=["fitgate.tebebtech.com", "evilfitgate.tebebtech.com"],
+    )
+    def test_dot_boundary_evil_domain_rejected(self, factory):
+        """
+        Dot boundary check: 'evilfitgate.tebebtech.com' lacks the '.' separator before DOMAIN.
+        Suffix-matching against f'.{domain}' must reject it with 404 rather than matching.
+        """
+        middleware = TenantSubdomainMiddleware(lambda req: HttpResponse("OK"))
+        request = factory.get("/", HTTP_HOST="evilfitgate.tebebtech.com")
+
+        response = middleware(request)
+
+        assert response.status_code == 404
+        assert json.loads(response.content) == {"detail": "Gym tenant not found."}
+
+    @override_settings(
+        DOMAIN="fitgate.tebebtech.com",
+        ALLOWED_HOSTS=["fitgate.tebebtech.com", "foreignsite.org"],
+    )
+    def test_foreign_host_rejected(self, factory):
+        """A foreign host that is neither apex nor subdomained under DOMAIN returns 404."""
+        middleware = TenantSubdomainMiddleware(lambda req: HttpResponse("OK"))
+        request = factory.get("/", HTTP_HOST="foreignsite.org")
+
+        response = middleware(request)
+
+        assert response.status_code == 404
+        assert json.loads(response.content) == {"detail": "Gym tenant not found."}
+
+    @override_settings(
+        DOMAIN="fitgate.tebebtech.com",
+        ALLOWED_HOSTS=["fitgate.tebebtech.com", ".fitgate.tebebtech.com"],
+    )
+    def test_trailing_dot_normalized(self, factory, gym_tenant):
+        """FQDN hosts with a trailing dot are normalized and resolved properly."""
+        middleware = TenantSubdomainMiddleware(lambda req: HttpResponse("OK"))
+
+        # Gym subdomain with trailing dot
+        req_sub = factory.get("/", HTTP_HOST="gymname.fitgate.tebebtech.com.")
+        res_sub = middleware(req_sub)
+        assert res_sub.status_code == 200
+        assert req_sub.tenant == gym_tenant
+
+        # Apex domain with trailing dot
+        req_apex = factory.get("/", HTTP_HOST="fitgate.tebebtech.com.")
+        res_apex = middleware(req_apex)
+        assert res_apex.status_code == 200
+        assert req_apex.tenant is None
+
     # -------------------------------------------------------------------------
     # Single-label / default domain tests
     # -------------------------------------------------------------------------

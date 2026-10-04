@@ -1,6 +1,7 @@
 """Unit tests for TenantManager, TenantQuerySet, and TenantAwareModel isolation."""
 
 import pytest
+from django.core.exceptions import ValidationError
 from django.db import connection, models
 
 from apps.tenants.context import reset_current_tenant, set_current_tenant
@@ -106,12 +107,27 @@ class TestTenantManagerIsolation:
         finally:
             reset_current_tenant(token)
 
-    def test_unscoped_when_no_tenant_in_context(self, seeded_tenants):
-        """Verify all rows are returned when no tenant context is active."""
+    def test_tenant_manager_fails_closed_when_no_tenant_in_context(
+        self, seeded_tenants
+    ):
+        """
+        Verify that querying without an active tenant context fails closed (returns empty queryset),
+        preventing any unintentional data leakage across tenants.
+        """
         token = set_current_tenant(None)
         try:
-            items = list(DummyTenantModel.objects.all())
-            assert len(items) == 3
+            scoped_items = list(DummyTenantModel.objects.all())
+            assert len(scoped_items) == 0
+
+            filter_items = list(DummyTenantModel.objects.filter_by_current_tenant())
+            assert len(filter_items) == 0
+
+            # Explicit unscoped bypass still returns all rows for administrative usage
+            unscoped_items = list(DummyTenantModel.objects.unscoped().all())
+            assert len(unscoped_items) == 3
+
+            all_items = list(DummyTenantModel.all_objects.all())
+            assert len(all_items) == 3
         finally:
             reset_current_tenant(token)
 
@@ -123,5 +139,47 @@ class TestTenantManagerIsolation:
             new_item = DummyTenantModel(name="Auto Assigned Item")
             new_item.save()
             assert new_item.gym == tenant_a
+        finally:
+            reset_current_tenant(token)
+
+    def test_save_raises_validation_error_when_no_tenant_context_and_no_gym(
+        self,
+    ):
+        """Verify .save() fails closed and raises ValidationError if no tenant context or gym is set."""
+        token = set_current_tenant(None)
+        try:
+            item = DummyTenantModel(name="Orphan Item")
+            with pytest.raises(ValidationError) as exc_info:
+                item.save()
+            assert "Tenant context or explicit gym assignment is required" in str(
+                exc_info.value
+            )
+        finally:
+            reset_current_tenant(token)
+
+    def test_save_raises_validation_error_on_mismatched_gym(self, seeded_tenants):
+        """Verify .save() fails closed and raises ValidationError when gym contradicts active context."""
+        tenant_a = seeded_tenants["tenant_a"]
+        tenant_b = seeded_tenants["tenant_b"]
+
+        token = set_current_tenant(tenant_a)
+        try:
+            item = DummyTenantModel(gym=tenant_b, name="Cross Tenant Item")
+            with pytest.raises(ValidationError) as exc_info:
+                item.save()
+            assert "Cannot assign or modify record for a different tenant" in str(
+                exc_info.value
+            )
+        finally:
+            reset_current_tenant(token)
+
+    def test_save_succeeds_with_explicit_matching_gym(self, seeded_tenants):
+        """Verify .save() succeeds when explicit gym matches the active tenant context."""
+        tenant_a = seeded_tenants["tenant_a"]
+        token = set_current_tenant(tenant_a)
+        try:
+            item = DummyTenantModel(gym=tenant_a, name="Explicit Matching Item")
+            item.save()
+            assert item.gym == tenant_a
         finally:
             reset_current_tenant(token)
