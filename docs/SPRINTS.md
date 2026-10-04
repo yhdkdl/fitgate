@@ -6,7 +6,7 @@ Status legend: `[ ]` not started · `[~]` in progress · `[x]` done (PR merged t
 >
 > **⚠️ Production hosting changed.** The project moved from an unmanaged VPS (Docker + Caddy) to Yegara Host **Premium** (shared/managed cPanel, no root). Sprints 4, 14, 22, and 38 below already reflect this; Sprints 1–13, 15–21, and 23–37 are unaffected since they describe app-level behavior, not deployment mechanics. See `docs/SPEC.md` §10 for the remaining open items (underlying AI model, file storage, Redis availability) that some sprints below depend on.
 >
-> Every sprint below now carries **acceptance criteria** — concrete, testable statements a diff should satisfy before it's considered done. These are in addition to, not instead of, the general Definition of Done checklist in `CLAUDE.md` (migrations clean, tests passing, lint clean, etc.) — that checklist is process hygiene applied identically to every sprint; the criteria below are what "correct" actually means for that specific sprint's logic.
+> Every sprint below now carries **acceptance criteria** — concrete, testable statements a diff should satisfy before it's considered done. These are in addition to, not instead of, the general Definition of Done checklist in `AGENT.md` (migrations clean, tests passing, lint clean, etc.) — that checklist is process hygiene applied identically to every sprint; the criteria below are what "correct" actually means for that specific sprint's logic.
 
 ---
 
@@ -29,10 +29,13 @@ pgAdmin is a local-development convenience only — a GUI client connected to th
 
 ## Increment 1 — Platform foundation (multi-tenancy, auth, access control, attendance)
 
-1. **Core tenant models + subdomain middleware** — `GymTenant`, `GymConfig`, tenant-scoping base manager/mixin, subdomain-resolution middleware.
+1. **Core tenant models + subdomain middleware** — GymTenant, GymConfig, tenant-scoping base manager/mixin, subdomain-resolution middleware.
    - A request to a known gym's subdomain resolves `request.tenant` to that `GymTenant`; a request to an unknown subdomain fails clearly (404/error), not silently proceeds with no tenant.
+   - `DOMAIN` must be tested as a two-label value, not just single-label ones. One of our actual candidate domains (`fitgate.tebebtech.com`) is already two labels before any gym subdomain is added, making a gym's real host three labels deep (`gymname.fitgate.tebebtech.com`). With `DOMAIN` explicitly set to "fitgate.tebebtech.com" in the test: (a) `gymname.fitgate.tebebtech.com` resolves to that gym tenant, and (b) `fitgate.tebebtech.com` itself (the apex, no gym) sets `request.tenant = None` rather than being misread as a subdomain lookup and 404ing. Implementation must use suffix-matching against the full `DOMAIN` value, not "everything before the first dot."
    - A query made through the tenant-scoped base manager, without the caller explicitly adding a `gym_id` filter, still only returns the current tenant's rows — proven with a test seeding two tenants' data and asserting no cross-tenant leakage.
    - Creating a `GymTenant` auto-creates its `GymConfig` with all feature flags defaulting to `false`.
+
+   - [x] Status: done
 
 2. **Custom User model + JWT auth** — login, logout, token refresh.
    - Valid credentials return access + refresh tokens; invalid credentials return 401 with no stack trace or information about which field was wrong.
@@ -96,7 +99,7 @@ pgAdmin is a local-development convenience only — a GUI client connected to th
     - Freezing measurably pauses the subscription's expiry clock — test that `end_date` shifts by the frozen duration once unfrozen.
     - A freeze request exceeding the gym's remaining allowance is rejected.
 
-14. **Expiry automation** — a Django management command (`expire_subscriptions` or similar), scheduled via a **cPanel Cron Job** in production (not Celery Beat — see `CLAUDE.md` Deployment); runnable manually or via a Compose-scheduled equivalent in local dev. Covers the nightly sweep, renewal reminders, and QR auto-deactivation.
+14. **Expiry automation** — a Django management command (`expire_subscriptions` or similar), scheduled via a **cPanel Cron Job** in production (not Celery Beat — see `AGENT.md` Deployment); runnable manually or via a Compose-scheduled equivalent in local dev. Covers the nightly sweep, renewal reminders, and QR auto-deactivation.
     - Running the command against a seeded mix of subscriptions flips only the ones past `end_date` to `expired`, leaving others untouched.
     - An expired subscription's member is rejected at QR check-in going forward (ties to Sprint 8's rejection logic).
     - A renewal reminder is created once per subscription ahead of expiry — running the command twice in a row doesn't duplicate it (this matters more without Celery Beat's built-in single-run guarantee — cron can double-fire if a run overlaps, so the command itself must be idempotent, not just scheduled once).
@@ -136,7 +139,7 @@ pgAdmin is a local-development convenience only — a GUI client connected to th
     - Deterministic output is covered by unit tests across at minimum: a beginner/foundation case, an advanced/peak case, and a case where `equipment_prefs`/limitations measurably exclude equipment from the computed output.
     - Two different intensity-calculation strategies can be plugged in and produce different outputs from the same input without any change to the calling code — test the Strategy-pattern swap directly.
 
-22. **LiteLLM integration layer** — self-hosted in the Django backend, called from behind the swappable-provider interface. Prompt construction, content storage, retry/fallback. _Underlying model still to be chosen (trial via OpenRouter's free tier first — see open items) — build and test this sprint against whichever model is fastest to trial, then swap via LiteLLM config once a model is picked, without touching this sprint's code._ **Runs synchronously within the request** (no Celery worker available on shared hosting — see `CLAUDE.md` Deployment); LiteLLM's own retry/fallback happens inline. Confirm the chosen model's response time stays comfortably within the Passenger WSGI request timeout once that's known — if it doesn't, fall back to a DB-backed job table polled by a cron-triggered command instead of blocking the request.
+22. **LiteLLM integration layer** — self-hosted in the Django backend, called from behind the swappable-provider interface. Prompt construction, content storage, retry/fallback. _Underlying model still to be chosen (trial via OpenRouter's free tier first — see open items) — build and test this sprint against whichever model is fastest to trial, then swap via LiteLLM config once a model is picked, without touching this sprint's code._ **Runs synchronously within the request** (no Celery worker available on shared hosting — see `AGENT.md` Deployment); LiteLLM's own retry/fallback happens inline. Confirm the chosen model's response time stays comfortably within the Passenger WSGI request timeout once that's known — if it doesn't, fall back to a DB-backed job table polled by a cron-triggered command instead of blocking the request.
     - A simulated provider failure/rate-limit on the primary deployment correctly falls through to the next configured deployment in the Router's fallback list — tested with a mocked provider error, not a real one.
     - Generated content is stored on the correct `TrainingPlan` row in `pending_review` status, and is not fetchable by the member before trainer approval.
     - Total provider failure (all fallbacks exhausted) produces a clear "generation failed" state, not a silent hang or a plan that's incorrectly marked approved.
@@ -216,7 +219,7 @@ _Not in the original source document — added by direct decision with the proje
     - The cPanel UAPI call in Sprint 4 is confirmed working against the real account — a real subdomain actually gets provisioned on gym approval, not just the local-dev stub.
     - The AutoSSL gap behaves as designed under real conditions: a freshly provisioned subdomain is reachable over HTTP, login is correctly blocked until the cert is confirmed valid, and the app correctly detects the cert becoming valid without a manual flag flip.
     - The cPanel Cron Job actually fires the expiry-sweep command on schedule — verified against real execution, not just that the command works when run manually.
-    - Changing `DOMAIN` in `.env` and redeploying requires no code or config changes anywhere else in the project — the final proof of the "never hardcoded" rule from `CLAUDE.md`.
+    - Changing `DOMAIN` in `.env` and redeploying requires no code or config changes anywhere else in the project — the final proof of the "never hardcoded" rule from `AGENT.md`.
 
 - [ ] All sprints in this increment complete
 

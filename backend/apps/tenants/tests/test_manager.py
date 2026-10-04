@@ -1,0 +1,127 @@
+"""Unit tests for TenantManager, TenantQuerySet, and TenantAwareModel isolation."""
+
+import pytest
+from django.db import connection, models
+
+from apps.tenants.context import reset_current_tenant, set_current_tenant
+from apps.tenants.models import GymTenant, TenantAwareModel
+
+
+class DummyTenantModel(TenantAwareModel):
+    """Concrete model for testing TenantAwareModel and TenantManager."""
+
+    name = models.CharField(max_length=100)
+
+    class Meta:
+        app_label = "tenants"
+
+
+@pytest.fixture(scope="module", autouse=True)
+def create_dummy_table(django_db_setup, django_db_blocker):
+    """Create and tear down database table for DummyTenantModel once for the module."""
+    with django_db_blocker.unblock():
+        with connection.schema_editor() as editor:
+            editor.create_model(DummyTenantModel)
+    yield
+    with django_db_blocker.unblock():
+        with connection.schema_editor() as editor:
+            editor.delete_model(DummyTenantModel)
+
+
+@pytest.mark.django_db
+class TestTenantManagerIsolation:
+    """Test tenant query scoping and prevention of cross-tenant leakage."""
+
+    @pytest.fixture
+    def seeded_tenants(self):
+        """Seed two distinct tenants and their associated items."""
+        tenant_a = GymTenant.objects.create(name="Tenant Alpha", subdomain="alpha")
+        tenant_b = GymTenant.objects.create(name="Tenant Beta", subdomain="beta")
+
+        item_a1 = DummyTenantModel.objects.create(gym=tenant_a, name="Alpha Item 1")
+        item_a2 = DummyTenantModel.objects.create(gym=tenant_a, name="Alpha Item 2")
+        item_b1 = DummyTenantModel.objects.create(gym=tenant_b, name="Beta Item 1")
+
+        return {
+            "tenant_a": tenant_a,
+            "tenant_b": tenant_b,
+            "items_a": [item_a1, item_a2],
+            "items_b": [item_b1],
+        }
+
+    def test_tenant_manager_scopes_to_active_tenant_without_caller_filter(
+        self, seeded_tenants
+    ):
+        """
+        Verify that querying through TenantManager without explicit gym_id filter
+        returns only the current tenant's rows, proving zero cross-tenant leakage.
+        """
+        tenant_a = seeded_tenants["tenant_a"]
+        tenant_b = seeded_tenants["tenant_b"]
+
+        # Scope context to Tenant Alpha
+        token_a = set_current_tenant(tenant_a)
+        try:
+            results_a = list(DummyTenantModel.objects.all())
+            assert len(results_a) == 2
+            assert all(item.gym == tenant_a for item in results_a)
+            assert {item.name for item in results_a} == {
+                "Alpha Item 1",
+                "Alpha Item 2",
+            }
+            # Beta item must NOT leak into Tenant Alpha query
+            assert not any(item.gym == tenant_b for item in results_a)
+        finally:
+            reset_current_tenant(token_a)
+
+        # Switch context to Tenant Beta
+        token_b = set_current_tenant(tenant_b)
+        try:
+            results_b = list(DummyTenantModel.objects.all())
+            assert len(results_b) == 1
+            assert results_b[0].name == "Beta Item 1"
+            assert results_b[0].gym == tenant_b
+            # Alpha items must NOT leak into Tenant Beta query
+            assert not any(item.gym == tenant_a for item in results_b)
+        finally:
+            reset_current_tenant(token_b)
+
+    def test_all_objects_bypasses_tenant_scoping(self, seeded_tenants):
+        """Verify all_objects returns records across all tenants regardless of context."""
+        tenant_a = seeded_tenants["tenant_a"]
+        token = set_current_tenant(tenant_a)
+        try:
+            all_items = list(DummyTenantModel.all_objects.all())
+            assert len(all_items) == 3
+        finally:
+            reset_current_tenant(token)
+
+    def test_unscoped_method_bypasses_tenant_scoping(self, seeded_tenants):
+        """Verify .unscoped() on manager returns all records."""
+        tenant_a = seeded_tenants["tenant_a"]
+        token = set_current_tenant(tenant_a)
+        try:
+            unscoped_items = list(DummyTenantModel.objects.unscoped().all())
+            assert len(unscoped_items) == 3
+        finally:
+            reset_current_tenant(token)
+
+    def test_unscoped_when_no_tenant_in_context(self, seeded_tenants):
+        """Verify all rows are returned when no tenant context is active."""
+        token = set_current_tenant(None)
+        try:
+            items = list(DummyTenantModel.objects.all())
+            assert len(items) == 3
+        finally:
+            reset_current_tenant(token)
+
+    def test_auto_assigns_gym_from_context_on_save(self, seeded_tenants):
+        """Verify TenantAwareModel automatically assigns gym from context on save()."""
+        tenant_a = seeded_tenants["tenant_a"]
+        token = set_current_tenant(tenant_a)
+        try:
+            new_item = DummyTenantModel(name="Auto Assigned Item")
+            new_item.save()
+            assert new_item.gym == tenant_a
+        finally:
+            reset_current_tenant(token)

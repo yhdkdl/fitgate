@@ -18,6 +18,7 @@ elif (BASE_DIR / ".env").exists():
     environ.Env.read_env(str(BASE_DIR / ".env"))
 
 SECRET_KEY = env("DJANGO_SECRET_KEY")
+DOMAIN = env("DOMAIN", default="localhost")
 
 # Application definition
 INSTALLED_APPS = [
@@ -32,7 +33,7 @@ INSTALLED_APPS = [
     "corsheaders",
     "drf_spectacular",
     # FitGate apps
-    "apps",
+    "apps.tenants.apps.TenantsConfig",
 ]
 
 MIDDLEWARE = [
@@ -40,6 +41,7 @@ MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
+    "apps.tenants.middleware.TenantSubdomainMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
