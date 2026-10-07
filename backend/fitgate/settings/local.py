@@ -9,6 +9,8 @@ ALLOWED_HOSTS = env.list(
     default=["localhost", "127.0.0.1", "backend", "*"],
 )
 
+TENANT_EXTRA_PLATFORM_HOSTS = ["localhost", "127.0.0.1", "backend", "testserver"]
+
 DATABASES = {
     "default": env.db(
         "DATABASE_URL",

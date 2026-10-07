@@ -20,6 +20,9 @@ elif (BASE_DIR / ".env").exists():
 SECRET_KEY = env("DJANGO_SECRET_KEY")
 DOMAIN = env("DOMAIN")
 
+# Multi-tenancy platform hosts (empty by default in production)
+TENANT_EXTRA_PLATFORM_HOSTS: list[str] = []
+
 # Application definition
 INSTALLED_APPS = [
     "django.contrib.admin",

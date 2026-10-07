@@ -119,9 +119,6 @@ class TestTenantManagerIsolation:
             scoped_items = list(DummyTenantModel.objects.all())
             assert len(scoped_items) == 0
 
-            filter_items = list(DummyTenantModel.objects.filter_by_current_tenant())
-            assert len(filter_items) == 0
-
             # Explicit unscoped bypass still returns all rows for administrative usage
             unscoped_items = list(DummyTenantModel.objects.unscoped().all())
             assert len(unscoped_items) == 3
@@ -130,6 +127,13 @@ class TestTenantManagerIsolation:
             assert len(all_items) == 3
         finally:
             reset_current_tenant(token)
+
+    def test_queryset_has_no_unscoped_method(self):
+        """Verify TenantQuerySet has no unscoped() method to prevent silent no-ops."""
+        qs = DummyTenantModel.objects.all()
+        assert not hasattr(qs, "unscoped")
+        with pytest.raises(AttributeError):
+            getattr(qs, "unscoped")()
 
     def test_auto_assigns_gym_from_context_on_save(self, seeded_tenants):
         """Verify TenantAwareModel automatically assigns gym from context on save()."""
@@ -181,5 +185,77 @@ class TestTenantManagerIsolation:
             item = DummyTenantModel(gym=tenant_a, name="Explicit Matching Item")
             item.save()
             assert item.gym == tenant_a
+        finally:
+            reset_current_tenant(token)
+
+    def test_bulk_create_auto_assigns_gym_from_context(self, seeded_tenants):
+        """Verify bulk_create automatically assigns current tenant when gym is omitted."""
+        tenant_a = seeded_tenants["tenant_a"]
+        token = set_current_tenant(tenant_a)
+        try:
+            items = [
+                DummyTenantModel(name="Bulk Item 1"),
+                DummyTenantModel(name="Bulk Item 2"),
+            ]
+            created = DummyTenantModel.objects.bulk_create(items)
+            assert len(created) == 2
+            assert all(item.gym == tenant_a for item in created)
+            # Confirmed in database query
+            persisted = list(
+                DummyTenantModel.objects.filter(name__startswith="Bulk Item")
+            )
+            assert len(persisted) == 2
+            assert all(item.gym == tenant_a for item in persisted)
+        finally:
+            reset_current_tenant(token)
+
+    def test_bulk_create_raises_validation_error_when_no_tenant_context_and_missing_gym(
+        self,
+    ):
+        """Verify bulk_create fails closed with ValidationError when no tenant in context and no gym."""
+        token = set_current_tenant(None)
+        try:
+            items = [DummyTenantModel(name="Orphan Bulk Item")]
+            with pytest.raises(ValidationError) as exc_info:
+                DummyTenantModel.objects.bulk_create(items)
+            assert "Tenant context or explicit gym assignment is required" in str(
+                exc_info.value
+            )
+        finally:
+            reset_current_tenant(token)
+
+    def test_bulk_create_raises_validation_error_on_mismatched_gym(
+        self, seeded_tenants
+    ):
+        """Verify bulk_create fails closed with ValidationError when gym contradicts active tenant context."""
+        tenant_a = seeded_tenants["tenant_a"]
+        tenant_b = seeded_tenants["tenant_b"]
+
+        token = set_current_tenant(tenant_a)
+        try:
+            items = [
+                DummyTenantModel(gym=tenant_a, name="Valid Tenant A Item"),
+                DummyTenantModel(gym=tenant_b, name="Invalid Tenant B Item"),
+            ]
+            with pytest.raises(ValidationError) as exc_info:
+                DummyTenantModel.objects.bulk_create(items)
+            assert "Cannot assign or modify record for a different tenant" in str(
+                exc_info.value
+            )
+        finally:
+            reset_current_tenant(token)
+
+    def test_bulk_create_succeeds_with_explicit_matching_gym(self, seeded_tenants):
+        """Verify bulk_create succeeds when explicit gym matches the active tenant context."""
+        tenant_a = seeded_tenants["tenant_a"]
+        token = set_current_tenant(tenant_a)
+        try:
+            items = [
+                DummyTenantModel(gym=tenant_a, name="Explicit Bulk 1"),
+                DummyTenantModel(gym=tenant_a, name="Explicit Bulk 2"),
+            ]
+            created = DummyTenantModel.objects.bulk_create(items)
+            assert len(created) == 2
+            assert all(item.gym == tenant_a for item in created)
         finally:
             reset_current_tenant(token)

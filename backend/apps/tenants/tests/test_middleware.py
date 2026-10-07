@@ -193,18 +193,97 @@ class TestTenantSubdomainMiddleware:
         assert req_apex.tenant is None
 
     @override_settings(
-        DOMAIN="localhost",
-        ALLOWED_HOSTS=["localhost", "127.0.0.1", "testserver"],
+        DOMAIN="fitgate.tebebtech.com",
+        ALLOWED_HOSTS=["fitgate.tebebtech.com", ".fitgate.tebebtech.com"],
     )
-    def test_localhost_and_internal_hosts_set_tenant_none(self, factory):
-        """Localhost, 127.0.0.1, and testserver set tenant to None."""
+    def test_port_stripped_from_host(self, factory, gym_tenant):
+        """Port numbers on HTTP_HOST are stripped before matching."""
+        middleware = TenantSubdomainMiddleware(lambda req: HttpResponse("OK"))
+
+        req_sub = factory.get("/", HTTP_HOST="gymname.fitgate.tebebtech.com:8000")
+        res_sub = middleware(req_sub)
+        assert res_sub.status_code == 200
+        assert req_sub.tenant == gym_tenant
+
+        req_apex = factory.get("/", HTTP_HOST="fitgate.tebebtech.com:8000")
+        res_apex = middleware(req_apex)
+        assert res_apex.status_code == 200
+        assert req_apex.tenant is None
+
+    @override_settings(
+        DOMAIN="fitgate.tebebtech.com",
+        ALLOWED_HOSTS=["fitgate.tebebtech.com", ".fitgate.tebebtech.com"],
+    )
+    def test_host_lowercased_for_matching(self, factory, gym_tenant):
+        """Mixed-case and uppercase HTTP_HOST headers are lowercased for resolution."""
+        middleware = TenantSubdomainMiddleware(lambda req: HttpResponse("OK"))
+
+        req = factory.get("/", HTTP_HOST="GYMNAME.FITGATE.TEBEBTECH.COM")
+        res = middleware(req)
+        assert res.status_code == 200
+        assert req.tenant == gym_tenant
+
+    @override_settings(
+        DOMAIN="fitgate.tebebtech.com",
+        TENANT_EXTRA_PLATFORM_HOSTS=[],
+        ALLOWED_HOSTS=["fitgate.tebebtech.com", "localhost", "127.0.0.1", "testserver"],
+    )
+    def test_extra_platform_hosts_empty_by_default_rejects_arbitrary_hosts(
+        self, factory
+    ):
+        """In production where TENANT_EXTRA_PLATFORM_HOSTS is empty, non-domain hosts return 404."""
         middleware = TenantSubdomainMiddleware(lambda req: HttpResponse("OK"))
 
         for host in ["localhost", "127.0.0.1", "testserver"]:
             req = factory.get("/", HTTP_HOST=host)
             res = middleware(req)
+            assert res.status_code == 404
+
+    @override_settings(
+        DOMAIN="fitgate.tebebtech.com",
+        TENANT_EXTRA_PLATFORM_HOSTS=["custom-platform", "testserver"],
+        ALLOWED_HOSTS=["fitgate.tebebtech.com", "custom-platform", "testserver"],
+    )
+    def test_extra_platform_hosts_configured_resolves_tenant_none(self, factory):
+        """When TENANT_EXTRA_PLATFORM_HOSTS is set in local/test settings, hosts resolve to tenant=None."""
+        middleware = TenantSubdomainMiddleware(lambda req: HttpResponse("OK"))
+
+        for host in ["custom-platform", "testserver"]:
+            req = factory.get("/", HTTP_HOST=host)
+            res = middleware(req)
             assert res.status_code == 200
             assert req.tenant is None
+
+    def test_domain_setting_fails_fast_without_default(self, monkeypatch):
+        """Verify settings fail fast when DOMAIN is unset without defaults in code."""
+        import inspect
+
+        import environ
+        from django.core.exceptions import ImproperlyConfigured
+        from fitgate.settings import base
+
+        # Verify base.py defines DOMAIN without default
+        base_src = inspect.getsource(base)
+        assert 'DOMAIN = env("DOMAIN")' in base_src
+
+        # Verify environ raises when DOMAIN is unset
+        monkeypatch.delenv("DOMAIN", raising=False)
+        test_env = environ.Env()
+        with pytest.raises((KeyError, ImproperlyConfigured)):
+            test_env("DOMAIN")
+
+    def test_env_example_lists_domain(self):
+        """Verify .env.example contains DOMAIN definition."""
+        from django.conf import settings
+
+        env_example_path = (
+            settings.BASE_DIR / ".env.example"
+            if (settings.BASE_DIR / ".env.example").exists()
+            else settings.BASE_DIR.parent / ".env.example"
+        )
+        assert env_example_path.exists()
+        content = env_example_path.read_text(encoding="utf-8")
+        assert "DOMAIN=" in content
 
     @override_settings(
         DOMAIN="localhost",

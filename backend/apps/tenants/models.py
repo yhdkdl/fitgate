@@ -1,5 +1,6 @@
 """Data models for FitGate multi-tenancy and configuration."""
 
+import re
 import uuid
 
 from django.core.exceptions import ValidationError
@@ -7,6 +8,34 @@ from django.db import models
 
 from apps.tenants.context import get_current_tenant
 from apps.tenants.managers import TenantManager
+
+SUBDOMAIN_REGEX = re.compile(r"^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$")
+RESERVED_SUBDOMAINS = frozenset(
+    {
+        "api",
+        "admin",
+        "www",
+        "app",
+        "mail",
+        "localhost",
+    }
+)
+
+
+def validate_subdomain(value: str) -> None:
+    """
+    Enforce valid single DNS label format and reject reserved subdomains.
+
+    Must match ^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$ and not be in RESERVED_SUBDOMAINS.
+    """
+    if not isinstance(value, str):
+        raise ValidationError("Subdomain must be a string.")
+    if not SUBDOMAIN_REGEX.match(value):
+        raise ValidationError(
+            "Subdomain must be a valid DNS label (lowercase alphanumeric and hyphens, 1-63 chars, no leading/trailing hyphens)."
+        )
+    if value.lower() in RESERVED_SUBDOMAINS:
+        raise ValidationError(f"'{value}' is a reserved subdomain.")
 
 
 class GymTenant(models.Model):
@@ -39,8 +68,13 @@ class GymTenant(models.Model):
     ]
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    name = models.CharField(max_length=255)
-    subdomain = models.SlugField(max_length=63, unique=True, db_index=True)
+    name = models.CharField(max_length=150)
+    subdomain = models.CharField(
+        max_length=63,
+        unique=True,
+        db_index=True,
+        validators=[validate_subdomain],
+    )
     status = models.CharField(
         max_length=20, choices=STATUS_CHOICES, default=STATUS_PENDING
     )
@@ -54,15 +88,18 @@ class GymTenant(models.Model):
         verbose_name = "Gym Tenant"
         verbose_name_plural = "Gym Tenants"
 
+    def clean_fields(self, exclude=None):
+        if self.subdomain and isinstance(self.subdomain, str):
+            self.subdomain = self.subdomain.strip().lower()
+        super().clean_fields(exclude=exclude)
+
     def clean(self):
         super().clean()
-        if self.subdomain:
+        if self.subdomain and isinstance(self.subdomain, str):
             self.subdomain = self.subdomain.strip().lower()
-            if self.subdomain in {"api", "admin", "www", "app", "mail", "localhost"}:
-                raise ValidationError({"subdomain": "This subdomain is reserved."})
 
     def save(self, *args, **kwargs):
-        if self.subdomain:
+        if self.subdomain and isinstance(self.subdomain, str):
             self.subdomain = self.subdomain.strip().lower()
         super().save(*args, **kwargs)
 
@@ -88,7 +125,7 @@ class GymConfig(models.Model):
     has_analytics = models.BooleanField(default=False)
     has_group_classes = models.BooleanField(default=False)
     has_multi_branch = models.BooleanField(default=False)
-    chapa_merchant_id = models.CharField(max_length=255, null=True, blank=True)
+    chapa_merchant_id = models.CharField(max_length=100, null=True, blank=True)
     freeze_days_allowed = models.PositiveIntegerField(default=0)
 
     class Meta:

@@ -14,11 +14,12 @@ class TenantSubdomainMiddleware:
     Resolves the tenant based on the request's hostname.
 
     Uses suffix matching against settings.DOMAIN:
-    - If host matches the apex domain (settings.DOMAIN) or direct hostnames
-      (e.g., localhost, testserver), request.tenant is set to None (platform traffic).
+    - If host matches the apex domain (settings.DOMAIN) or extra platform hosts
+      (from settings.TENANT_EXTRA_PLATFORM_HOSTS), request.tenant is set to None (platform traffic).
     - If host matches {subdomain}.{DOMAIN}, extracts {subdomain} via suffix-matching
-      and looks up the active GymTenant.
-    - If subdomain is not found, returns a 404 response.
+      and looks up the GymTenant.
+    - If host is neither apex/extra platform host nor under {DOMAIN}, or if subdomain is not found,
+      returns a 404 response.
     """
 
     def __init__(self, get_response: Callable[[HttpRequest], HttpResponse]):
@@ -26,27 +27,18 @@ class TenantSubdomainMiddleware:
 
     def __call__(self, request: HttpRequest) -> HttpResponse:
         host = request.get_host().split(":")[0].strip().lower().rstrip(".")
-        domain = getattr(settings, "DOMAIN", "").strip().lower().rstrip(".")
+        domain = settings.DOMAIN.strip().lower().rstrip(".")
+        extra_platform_hosts = set(getattr(settings, "TENANT_EXTRA_PLATFORM_HOSTS", []))
 
         tenant: Optional[GymTenant] = None
         subdomain: Optional[str] = None
 
-        # 1. Apex domain or direct local / internal access
-        if host == domain or host in {
-            "localhost",
-            "127.0.0.1",
-            "testserver",
-            "backend",
-        }:
+        # 1. Apex domain or extra platform hosts
+        if host == domain or host in extra_platform_hosts:
             tenant = None
         # 2. Suffix match against configured DOMAIN
         elif domain and host.endswith(f".{domain}"):
             subdomain = host[: -len(f".{domain}")]
-        # 3. Fallback for test harness and local dev subdomains
-        elif host.endswith(".localhost"):
-            subdomain = host[: -len(".localhost")]
-        elif host.endswith(".testserver"):
-            subdomain = host[: -len(".testserver")]
         else:
             return JsonResponse({"detail": "Gym tenant not found."}, status=404)
 
