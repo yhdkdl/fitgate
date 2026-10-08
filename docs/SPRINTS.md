@@ -47,7 +47,8 @@ Two minor items were deliberately deferred when Sprint 0 was merged: the zero-te
    - Creating a `GymTenant` auto-creates its `GymConfig` with all feature flags `false`.
    - `DummyTenantModel` used by tests exists only in test code, never in a production migration.
 
-   - [~] Status: in progress — PR #3 open on `feature/sprint-1-core-tenant-models`. First revision (multi-label `DOMAIN`, fail-closed, Python 3.11.16 / Django 5.2) is in; a second revision for the criteria above is requested. Not done until the owner merges.
+   -  [x] Status: done
+.
 
 2. **Custom User model + JWT auth + platform-level base class** — login, logout, token refresh; Super Admin bootstrap.
    - Valid credentials return access + refresh tokens; invalid credentials return 401 with no information about which field was wrong. Token lifetimes are configurable settings.
