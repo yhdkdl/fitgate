@@ -113,6 +113,14 @@ class TestGymTenantModel:
 
         assert tenant.subdomain == "alphagym-1"
 
+    def test_save_enforces_subdomain_validation(self):
+        """Verify GymTenant.save() enforces DNS-label and reserved-name rules on every write path."""
+        with pytest.raises(ValidationError):
+            GymTenant.objects.create(subdomain="admin")
+
+        with pytest.raises(ValidationError):
+            GymTenant.objects.create(subdomain="my_gym")
+
     def test_field_lengths_follow_spec_section_8(self):
         """Verify field lengths conform precisely to SPEC §8."""
         name_field = GymTenant._meta.get_field("name")

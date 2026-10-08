@@ -255,32 +255,30 @@ class TestTenantSubdomainMiddleware:
             assert req.tenant is None
 
     def test_domain_setting_fails_fast_without_default(self, monkeypatch):
-        """Verify settings fail fast when DOMAIN is unset without defaults in code."""
-        import inspect
+        """Verify removing DOMAIN from environment causes loading settings to raise ImproperlyConfigured."""
+        import importlib
 
-        import environ
         from django.core.exceptions import ImproperlyConfigured
         from fitgate.settings import base
 
-        # Verify base.py defines DOMAIN without default
-        base_src = inspect.getsource(base)
-        assert 'DOMAIN = env("DOMAIN")' in base_src
-
-        # Verify environ raises when DOMAIN is unset
+        monkeypatch.setattr(
+            "environ.Env.read_env", staticmethod(lambda *args, **kwargs: None)
+        )
         monkeypatch.delenv("DOMAIN", raising=False)
-        test_env = environ.Env()
-        with pytest.raises((KeyError, ImproperlyConfigured)):
-            test_env("DOMAIN")
+
+        try:
+            with pytest.raises(ImproperlyConfigured) as exc_info:
+                importlib.reload(base)
+            assert "DOMAIN" in str(exc_info.value)
+        finally:
+            monkeypatch.undo()
+            importlib.reload(base)
 
     def test_env_example_lists_domain(self):
         """Verify .env.example contains DOMAIN definition."""
         from django.conf import settings
 
-        env_example_path = (
-            settings.BASE_DIR / ".env.example"
-            if (settings.BASE_DIR / ".env.example").exists()
-            else settings.BASE_DIR.parent / ".env.example"
-        )
+        env_example_path = settings.BASE_DIR.parent / ".env.example"
         assert env_example_path.exists()
         content = env_example_path.read_text(encoding="utf-8")
         assert "DOMAIN=" in content
@@ -303,3 +301,77 @@ class TestTenantSubdomainMiddleware:
             middleware(request)
 
         assert get_current_tenant() is None
+
+    def test_build_allowed_hosts_helper(self):
+        """Verify build_allowed_hosts starts with domain and .domain, is additive, dedupes, and rejects '*'."""
+        from django.core.exceptions import ImproperlyConfigured
+        from fitgate.settings.hosts import build_allowed_hosts
+
+        # Starts with domain and .domain; env hosts are added, never replace
+        domain = "example.com"
+        result = build_allowed_hosts(
+            domain,
+            env_hosts=["custom1.com", "custom2.com"],
+            extra=["extra1.com"],
+        )
+        assert result[0] == domain
+        assert result[1] == f".{domain}"
+        assert result == [
+            "example.com",
+            ".example.com",
+            "extra1.com",
+            "custom1.com",
+            "custom2.com",
+        ]
+
+        # Duplicates removed while preserving initial order
+        deduped = build_allowed_hosts(
+            domain,
+            env_hosts=["example.com", ".example.com", "extra1.com", "new.com"],
+            extra=["extra1.com"],
+        )
+        assert deduped == ["example.com", ".example.com", "extra1.com", "new.com"]
+
+        # '*' in env_hosts, extra, or domain raises ImproperlyConfigured
+        with pytest.raises(ImproperlyConfigured):
+            build_allowed_hosts(domain, env_hosts=["*"])
+
+        with pytest.raises(ImproperlyConfigured):
+            build_allowed_hosts(domain, extra=["*"])
+
+        with pytest.raises(ImproperlyConfigured):
+            build_allowed_hosts("*")
+
+    def test_real_settings_allowed_hosts_validation(self):
+        """Verify real settings ALLOWED_HOSTS validates domain subdomains and rejects arbitrary hosts."""
+        from django.conf import settings
+        from django.http.request import validate_host
+
+        # Derive everything from settings.DOMAIN, not literal "localhost"
+        assert validate_host(f"gym1.{settings.DOMAIN}", settings.ALLOWED_HOSTS) is True
+        assert (
+            validate_host(f"nothere.{settings.DOMAIN}", settings.ALLOWED_HOSTS) is True
+        )
+        assert validate_host("evil.com", settings.ALLOWED_HOSTS) is False
+
+    def test_allowed_hosts_derived_from_domain_without_wildcard(self, monkeypatch):
+        """Verify ALLOWED_HOSTS is derived from DOMAIN and forbids wildcards in base, local, and prod."""
+        import importlib
+
+        from django.core.exceptions import ImproperlyConfigured
+        from fitgate.settings import base, local, prod
+
+        for s in (base, local, prod):
+            assert "*" not in s.ALLOWED_HOSTS
+            assert s.DOMAIN in s.ALLOWED_HOSTS
+            assert f".{s.DOMAIN}" in s.ALLOWED_HOSTS
+
+        # Prod and local raise ImproperlyConfigured if wildcard is configured
+        for mod in (local, prod):
+            monkeypatch.setenv("ALLOWED_HOSTS", "localhost,*")
+            try:
+                with pytest.raises(ImproperlyConfigured):
+                    importlib.reload(mod)
+            finally:
+                monkeypatch.delenv("ALLOWED_HOSTS", raising=False)
+                importlib.reload(mod)

@@ -18,6 +18,7 @@ class TenantQuerySet(models.QuerySet):
         - If tenant context is active and any instance has no gym, auto-assigns current_tenant.
         - If no tenant context is active and any instance has no gym, raises ValidationError.
         """
+        objs = list(objs)
         current_tenant = get_current_tenant()
         for obj in objs:
             gym_id = getattr(obj, "gym_id", None)

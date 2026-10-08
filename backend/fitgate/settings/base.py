@@ -4,6 +4,8 @@ from pathlib import Path
 
 import environ
 
+from .hosts import build_allowed_hosts
+
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 
@@ -22,6 +24,9 @@ DOMAIN = env("DOMAIN")
 
 # Multi-tenancy platform hosts (empty by default in production)
 TENANT_EXTRA_PLATFORM_HOSTS: list[str] = []
+
+# Allowed hosts derived from DOMAIN without wildcard
+ALLOWED_HOSTS = build_allowed_hosts(DOMAIN)
 
 # Application definition
 INSTALLED_APPS = [

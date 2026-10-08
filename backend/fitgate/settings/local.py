@@ -1,12 +1,14 @@
 """Local development settings for FitGate."""
 
 from .base import *
+from .hosts import build_allowed_hosts
 
 DEBUG = env.bool("DEBUG", default=True)
 
-ALLOWED_HOSTS = env.list(
-    "ALLOWED_HOSTS",
-    default=["localhost", "127.0.0.1", "backend", "*"],
+ALLOWED_HOSTS = build_allowed_hosts(
+    DOMAIN,
+    env.list("ALLOWED_HOSTS", default=[]),
+    extra=("localhost", "127.0.0.1", "backend"),
 )
 
 TENANT_EXTRA_PLATFORM_HOSTS = ["localhost", "127.0.0.1", "backend", "testserver"]

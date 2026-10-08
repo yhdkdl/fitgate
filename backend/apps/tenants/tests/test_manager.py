@@ -259,3 +259,44 @@ class TestTenantManagerIsolation:
             assert all(item.gym == tenant_a for item in created)
         finally:
             reset_current_tenant(token)
+
+    def test_bulk_create_accepts_generator_and_creates_all_rows(self, seeded_tenants):
+        """Verify bulk_create consumes and persists a generator without silent data loss."""
+        tenant_a = seeded_tenants["tenant_a"]
+        token = set_current_tenant(tenant_a)
+        try:
+            gen = (DummyTenantModel(name=f"Gen Item {i}") for i in range(3))
+            created = DummyTenantModel.objects.bulk_create(gen)
+            assert len(created) == 3
+            assert all(item.gym == tenant_a for item in created)
+
+            persisted = list(
+                DummyTenantModel.objects.filter(name__startswith="Gen Item")
+            )
+            assert len(persisted) == 3
+            assert {item.name for item in persisted} == {
+                "Gen Item 0",
+                "Gen Item 1",
+                "Gen Item 2",
+            }
+        finally:
+            reset_current_tenant(token)
+
+    def test_bulk_create_generator_raises_for_mismatched_gym(self, seeded_tenants):
+        """Verify bulk_create raises ValidationError when a generator yields a record for another gym."""
+        tenant_a = seeded_tenants["tenant_a"]
+        tenant_b = seeded_tenants["tenant_b"]
+        token = set_current_tenant(tenant_a)
+        try:
+
+            def mismatched_generator():
+                yield DummyTenantModel(gym=tenant_a, name="Gen Valid 1")
+                yield DummyTenantModel(gym=tenant_b, name="Gen Invalid 2")
+
+            with pytest.raises(ValidationError) as exc_info:
+                DummyTenantModel.objects.bulk_create(mismatched_generator())
+            assert "Cannot assign or modify record for a different tenant" in str(
+                exc_info.value
+            )
+        finally:
+            reset_current_tenant(token)

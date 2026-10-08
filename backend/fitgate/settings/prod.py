@@ -1,10 +1,14 @@
 """Production settings for FitGate (cPanel Passenger WSGI deployment)."""
 
 from .base import *
+from .hosts import build_allowed_hosts
 
 DEBUG = False
 
-ALLOWED_HOSTS = env.list("ALLOWED_HOSTS")
+ALLOWED_HOSTS = build_allowed_hosts(
+    DOMAIN,
+    env.list("ALLOWED_HOSTS", default=[]),
+)
 
 DATABASES = {"default": env.db("DATABASE_URL")}
 

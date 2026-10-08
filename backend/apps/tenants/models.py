@@ -101,6 +101,8 @@ class GymTenant(models.Model):
     def save(self, *args, **kwargs):
         if self.subdomain and isinstance(self.subdomain, str):
             self.subdomain = self.subdomain.strip().lower()
+        if self.subdomain is not None:
+            validate_subdomain(self.subdomain)
         super().save(*args, **kwargs)
 
     def __str__(self):
