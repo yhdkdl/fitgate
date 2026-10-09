@@ -42,3 +42,6 @@ CSRF_TRUSTED_ORIGINS = env.list(
         "http://127.0.0.1:8000",
     ],
 )
+
+# Email - Console backend for local development
+EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"

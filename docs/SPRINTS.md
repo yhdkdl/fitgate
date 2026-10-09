@@ -60,6 +60,8 @@ Two minor items were deliberately deferred when Sprint 0 was merged: the zero-te
    - **Platform-level base class:** `User`, `Notification` and `AuditLog` (nullable `gym_id`) use a second base class. Inside a gym, its manager shows only that gym's rows; at the apex (no tenant) it shows only platform rows (`gym_id` null). A test proves gym rows never appear at the apex and platform rows never appear inside a gym.
    - **Factory pattern:** login returns a role-specific dashboard configuration built by a factory; each role gets its own, an unknown role fails.
 
+   - [~] Status: in progress
+
 2a. **Profile and password management** — account settings for every role.
 
 - A user can view and edit their own name and phone (a Trainer also specialization) without approval.
