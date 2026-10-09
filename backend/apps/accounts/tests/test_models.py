@@ -229,3 +229,38 @@ class TestUserModelAndConstraints:
         # Direct queryset delete bypasses model delete()
         User.all_objects.filter(pk=admin.pk).delete()
         assert not User.all_objects.filter(pk=admin.pk).exists()
+
+    def test_user_create_user_inside_tenant_context_auto_assigns_gym(self, sample_gyms):
+        """User.objects.create_user auto-assigns active tenant gym if gym not explicitly passed."""
+        gym_1, _ = sample_gyms
+        from apps.tenants.context import reset_current_tenant, set_current_tenant
+
+        token = set_current_tenant(gym_1)
+        try:
+            user = User.objects.create_user(
+                email="autoassigned@firstgym.com",
+                password="Password123!",
+                role=User.ROLE_MEMBER,
+            )
+            assert user.gym == gym_1
+        finally:
+            reset_current_tenant(token)
+
+    def test_all_objects_create_allows_explicit_gym_or_platform_admin(
+        self, sample_gyms
+    ):
+        """User.all_objects.create operates unscoped, allowing gym or platform user creation."""
+        gym_1, _ = sample_gyms
+        gym_user = User.all_objects.create(
+            email="allobj.member@firstgym.com",
+            role=User.ROLE_MEMBER,
+            gym=gym_1,
+        )
+        assert gym_user.gym == gym_1
+
+        platform_admin = User.all_objects.create(
+            email="allobj.admin@fitgate.org",
+            role=User.ROLE_SUPER_ADMIN,
+            gym=None,
+        )
+        assert platform_admin.gym is None

@@ -330,3 +330,63 @@ class TestJWTAuthenticationAndSessionValidity:
             "/api/test/protected/", HTTP_HOST="apexgym.localhost"
         )
         assert resp_admin_on_gym.status_code == 401
+
+    def test_refresh_token_at_wrong_host_rejected_with_401(self, setup_entities):
+        """
+        Refresh token host scoping matches access token rules:
+        - Gym A refresh token used on Gym B returns 401.
+        - Gym refresh token used on apex domain returns 401.
+        - Super Admin refresh token used on gym domain returns 401.
+        """
+        gym_user = setup_entities["gym_user"]
+        super_admin = setup_entities["super_admin"]
+
+        gym_tokens = get_tokens_for_user(gym_user)
+        admin_tokens = get_tokens_for_user(super_admin)
+
+        client = APIClient()
+
+        # 1. Gym A refresh token on Gym B subdomain
+        resp_mismatch_gym = client.post(
+            "/api/auth/refresh/",
+            {"refresh": gym_tokens["refresh"]},
+            HTTP_HOST="betagym.localhost",
+        )
+        assert resp_mismatch_gym.status_code == 401
+
+        # 2. Gym A refresh token on apex domain
+        resp_gym_on_apex = client.post(
+            "/api/auth/refresh/",
+            {"refresh": gym_tokens["refresh"]},
+            HTTP_HOST="localhost",
+        )
+        assert resp_gym_on_apex.status_code == 401
+
+        # 3. Super Admin refresh token on gym subdomain
+        resp_admin_on_gym = client.post(
+            "/api/auth/refresh/",
+            {"refresh": admin_tokens["refresh"]},
+            HTTP_HOST="apexgym.localhost",
+        )
+        assert resp_admin_on_gym.status_code == 401
+
+    def test_token_claim_password_changed_at_is_integer_microseconds(
+        self, setup_entities
+    ):
+        """
+        Token password_changed_at claim is explicitly an integer representation of microseconds.
+        """
+        from rest_framework_simplejwt.tokens import AccessToken, RefreshToken
+
+        gym_user = setup_entities["gym_user"]
+        tokens = get_tokens_for_user(gym_user)
+
+        access_token = AccessToken(tokens["access"])
+        refresh_token = RefreshToken(tokens["refresh"])
+
+        assert isinstance(access_token["password_changed_at"], int)
+        assert isinstance(refresh_token["password_changed_at"], int)
+        assert access_token["password_changed_at"] > 0
+        assert (
+            refresh_token["password_changed_at"] == access_token["password_changed_at"]
+        )

@@ -191,6 +191,20 @@ class TestPlatformTenantAwareModelIsolation:
         finally:
             reset_current_tenant(token)
 
+    def test_bulk_create_accepts_generator_and_enforces_rules(
+        self, seeded_platform_data
+    ):
+        """bulk_create handles generator expressions properly and auto-assigns active gym."""
+        gym_a = seeded_platform_data["gym_a"]
+        token = set_current_tenant(gym_a)
+        try:
+            generator = (DummyPlatformModel(name=f"Gen Item {i}") for i in range(3))
+            created = DummyPlatformModel.objects.bulk_create(generator)
+            assert len(created) == 3
+            assert all(item.gym == gym_a for item in created)
+        finally:
+            reset_current_tenant(token)
+
     def test_user_model_isolation_between_apex_and_gym(self, seeded_platform_data):
         """Verify User model satisfies platform isolation: gym rows never visible at apex, platform rows never in gym."""
         gym_a = seeded_platform_data["gym_a"]

@@ -4,342 +4,343 @@
  */
 
 export interface paths {
-    "/api/auth/login/": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * User login
-         * @description Authenticates user with email and password, returning tokens and dashboard config.
-         */
-        post: operations["auth_login_create"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
+  "/api/auth/login/": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
     };
-    "/api/auth/logout/": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * User logout
-         * @description Blacklists the provided refresh token.
-         */
-        post: operations["auth_logout_create"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
+    get?: never;
+    put?: never;
+    /**
+     * User login
+     * @description Authenticates user with email and password, returning tokens and dashboard config.
+     */
+    post: operations["auth_login_create"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/auth/logout/": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
     };
-    "/api/auth/refresh/": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Refresh access token
-         * @description Issues a fresh access token given a valid refresh token.
-         */
-        post: operations["auth_refresh_create"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
+    get?: never;
+    put?: never;
+    /**
+     * User logout
+     * @description Blacklists the provided refresh token.
+     */
+    post: operations["auth_logout_create"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/auth/refresh/": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
     };
-    "/api/health/": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Health check
-         * @description Returns the operational status of the FitGate backend service.
-         */
-        get: operations["health_retrieve"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
+    get?: never;
+    put?: never;
+    /**
+     * Refresh access token
+     * @description Issues a fresh access token given a valid refresh token.
+     */
+    post: operations["auth_refresh_create"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/health/": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
     };
-    "/api/platform/super-admins/": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Create additional Super Admin
-         * @description Creates a new Super Admin account. Requires active Super Admin credentials.
-         */
-        post: operations["platform_super_admins_create"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
+    /**
+     * Health check
+     * @description Returns the operational status of the FitGate backend service.
+     */
+    get: operations["health_retrieve"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/platform/super-admins/": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
     };
+    get?: never;
+    put?: never;
+    /**
+     * Create additional Super Admin
+     * @description Creates a new Super Admin account. Requires active Super Admin credentials.
+     */
+    post: operations["platform_super_admins_create"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
 }
 export type webhooks = Record<string, never>;
 export interface components {
-    schemas: {
-        /** @description Payload for creating an additional Super Admin account. */
-        CreateSuperAdminRequestRequest: {
-            /** Format: email */
-            email: string;
-            password: string;
-            current_password: string;
-        };
-        HealthCheckResponse: {
-            /** @default ok */
-            status: string;
-            /** @default FitGate API */
-            app: string;
-        };
-        /** @description Payload for user authentication. */
-        LoginRequestRequest: {
-            /** Format: email */
-            email: string;
-            password: string;
-        };
-        /** @description Response containing JWT tokens, user summary, and role dashboard. */
-        LoginResponse: {
-            access: string;
-            refresh: string;
-            user: components["schemas"]["UserSummary"];
-            dashboard: {
-                [key: string]: unknown;
-            };
-        };
-        /** @description Payload for user logout. */
-        LogoutRequestRequest: {
-            refresh: string;
-        };
-        /**
-         * @description * `super_admin` - Super Admin
-         *     * `owner` - Owner
-         *     * `manager` - Manager
-         *     * `trainer` - Trainer
-         *     * `reception` - Reception
-         *     * `member` - Member
-         * @enum {string}
-         */
-        RoleEnum: "super_admin" | "owner" | "manager" | "trainer" | "reception" | "member";
-        /** @description Response for created Super Admin. */
-        SuperAdminResponse: {
-            /** Format: uuid */
-            readonly id: string;
-            /** Format: email */
-            readonly email: string;
-            readonly role: components["schemas"]["RoleEnum"];
-            readonly must_change_password: boolean;
-            /** Format: date-time */
-            readonly created_at: string;
-        };
-        /** @description Payload for token refresh. */
-        TokenRefreshRequestRequest: {
-            refresh: string;
-        };
-        /** @description Response containing refreshed access token. */
-        TokenRefreshResponse: {
-            access: string;
-        };
-        /** @description Minimal representation of authenticated user. */
-        UserSummary: {
-            /** Format: uuid */
-            readonly id: string;
-            /** Format: email */
-            readonly email: string;
-            readonly role: components["schemas"]["RoleEnum"];
-            /** Format: uuid */
-            readonly gym_id: string | null;
-            readonly must_change_password: boolean;
-        };
+  schemas: {
+    /** @description Payload for creating an additional Super Admin account. */
+    CreateSuperAdminRequestRequest: {
+      /** Format: email */
+      email: string;
+      password: string;
+      current_password: string;
     };
-    responses: never;
-    parameters: never;
-    requestBodies: never;
-    headers: never;
-    pathItems: never;
+    HealthCheckResponse: {
+      /** @default ok */
+      status: string;
+      /** @default FitGate API */
+      app: string;
+    };
+    /** @description Payload for user authentication. */
+    LoginRequestRequest: {
+      /** Format: email */
+      email: string;
+      password: string;
+    };
+    /** @description Response containing JWT tokens, user summary, and role dashboard. */
+    LoginResponse: {
+      access: string;
+      refresh: string;
+      user: components["schemas"]["UserSummary"];
+      dashboard: {
+        [key: string]: unknown;
+      };
+    };
+    /** @description Payload for user logout. */
+    LogoutRequestRequest: {
+      refresh: string;
+    };
+    /**
+     * @description * `super_admin` - Super Admin
+     *     * `owner` - Owner
+     *     * `manager` - Manager
+     *     * `trainer` - Trainer
+     *     * `reception` - Reception
+     *     * `member` - Member
+     * @enum {string}
+     */
+    RoleEnum:
+      "super_admin" | "owner" | "manager" | "trainer" | "reception" | "member";
+    /** @description Response for created Super Admin. */
+    SuperAdminResponse: {
+      /** Format: uuid */
+      readonly id: string;
+      /** Format: email */
+      readonly email: string;
+      readonly role: components["schemas"]["RoleEnum"];
+      readonly must_change_password: boolean;
+      /** Format: date-time */
+      readonly created_at: string;
+    };
+    /** @description Payload for token refresh. */
+    TokenRefreshRequestRequest: {
+      refresh: string;
+    };
+    /** @description Response containing refreshed access token. */
+    TokenRefreshResponse: {
+      access: string;
+    };
+    /** @description Minimal representation of authenticated user. */
+    UserSummary: {
+      /** Format: uuid */
+      readonly id: string;
+      /** Format: email */
+      readonly email: string;
+      readonly role: components["schemas"]["RoleEnum"];
+      /** Format: uuid */
+      readonly gym_id: string | null;
+      readonly must_change_password: boolean;
+    };
+  };
+  responses: never;
+  parameters: never;
+  requestBodies: never;
+  headers: never;
+  pathItems: never;
 }
 export type $defs = Record<string, never>;
 export interface operations {
-    auth_login_create: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["LoginRequestRequest"];
-                "application/x-www-form-urlencoded": components["schemas"]["LoginRequestRequest"];
-                "multipart/form-data": components["schemas"]["LoginRequestRequest"];
-            };
-        };
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["LoginResponse"];
-                };
-            };
-            /** @description Invalid credentials */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
+  auth_login_create: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
     };
-    auth_logout_create: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["LogoutRequestRequest"];
-                "application/x-www-form-urlencoded": components["schemas"]["LogoutRequestRequest"];
-                "multipart/form-data": components["schemas"]["LogoutRequestRequest"];
-            };
-        };
-        responses: {
-            /** @description Successfully logged out */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Invalid refresh token */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["LoginRequestRequest"];
+        "application/x-www-form-urlencoded": components["schemas"]["LoginRequestRequest"];
+        "multipart/form-data": components["schemas"]["LoginRequestRequest"];
+      };
     };
-    auth_refresh_create: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
+    responses: {
+      200: {
+        headers: {
+          [name: string]: unknown;
         };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["TokenRefreshRequestRequest"];
-                "application/x-www-form-urlencoded": components["schemas"]["TokenRefreshRequestRequest"];
-                "multipart/form-data": components["schemas"]["TokenRefreshRequestRequest"];
-            };
+        content: {
+          "application/json": components["schemas"]["LoginResponse"];
         };
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["TokenRefreshResponse"];
-                };
-            };
-            /** @description Invalid or expired refresh token */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
+      };
+      /** @description Invalid credentials */
+      401: {
+        headers: {
+          [name: string]: unknown;
         };
+        content?: never;
+      };
     };
-    health_retrieve: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HealthCheckResponse"];
-                };
-            };
-        };
+  };
+  auth_logout_create: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
     };
-    platform_super_admins_create: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["CreateSuperAdminRequestRequest"];
-                "application/x-www-form-urlencoded": components["schemas"]["CreateSuperAdminRequestRequest"];
-                "multipart/form-data": components["schemas"]["CreateSuperAdminRequestRequest"];
-            };
-        };
-        responses: {
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["SuperAdminResponse"];
-                };
-            };
-            /** @description Validation error */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Forbidden */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["LogoutRequestRequest"];
+        "application/x-www-form-urlencoded": components["schemas"]["LogoutRequestRequest"];
+        "multipart/form-data": components["schemas"]["LogoutRequestRequest"];
+      };
     };
+    responses: {
+      /** @description Successfully logged out */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Invalid refresh token */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  auth_refresh_create: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["TokenRefreshRequestRequest"];
+        "application/x-www-form-urlencoded": components["schemas"]["TokenRefreshRequestRequest"];
+        "multipart/form-data": components["schemas"]["TokenRefreshRequestRequest"];
+      };
+    };
+    responses: {
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["TokenRefreshResponse"];
+        };
+      };
+      /** @description Invalid or expired refresh token */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  health_retrieve: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HealthCheckResponse"];
+        };
+      };
+    };
+  };
+  platform_super_admins_create: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["CreateSuperAdminRequestRequest"];
+        "application/x-www-form-urlencoded": components["schemas"]["CreateSuperAdminRequestRequest"];
+        "multipart/form-data": components["schemas"]["CreateSuperAdminRequestRequest"];
+      };
+    };
+    responses: {
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["SuperAdminResponse"];
+        };
+      };
+      /** @description Validation error */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Forbidden */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
 }
