@@ -4,6 +4,8 @@ from pathlib import Path
 
 import environ
 
+from .hosts import build_allowed_hosts
+
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 
@@ -18,6 +20,13 @@ elif (BASE_DIR / ".env").exists():
     environ.Env.read_env(str(BASE_DIR / ".env"))
 
 SECRET_KEY = env("DJANGO_SECRET_KEY")
+DOMAIN = env("DOMAIN")
+
+# Multi-tenancy platform hosts (empty by default in production)
+TENANT_EXTRA_PLATFORM_HOSTS: list[str] = []
+
+# Allowed hosts derived from DOMAIN without wildcard
+ALLOWED_HOSTS = build_allowed_hosts(DOMAIN)
 
 # Application definition
 INSTALLED_APPS = [
@@ -32,7 +41,7 @@ INSTALLED_APPS = [
     "corsheaders",
     "drf_spectacular",
     # FitGate apps
-    "apps",
+    "apps.tenants.apps.TenantsConfig",
 ]
 
 MIDDLEWARE = [
@@ -40,6 +49,7 @@ MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
+    "apps.tenants.middleware.TenantSubdomainMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
