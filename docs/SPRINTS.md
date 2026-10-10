@@ -81,12 +81,21 @@ Two minor items were deliberately deferred when Sprint 0 was merged: the zero-te
 
 Trainer specialization and photo are delivered in the Trainer and storage sprints (see SPEC §11).
 
-- [~] Status: in progress
+- [x] Status: done — merged to develop (PR #8)
 
 3. **Password reset** — single-use, time-expiring link.
    - A reset link works once; a second use fails. An expired link fails with a clear error.
    - The response is identical whether or not the email exists (no account enumeration).
    - A successful reset invalidates all existing sessions of that user.
+
+   Decisions:
+   - Reset is host-scoped like login: Super Admin at the apex, gym users at their own subdomain. A request on the wrong host behaves exactly like an unknown email.
+   - The reset link is built from the user's own gym subdomain and settings.DOMAIN, never from request headers.
+   - A successful reset also clears failed_login_count and locked_until, and does not log the user in (they must re-authenticate).
+   - At most one reset email per user per PASSWORD_RESET_COOLDOWN_SECONDS (silent).
+   - Known follow-up: the request endpoint's response time differs slightly when an email is sent (no job queue yet).
+
+   - [~] Status: in progress
 
 4. **Super Admin "Create gym"** — gym creation after payment, subdomain provisioning via cPanel UAPI, Owner creation, welcome message.
    - Only Super Admin can create a gym; every other role gets 403.
@@ -383,4 +392,5 @@ _Not in the original source document — added by direct decision with the proje
 - Dead code in accounts/tokens.py (claims set on a throwaway access_token object).
 - A Super Admin account can be locked by anyone guessing passwords at the apex; mitigation later: per-IP throttling.
 - Access tokens stay valid until expiry after logout; the token blacklist table needs a periodic cleanup (flushexpiredtokens) in the Sprint 38 cron setup.
+- Purge expired AuthToken rows with a management command in the Sprint 38 cron setup.
 - Sprint 1a (GitHub Actions CI) was proposed and skipped to save time; revisit before final submission. (The "every view declares permissions" contract test already exists from Sprint 2.)

@@ -13,3 +13,11 @@ def pytest_sessionfinish(session, exitstatus):
     """
     if exitstatus == pytest.ExitCode.NO_TESTS_COLLECTED:
         session.exitstatus = pytest.ExitCode.OK
+
+
+@pytest.fixture(autouse=True)
+def fast_password_hasher(settings):
+    """Use fast MD5 password hasher for test execution speed."""
+    settings.PASSWORD_HASHERS = [
+        "django.contrib.auth.hashers.MD5PasswordHasher",
+    ]

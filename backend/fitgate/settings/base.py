@@ -29,6 +29,11 @@ JWT_ACCESS_TOKEN_LIFETIME = timedelta(minutes=15)
 JWT_REFRESH_TOKEN_LIFETIME = timedelta(days=7)
 LOGIN_LOCKOUT_MINUTES = 15
 
+# Password reset settings (Sprint 3)
+PASSWORD_RESET_TOKEN_MINUTES = 60
+PASSWORD_RESET_COOLDOWN_SECONDS = 120
+PUBLIC_URL_SCHEME = "https"
+
 # Multi-tenancy platform hosts (empty by default in production)
 TENANT_EXTRA_PLATFORM_HOSTS: list[str] = []
 

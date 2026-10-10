@@ -175,3 +175,28 @@ class SuperAdminResponseSerializer(serializers.ModelSerializer):
             "created_at",
         ]
         read_only_fields = fields
+
+
+class PasswordResetRequestSerializer(serializers.Serializer):
+    """Payload for requesting a password reset email."""
+
+    email = serializers.EmailField(required=True)
+
+
+class PasswordResetResponseSerializer(serializers.Serializer):
+    """Uniform response for password reset requests."""
+
+    detail = serializers.CharField()
+
+
+class PasswordResetConfirmRequestSerializer(serializers.Serializer):
+    """Payload for confirming a password reset."""
+
+    token = serializers.CharField(required=True)
+    new_password = serializers.CharField(required=True, write_only=True)
+
+
+class PasswordResetConfirmResponseSerializer(serializers.Serializer):
+    """Response returned upon successful password reset completion."""
+
+    detail = serializers.CharField()

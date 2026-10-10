@@ -2,6 +2,7 @@
 
 import uuid
 
+from django.conf import settings
 from django.contrib.auth.base_user import AbstractBaseUser
 from django.core.exceptions import ValidationError
 from django.db import models
@@ -164,3 +165,51 @@ class User(AbstractBaseUser, PlatformTenantAwareModel):
     def has_module_perms(self, app_label) -> bool:
         """Only active Super Admins have module permissions."""
         return self.is_superuser
+
+
+class AuthToken(models.Model):
+    """
+    Time-expiring single-use token for auth workflows (password reset, invite, verification).
+
+    SPEC §8:
+    - id (UUID PK)
+    - user (FK -> User, CASCADE)
+    - purpose (password_reset / invite / email_verification)
+    - token_hash (CharField 64, unique, indexed) - raw token is NEVER stored
+    - expires_at
+    - used_at (nullable)
+    - created_at
+    - Plain manager (never queried by tenant; always by token_hash or user in services)
+    """
+
+    PURPOSE_PASSWORD_RESET = "password_reset"
+    PURPOSE_INVITE = "invite"
+    PURPOSE_EMAIL_VERIFICATION = "email_verification"
+
+    PURPOSE_CHOICES = [
+        (PURPOSE_PASSWORD_RESET, "Password Reset"),
+        (PURPOSE_INVITE, "Invite"),
+        (PURPOSE_EMAIL_VERIFICATION, "Email Verification"),
+    ]
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="auth_tokens",
+    )
+    purpose = models.CharField(max_length=32, choices=PURPOSE_CHOICES)
+    token_hash = models.CharField(max_length=64, unique=True, db_index=True)
+    expires_at = models.DateTimeField()
+    used_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    objects = models.Manager()
+
+    class Meta:
+        verbose_name = "Auth Token"
+        verbose_name_plural = "Auth Tokens"
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"AuthToken({self.purpose} for {self.user.email})"
