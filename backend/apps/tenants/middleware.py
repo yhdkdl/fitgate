@@ -55,6 +55,11 @@ class TenantSubdomainMiddleware:
         token = set_current_tenant(tenant)
 
         try:
+            if tenant is not None:
+                path = request.path_info or request.path
+                if path.startswith("/admin/") or path == "/admin":
+                    return JsonResponse({"detail": "Not found."}, status=404)
+
             response = self.get_response(request)
         finally:
             reset_current_tenant(token)

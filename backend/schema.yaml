@@ -4,6 +4,96 @@ info:
   version: 1.0.0
   description: Multi-tenant Gym Management Platform API for Ethiopian Gyms
 paths:
+  /api/auth/login/:
+    post:
+      operationId: auth_login_create
+      description: Authenticates user with email and password, returning tokens and
+        dashboard config.
+      summary: User login
+      tags:
+      - auth
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequestRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/LoginRequestRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/LoginRequestRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginResponse'
+          description: ''
+        '401':
+          description: Invalid credentials
+  /api/auth/logout/:
+    post:
+      operationId: auth_logout_create
+      description: Blacklists the provided refresh token.
+      summary: User logout
+      tags:
+      - auth
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LogoutRequestRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/LogoutRequestRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/LogoutRequestRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - {}
+      responses:
+        '200':
+          description: Successfully logged out
+        '400':
+          description: Invalid refresh token
+  /api/auth/refresh/:
+    post:
+      operationId: auth_refresh_create
+      description: Issues a fresh access token given a valid refresh token.
+      summary: Refresh access token
+      tags:
+      - auth
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TokenRefreshRequestRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/TokenRefreshRequestRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/TokenRefreshRequestRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TokenRefreshResponse'
+          description: ''
+        '401':
+          description: Invalid or expired refresh token
   /api/health/:
     get:
       operationId: health_retrieve
@@ -12,7 +102,7 @@ paths:
       tags:
       - health
       security:
-      - cookieAuth: []
+      - jwtAuth: []
       - {}
       responses:
         '200':
@@ -21,8 +111,61 @@ paths:
               schema:
                 $ref: '#/components/schemas/HealthCheckResponse'
           description: ''
+  /api/platform/super-admins/:
+    post:
+      operationId: platform_super_admins_create
+      description: Creates a new Super Admin account. Requires active Super Admin
+        credentials.
+      summary: Create additional Super Admin
+      tags:
+      - platform
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateSuperAdminRequestRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/CreateSuperAdminRequestRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/CreateSuperAdminRequestRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuperAdminResponse'
+          description: ''
+        '400':
+          description: Validation error
+        '403':
+          description: Forbidden
 components:
   schemas:
+    CreateSuperAdminRequestRequest:
+      type: object
+      description: Payload for creating an additional Super Admin account.
+      properties:
+        email:
+          type: string
+          format: email
+          minLength: 1
+        password:
+          type: string
+          writeOnly: true
+          minLength: 1
+        current_password:
+          type: string
+          writeOnly: true
+          minLength: 1
+      required:
+      - current_password
+      - email
+      - password
     HealthCheckResponse:
       type: object
       properties:
@@ -32,8 +175,142 @@ components:
         app:
           type: string
           default: FitGate API
+    LoginRequestRequest:
+      type: object
+      description: Payload for user authentication.
+      properties:
+        email:
+          type: string
+          format: email
+          minLength: 1
+        password:
+          type: string
+          writeOnly: true
+          minLength: 1
+      required:
+      - email
+      - password
+    LoginResponse:
+      type: object
+      description: Response containing JWT tokens, user summary, and role dashboard.
+      properties:
+        access:
+          type: string
+        refresh:
+          type: string
+        user:
+          $ref: '#/components/schemas/UserSummary'
+        dashboard:
+          type: object
+          additionalProperties: {}
+      required:
+      - access
+      - dashboard
+      - refresh
+      - user
+    LogoutRequestRequest:
+      type: object
+      description: Payload for user logout.
+      properties:
+        refresh:
+          type: string
+          minLength: 1
+      required:
+      - refresh
+    RoleEnum:
+      enum:
+      - super_admin
+      - owner
+      - manager
+      - trainer
+      - reception
+      - member
+      type: string
+      description: |-
+        * `super_admin` - Super Admin
+        * `owner` - Owner
+        * `manager` - Manager
+        * `trainer` - Trainer
+        * `reception` - Reception
+        * `member` - Member
+    SuperAdminResponse:
+      type: object
+      description: Response for created Super Admin.
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        email:
+          type: string
+          format: email
+          readOnly: true
+        role:
+          allOf:
+          - $ref: '#/components/schemas/RoleEnum'
+          readOnly: true
+        must_change_password:
+          type: boolean
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - created_at
+      - email
+      - id
+      - must_change_password
+      - role
+    TokenRefreshRequestRequest:
+      type: object
+      description: Payload for token refresh.
+      properties:
+        refresh:
+          type: string
+          minLength: 1
+      required:
+      - refresh
+    TokenRefreshResponse:
+      type: object
+      description: Response containing refreshed access token.
+      properties:
+        access:
+          type: string
+      required:
+      - access
+    UserSummary:
+      type: object
+      description: Minimal representation of authenticated user.
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        email:
+          type: string
+          format: email
+          readOnly: true
+        role:
+          allOf:
+          - $ref: '#/components/schemas/RoleEnum'
+          readOnly: true
+        gym_id:
+          type: string
+          format: uuid
+          readOnly: true
+          nullable: true
+        must_change_password:
+          type: boolean
+          readOnly: true
+      required:
+      - email
+      - gym_id
+      - id
+      - must_change_password
+      - role
   securitySchemes:
-    cookieAuth:
-      type: apiKey
-      in: cookie
-      name: sessionid
+    jwtAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT

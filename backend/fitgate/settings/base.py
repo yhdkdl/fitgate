@@ -1,5 +1,6 @@
 """Base settings for FitGate project."""
 
+from datetime import timedelta
 from pathlib import Path
 
 import environ
@@ -21,12 +22,21 @@ elif (BASE_DIR / ".env").exists():
 
 SECRET_KEY = env("DJANGO_SECRET_KEY")
 DOMAIN = env("DOMAIN")
+JWT_SIGNING_KEY = env("JWT_SIGNING_KEY")
+
+# JWT Lifetimes & Lockout (configurable settings)
+JWT_ACCESS_TOKEN_LIFETIME = timedelta(minutes=15)
+JWT_REFRESH_TOKEN_LIFETIME = timedelta(days=7)
+LOGIN_LOCKOUT_MINUTES = 15
 
 # Multi-tenancy platform hosts (empty by default in production)
 TENANT_EXTRA_PLATFORM_HOSTS: list[str] = []
 
 # Allowed hosts derived from DOMAIN without wildcard
 ALLOWED_HOSTS = build_allowed_hosts(DOMAIN)
+
+# Custom User Model
+AUTH_USER_MODEL = "accounts.User"
 
 # Application definition
 INSTALLED_APPS = [
@@ -38,11 +48,15 @@ INSTALLED_APPS = [
     "django.contrib.staticfiles",
     # Third party apps
     "rest_framework",
+    "rest_framework_simplejwt",
+    "rest_framework_simplejwt.token_blacklist",
     "corsheaders",
     "drf_spectacular",
     # FitGate apps
     "apps.tenants.apps.TenantsConfig",
+    "apps.accounts.apps.AccountsConfig",
 ]
+
 
 MIDDLEWARE = [
     "corsheaders.middleware.CorsMiddleware",
@@ -112,10 +126,25 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 REST_FRAMEWORK = {
     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
     "DEFAULT_AUTHENTICATION_CLASSES": (
-        "rest_framework.authentication.SessionAuthentication",
+        "apps.accounts.authentication.FitGateJWTAuthentication",
     ),
-    "DEFAULT_PERMISSION_CLASSES": ("rest_framework.permissions.AllowAny",),
+    "DEFAULT_PERMISSION_CLASSES": (
+        "apps.accounts.permissions.RequirePasswordChanged",
+        "rest_framework.permissions.IsAuthenticated",
+    ),
 }
+
+# SimpleJWT configuration
+SIMPLE_JWT = {
+    "ACCESS_TOKEN_LIFETIME": JWT_ACCESS_TOKEN_LIFETIME,
+    "REFRESH_TOKEN_LIFETIME": JWT_REFRESH_TOKEN_LIFETIME,
+    "SIGNING_KEY": JWT_SIGNING_KEY,
+    "AUTH_HEADER_TYPES": ("Bearer",),
+    "AUTH_HEADER_NAME": "HTTP_AUTHORIZATION",
+    "USER_ID_FIELD": "id",
+    "USER_ID_CLAIM": "user_id",
+}
+
 
 # drf-spectacular configuration
 SPECTACULAR_SETTINGS = {

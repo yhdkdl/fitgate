@@ -35,3 +35,6 @@ X_FRAME_OPTIONS = "DENY"
 
 CORS_ALLOWED_ORIGINS = env.list("CORS_ALLOWED_ORIGINS")
 CSRF_TRUSTED_ORIGINS = env.list("CSRF_TRUSTED_ORIGINS")
+
+# Email - Configured via environment in production (fails fast if unset, no default)
+EMAIL_BACKEND = env("EMAIL_BACKEND")

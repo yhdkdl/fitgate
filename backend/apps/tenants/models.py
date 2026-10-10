@@ -7,7 +7,7 @@ from django.core.exceptions import ValidationError
 from django.db import models
 
 from apps.tenants.context import get_current_tenant
-from apps.tenants.managers import TenantManager
+from apps.tenants.managers import PlatformTenantManager, TenantManager
 
 SUBDOMAIN_REGEX = re.compile(r"^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$")
 RESERVED_SUBDOMAINS = frozenset(
@@ -180,4 +180,53 @@ class TenantAwareModel(models.Model):
                 raise ValidationError(
                     "Tenant context or explicit gym assignment is required to save a tenant-scoped record."
                 )
+        super().save(*args, **kwargs)
+
+
+class PlatformTenantAwareModel(models.Model):
+    """
+    Abstract base class for platform-level models with a nullable gym foreign key.
+
+    Inside a gym (tenant context active) -> only that gym's rows.
+    At the apex (no tenant context) -> only rows with gym null.
+    Explicit unscoped access via all_objects and .unscoped().
+    """
+
+    gym = models.ForeignKey(
+        GymTenant,
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="%(app_label)s_%(class)ss",
+    )
+
+    objects = PlatformTenantManager()
+    all_objects = models.Manager()
+
+    class Meta:
+        abstract = True
+
+    def save(self, *args, **kwargs):
+        """
+        Validate tenant context and auto-populate gym foreign key.
+
+        - With tenant context: gym must equal the current tenant (auto-assign if empty),
+          except role super_admin which raises ValidationError.
+        - Without tenant context: a null gym or an explicit gym is allowed.
+        """
+        current_tenant = get_current_tenant()
+        if current_tenant is not None:
+            if getattr(self, "role", None) == "super_admin":
+                raise ValidationError(
+                    "Super Admin cannot belong to a gym or be created in tenant context."
+                )
+            if self.gym_id and str(self.gym_id) != str(current_tenant.id):
+                raise ValidationError(
+                    "Cannot assign or modify record for a different tenant."
+                )
+            if not self.gym_id:
+                self.gym = current_tenant
+        else:
+            # Without tenant context (apex): null gym or explicit gym allowed.
+            pass
         super().save(*args, **kwargs)
