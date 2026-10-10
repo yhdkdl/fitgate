@@ -1,6 +1,7 @@
 # FitGate — Sprint Plan
 
 Status legend: `[ ]` not started · `[~]` in progress · `[x]` done (PR merged to `develop`). Only the project owner marks a sprint `[x]`, after merging.
+GATE = the agent stops after this sprint and waits for the owner's review before continuing.
 
 > **Grouping.** Increments 1–5 and 7 are derived from §1.7.2 of the source document's prose (Figure 1.1 is a caption with no image data). **Increment 6 (multi-branch) is not in the source document** — it was added by direct decision with the project owner; see `docs/SPEC.md` §3. The seven-increment grouping is final.
 >
@@ -34,6 +35,12 @@ Two minor items were deliberately deferred when Sprint 0 was merged: the zero-te
 - [x] Status: done
 
 ## Increment 1 — Platform foundation (multi-tenancy, auth, access control, onboarding, attendance)
+
+**Preflight (external items):**
+
+- Sprint 4 (cPanel UAPI token; fallback: mocked UAPI locally)
+- Sprint 4b (Cloudinary Free account and keys; fallback: local folder through the storage interface)
+- Real email (SMTP mailbox; fallback: console backend)
 
 1. **Core tenant models + subdomain middleware** — `GymTenant`, `GymConfig`, tenant-scoping base manager/mixin, subdomain-resolution middleware.
    - A request to a known gym's subdomain resolves `request.tenant` to that `GymTenant`; an unknown subdomain fails clearly (404), not silently with no tenant.
@@ -97,16 +104,21 @@ Trainer specialization and photo are delivered in the Trainer and storage sprint
 
    - [~] Status: in progress
 
+3a. **Frontend shell and auth screens** - Vite React app shell with Tailwind and the tokens from docs/DESIGN.md, React Router, TanStack Query, API client built on the generated TypeScript types. - Dev proxy forwards the ORIGINAL Host header so tenant resolution works at `<gym>.localhost:5173` as well as `localhost:5173`; Vite allows `*.localhost` hosts. - Login screen (apex for Super Admin, gym subdomain for gym users); every failure shows the same generic message; no field-level hints about what was wrong. - Token handling: access token in memory, refresh token handling chosen and documented (explain the choice and the risk in the PR); one in-flight refresh at a time; on refresh failure the user is sent to login; logout calls the logout endpoint. - Forced change-password screen when `must_change_password` is true; every other route is blocked until done. - Forgot-password and reset-password screens; the reset page reads the token from the URL and removes it from the address bar immediately (`history.replaceState`). - Profile page: edit name and phone, change password. - Role dashboard shell: navigation and placeholder cards driven by the login response's dashboard config; protected-route guard by role. - Tests (Vitest + React Testing Library): login success and failure, forced password change, route guard, refresh interceptor, reset-token removal from the URL. Lint and prettier clean. Usable at 320px. - "You can now test": log in as Super Admin at localhost, change the forced password, edit profile, log out, run the forgot-password flow reading the link from the backend logs.
+
+    - [ ] Status: not started
+
 4. **Super Admin "Create gym"** — gym creation after payment, subdomain provisioning via cPanel UAPI, Owner creation, welcome message.
-   - Only Super Admin can create a gym; every other role gets 403.
-   - Creation goes through one service function, `create_gym(...)`; the endpoint is a thin wrapper and the tests call the function directly.
-   - Inputs: gym name, location, contact name/phone/email, tier, subdomain (proposed from the name, editable, validated unique/DNS-label/not reserved), Owner name and email, and the payment record (amount, method must be `bank_transfer`, reference, verified by = the acting Super Admin). Optional `demo_request_id` links a demo request (Sprint 4a).
-   - Atomically: creates the `GymTenant` as `active`, its `GymConfig` with flags set to the chosen tier's defaults, the `Payment` (`payer_type = gym_subscription`, `method = bank_transfer`, status confirmed), the Owner `User` (pre-verified, no password set), a single-use expiring set-password invite, and provisions the subdomain via cPanel's UAPI. A failure at any step (including the UAPI call) leaves nothing half-created. In local development the UAPI call is mocked, not skipped; the atomicity test still covers it.
-   - The welcome message contains the set-password link, never a password.
-   - A `chapa` method is rejected for `gym_subscription` payments; a duplicate or reserved subdomain is rejected.
-   - No code path produces a `pending` gym in this version.
-   - **Certificate safeguard (see `docs/SPEC.md` §4):** until the subdomain's TLS certificate is confirmed valid, the app does not force an HTTPS redirect on it and refuses login and registration specifically, showing a "still being secured" state. Login is refused while `tls_confirmed_at` is null and allowed once it is set. When it is set for the first time, `subscription_expires_at` is set to one year later.
-   - A migration adds the `GymTenant` columns listed in SPEC §8 and the `GymConfig` fields `payment_grace_days` (default 7), `subscription_reminder_days` (default 14 and 7) and `member_reminder_days` (default 7 and 2).
+
+- Only Super Admin can create a gym; every other role gets 403.
+- Creation goes through one service function, `create_gym(...)`; the endpoint is a thin wrapper and the tests call the function directly.
+- Inputs: gym name, location, contact name/phone/email, tier, subdomain (proposed from the name, editable, validated unique/DNS-label/not reserved), Owner name and email, and the payment record (amount, method must be `bank_transfer`, reference, verified by = the acting Super Admin). Optional `demo_request_id` links a demo request (Sprint 4a).
+- Atomically: creates the `GymTenant` as `active`, its `GymConfig` with flags set to the chosen tier's defaults, the `Payment` (`payer_type = gym_subscription`, `method = bank_transfer`, status confirmed), the Owner `User` (pre-verified, no password set), a single-use expiring set-password invite, and provisions the subdomain via cPanel's UAPI. A failure at any step (including the UAPI call) leaves nothing half-created. In local development the UAPI call is mocked, not skipped; the atomicity test still covers it.
+- The welcome message contains the set-password link, never a password.
+- A `chapa` method is rejected for `gym_subscription` payments; a duplicate or reserved subdomain is rejected.
+- No code path produces a `pending` gym in this version.
+- **Certificate safeguard (see `docs/SPEC.md` §4):** until the subdomain's TLS certificate is confirmed valid, the app does not force an HTTPS redirect on it and refuses login and registration specifically, showing a "still being secured" state. Login is refused while `tls_confirmed_at` is null and allowed once it is set. When it is set for the first time, `subscription_expires_at` is set to one year later.
+- A migration adds the `GymTenant` columns listed in SPEC §8 and the `GymConfig` fields `payment_grace_days` (default 7), `subscription_reminder_days` (default 14 and 7) and `member_reminder_days` (default 7 and 2).
 
 4a. **Demo requests** — public "Request a Demo" form and Super Admin lead list.
 
@@ -129,7 +141,7 @@ Trainer specialization and photo are delivered in the Trainer and storage sprint
 - A public entry page endpoint on the gym subdomain returns the gym name, brand color, logo, phone and location. The page offers Log in and Register; the plan list is added in Sprint 10. Before the certificate is confirmed it shows the "still being secured" state.
 - A first-run checklist is shown to the Owner only: add branding, create a first plan, add a staff account, register a first member. Items tick automatically from real data (no manual flags), and the checklist can be dismissed; dismissal persists.
 
-5. **RBAC framework** — permission classes + Owner/Manager permission matrix enforcement.
+5. **RBAC framework (GATE)** — permission classes + Owner/Manager permission matrix enforcement.
    - For every role in the permission matrix (SPEC §2), both an allowed action (succeeds) and a denied action (403, not 200) are covered by a test.
    - **Entitlements vs. settings:** an Owner's attempt to change `tier`, any `has_*` flag, `freeze_days_allowed`, `payment_grace_days` or `subscription_reminder_days` is rejected (403) at the API level; the same Owner can change `brand_color`, `member_reminder_days` and their payment credentials; a Manager can change none of them. Super Admin can change the entitlements.
 
@@ -146,7 +158,7 @@ Trainer specialization and photo are delivered in the Trainer and storage sprint
    - A profile photo uploads through Sprint 4b's storage layer.
    - Body composition: BMI is computed from the latest height and weight; an estimated body-fat percentage (US Navy circumference method) is computed only when the needed measurements are recorded. Both are labeled estimates, computed on read, and covered by unit tests.
 
-8. **QR check-in** — token issuance/rotation (90 s window), scan endpoint, `Attendance`, duplicate/expired-scan handling, manual override.
+8. **QR check-in (GATE)** — token issuance/rotation (90 s window), scan endpoint, `Attendance`, duplicate/expired-scan handling, manual override.
    - The token is a signed JWT (asymmetric signature, private key in the environment, public key exposed so a scanner can verify offline). A tampered token is rejected; a token is valid at 89 seconds after issue and rejected at 91 — tested with a frozen clock.
    - Reusing an already-consumed token is rejected. A new token is issued after each valid use.
    - A scan for a member without an active subscription is rejected with a distinguishable reason (expired vs. frozen vs. suspended), and the screen shows the member's photo, name and status on success.
@@ -168,6 +180,10 @@ Trainer specialization and photo are delivered in the Trainer and storage sprint
 
 ## Increment 2 — Membership & payments
 
+**Preflight (external items):**
+
+- Sprint 11 (a Chapa TEST merchant account per gym, keys entered in that gym's settings screen not in .env, plus a tunnel such as ngrok so Chapa can reach the local webhook; fallback: signed mocked webhooks)
+
 10. **Membership plans & subscription lifecycle** — `MembershipPlan` CRUD, `MemberSubscription` state machine.
     - A plan's duration is a number plus a unit (days or months). End dates are correct for both, including month-end cases (31 January + 1 month).
     - Creating a subscription against an inactive plan is rejected. Deactivating a plan hides it from new members but leaves existing subscriptions untouched. Editing a plan's price never changes recorded payments.
@@ -176,7 +192,7 @@ Trainer specialization and photo are delivered in the Trainer and storage sprint
     - A gym's plans are not visible or usable from another gym's context.
     - The public entry page (Sprint 4c) lists the gym's active plans with prices, without authentication, and never lists another gym's plans.
 
-11. **Chapa payment integration (one account per gym)** — credentials, checkout, webhook verification, idempotency.
+11. **Chapa payment integration (one account per gym) (GATE)** — credentials, checkout, webhook verification, idempotency.
     - Each gym stores its own Chapa secret key and webhook secret in a separate payment-config record. They are encrypted at rest (the raw database value is not the plaintext; decrypting needs the environment key), never returned by any API (the response shows a masked value only), and never written to logs — each tested. A missing encryption key fails fast. `GymConfig.chapa_merchant_id` is removed by migration.
     - Only Owner and Super Admin can set or replace credentials; Manager and all others get 403.
     - A verify-connection action tests the keys with a harmless authenticated call (mocked in tests) and records the result. "Pay Now" is refused for a gym with no verified configuration, and the member is offered cash.
@@ -213,10 +229,12 @@ Trainer specialization and photo are delivered in the Trainer and storage sprint
 
 ## Increment 3 — Trainer module (non-AI)
 
+**Preflight (external items):** None
+
 16. **Trainer profile & capacity** — `Trainer` model, `max_clients` config.
     - A trainer's current client count is correctly derived from active `TrainerAssignment` rows, exposed accurately for Sprint 17.
 
-17. **Trainer assignment** — automatic (load-balance + least-recently-assigned tie-break) + manual reassignment.
+17. **Trainer assignment (GATE)** — automatic (load-balance + least-recently-assigned tie-break) + manual reassignment.
     - Automatic assignment selects the eligible trainer with the lowest current client count; on a tie, the least-recently-assigned trainer wins — both rules tested against a seeded scenario.
     - A trainer at `max_clients` is never selected by automatic assignment. If every trainer is at capacity, no assignment is made and Owner/Manager are notified.
     - Assignment happens only for members on trainer-inclusive plans. The trainer and the member are both notified of a new or changed assignment.
@@ -233,6 +251,10 @@ Trainer specialization and photo are delivered in the Trainer and storage sprint
 - [ ] All sprints in this increment complete
 
 ## Increment 4 — AI Personal Training Engine
+
+**Preflight (external items):**
+
+- Sprint 22 (OpenRouter free API key; fallback: mock AI provider)
 
 20. **FitnessProfile intake** — self + staff-captured, trainer-editable.
     - The profile is editable by the member's assigned trainer (including from the plan review screen), and rejected for an unrelated trainer or another member.
@@ -269,6 +291,8 @@ Trainer specialization and photo are delivered in the Trainer and storage sprint
 
 ## Increment 5 — Equipment, classes, analytics, communication
 
+**Preflight (external items):** None
+
 25. **Equipment registry & maintenance** — `Equipment`, `MaintenanceLog`, low-quantity alerts, AI exclusion-filter wiring.
     - Equipment records include `purchase_date`. Reporting an issue creates a `MaintenanceLog`, transitions `Equipment.condition` to `needs_maintenance`, and notifies the Owner; reporting on an item already `under_maintenance` creates no duplicate.
     - Owner/Manager update condition and log resolutions (`resolved_at` set, condition returns to `good`) — the transitions are tested, not just log creation.
@@ -301,6 +325,8 @@ Trainer specialization and photo are delivered in the Trainer and storage sprint
 
 ## Increment 6 — Multi-branch management (Pro tier)
 
+**Preflight (external items):** None
+
 _Not in the original source document — added by direct decision with the project owner. See `docs/SPEC.md` §3 for the full design rationale. Depends on Increment 1 (tenant/staff models), Increment 2 (`MembershipPlan`), and Increment 5 (`Equipment`, `ClassSession`) all being in place, which is why this sits here rather than earlier._
 
 30. **Branch model + management** — `Branch` CRUD (Owner only), gated by `GymConfig.has_multi_branch`; frontend in-app branch switcher. One subdomain per gym regardless of branch count.
@@ -323,6 +349,10 @@ _Not in the original source document — added by direct decision with the proje
 - [ ] All sprints in this increment complete
 
 ## Increment 7 — Platform administration, PWA, demo, deployment
+
+**Preflight (external items):**
+
+- Sprint 38 (cPanel deployment steps, cron, AutoSSL, HTTPS for the PWA)
 
 35. **Super Admin platform dashboard** — tenant management, renewals, lapse handling, platform reports.
     - Super-Admin-only actions are rejected for every other role, including an Owner acting on their own gym.
@@ -394,3 +424,4 @@ _Not in the original source document — added by direct decision with the proje
 - Access tokens stay valid until expiry after logout; the token blacklist table needs a periodic cleanup (flushexpiredtokens) in the Sprint 38 cron setup.
 - Purge expired AuthToken rows with a management command in the Sprint 38 cron setup.
 - Sprint 1a (GitHub Actions CI) was proposed and skipped to save time; revisit before final submission. (The "every view declares permissions" contract test already exists from Sprint 2.)
+- notifications.py hardcodes a fallback From address; define DEFAULT_FROM_EMAIL from the environment instead (fixed in Sprint 3a).

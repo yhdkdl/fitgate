@@ -8,7 +8,7 @@ This file is read automatically at the start of every session in this repo. It i
 
 Backend: Django + Django REST Framework. Django 5.2 LTS specifically (supported until April 2028; Django 5.1 is a non-LTS release that reached end-of-life Dec 31, 2025 — do not use it). Python 3.11.16 specifically, in both the local Docker image and anywhere else Python is invoked — this exact version is pinned (not just "3.11.x" or "latest 3.11") because it matches the ceiling Yegara's cPanel Python App Manager accepts in production; local dev running a newer Python than production can silently use syntax/stdlib features that break on deploy.
 
-- Frontend: React SPA (Vite) — React Router, TanStack Query (no Redux), Workbox service worker for offline-first PWA
+- Frontend: React SPA (Vite) — React Router, TanStack Query (no Redux), Tailwind CSS (theme tokens as CSS variables, see docs/DESIGN.md), Workbox service worker for offline-first PWA
 - Database: PostgreSQL, multi-tenant via `gym_id` row-level scoping (not schema-per-tenant — see Known Conflicts in docs/SPEC.md)
 - Environment: Docker Compose (Django, Postgres, Redis, **pgAdmin**) for **local development only**. pgAdmin is a dev convenience connected to the same `postgres` container — it must never be part of the production setup. Production does not use Docker — see Deployment below. Local and production are not the same environment; parity between them (especially around scheduled/async jobs) must be deliberately maintained, not assumed.
 - Testing: pytest-django
@@ -34,7 +34,7 @@ Items below are proposed but not yet confirmed by the project owner — do not t
 
 ## Workflow rules
 
-1. Work in sprints, one sprint per session, matching the scope defined in `docs/SPRINTS.md`. Do not blend two sprints into one session.
+1. Work in sprints, in the order of docs/SPRINTS.md, one increment at a time. One sprint = one branch = one PR. Never blend two sprints in one branch.
 2. Never rewrite existing code unless there is no reasonable way to avoid it. Prefer the smallest diff that correctly implements the sprint's scope.
 3. When modifying an existing file, show and apply only the exact lines that must change.
 4. Maintain clean architecture from the start — no shortcuts that create technical debt without flagging them explicitly to the project owner first.
@@ -44,11 +44,20 @@ Items below are proposed but not yet confirmed by the project owner — do not t
 8. Keep backend and frontend contracts mechanically aligned: regenerate the OpenAPI schema (drf-spectacular) and the generated TypeScript types whenever a serializer or endpoint changes. Do not let the frontend hand-maintain types that duplicate the backend contract.
 9. One feature branch per sprint, branched from `develop`, named `feature/sprint-N-short-name`.
 10. Never commit directly to `main`. `main` = production only. `develop` = integration branch.
-11. Open a PR with a written description (what changed, why, what was tested) at the end of every sprint. The project owner reviews and merges their own PRs — do not merge automatically, and do not treat "tests pass" as equivalent to "reviewed and approved."
-12. If less than 90% sure how a requirement should be implemented, stop and ask rather than guessing.
+11. Open a PR with a written description at the end of every sprint. Merge policy: for a sprint NOT marked GATE in docs/SPRINTS.md, once the full test suite, linters, migration check and OpenAPI/TS regeneration are green and the sprint report is written into the PR description and docs/PROGRESS.md, merge your own PR into develop (merge commit, no squash). KEEP the sprint branch: never delete it, locally or on the remote. Tag the merge commit sprint-N-done and push the tag. Then pull develop, run the full suite again on develop, and start the next sprint of the increment. Never push new commits to a merged sprint branch; any later fix goes on a new branch fix/sprint-N-short-name from develop. For a GATE sprint do NOT merge: stop, give the report in chat and wait for the owner to say 'continue'. Never push or merge into main. If the suite is red on develop after a merge, stop and report.
+12. If less than 90% sure how a requirement should be implemented: if the doubt touches security, money, tenancy or a conflict with docs/SPEC.md, stop and ask. Otherwise choose the simplest option consistent with the SPEC, log the question, your choice and why in docs/OPEN_QUESTIONS.md, and continue.
 13. If a better or more optimal approach exists than what was asked for, say so and recommend it — don't silently comply with a suboptimal request.
 14. Secrets and environment-specific values (Chapa keys, JWT signing secret, `DOMAIN`, AI provider key, DB credentials) are environment variables only, sourced from `.env` (gitignored). Never hardcoded, never committed, never placed in a default in code. **One exception:** credentials a gym itself supplies (its own Chapa keys) are tenant data, not platform secrets — they are stored encrypted in the database (never plaintext, never returned by an API, never logged) using an encryption key that itself comes from the environment (`TENANT_CREDENTIALS_KEY`).
-15. When a task needs something the agent cannot do itself — creating an external account, obtaining an API key or credential, configuring DNS, installing software on the host machine or configuring the shared cPanel host, anything requiring a browser or a service's own dashboard — stop and give the project owner explicit, numbered, step-by-step instructions for that manual action, including exactly what to do with the result (e.g., "paste the key into `.env` as `CHAPA_SECRET_KEY`"). Do not guess, stub around it silently, or describe the need vaguely and move on.
+15. Credentials, accounts and anything you cannot do yourself. At the START of each increment, before any sprint work, post a PREFLIGHT in chat listing every external item that increment needs: what it is, where the owner gets it (official site or dashboard URL; free option first), the exact .env variable name (or the in-app settings screen, for per-gym credentials such as Chapa keys), and the fallback you will use if the owner skips it. Wait for the owner's answer (done / skip). Never ask for a secret in chat, in a PR or in a commit; the owner puts secrets into .env (gitignored) themselves. Whenever a manual action comes up later, append numbered steps to docs/MANUAL_STEPS.md (sprint, what to do, what to paste where, which fallback is in use), continue with the fallback, and mark the feature 'not verified against the real service'. Stop only if there is no fallback.
+
+## Increment workflow
+
+1. Read `docs/PROGRESS.md` first in every session and update it at the end of every sprint (done sprints with commit hashes, current sprint, next sprint, open manual steps, deviations).
+2. The three files `docs/PROGRESS.md`, `docs/MANUAL_STEPS.md`, and `docs/OPEN_QUESTIONS.md` are living files.
+3. Full suite green before starting the next sprint; if it cannot be fixed after three honest attempts, stop and report.
+4. Every sprint that adds user-facing behavior ships the minimal screens for it, following `docs/DESIGN.md`.
+5. At the end of each increment write `docs/INCREMENT_N_TEST.md`, a numbered click-through script for a non-developer (what to open, what to type, what you should see, plus the manual steps still pending), and post a short increment report in chat: sprints done, test summary line, deviations, open questions, manual steps pending.
+6. Chat replies during an increment happen only at the preflight, at GATE sprints, when blocked, and at the end.
 
 ## Before writing any code in a sprint
 
@@ -68,7 +77,7 @@ Items below are proposed but not yet confirmed by the project owner — do not t
 
 ## Before reporting a sprint as ready
 
-Keep the report short. Do not paste whole files or re-paste old output.
+Keep the report short. Do not paste whole files or re-paste old output. The report goes into the PR description and docs/PROGRESS.md; the chat message only at the moments listed in the Increment workflow.
 
 1. Criteria table: each criterion in the sprint entry -> test name(s) from the collected
    tests -> pass/fail. A criterion with no test gets one.
