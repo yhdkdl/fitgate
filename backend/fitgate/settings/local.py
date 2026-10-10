@@ -12,6 +12,8 @@ ALLOWED_HOSTS = build_allowed_hosts(
 )
 
 TENANT_EXTRA_PLATFORM_HOSTS = ["localhost", "127.0.0.1", "backend", "testserver"]
+PUBLIC_URL_SCHEME = "http"
+
 
 DATABASES = {
     "default": env.db(

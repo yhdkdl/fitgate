@@ -49,3 +49,31 @@ def notify_account_locked(user) -> None:
             user.email,
             user.gym.name,
         )
+
+
+def send_password_reset_email(user, link: str) -> None:
+    """
+    Send password reset email to user.
+
+    Plain text email containing:
+    - the reset link
+    - expiry duration (PASSWORD_RESET_TOKEN_MINUTES)
+    - notice to ignore if not requested
+    """
+    minutes = getattr(settings, "PASSWORD_RESET_TOKEN_MINUTES", 60)
+    subject = "FitGate: Reset your password"
+    message = (
+        f"Hello,\n\n"
+        f"We received a request to reset the password for your FitGate account ({user.email}).\n\n"
+        f"You can reset your password using the following link:\n"
+        f"{link}\n\n"
+        f"This link will expire in {minutes} minutes.\n\n"
+        f"If you did not request a password reset, you can safely ignore this email.\n"
+    )
+    send_mail(
+        subject=subject,
+        message=message,
+        from_email=getattr(settings, "DEFAULT_FROM_EMAIL", "noreply@fitgate.org"),
+        recipient_list=[user.email],
+        fail_silently=False,
+    )

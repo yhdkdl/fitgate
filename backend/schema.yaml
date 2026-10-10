@@ -147,6 +147,65 @@ paths:
           description: Unauthorized
         '403':
           description: Password change required
+  /api/auth/password-reset/:
+    post:
+      operationId: auth_password_reset_create
+      description: Initiates password reset process for the specified email. Always
+        returns 200.
+      summary: Request password reset
+      tags:
+      - auth
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PasswordResetRequestRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PasswordResetRequestRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PasswordResetRequestRequest'
+        required: true
+      security:
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PasswordResetResponse'
+          description: ''
+  /api/auth/password-reset/confirm/:
+    post:
+      operationId: auth_password_reset_confirm_create
+      description: Resets user password using a single-use token and strong new password.
+      summary: Confirm password reset
+      tags:
+      - auth
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PasswordResetConfirmRequestRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PasswordResetConfirmRequestRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PasswordResetConfirmRequestRequest'
+        required: true
+      security:
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PasswordResetConfirmResponse'
+          description: ''
+        '400':
+          description: Invalid token, expired token, or weak password
   /api/auth/refresh/:
     post:
       operationId: auth_refresh_create
@@ -328,6 +387,46 @@ components:
           minLength: 1
       required:
       - refresh
+    PasswordResetConfirmRequestRequest:
+      type: object
+      description: Payload for confirming a password reset.
+      properties:
+        token:
+          type: string
+          minLength: 1
+        new_password:
+          type: string
+          writeOnly: true
+          minLength: 1
+      required:
+      - new_password
+      - token
+    PasswordResetConfirmResponse:
+      type: object
+      description: Response returned upon successful password reset completion.
+      properties:
+        detail:
+          type: string
+      required:
+      - detail
+    PasswordResetRequestRequest:
+      type: object
+      description: Payload for requesting a password reset email.
+      properties:
+        email:
+          type: string
+          format: email
+          minLength: 1
+      required:
+      - email
+    PasswordResetResponse:
+      type: object
+      description: Uniform response for password reset requests.
+      properties:
+        detail:
+          type: string
+      required:
+      - detail
     PatchedUserProfileUpdateRequest:
       type: object
       description: Payload for updating user profile (full_name and phone only).

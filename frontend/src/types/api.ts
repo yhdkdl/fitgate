@@ -88,6 +88,46 @@ export interface paths {
     patch: operations["auth_me_partial_update"];
     trace?: never;
   };
+  "/api/auth/password-reset/": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Request password reset
+     * @description Initiates password reset process for the specified email. Always returns 200.
+     */
+    post: operations["auth_password_reset_create"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/auth/password-reset/confirm/": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Confirm password reset
+     * @description Resets user password using a single-use token and strong new password.
+     */
+    post: operations["auth_password_reset_confirm_create"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/auth/refresh/": {
     parameters: {
       query?: never;
@@ -194,6 +234,24 @@ export interface components {
     /** @description Payload for user logout. */
     LogoutRequestRequest: {
       refresh: string;
+    };
+    /** @description Payload for confirming a password reset. */
+    PasswordResetConfirmRequestRequest: {
+      token: string;
+      new_password: string;
+    };
+    /** @description Response returned upon successful password reset completion. */
+    PasswordResetConfirmResponse: {
+      detail: string;
+    };
+    /** @description Payload for requesting a password reset email. */
+    PasswordResetRequestRequest: {
+      /** Format: email */
+      email: string;
+    };
+    /** @description Uniform response for password reset requests. */
+    PasswordResetResponse: {
+      detail: string;
     };
     /** @description Payload for updating user profile (full_name and phone only). */
     PatchedUserProfileUpdateRequest: {
@@ -439,6 +497,63 @@ export interface operations {
       };
       /** @description Password change required */
       403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  auth_password_reset_create: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["PasswordResetRequestRequest"];
+        "application/x-www-form-urlencoded": components["schemas"]["PasswordResetRequestRequest"];
+        "multipart/form-data": components["schemas"]["PasswordResetRequestRequest"];
+      };
+    };
+    responses: {
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["PasswordResetResponse"];
+        };
+      };
+    };
+  };
+  auth_password_reset_confirm_create: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["PasswordResetConfirmRequestRequest"];
+        "application/x-www-form-urlencoded": components["schemas"]["PasswordResetConfirmRequestRequest"];
+        "multipart/form-data": components["schemas"]["PasswordResetConfirmRequestRequest"];
+      };
+    };
+    responses: {
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["PasswordResetConfirmResponse"];
+        };
+      };
+      /** @description Invalid token, expired token, or weak password */
+      400: {
         headers: {
           [name: string]: unknown;
         };

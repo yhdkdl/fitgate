@@ -26,6 +26,10 @@ from apps.accounts.serializers import (
     LoginRequestSerializer,
     LoginResponseSerializer,
     LogoutRequestSerializer,
+    PasswordResetConfirmRequestSerializer,
+    PasswordResetConfirmResponseSerializer,
+    PasswordResetRequestSerializer,
+    PasswordResetResponseSerializer,
     SuperAdminResponseSerializer,
     TokenRefreshRequestSerializer,
     TokenRefreshResponseSerializer,
@@ -35,7 +39,9 @@ from apps.accounts.serializers import (
 )
 from apps.accounts.services import (
     change_password,
+    confirm_password_reset,
     create_additional_super_admin,
+    request_password_reset,
 )
 from apps.accounts.tokens import datetime_to_microseconds, get_tokens_for_user
 
@@ -434,6 +440,108 @@ class ChangePasswordView(APIView):
                     else {"detail": exc.messages}
                 ),
                 status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        return Response(result, status=status.HTTP_200_OK)
+
+
+class PasswordResetRequestView(APIView):
+    """
+    Initiate password reset process for the specified email.
+
+    Always returns 200 with identical status, body, and headers regardless of whether
+    the account exists, is inactive, belongs to another gym, or if malformed input is received.
+    Prevents account enumeration.
+    """
+
+    permission_classes = [AllowAny]
+    authentication_classes = []
+    is_auth_endpoint = True
+
+    @extend_schema(
+        summary="Request password reset",
+        description="Initiates password reset process for the specified email. Always returns 200.",
+        request=PasswordResetRequestSerializer,
+        responses={
+            200: PasswordResetResponseSerializer,
+        },
+    )
+    def post(self, request, *args, **kwargs):
+        email = None
+        if isinstance(request.data, dict):
+            raw_val = request.data.get("email")
+            if isinstance(raw_val, str):
+                email = raw_val
+
+        tenant = getattr(request, "tenant", None)
+        request_password_reset(email=email, tenant=tenant)
+
+        return Response(
+            {"detail": "If the account exists, a reset link has been sent."},
+            status=status.HTTP_200_OK,
+            headers={"Content-Type": "application/json"},
+        )
+
+
+class PasswordResetConfirmView(APIView):
+    """
+    Confirm password reset with a single-use token and new password.
+
+    Order of operations:
+    1. Look up token, verify active user and host visibility.
+    2. Check expiration and used status.
+    3. Validate password strength before consuming token.
+    4. Atomically consume token, set new password, clear lockout / must_change_password.
+    """
+
+    permission_classes = [AllowAny]
+    authentication_classes = []
+    is_auth_endpoint = True
+
+    @extend_schema(
+        summary="Confirm password reset",
+        description="Resets user password using a single-use token and strong new password.",
+        request=PasswordResetConfirmRequestSerializer,
+        responses={
+            200: PasswordResetConfirmResponseSerializer,
+            400: OpenApiResponse(
+                description="Invalid token, expired token, or weak password"
+            ),
+        },
+    )
+    def post(self, request, *args, **kwargs):
+        if not isinstance(request.data, dict):
+            return Response(
+                {"detail": "token_invalid"}, status=status.HTTP_400_BAD_REQUEST
+            )
+
+        raw_token = request.data.get("token")
+        new_password = request.data.get("new_password")
+
+        if not raw_token or not isinstance(raw_token, str):
+            return Response(
+                {"detail": "token_invalid"}, status=status.HTTP_400_BAD_REQUEST
+            )
+
+        if new_password is None or not isinstance(new_password, str):
+            new_password = ""
+
+        tenant = getattr(request, "tenant", None)
+
+        try:
+            result = confirm_password_reset(
+                raw_token=raw_token,
+                new_password=new_password,
+                tenant=tenant,
+            )
+        except ValidationError as exc:
+            if hasattr(exc, "message_dict"):
+                error_data = {}
+                for k, v in exc.message_dict.items():
+                    error_data[k] = v[0] if (k == "detail" and len(v) == 1) else v
+                return Response(error_data, status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                {"detail": exc.messages}, status=status.HTTP_400_BAD_REQUEST
             )
 
         return Response(result, status=status.HTTP_200_OK)
