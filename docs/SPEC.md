@@ -368,6 +368,7 @@ All tables carry `id` (uuid, PK) unless noted. Every gym-scoped table carries `g
 **Decided**
 
 - **Tenancy:** row-level `gym_id` scoping (the source's schema-per-tenant text is superseded).
+- **Authentication:** JWT; Super Admin signs in only at the apex and gym users only at their own subdomain; every login failure returns one identical generic 401; five failed logins lock the account for a configurable time (Owner emailed, Super Admin logged only); tokens are bound to password_changed_at and to the host's tenant; DRF default permission is deny; Django admin only on the apex.
 - **Hosting:** Yegara Host **Premium** — shared cPanel, no root/SSH. Django via the cPanel Python App Manager (Passenger WSGI), PostgreSQL via cPanel, TLS via AutoSSL (periodic, not instant), subdomains via cPanel UAPI rather than wildcard DNS. See `AGENT.md` Deployment and Sprint 38.
 - **Scheduling:** cPanel Cron Jobs calling one idempotent Django management command; work that can't run inline uses a DB-backed job table. No Celery.
 - **AI layer:** LiteLLM, self-hosted, synchronous; the underlying model is chosen by the trial procedure in Sprint 22.

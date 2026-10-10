@@ -47,8 +47,7 @@ Two minor items were deliberately deferred when Sprint 0 was merged: the zero-te
    - Creating a `GymTenant` auto-creates its `GymConfig` with all feature flags `false`.
    - `DummyTenantModel` used by tests exists only in test code, never in a production migration.
 
-   -  [x] Status: done
-.
+   - [x] Status: done — merged to develop (PR #5)
 
 2. **Custom User model + JWT auth + platform-level base class** — login, logout, token refresh; Super Admin bootstrap.
    - Valid credentials return access + refresh tokens; invalid credentials return 401 with no information about which field was wrong. Token lifetimes are configurable settings.
@@ -60,13 +59,25 @@ Two minor items were deliberately deferred when Sprint 0 was merged: the zero-te
    - **Platform-level base class:** `User`, `Notification` and `AuditLog` (nullable `gym_id`) use a second base class. Inside a gym, its manager shows only that gym's rows; at the apex (no tenant) it shows only platform rows (`gym_id` null). A test proves gym rows never appear at the apex and platform rows never appear inside a gym.
    - **Factory pattern:** login returns a role-specific dashboard configuration built by a factory; each role gets its own, an unknown role fails.
 
-   - [~] Status: in progress
+   Decisions made in review:
+   - Super Admin logs in only at the apex; gym users only at their own subdomain. Every login failure (unknown email, wrong password, wrong host, locked, inactive) returns the same generic 401 (status and body); an unknown email still runs a dummy password hash.
+   - The lockout counter resets when an expired lock is found, so after expiry one typo does not re-lock. Gym users' Owner is emailed; Super Admin lockouts are logged only. A failed email never changes the login response.
+   - Tokens carry role, gym_id and password_changed_at (integer microseconds), checked on every request and on refresh.
+   - is_staff and is_superuser are derived from role, not stored.
+   - Public auth views declare authentication_classes = [] and AllowAny; the DRF default permission is deny; a contract test enforces explicit permission declarations.
+   - must_change_password: RequirePasswordChanged is in the DRF default permissions and must be listed explicitly by any view that overrides permission_classes (a contract test for this arrives in Sprint 2a).
+   - Django admin is served on the apex only (404 on gym subdomains).
+
+   - [x] Status: done — merged to develop (PR #6)
 
 2a. **Profile and password management** — account settings for every role.
 
 - A user can view and edit their own name and phone (a Trainer also specialization) without approval.
 - Changing the password requires the current password, and invalidates all of that user's existing sessions including refresh tokens.
 - Attempts to change `role`, `gym_id`, account status, membership status or `max_clients` through the profile endpoint are rejected or ignored — tested for each field.
+- Password-strength validation with Django's validators (minimum length 10, common-password, numeric-only, user-attribute similarity), applied to the change-password endpoint and also to Super Admin creation and the create_super_admin command.
+- Make the lockout counter update atomic (select_for_update or F()) if time allows.
+- A contract test: every project view that is not AllowAny and not an auth endpoint must include RequirePasswordChanged, and every AllowAny project view must declare authentication_classes explicitly.
 
 3. **Password reset** — single-use, time-expiring link.
    - A reset link works once; a second use fails. An expired link fails with a clear error.
@@ -360,3 +371,12 @@ _Not in the original source document — added by direct decision with the proje
 - A full public landing page per gym
 - A Starter member cap and a setup fee
 - A data deletion/archival policy for lapsed gyms
+
+## Known follow-ups (not scheduled)
+
+- User.bulk_create skips email normalization (no current caller; any future bulk user import must normalize emails).
+- The tenant check in the JWT authentication reads token claims, not the database user.
+- Dead code in accounts/tokens.py (claims set on a throwaway access_token object).
+- A Super Admin account can be locked by anyone guessing passwords at the apex; mitigation later: per-IP throttling.
+- Access tokens stay valid until expiry after logout; the token blacklist table needs a periodic cleanup (flushexpiredtokens) in the Sprint 38 cron setup.
+- Sprint 1a (GitHub Actions CI) was proposed and skipped to save time; revisit before final submission. (The "every view declares permissions" contract test already exists from Sprint 2.)
