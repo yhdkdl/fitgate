@@ -191,3 +191,48 @@ class TestSuperAdminBootstrapAndCreation:
         )
         # Token gym mismatch or domain restriction returns 401 or 403
         assert response.status_code in [401, 403]
+
+    def test_create_additional_super_admin_blocked_if_must_change_password_is_true(
+        self,
+    ):
+        """
+        On real endpoint POST /api/platform/super-admins/: a Super Admin with
+        must_change_password=True gets 403 'password_change_required'; with the flag false it works.
+        """
+        actor = User.objects.create_superuser(
+            email="mcp.admin@fitgate.org",
+            password="ActorPassword123!",
+            must_change_password=True,
+        )
+        tokens = get_tokens_for_user(actor)
+
+        client = APIClient()
+        client.credentials(HTTP_AUTHORIZATION=f"Bearer {tokens['access']}")
+
+        # 1. With must_change_password=True -> 403 password_change_required
+        response_blocked = client.post(
+            "/api/platform/super-admins/",
+            {
+                "email": "new.target@fitgate.org",
+                "password": "NewTargetPassword123!",
+                "current_password": "ActorPassword123!",
+            },
+            HTTP_HOST="localhost",
+        )
+        assert response_blocked.status_code == 403
+        assert response_blocked.json() == {"detail": "password_change_required"}
+
+        # 2. With must_change_password=False -> works (201 Created)
+        actor.must_change_password = False
+        actor.save()
+
+        response_ok = client.post(
+            "/api/platform/super-admins/",
+            {
+                "email": "new.target@fitgate.org",
+                "password": "NewTargetPassword123!",
+                "current_password": "ActorPassword123!",
+            },
+            HTTP_HOST="localhost",
+        )
+        assert response_ok.status_code == 201

@@ -12,7 +12,7 @@ from apps.accounts.permissions import RequirePasswordChanged
 class DummyProtectedView(APIView):
     """Protected dummy view for authentication tests."""
 
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, RequirePasswordChanged]
 
     def get(self, request):
         return Response({"status": "authenticated", "user": str(request.user.email)})

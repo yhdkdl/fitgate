@@ -50,6 +50,25 @@ class TestPermissionsAndProjectContracts:
                 )
                 assert view_cls.permission_classes is not None
 
+                from rest_framework.permissions import AllowAny
+
+                # Contract: every view declaring AllowAny must declare authentication_classes explicitly
+                if AllowAny in view_cls.permission_classes:
+                    assert "authentication_classes" in view_cls.__dict__, (
+                        f"View class '{view_cls.__name__}' in module '{module}' "
+                        f"declares AllowAny but does not declare 'authentication_classes' explicitly."
+                    )
+                else:
+                    # Contract: every authenticated non-auth view must require RequirePasswordChanged
+                    is_auth = getattr(view_cls, "is_auth_endpoint", False)
+                    if not is_auth and not module.startswith("fitgate.urls"):
+                        from apps.accounts.permissions import RequirePasswordChanged
+
+                        assert RequirePasswordChanged in view_cls.permission_classes, (
+                            f"Authenticated non-auth view class '{view_cls.__name__}' in module '{module}' "
+                            f"must declare RequirePasswordChanged in permission_classes."
+                        )
+
     def test_must_change_password_blocks_authenticated_endpoints_with_403(self):
         """
         While must_change_password is True, authenticated endpoints (except auth endpoints)

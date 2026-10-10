@@ -290,8 +290,9 @@ class TestJWTAuthenticationAndSessionValidity:
         resp_after = client.get("/api/test/protected/", HTTP_HOST="apexgym.localhost")
         assert resp_after.status_code == 401
 
-        # Refresh token is also rejected
-        refresh_resp = client.post(
+        # Refresh token is also rejected using a fresh APIClient with NO credentials
+        fresh_client = APIClient()
+        refresh_resp = fresh_client.post(
             "/api/auth/refresh/",
             {"refresh": tokens["refresh"]},
             HTTP_HOST="apexgym.localhost",
@@ -390,3 +391,62 @@ class TestJWTAuthenticationAndSessionValidity:
         assert (
             refresh_token["password_changed_at"] == access_token["password_changed_at"]
         )
+
+    def test_login_with_expired_or_garbage_auth_header_succeeds_on_valid_credentials(
+        self, setup_entities
+    ):
+        """
+        Public login endpoint must ignore stale, expired, or garbage Authorization headers.
+        Valid credentials return 200 OK.
+        """
+        gym_user = setup_entities["gym_user"]
+        client = APIClient()
+        client.credentials(HTTP_AUTHORIZATION="Bearer garbage.invalid.token")
+
+        response = client.post(
+            "/api/auth/login/",
+            {"email": gym_user.email, "password": "MemberPassword123!"},
+            HTTP_HOST="apexgym.localhost",
+        )
+        assert response.status_code == 200
+        assert "access" in response.json()
+
+    def test_login_with_expired_or_garbage_auth_header_returns_generic_401_on_invalid_credentials(
+        self, setup_entities
+    ):
+        """
+        Public login endpoint with garbage Authorization header and bad credentials
+        must return the exact same generic 401 error body, not an auth-header error.
+        """
+        gym_user = setup_entities["gym_user"]
+        client = APIClient()
+        client.credentials(HTTP_AUTHORIZATION="Bearer garbage.invalid.token")
+
+        response = client.post(
+            "/api/auth/login/",
+            {"email": gym_user.email, "password": "WrongPassword123!"},
+            HTTP_HOST="apexgym.localhost",
+        )
+        assert response.status_code == 401
+        assert response.json() == {"detail": "Invalid credentials."}
+
+    def test_refresh_with_expired_or_garbage_auth_header_and_valid_refresh_token_succeeds(
+        self, setup_entities
+    ):
+        """
+        Public token refresh endpoint with garbage Authorization header and a valid
+        refresh token payload must succeed with 200 OK.
+        """
+        gym_user = setup_entities["gym_user"]
+        tokens = get_tokens_for_user(gym_user)
+
+        client = APIClient()
+        client.credentials(HTTP_AUTHORIZATION="Bearer garbage.invalid.token")
+
+        response = client.post(
+            "/api/auth/refresh/",
+            {"refresh": tokens["refresh"]},
+            HTTP_HOST="apexgym.localhost",
+        )
+        assert response.status_code == 200
+        assert "access" in response.json()

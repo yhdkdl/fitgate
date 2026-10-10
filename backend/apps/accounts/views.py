@@ -1,5 +1,6 @@
 """API views for authentication and platform administration."""
 
+import logging
 from datetime import timedelta
 
 from django.conf import settings
@@ -17,7 +18,7 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from apps.accounts.dashboards import dashboard_config_for
 from apps.accounts.models import User
 from apps.accounts.notifications import notify_account_locked
-from apps.accounts.permissions import IsSuperAdmin
+from apps.accounts.permissions import IsSuperAdmin, RequirePasswordChanged
 from apps.accounts.serializers import (
     CreateSuperAdminRequestSerializer,
     LoginRequestSerializer,
@@ -33,6 +34,8 @@ from apps.accounts.tokens import datetime_to_microseconds, get_tokens_for_user
 
 # Precomputed hash for dummy password check to mitigate timing enumeration attacks
 DUMMY_PASSWORD_HASH = make_password("fitgate-timing-mitigation-dummy-password")
+
+logger = logging.getLogger(__name__)
 
 
 def perform_dummy_password_check(password: str) -> None:
@@ -61,6 +64,7 @@ class LoginView(APIView):
     """
 
     permission_classes = [AllowAny]
+    authentication_classes = []
     is_auth_endpoint = True
 
     @extend_schema(
@@ -93,9 +97,14 @@ class LoginView(APIView):
             return generic_auth_error_response()
 
         # 2. Account currently locked
-        if user.locked_until and user.locked_until > now:
-            perform_dummy_password_check(password)
-            return generic_auth_error_response()
+        if user.locked_until:
+            if user.locked_until > now:
+                perform_dummy_password_check(password)
+                return generic_auth_error_response()
+            # Lock has expired - clear lockout and reset failed count
+            user.locked_until = None
+            user.failed_login_count = 0
+            user.save(update_fields=["locked_until", "failed_login_count"])
 
         # 3. Inactive account
         if not user.is_active:
@@ -110,7 +119,13 @@ class LoginView(APIView):
             if user.failed_login_count >= 5:
                 user.locked_until = now + timedelta(minutes=lockout_minutes)
                 user.save(update_fields=["failed_login_count", "locked_until"])
-                notify_account_locked(user)
+                try:
+                    notify_account_locked(user)
+                except Exception:
+                    logger.exception(
+                        "Failed to send lockout notification for user %s",
+                        user.id,
+                    )
             else:
                 user.save(update_fields=["failed_login_count"])
 
@@ -145,6 +160,7 @@ class TokenRefreshView(APIView):
     """
 
     permission_classes = [AllowAny]
+    authentication_classes = []
     is_auth_endpoint = True
 
     @extend_schema(
@@ -224,6 +240,7 @@ class LogoutView(APIView):
     """
 
     permission_classes = [AllowAny]
+    authentication_classes = []
     is_auth_endpoint = True
 
     @extend_schema(
@@ -266,7 +283,7 @@ class CreateSuperAdminView(APIView):
     Requires re-authenticating the actor's current password.
     """
 
-    permission_classes = [IsAuthenticated, IsSuperAdmin]
+    permission_classes = [IsAuthenticated, RequirePasswordChanged, IsSuperAdmin]
 
     @extend_schema(
         summary="Create additional Super Admin",
