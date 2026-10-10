@@ -25,10 +25,6 @@ class RequirePasswordChanged(BasePermission):
         ):
             return True
 
-        path = request.path_info or request.path
-        if path.startswith("/api/auth/"):
-            return True
-
         if getattr(request.user, "must_change_password", False):
             raise PermissionDenied(detail="password_change_required")
 

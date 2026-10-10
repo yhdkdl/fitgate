@@ -20,6 +20,8 @@ from apps.accounts.models import User
 from apps.accounts.notifications import notify_account_locked
 from apps.accounts.permissions import IsSuperAdmin, RequirePasswordChanged
 from apps.accounts.serializers import (
+    ChangePasswordRequestSerializer,
+    ChangePasswordResponseSerializer,
     CreateSuperAdminRequestSerializer,
     LoginRequestSerializer,
     LoginResponseSerializer,
@@ -27,9 +29,14 @@ from apps.accounts.serializers import (
     SuperAdminResponseSerializer,
     TokenRefreshRequestSerializer,
     TokenRefreshResponseSerializer,
+    UserProfileSerializer,
+    UserProfileUpdateSerializer,
     UserSummarySerializer,
 )
-from apps.accounts.services import create_additional_super_admin
+from apps.accounts.services import (
+    change_password,
+    create_additional_super_admin,
+)
 from apps.accounts.tokens import datetime_to_microseconds, get_tokens_for_user
 
 # Precomputed hash for dummy password check to mitigate timing enumeration attacks
@@ -334,3 +341,99 @@ class CreateSuperAdminView(APIView):
             SuperAdminResponseSerializer(new_super_admin).data,
             status=status.HTTP_201_CREATED,
         )
+
+
+class UserProfileView(APIView):
+    """
+    Retrieve and update the authenticated user's profile.
+
+    GET: Returns caller's profile details.
+    PATCH: Updates full_name and phone only. Rejects privileged fields.
+    """
+
+    permission_classes = [IsAuthenticated, RequirePasswordChanged]
+    http_method_names = ["get", "patch", "head", "options"]
+
+    @extend_schema(
+        summary="Get current user profile",
+        description="Returns profile information for the authenticated caller.",
+        responses={
+            200: UserProfileSerializer,
+            401: OpenApiResponse(description="Unauthorized"),
+            403: OpenApiResponse(description="Password change required"),
+        },
+    )
+    def get(self, request, *args, **kwargs):
+        serializer = UserProfileSerializer(request.user)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+    @extend_schema(
+        summary="Update current user profile",
+        description="Updates full_name and/or phone for the authenticated caller. Rejects privileged fields.",
+        request=UserProfileUpdateSerializer,
+        responses={
+            200: UserProfileSerializer,
+            400: OpenApiResponse(description="Validation error"),
+            401: OpenApiResponse(description="Unauthorized"),
+            403: OpenApiResponse(description="Password change required"),
+        },
+    )
+    def patch(self, request, *args, **kwargs):
+        serializer = UserProfileUpdateSerializer(
+            request.user, data=request.data, partial=True
+        )
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        serializer.save()
+        return Response(
+            UserProfileSerializer(request.user).data,
+            status=status.HTTP_200_OK,
+        )
+
+
+class ChangePasswordView(APIView):
+    """
+    Change password for the authenticated user and issue fresh tokens.
+
+    Exempt from RequirePasswordChanged (is_auth_endpoint = True) so it can clear must_change_password.
+    """
+
+    permission_classes = [IsAuthenticated]
+    is_auth_endpoint = True
+
+    @extend_schema(
+        summary="Change user password",
+        description="Validates current password and updates to new password, invalidating older tokens.",
+        request=ChangePasswordRequestSerializer,
+        responses={
+            200: ChangePasswordResponseSerializer,
+            400: OpenApiResponse(description="Validation error"),
+            401: OpenApiResponse(description="Unauthorized"),
+        },
+    )
+    def post(self, request, *args, **kwargs):
+        serializer = ChangePasswordRequestSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        current_password = serializer.validated_data["current_password"]
+        new_password = serializer.validated_data["new_password"]
+
+        try:
+            result = change_password(
+                user=request.user,
+                current_password=current_password,
+                new_password=new_password,
+            )
+        except ValidationError as exc:
+            return Response(
+                (
+                    exc.message_dict
+                    if hasattr(exc, "message_dict")
+                    else {"detail": exc.messages}
+                ),
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        return Response(result, status=status.HTTP_200_OK)

@@ -62,6 +62,8 @@ class User(AbstractBaseUser, PlatformTenantAwareModel):
     locked_until = models.DateTimeField(null=True, blank=True)
     password_changed_at = models.DateTimeField(null=True, blank=True)
     must_change_password = models.BooleanField(default=False)
+    full_name = models.CharField(max_length=150, blank=True, default="")
+    phone = models.CharField(max_length=20, blank=True, default="")
 
     objects = UserManager()
     all_objects = AllUserManager()
