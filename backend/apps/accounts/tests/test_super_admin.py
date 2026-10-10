@@ -236,3 +236,41 @@ class TestSuperAdminBootstrapAndCreation:
             HTTP_HOST="localhost",
         )
         assert response_ok.status_code == 201
+
+    def test_create_additional_super_admin_rejects_weak_password(self):
+        """POST /api/platform/super-admins/ rejects weak password with 400."""
+        actor = User.objects.create_superuser(
+            email="actor@fitgate.org",
+            password="ActorPassword123!",
+            must_change_password=False,
+        )
+        tokens = get_tokens_for_user(actor)
+
+        client = APIClient()
+        client.credentials(HTTP_AUTHORIZATION=f"Bearer {tokens['access']}")
+
+        response = client.post(
+            "/api/platform/super-admins/",
+            {
+                "email": "weak@fitgate.org",
+                "password": "short",
+                "current_password": "ActorPassword123!",
+            },
+            HTTP_HOST="localhost",
+        )
+        assert response.status_code == 400
+        assert "password" in response.json()
+        assert not User.all_objects.filter(email="weak@fitgate.org").exists()
+
+    def test_create_super_admin_command_rejects_weak_password(self):
+        """create_super_admin command rejects weak password with CommandError and creates nothing."""
+        env_vars = {
+            "SUPERADMIN_EMAIL": "weak.admin@fitgate.org",
+            "SUPERADMIN_PASSWORD": "123",
+        }
+
+        with patch.dict(os.environ, env_vars, clear=False):
+            with pytest.raises(CommandError, match="[Pp]assword"):
+                call_command("create_super_admin")
+
+        assert not User.all_objects.filter(email="weak.admin@fitgate.org").exists()

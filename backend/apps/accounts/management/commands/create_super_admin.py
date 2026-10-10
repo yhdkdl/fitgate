@@ -41,6 +41,14 @@ class Command(BaseCommand):
         if not password or not password.strip():
             raise CommandError("SUPERADMIN_PASSWORD environment variable is required.")
 
+        from django.contrib.auth.password_validation import validate_password
+        from django.core.exceptions import ValidationError
+
+        try:
+            validate_password(password, user=None)
+        except ValidationError as exc:
+            raise CommandError(f"Password validation error: {list(exc.messages)}")
+
         normalized_email = email.strip().lower()
 
         # 3. Create Super Admin with must_change_password = True

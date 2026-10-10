@@ -4,6 +4,26 @@
  */
 
 export interface paths {
+  "/api/auth/change-password/": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Change user password
+     * @description Validates current password and updates to new password, invalidating older tokens.
+     */
+    post: operations["auth_change_password_create"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/auth/login/": {
     parameters: {
       query?: never;
@@ -42,6 +62,30 @@ export interface paths {
     options?: never;
     head?: never;
     patch?: never;
+    trace?: never;
+  };
+  "/api/auth/me/": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Get current user profile
+     * @description Returns profile information for the authenticated caller.
+     */
+    get: operations["auth_me_retrieve"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    /**
+     * Update current user profile
+     * @description Updates full_name and/or phone for the authenticated caller. Rejects privileged fields.
+     */
+    patch: operations["auth_me_partial_update"];
     trace?: never;
   };
   "/api/auth/refresh/": {
@@ -108,6 +152,17 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
   schemas: {
+    /** @description Payload for changing user password. */
+    ChangePasswordRequestRequest: {
+      current_password: string;
+      new_password: string;
+    };
+    /** @description Response containing refreshed JWT pair and user summary. */
+    ChangePasswordResponse: {
+      access: string;
+      refresh: string;
+      user: components["schemas"]["UserSummary"];
+    };
     /** @description Payload for creating an additional Super Admin account. */
     CreateSuperAdminRequestRequest: {
       /** Format: email */
@@ -140,6 +195,11 @@ export interface components {
     LogoutRequestRequest: {
       refresh: string;
     };
+    /** @description Payload for updating user profile (full_name and phone only). */
+    PatchedUserProfileUpdateRequest: {
+      full_name?: string;
+      phone?: string;
+    };
     /**
      * @description * `super_admin` - Super Admin
      *     * `owner` - Owner
@@ -170,6 +230,19 @@ export interface components {
     TokenRefreshResponse: {
       access: string;
     };
+    /** @description Profile representation of authenticated user. */
+    UserProfile: {
+      /** Format: uuid */
+      readonly id: string;
+      /** Format: email */
+      readonly email: string;
+      readonly role: components["schemas"]["RoleEnum"];
+      /** Format: uuid */
+      readonly gym_id: string | null;
+      readonly full_name: string;
+      readonly phone: string;
+      readonly must_change_password: boolean;
+    };
     /** @description Minimal representation of authenticated user. */
     UserSummary: {
       /** Format: uuid */
@@ -179,6 +252,8 @@ export interface components {
       readonly role: components["schemas"]["RoleEnum"];
       /** Format: uuid */
       readonly gym_id: string | null;
+      readonly full_name: string;
+      readonly phone: string;
       readonly must_change_password: boolean;
     };
   };
@@ -190,6 +265,45 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+  auth_change_password_create: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["ChangePasswordRequestRequest"];
+        "application/x-www-form-urlencoded": components["schemas"]["ChangePasswordRequestRequest"];
+        "multipart/form-data": components["schemas"]["ChangePasswordRequestRequest"];
+      };
+    };
+    responses: {
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ChangePasswordResponse"];
+        };
+      };
+      /** @description Validation error */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Unauthorized */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
   auth_login_create: {
     parameters: {
       query?: never;
@@ -246,6 +360,85 @@ export interface operations {
       };
       /** @description Invalid refresh token */
       400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  auth_me_retrieve: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["UserProfile"];
+        };
+      };
+      /** @description Unauthorized */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Password change required */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  auth_me_partial_update: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: {
+      content: {
+        "application/json": components["schemas"]["PatchedUserProfileUpdateRequest"];
+        "application/x-www-form-urlencoded": components["schemas"]["PatchedUserProfileUpdateRequest"];
+        "multipart/form-data": components["schemas"]["PatchedUserProfileUpdateRequest"];
+      };
+    };
+    responses: {
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["UserProfile"];
+        };
+      };
+      /** @description Validation error */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Unauthorized */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Password change required */
+      403: {
         headers: {
           [name: string]: unknown;
         };
