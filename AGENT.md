@@ -68,20 +68,24 @@ Items below are proposed but not yet confirmed by the project owner — do not t
 
 ## Before reporting a sprint as ready
 
-1. Criteria table: every criterion in the sprint entry -> test name(s) -> pass/fail.
-   A criterion with no test gets one.
-2. Hostile review of your own diff: for each new write/access path, list every
-   other path that reaches the same data (bulk operations, generators/iterators,
-   admin, serializers, management commands, all_objects, createsuperuser) and say
-   whether it is covered.
-3. Settings audit: search your diff for `default=` on env reads, "*" in ALLOWED_HOSTS
-   or CORS, and hardcoded hosts/domains/keys. Report none, or explain.
-4. List every file changed with one line each. No duplicate files, nothing outside
-   the sprint's scope.
-5. Evidence, not assertions: paste command output (tests, lint, migrations check)
-   and the code of any test that proves a security property.
-6. State deviations and uncertainties explicitly, even if "none".
+Keep the report short. Do not paste whole files or re-paste old output.
+
+1. Criteria table: each criterion in the sprint entry -> test name(s) from the collected
+   tests -> pass/fail. A criterion with no test gets one.
+2. The pytest summary line for the FULL suite, and one-line results for ruff, black and
+   `makemigrations --check` (plus eslint/prettier if the frontend changed).
+3. The diff (not whole files) of any risky file you touched: authentication, permissions,
+   tenancy/managers, payments, secrets/settings. Add the code of any test that proves a
+   security property.
+4. Settings audit, one line: any `default=` on env reads, "*" in ALLOWED_HOSTS or CORS,
+   hardcoded hosts/domains/keys. "None" or explain.
+5. File list, one line per file. No duplicate files, nothing outside the sprint's scope.
+6. Deviations and uncertainties, stated explicitly even if "none".
 7. Never mark the sprint complete; the owner does that after merging.
+   When the owner says a sprint is "strict" (security, money, tenancy), also include, for
+   each new write/access path, every other path that reaches the same data (bulk operations,
+   generators, admin, serializers, management commands, all_objects) and whether it is
+   covered, plus the full code of the risky files.
 
 ## Common commands
 
