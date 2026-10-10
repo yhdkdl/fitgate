@@ -79,6 +79,10 @@ Two minor items were deliberately deferred when Sprint 0 was merged: the zero-te
 - Make the lockout counter update atomic (select_for_update or F()) if time allows.
 - A contract test: every project view that is not AllowAny and not an auth endpoint must include RequirePasswordChanged, and every AllowAny project view must declare authentication_classes explicitly.
 
+Trainer specialization and photo are delivered in the Trainer and storage sprints (see SPEC §11).
+
+- [~] Status: in progress
+
 3. **Password reset** — single-use, time-expiring link.
    - A reset link works once; a second use fails. An expired link fails with a clear error.
    - The response is identical whether or not the email exists (no account enumeration).
