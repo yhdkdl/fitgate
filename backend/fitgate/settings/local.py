@@ -47,3 +47,4 @@ CSRF_TRUSTED_ORIGINS = env.list(
 
 # Email - Console backend for local development
 EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
+DEFAULT_FROM_EMAIL = env("DEFAULT_FROM_EMAIL", default="webmaster@localhost")

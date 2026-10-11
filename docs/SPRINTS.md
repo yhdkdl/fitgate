@@ -424,4 +424,3 @@ _Not in the original source document — added by direct decision with the proje
 - Access tokens stay valid until expiry after logout; the token blacklist table needs a periodic cleanup (flushexpiredtokens) in the Sprint 38 cron setup.
 - Purge expired AuthToken rows with a management command in the Sprint 38 cron setup.
 - Sprint 1a (GitHub Actions CI) was proposed and skipped to save time; revisit before final submission. (The "every view declares permissions" contract test already exists from Sprint 2.)
-- notifications.py hardcodes a fallback From address; define DEFAULT_FROM_EMAIL from the environment instead (fixed in Sprint 3a).
