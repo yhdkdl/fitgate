@@ -3,6 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { Badge } from "../components/ui/Badge";
 import { Button } from "../components/ui/Button";
 import { Card } from "../components/ui/Card";
+import { GymManagementSection } from "../components/superadmin/GymManagementSection";
 import { useAuth } from "../context/AuthContext";
 import { getTenantFromHostname } from "../utils/tenant";
 
@@ -121,6 +122,9 @@ export const DashboardScreen: React.FC = () => {
               </div>
             </div>
           </div>
+
+          {/* Super Admin Gym Management */}
+          {user?.role === "super_admin" && <GymManagementSection />}
 
           {/* Widgets Grid */}
           <div>

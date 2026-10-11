@@ -120,6 +120,8 @@ Trainer specialization and photo are delivered in the Trainer and storage sprint
 - **Certificate safeguard (see `docs/SPEC.md` §4):** until the subdomain's TLS certificate is confirmed valid, the app does not force an HTTPS redirect on it and refuses login and registration specifically, showing a "still being secured" state. Login is refused while `tls_confirmed_at` is null and allowed once it is set. When it is set for the first time, `subscription_expires_at` is set to one year later.
 - A migration adds the `GymTenant` columns listed in SPEC §8 and the `GymConfig` fields `payment_grace_days` (default 7), `subscription_reminder_days` (default 14 and 7) and `member_reminder_days` (default 7 and 2).
 
+- [x] Status: done — merged to develop (PR #12)
+
 4a. **Demo requests** — public "Request a Demo" form and Super Admin lead list.
 
 - The public endpoint exists on the apex only and is rejected on a gym subdomain. Required: gym name, contact name, phone; optional: city, email, message.

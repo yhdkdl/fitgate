@@ -18,7 +18,9 @@ class TestLoginLockoutAndNotifications:
     @pytest.fixture
     def setup_data(self):
         """Create a gym, owner, member, and super admin."""
-        gym = GymTenant.objects.create(name="FitCorp", subdomain="fitcorp")
+        gym = GymTenant.objects.create(
+            name="FitCorp", subdomain="fitcorp", tls_confirmed_at=timezone.now()
+        )
 
         owner = User.objects.create_user(
             email="owner@fitcorp.com",

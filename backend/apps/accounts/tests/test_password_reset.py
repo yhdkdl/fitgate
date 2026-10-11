@@ -25,8 +25,13 @@ class TestPasswordResetSuite:
     @pytest.fixture
     def setup_data(self):
         """Create gyms, users, and super admin."""
-        gym_a = GymTenant.objects.create(name="Gym Alpha", subdomain="gyma")
-        gym_b = GymTenant.objects.create(name="Gym Beta", subdomain="gymb")
+        now = timezone.now()
+        gym_a = GymTenant.objects.create(
+            name="Gym Alpha", subdomain="gyma", tls_confirmed_at=now
+        )
+        gym_b = GymTenant.objects.create(
+            name="Gym Beta", subdomain="gymb", tls_confirmed_at=now
+        )
 
         user_a = User.objects.create_user(
             email="user_a@gyma.com",

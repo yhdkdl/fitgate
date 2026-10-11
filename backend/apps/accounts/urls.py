@@ -9,6 +9,7 @@ from apps.accounts.views import (
     LogoutView,
     PasswordResetConfirmView,
     PasswordResetRequestView,
+    SetPasswordFromInviteView,
     TokenRefreshView,
     UserProfileView,
 )
@@ -32,6 +33,11 @@ urlpatterns = [
         "api/auth/password-reset/confirm/",
         PasswordResetConfirmView.as_view(),
         name="auth-password-reset-confirm",
+    ),
+    path(
+        "api/auth/set-password/",
+        SetPasswordFromInviteView.as_view(),
+        name="auth-set-password",
     ),
     path(
         "api/platform/super-admins/",

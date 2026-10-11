@@ -30,6 +30,8 @@ from apps.accounts.serializers import (
     PasswordResetConfirmResponseSerializer,
     PasswordResetRequestSerializer,
     PasswordResetResponseSerializer,
+    SetPasswordFromInviteRequestSerializer,
+    SetPasswordFromInviteResponseSerializer,
     SuperAdminResponseSerializer,
     TokenRefreshRequestSerializer,
     TokenRefreshResponseSerializer,
@@ -42,6 +44,7 @@ from apps.accounts.services import (
     confirm_password_reset,
     create_additional_super_admin,
     request_password_reset,
+    set_password_from_invite,
 )
 from apps.accounts.tokens import datetime_to_microseconds, get_tokens_for_user
 
@@ -98,6 +101,18 @@ class LoginView(APIView):
         raw_email = serializer.validated_data["email"]
         password = serializer.validated_data["password"]
         normalized_email = raw_email.strip().lower()
+
+        # Certificate safeguard: If on a gym subdomain and TLS is not yet confirmed, refuse login with still_securing
+        if getattr(request, "tenant", None) is not None:
+            if request.tenant.tls_confirmed_at is None:
+                perform_dummy_password_check(password)
+                return Response(
+                    {
+                        "detail": "still_securing",
+                        "message": "Domain is still being secured. Please check back shortly.",
+                    },
+                    status=status.HTTP_503_SERVICE_UNAVAILABLE,
+                )
 
         # Host-scoped lookup via default manager
         user = User.objects.filter(email=normalized_email).first()
@@ -530,6 +545,65 @@ class PasswordResetConfirmView(APIView):
 
         try:
             result = confirm_password_reset(
+                raw_token=raw_token,
+                new_password=new_password,
+                tenant=tenant,
+            )
+        except ValidationError as exc:
+            if hasattr(exc, "message_dict"):
+                error_data = {}
+                for k, v in exc.message_dict.items():
+                    error_data[k] = v[0] if (k == "detail" and len(v) == 1) else v
+                return Response(error_data, status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                {"detail": exc.messages}, status=status.HTTP_400_BAD_REQUEST
+            )
+
+        return Response(result, status=status.HTTP_200_OK)
+
+
+class SetPasswordFromInviteView(APIView):
+    """
+    Complete account activation by setting initial password via invite link.
+
+    Accessible without active session; strictly host-scoped to matching tenant subdomain.
+    """
+
+    permission_classes = [AllowAny]
+    authentication_classes = []
+    is_auth_endpoint = True
+
+    @extend_schema(
+        summary="Set password from invite",
+        description="Consumes a single-use invite token and sets initial password for an invited user.",
+        request=SetPasswordFromInviteRequestSerializer,
+        responses={
+            200: SetPasswordFromInviteResponseSerializer,
+            400: OpenApiResponse(
+                description="Invalid or expired token, or weak password"
+            ),
+        },
+    )
+    def post(self, request, *args, **kwargs):
+        serializer = SetPasswordFromInviteRequestSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        raw_token = serializer.validated_data.get("token", "")
+        new_password = serializer.validated_data.get("new_password", "")
+
+        if not raw_token or not isinstance(raw_token, str):
+            return Response(
+                {"detail": "token_invalid"}, status=status.HTTP_400_BAD_REQUEST
+            )
+
+        if new_password is None or not isinstance(new_password, str):
+            new_password = ""
+
+        tenant = getattr(request, "tenant", None)
+
+        try:
+            result = set_password_from_invite(
                 raw_token=raw_token,
                 new_password=new_password,
                 tenant=tenant,
