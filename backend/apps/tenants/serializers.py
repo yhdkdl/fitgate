@@ -184,3 +184,29 @@ class DemoRequestConvertResponseSerializer(serializers.Serializer):
     contact_phone = serializers.CharField()
     contact_email = serializers.EmailField()
     location = serializers.CharField()
+
+
+class UploadMemberPhotoSerializer(serializers.Serializer):
+    """Upload serializer for member photos."""
+
+    photo = serializers.FileField(required=True)
+
+
+class UploadMemberPhotoResponseSerializer(serializers.Serializer):
+    """Response returned upon member photo upload."""
+
+    file_path = serializers.CharField()
+    filename = serializers.CharField()
+    url = serializers.CharField()
+
+
+class UploadGymLogoSerializer(serializers.Serializer):
+    """Upload serializer for gym logo."""
+
+    logo = serializers.FileField(required=True)
+
+
+class UploadGymLogoResponseSerializer(serializers.Serializer):
+    """Response returned upon gym logo upload."""
+
+    url = serializers.CharField()

@@ -1,13 +1,16 @@
-"""API views for gym tenant administration and Super Admin platform management."""
+import os
 
 from django.core.exceptions import ValidationError
+from django.http import FileResponse
 from drf_spectacular.utils import OpenApiResponse, extend_schema, inline_serializer
 from rest_framework import serializers, status
 from rest_framework.exceptions import PermissionDenied
+from rest_framework.parsers import FormParser, MultiPartParser
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from apps.accounts.models import User
 from apps.accounts.notifications import notify_demo_request_received
 from apps.accounts.permissions import IsSuperAdmin, RequirePasswordChanged
 from apps.accounts.serializers import UserSummarySerializer
@@ -23,8 +26,17 @@ from apps.tenants.serializers import (
     GymTenantSummarySerializer,
     ProposeSubdomainResponseSerializer,
     PublicDemoRequestSerializer,
+    UploadGymLogoResponseSerializer,
+    UploadGymLogoSerializer,
+    UploadMemberPhotoResponseSerializer,
+    UploadMemberPhotoSerializer,
 )
 from apps.tenants.services import confirm_gym_tls, create_gym, propose_subdomain
+from apps.tenants.storage import (
+    get_authenticated_photo_stream,
+    save_gym_logo,
+    save_member_photo,
+)
 from apps.tenants.throttling import DemoRequestRateThrottle
 
 
@@ -393,3 +405,187 @@ class DemoRequestConvertView(APIView):
             "location": demo.city,
         }
         return Response(data, status=status.HTTP_200_OK)
+
+
+class ServeMemberPhotoView(APIView):
+    """
+    Serve authenticated member photos with strict per-gym scoping.
+    Browser never receives direct Cloudinary URL.
+    Returns 403 on tenant mismatch, 404 when file does not exist.
+    """
+
+    permission_classes = [RequirePasswordChanged]
+
+    @extend_schema(
+        summary="Serve authenticated member photo",
+        description="Serves member photo stream only to users belonging to the specified gym or Super Admin.",
+        responses={
+            200: OpenApiResponse(description="Image WebP stream"),
+            400: OpenApiResponse(description="Invalid request or filename format"),
+            401: OpenApiResponse(description="Authentication credentials required"),
+            403: OpenApiResponse(
+                description="Forbidden - user belongs to different gym"
+            ),
+            404: OpenApiResponse(description="Photo not found"),
+        },
+    )
+    def get(self, request, gym_id, filename, *args, **kwargs):
+        if not request.user or not request.user.is_authenticated:
+            return Response(
+                {"detail": "Authentication credentials were not provided."},
+                status=status.HTTP_401_UNAUTHORIZED,
+            )
+
+        # Enforce tenant isolation: Super Admin or user belonging to gym_id
+        is_super_admin = getattr(
+            request.user, "role", None
+        ) == User.ROLE_SUPER_ADMIN or getattr(request.user, "is_superuser", False)
+        if not is_super_admin:
+            user_gym_id = getattr(request.user, "gym_id", None)
+            if user_gym_id != gym_id:
+                raise PermissionDenied(
+                    "You do not have permission to access photos for another gym."
+                )
+
+        try:
+            stream, content_type = get_authenticated_photo_stream(gym_id, filename)
+        except ValidationError as exc:
+            msg = (
+                exc.messages[0]
+                if hasattr(exc, "messages") and len(exc.messages) == 1
+                else (exc.messages if hasattr(exc, "messages") else str(exc))
+            )
+            return Response({"detail": msg}, status=status.HTTP_400_BAD_REQUEST)
+        except FileNotFoundError:
+            return Response(
+                {"detail": "Photo not found."}, status=status.HTTP_404_NOT_FOUND
+            )
+
+        response = FileResponse(stream, content_type=content_type)
+        response["Cache-Control"] = "private, no-transform, max-age=3600"
+        return response
+
+
+class UploadMemberPhotoView(APIView):
+    """
+    Upload and process a member photo into gym-scoped authenticated storage.
+    """
+
+    parser_classes = [MultiPartParser, FormParser]
+    permission_classes = [RequirePasswordChanged]
+
+    @extend_schema(
+        summary="Upload member photo",
+        description="Validates image format and size (<= 2 MB), strips EXIF, resizes, and saves to gym-scoped authenticated storage.",
+        request=UploadMemberPhotoSerializer,
+        responses={
+            201: UploadMemberPhotoResponseSerializer,
+            400: OpenApiResponse(description="Validation error or missing file"),
+            403: OpenApiResponse(description="Forbidden - cross-tenant access denied"),
+        },
+    )
+    def post(self, request, gym_id, *args, **kwargs):
+        if not request.user or not request.user.is_authenticated:
+            return Response(
+                {"detail": "Authentication credentials were not provided."},
+                status=status.HTTP_401_UNAUTHORIZED,
+            )
+
+        is_super_admin = getattr(
+            request.user, "role", None
+        ) == User.ROLE_SUPER_ADMIN or getattr(request.user, "is_superuser", False)
+        if not is_super_admin:
+            user_gym_id = getattr(request.user, "gym_id", None)
+            if user_gym_id != gym_id:
+                raise PermissionDenied(
+                    "You cannot upload member photos for another gym."
+                )
+
+        uploaded_file = request.FILES.get("photo") or request.FILES.get("file")
+        if not uploaded_file:
+            return Response(
+                {"detail": "No photo file provided."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            relative_path = save_member_photo(gym_id, uploaded_file)
+        except ValidationError as exc:
+            msg = (
+                exc.messages[0]
+                if hasattr(exc, "messages") and len(exc.messages) == 1
+                else (exc.messages if hasattr(exc, "messages") else str(exc))
+            )
+            return Response({"detail": msg}, status=status.HTTP_400_BAD_REQUEST)
+
+        filename = os.path.basename(relative_path)
+        url = f"/api/media/member-photos/{gym_id}/{filename}/"
+        return Response(
+            {
+                "file_path": relative_path,
+                "filename": filename,
+                "url": url,
+            },
+            status=status.HTTP_201_CREATED,
+        )
+
+
+class UploadGymLogoView(APIView):
+    """
+    Upload and process a public gym logo.
+    Only Super Admin or Owner of the gym can upload.
+    """
+
+    parser_classes = [MultiPartParser, FormParser]
+    permission_classes = [RequirePasswordChanged]
+
+    @extend_schema(
+        summary="Upload gym logo",
+        description="Uploads and optimizes gym logo (public asset). Only accessible by gym Owner or Super Admin.",
+        request=UploadGymLogoSerializer,
+        responses={
+            200: UploadGymLogoResponseSerializer,
+            400: OpenApiResponse(description="Validation error or missing file"),
+            403: OpenApiResponse(
+                description="Forbidden - only Owner or Super Admin permitted"
+            ),
+        },
+    )
+    def post(self, request, gym_id, *args, **kwargs):
+        if not request.user or not request.user.is_authenticated:
+            return Response(
+                {"detail": "Authentication credentials were not provided."},
+                status=status.HTTP_401_UNAUTHORIZED,
+            )
+
+        is_super_admin = getattr(
+            request.user, "role", None
+        ) == User.ROLE_SUPER_ADMIN or getattr(request.user, "is_superuser", False)
+        is_owner = (
+            getattr(request.user, "role", None) == User.ROLE_OWNER
+            and getattr(request.user, "gym_id", None) == gym_id
+        )
+
+        if not (is_super_admin or is_owner):
+            raise PermissionDenied(
+                "Only the gym owner or Super Admin can upload the gym logo."
+            )
+
+        uploaded_file = request.FILES.get("logo") or request.FILES.get("file")
+        if not uploaded_file:
+            return Response(
+                {"detail": "No logo file provided."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            url = save_gym_logo(gym_id, uploaded_file)
+        except ValidationError as exc:
+            msg = (
+                exc.messages[0]
+                if hasattr(exc, "messages") and len(exc.messages) == 1
+                else (exc.messages if hasattr(exc, "messages") else str(exc))
+            )
+            return Response({"detail": msg}, status=status.HTTP_400_BAD_REQUEST)
+
+        return Response({"url": url}, status=status.HTTP_200_OK)

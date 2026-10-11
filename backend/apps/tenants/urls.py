@@ -11,6 +11,9 @@ from apps.tenants.views import (
     GymDetailView,
     ProposeSubdomainView,
     PublicDemoRequestView,
+    ServeMemberPhotoView,
+    UploadGymLogoView,
+    UploadMemberPhotoView,
 )
 
 urlpatterns = [
@@ -50,5 +53,21 @@ urlpatterns = [
         "api/platform/demo-requests/<uuid:pk>/convert/",
         DemoRequestConvertView.as_view(),
         name="platform-demo-requests-convert",
+    ),
+    # Media & File storage (Sprint 4b)
+    path(
+        "api/media/member-photos/<uuid:gym_id>/<str:filename>/",
+        ServeMemberPhotoView.as_view(),
+        name="media-member-photo-serve",
+    ),
+    path(
+        "api/media/member-photos/<uuid:gym_id>/",
+        UploadMemberPhotoView.as_view(),
+        name="media-member-photo-upload",
+    ),
+    path(
+        "api/media/gym-logo/<uuid:gym_id>/",
+        UploadGymLogoView.as_view(),
+        name="media-gym-logo-upload",
     ),
 ]
