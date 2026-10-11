@@ -7,14 +7,15 @@
 - Sprint 2: Custom User model + JWT auth + platform-level base class (`abc0efe2d55aa31d504d70df08cb6f965fe737dd`)
 - Sprint 2a: Profile and password management (`107a05d9a0aa249376d9871d7346277fe4d9ed81`)
 - Sprint 3: Password reset (`a616d5a5f08fa8e52f338e3cecdf675386009809`)
+- Sprint 3a: Frontend shell and auth screens (`f44a10875c75ff33d0277df5003b145803975073`)
 
 ## Current
 
-- Sprint 3a: Frontend shell and auth screens (in progress)
+- Sprint 4: Super Admin "Create gym"
 
 ## Next
 
-- Sprint 4: Super Admin "Create gym"
+- Sprint 4a: Demo requests
 
 ## Open manual steps
 
