@@ -46,6 +46,9 @@ staticfiles/
 node_modules/
 frontend/dist/
 frontend/node_modules/
+frontend/vite.config.js
+frontend/vite.config.d.ts
+frontend/vite.config.d.ts.map
 .npm
 npm-debug.log*
 yarn-debug.log*

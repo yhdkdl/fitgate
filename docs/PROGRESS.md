@@ -18,7 +18,10 @@
 
 ## Open manual steps
 
-- none yet
+- Sprint 4: cPanel UAPI token & subdomain provisioning (fallback: mock UAPI client; not verified against real service)
+- Sprints 4, 6, 7: Production SMTP mailbox (fallback: console email backend; not verified against real service)
+- Sprints 4b, 7: Cloudinary credentials (fallback: local filesystem storage; not verified against real service)
+- Sprint 8: QR asymmetric signing key pair (fallback: dev key generator / test fixture; not verified against real service)
 
 ## Deviations
 

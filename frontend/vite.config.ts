@@ -1,3 +1,4 @@
+/// <reference types="vitest" />
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 
@@ -13,8 +14,22 @@ export default defineConfig({
     proxy: {
       "/api": {
         target: process.env.VITE_API_URL || "http://backend:8000",
-        changeOrigin: true,
+        changeOrigin: false,
+        configure: (proxy) => {
+          proxy.on("proxyReq", (proxyReq, req) => {
+            if (req.headers.host) {
+              proxyReq.setHeader("Host", req.headers.host);
+              proxyReq.setHeader("X-Forwarded-Host", req.headers.host);
+            }
+          });
+        },
       },
     },
+  },
+  test: {
+    globals: true,
+    environment: "jsdom",
+    setupFiles: ["./src/test/setup.ts"],
+    css: false,
   },
 });
