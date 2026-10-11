@@ -167,9 +167,9 @@ Trainer specialization and photo are delivered in the Trainer and storage sprint
    - `Attendance` rows exist only for actual check-ins. An attendance-log endpoint returns ✓/✗ per day for a date range, derived from check-ins and the subscription period (days outside the period are blank).
    - Performance: scan validation plus attendance recording completes in under 2 seconds against a seeded dataset of 10,000 members.
 
-9. **Audit log foundation** — `AuditLog` model + logging utility wired into 1–8; restricted DB role (INSERT/SELECT only).
+9. **Audit log foundation** — `AuditLog` model + logging utility wired into 1–8; database triggers for immutability (BEFORE UPDATE, DELETE, TRUNCATE raise exception).
    - Every action from sprints 1–8 produces exactly one `AuditLog` row with the correct `actor_id`, `action_type` and affected record, including logout, Super Admin creation, and gym creation (platform-level rows have `gym_id` null).
-   - An `UPDATE` or `DELETE` against the audit table using the application's own DB role fails at the database level — tested directly.
+   - An `UPDATE`, `DELETE`, or `TRUNCATE` against the audit table fails at the database level via PostgreSQL triggers — tested directly with raw SQL through the application connection.
 
 9a. **Audit log viewer**
 
