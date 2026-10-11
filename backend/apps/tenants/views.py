@@ -2,23 +2,30 @@
 
 from django.core.exceptions import ValidationError
 from drf_spectacular.utils import OpenApiResponse, extend_schema, inline_serializer
-from rest_framework import status
+from rest_framework import serializers, status
 from rest_framework.exceptions import PermissionDenied
+from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from apps.accounts.notifications import notify_demo_request_received
 from apps.accounts.permissions import IsSuperAdmin, RequirePasswordChanged
 from apps.accounts.serializers import UserSummarySerializer
-from apps.tenants.models import GymTenant
+from apps.tenants.models import DemoRequest, GymTenant
 from apps.tenants.serializers import (
     ConfirmTLSResponseSerializer,
     CreateGymRequestSerializer,
     CreateGymResponseSerializer,
+    DemoRequestConvertResponseSerializer,
+    DemoRequestSerializer,
+    DemoRequestUpdateSerializer,
     GymConfigSerializer,
     GymTenantSummarySerializer,
     ProposeSubdomainResponseSerializer,
+    PublicDemoRequestSerializer,
 )
 from apps.tenants.services import confirm_gym_tls, create_gym, propose_subdomain
+from apps.tenants.throttling import DemoRequestRateThrottle
 
 
 class CreateGymView(APIView):
@@ -208,3 +215,181 @@ class GymDetailView(APIView):
             },
             status=status.HTTP_200_OK,
         )
+
+
+class PublicDemoRequestView(APIView):
+    """
+    Public endpoint on the apex platform domain for prospective gyms to request a demo.
+
+    Rejected on gym subdomains. Rate-limited and includes honeypot protection.
+    """
+
+    permission_classes = (AllowAny,)
+    authentication_classes = ()
+    throttle_classes = (DemoRequestRateThrottle,)
+
+    @extend_schema(
+        summary="Submit demo request",
+        description="Public endpoint to request a demo for a gym. Only accepted on the apex domain.",
+        request=PublicDemoRequestSerializer,
+        responses={
+            201: inline_serializer(
+                name="PublicDemoRequestResponse",
+                fields={
+                    "detail": serializers.CharField(),
+                    "id": serializers.CharField(required=False),
+                },
+            ),
+            400: OpenApiResponse(description="Bad request or rejected on subdomain"),
+            429: OpenApiResponse(description="Too many requests"),
+        },
+    )
+    def post(self, request, *args, **kwargs):
+        if getattr(request, "tenant", None) is not None:
+            return Response(
+                {
+                    "detail": "Demo requests are only accepted on the apex platform domain."
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        serializer = PublicDemoRequestSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        data = serializer.validated_data
+        honeypot = data.get("website", "").strip()
+        if honeypot:
+            # Honeypot filled by bot: silently return success without persisting
+            return Response(
+                {"detail": "demo_request_received"},
+                status=status.HTTP_201_CREATED,
+            )
+
+        demo = DemoRequest.objects.create(
+            gym_name=data["gym_name"].strip(),
+            contact_name=data["contact_name"].strip(),
+            phone=data["phone"].strip(),
+            city=data.get("city", "").strip(),
+            email=data.get("email", "").strip().lower(),
+            message=data.get("message", "").strip(),
+            status=DemoRequest.STATUS_NEW,
+        )
+
+        notify_demo_request_received(demo)
+
+        return Response(
+            {"detail": "demo_request_received", "id": str(demo.id)},
+            status=status.HTTP_201_CREATED,
+        )
+
+
+class DemoRequestListView(APIView):
+    """Super Admin endpoint to list all prospective gym demo requests."""
+
+    permission_classes = (IsSuperAdmin, RequirePasswordChanged)
+
+    @extend_schema(
+        summary="List demo requests",
+        description="Super Admin endpoint to view and filter demo request leads.",
+        responses={200: DemoRequestSerializer(many=True)},
+    )
+    def get(self, request, *args, **kwargs):
+        qs = DemoRequest.objects.all().select_related("handled_by", "converted_gym")
+        status_filter = request.query_params.get("status")
+        if status_filter:
+            qs = qs.filter(status=status_filter)
+
+        serializer = DemoRequestSerializer(qs, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+class DemoRequestDetailView(APIView):
+    """Super Admin endpoint to retrieve and update demo request status/notes."""
+
+    permission_classes = (IsSuperAdmin, RequirePasswordChanged)
+
+    @extend_schema(
+        summary="Get demo request detail",
+        responses={
+            200: DemoRequestSerializer,
+            404: OpenApiResponse(description="Not found"),
+        },
+    )
+    def get(self, request, pk, *args, **kwargs):
+        try:
+            demo = DemoRequest.objects.select_related(
+                "handled_by", "converted_gym"
+            ).get(pk=pk)
+        except DemoRequest.DoesNotExist:
+            return Response(
+                {"detail": "Demo request not found."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        return Response(DemoRequestSerializer(demo).data, status=status.HTTP_200_OK)
+
+    @extend_schema(
+        summary="Update demo request status or notes",
+        request=DemoRequestUpdateSerializer,
+        responses={
+            200: DemoRequestSerializer,
+            400: OpenApiResponse(description="Bad request"),
+            404: OpenApiResponse(description="Not found"),
+        },
+    )
+    def patch(self, request, pk, *args, **kwargs):
+        try:
+            demo = DemoRequest.objects.select_related(
+                "handled_by", "converted_gym"
+            ).get(pk=pk)
+        except DemoRequest.DoesNotExist:
+            return Response(
+                {"detail": "Demo request not found."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        serializer = DemoRequestUpdateSerializer(data=request.data, partial=True)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        if "status" in serializer.validated_data:
+            demo.status = serializer.validated_data["status"]
+        if "notes" in serializer.validated_data:
+            demo.notes = serializer.validated_data["notes"]
+        demo.handled_by = request.user
+        demo.save()
+
+        return Response(DemoRequestSerializer(demo).data, status=status.HTTP_200_OK)
+
+
+class DemoRequestConvertView(APIView):
+    """Super Admin endpoint returning pre-filled data to convert a lead to a gym."""
+
+    permission_classes = (IsSuperAdmin, RequirePasswordChanged)
+
+    @extend_schema(
+        summary="Convert demo request to gym form data",
+        responses={
+            200: DemoRequestConvertResponseSerializer,
+            404: OpenApiResponse(description="Not found"),
+        },
+    )
+    def get(self, request, pk, *args, **kwargs):
+        try:
+            demo = DemoRequest.objects.get(pk=pk)
+        except DemoRequest.DoesNotExist:
+            return Response(
+                {"detail": "Demo request not found."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        data = {
+            "demo_request_id": str(demo.id),
+            "name": demo.gym_name,
+            "contact_name": demo.contact_name,
+            "contact_phone": demo.phone,
+            "contact_email": demo.email,
+            "location": demo.city,
+        }
+        return Response(data, status=status.HTTP_200_OK)

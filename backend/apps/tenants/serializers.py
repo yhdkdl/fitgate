@@ -3,7 +3,7 @@
 from rest_framework import serializers
 
 from apps.accounts.serializers import UserSummarySerializer
-from apps.tenants.models import GymConfig, GymTenant
+from apps.tenants.models import DemoRequest, GymConfig, GymTenant
 
 
 class GymTenantSummarySerializer(serializers.ModelSerializer):
@@ -102,3 +102,85 @@ class ConfirmTLSResponseSerializer(serializers.Serializer):
 
     gym = GymTenantSummarySerializer()
     message = serializers.CharField()
+
+
+class PublicDemoRequestSerializer(serializers.Serializer):
+    """Public serializer for lead demo request submissions with honeypot field."""
+
+    gym_name = serializers.CharField(max_length=150, required=True)
+    contact_name = serializers.CharField(max_length=150, required=True)
+    phone = serializers.CharField(max_length=50, required=True)
+    city = serializers.CharField(
+        max_length=100, required=False, allow_blank=True, default=""
+    )
+    email = serializers.EmailField(required=False, allow_blank=True, default="")
+    message = serializers.CharField(required=False, allow_blank=True, default="")
+    website = serializers.CharField(
+        required=False, allow_blank=True, default="", write_only=True
+    )
+
+
+class DemoRequestSerializer(serializers.ModelSerializer):
+    """Serializer for Super Admin lead management."""
+
+    handled_by_email = serializers.SerializerMethodField()
+    converted_gym_subdomain = serializers.SerializerMethodField()
+
+    class Meta:
+        model = DemoRequest
+        fields = [
+            "id",
+            "gym_name",
+            "contact_name",
+            "phone",
+            "city",
+            "email",
+            "message",
+            "status",
+            "notes",
+            "handled_by",
+            "handled_by_email",
+            "converted_gym",
+            "converted_gym_subdomain",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = [
+            "id",
+            "gym_name",
+            "contact_name",
+            "phone",
+            "city",
+            "email",
+            "message",
+            "handled_by",
+            "handled_by_email",
+            "converted_gym",
+            "converted_gym_subdomain",
+            "created_at",
+            "updated_at",
+        ]
+
+    def get_handled_by_email(self, obj) -> str | None:
+        return obj.handled_by.email if obj.handled_by else None
+
+    def get_converted_gym_subdomain(self, obj) -> str | None:
+        return obj.converted_gym.subdomain if obj.converted_gym else None
+
+
+class DemoRequestUpdateSerializer(serializers.Serializer):
+    """Serializer for updating status and internal notes on a demo request."""
+
+    status = serializers.ChoiceField(choices=DemoRequest.STATUS_CHOICES, required=False)
+    notes = serializers.CharField(required=False, allow_blank=True)
+
+
+class DemoRequestConvertResponseSerializer(serializers.Serializer):
+    """Data returned to pre-fill the Create Gym form from a demo request."""
+
+    demo_request_id = serializers.UUIDField()
+    name = serializers.CharField()
+    contact_name = serializers.CharField()
+    contact_phone = serializers.CharField()
+    contact_email = serializers.EmailField()
+    location = serializers.CharField()

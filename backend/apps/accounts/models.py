@@ -213,3 +213,29 @@ class AuthToken(models.Model):
 
     def __str__(self):
         return f"AuthToken({self.purpose} for {self.user.email})"
+
+
+class Notification(PlatformTenantAwareModel):
+    """
+    In-app notification for users.
+
+    Platform-level when gym is None (e.g. Super Admin alerts).
+    Tenant-level when gym is set.
+    """
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    recipient = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="notifications",
+    )
+    type = models.CharField(max_length=50)
+    message = models.TextField()
+    is_read = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"Notification({self.recipient.email} - {self.type})"

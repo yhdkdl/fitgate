@@ -3,6 +3,7 @@
 import re
 import uuid
 
+from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import models
 
@@ -295,3 +296,62 @@ class PlatformTenantAwareModel(models.Model):
             # Without tenant context (apex): null gym or explicit gym allowed.
             pass
         super().save(*args, **kwargs)
+
+
+class DemoRequest(models.Model):
+    """
+    Platform-level demo request submitted from the public apex marketing site.
+
+    Not tenant-scoped (no gym foreign key until converted).
+    """
+
+    STATUS_NEW = "new"
+    STATUS_CONTACTED = "contacted"
+    STATUS_DEMO_DONE = "demo_done"
+    STATUS_CONVERTED = "converted"
+    STATUS_LOST = "lost"
+
+    STATUS_CHOICES = [
+        (STATUS_NEW, "New"),
+        (STATUS_CONTACTED, "Contacted"),
+        (STATUS_DEMO_DONE, "Demo Done"),
+        (STATUS_CONVERTED, "Converted"),
+        (STATUS_LOST, "Lost"),
+    ]
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    gym_name = models.CharField(max_length=150)
+    contact_name = models.CharField(max_length=150)
+    phone = models.CharField(max_length=50)
+    city = models.CharField(max_length=100, blank=True, default="")
+    email = models.EmailField(blank=True, default="")
+    message = models.TextField(blank=True, default="")
+    status = models.CharField(
+        max_length=20,
+        choices=STATUS_CHOICES,
+        default=STATUS_NEW,
+        db_index=True,
+    )
+    notes = models.TextField(blank=True, default="")
+    handled_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="handled_demo_requests",
+    )
+    converted_gym = models.ForeignKey(
+        GymTenant,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="converted_from_demo",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"DemoRequest({self.gym_name} - {self.status})"

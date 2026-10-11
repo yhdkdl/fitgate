@@ -129,7 +129,19 @@ export const LoginScreen: React.FC = () => {
           </form>
         </Card>
 
-        <p className="text-center text-xs text-text-muted mt-6">
+        {!tenant && (
+          <p className="text-center text-xs text-text-muted mt-4">
+            Interested in FitGate for your gym?{" "}
+            <Link
+              to="/request-demo"
+              className="text-primary hover:underline font-medium"
+            >
+              Request a Demo
+            </Link>
+          </p>
+        )}
+
+        <p className="text-center text-xs text-text-muted mt-4">
           FitGate Multi-Tenant Gym Platform &bull; Secure Authentication
         </p>
       </div>

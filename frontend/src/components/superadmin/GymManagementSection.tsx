@@ -20,7 +20,24 @@ const TIER_PRICES: Record<string, string> = {
   pro: "60000.00",
 };
 
-export const GymManagementSection: React.FC = () => {
+export interface GymPrefillData {
+  demo_request_id?: string;
+  name?: string;
+  contact_name?: string;
+  contact_phone?: string;
+  contact_email?: string;
+  location?: string;
+}
+
+interface GymManagementSectionProps {
+  prefillData?: GymPrefillData | null;
+  onClearPrefill?: () => void;
+}
+
+export const GymManagementSection: React.FC<GymManagementSectionProps> = ({
+  prefillData,
+  onClearPrefill,
+}) => {
   const [gyms, setGyms] = useState<GymTenantSummary[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -30,6 +47,7 @@ export const GymManagementSection: React.FC = () => {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   // Form states
+  const [demoRequestId, setDemoRequestId] = useState<string | null>(null);
   const [name, setName] = useState("");
   const [subdomain, setSubdomain] = useState("");
   const [tier, setTier] = useState<"starter" | "growth" | "pro">("starter");
@@ -43,6 +61,30 @@ export const GymManagementSection: React.FC = () => {
   const [paymentReference, setPaymentReference] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [confirmingId, setConfirmingId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (prefillData) {
+      if (prefillData.name) setName(prefillData.name);
+      if (prefillData.contact_name) {
+        setContactName(prefillData.contact_name);
+        setOwnerName(prefillData.contact_name);
+      }
+      if (prefillData.contact_phone) setContactPhone(prefillData.contact_phone);
+      if (prefillData.contact_email) {
+        setContactEmail(prefillData.contact_email);
+        setOwnerEmail(prefillData.contact_email);
+      }
+      if (prefillData.location) setLocation(prefillData.location);
+      if (prefillData.demo_request_id)
+        setDemoRequestId(prefillData.demo_request_id);
+      setShowCreateModal(true);
+      if (prefillData.name) {
+        proposeSubdomain(prefillData.name)
+          .then(setSubdomain)
+          .catch(() => {});
+      }
+    }
+  }, [prefillData]);
 
   const fetchGyms = async () => {
     setIsLoading(true);
@@ -94,10 +136,13 @@ export const GymManagementSection: React.FC = () => {
         payment_amount: paymentAmount,
         payment_reference: paymentReference,
         payment_method: "bank_transfer",
+        demo_request_id: demoRequestId || null,
       });
 
       setCreateSuccess(resp);
       setShowCreateModal(false);
+      setDemoRequestId(null);
+      if (onClearPrefill) onClearPrefill();
       // Reset form
       setName("");
       setSubdomain("");
