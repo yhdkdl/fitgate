@@ -139,7 +139,7 @@ Trainer specialization and photo are delivered in the Trainer and storage sprint
 - Uploads are validated server-side before storage: image type only, maximum size (2 MB), random file names; an invalid upload is rejected with a clear error. Images are resized on upload.
 - Credentials come from the environment; local development and tests use a local folder through the same interface (a fake storage in tests). The Cloudinary `authenticated` type is verified once against a real account before release (see "External checks").
 
-- [ ] Status: in progress
+- [x] Status: done — merged to develop (PR #14)
 
 4c. **Gym branding, entry page, first-run checklist**
 

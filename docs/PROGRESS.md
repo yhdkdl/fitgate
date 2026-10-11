@@ -10,14 +10,15 @@
 - Sprint 3a: Frontend shell and auth screens (`f44a10875c75ff33d0277df5003b145803975073`)
 - Sprint 4: Super Admin "Create gym" (`d760b36`)
 - Sprint 4a: Demo requests (`199f1bb`)
+- Sprint 4b: File storage layer (`3fe54b0`, PR #14)
 
 ## Current
 
-- Sprint 4b: File storage layer
+- Sprint 4c: Gym branding, entry page, first-run checklist
 
 ## Next
 
-- Sprint 4c: Gym branding, entry page, first-run checklist
+- Sprint 5: RBAC framework (GATE)
 
 ## Open manual steps
 
