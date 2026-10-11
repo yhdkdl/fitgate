@@ -77,3 +77,27 @@ def send_password_reset_email(user, link: str) -> None:
         recipient_list=[user.email],
         fail_silently=False,
     )
+
+
+def send_owner_welcome_email(owner, gym, invite_link: str) -> None:
+    """
+    Send welcome email to newly created Gym Owner containing set-password link.
+
+    Crucial: Must never contain any password.
+    """
+    subject = f"Welcome to FitGate — Set up your account for {gym.name}"
+    message = (
+        f"Hello {owner.full_name or 'there'},\n\n"
+        f"Your gym '{gym.name}' has been created on the FitGate platform.\n\n"
+        f"To get started, please set your password using the secure link below:\n"
+        f"{invite_link}\n\n"
+        f"This link is valid for 7 days. Once your password is set and your domain's security certificate is verified, you can log in to manage your gym.\n\n"
+        f"Welcome aboard,\nThe FitGate Team\n"
+    )
+    send_mail(
+        subject=subject,
+        message=message,
+        from_email=settings.DEFAULT_FROM_EMAIL,
+        recipient_list=[owner.email],
+        fail_silently=False,
+    )

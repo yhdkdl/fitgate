@@ -148,6 +148,26 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/auth/set-password/": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Set password from invite
+     * @description Consumes a single-use invite token and sets initial password for an invited user.
+     */
+    post: operations["auth_set_password_create"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/health/": {
     parameters: {
       query?: never;
@@ -160,6 +180,90 @@ export interface paths {
      * @description Returns the operational status of the FitGate backend service.
      */
     get: operations["health_retrieve"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/platform/gyms/": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * List gym tenants
+     * @description Lists all gym tenants on the platform for Super Admin.
+     */
+    get: operations["platform_gyms_list"];
+    put?: never;
+    /**
+     * Create gym tenant
+     * @description Super Admin creates an active gym tenant, records bank transfer payment, and provisions subdomain.
+     */
+    post: operations["platform_gyms_create"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/platform/gyms/{gym_id}/": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Get gym tenant details
+     * @description Retrieves a specific gym tenant and its configuration.
+     */
+    get: operations["platform_gyms_retrieve"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/platform/gyms/{gym_id}/confirm-tls/": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Confirm gym TLS certificate
+     * @description Confirms subdomain TLS certificate, activating login access and establishing subscription expiry.
+     */
+    post: operations["platform_gyms_confirm_tls_create"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/platform/gyms/propose-subdomain/": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Propose candidate subdomain
+     * @description Generates a sanitized DNS label candidate for a proposed gym name.
+     */
+    get: operations["platform_gyms_propose_subdomain_retrieve"];
     put?: never;
     post?: never;
     delete?: never;
@@ -203,12 +307,88 @@ export interface components {
       refresh: string;
       user: components["schemas"]["UserSummary"];
     };
+    /** @description Response returned upon TLS certificate confirmation. */
+    ConfirmTLSResponse: {
+      gym: components["schemas"]["GymTenantSummary"];
+      message: string;
+    };
+    /** @description Payload for Super Admin gym creation. */
+    CreateGymRequestRequest: {
+      name: string;
+      subdomain: string;
+      tier: components["schemas"]["TierEnum"];
+      /** @default  */
+      location: string;
+      /** @default  */
+      contact_name: string;
+      /** @default  */
+      contact_phone: string;
+      contact_email?: string;
+      /** @default  */
+      owner_name: string;
+      /** Format: email */
+      owner_email: string;
+      /** Format: decimal */
+      payment_amount: string;
+      payment_reference: string;
+      /** @default bank_transfer */
+      payment_method: string;
+      demo_request_id?: string | null;
+    };
+    /** @description Response returned upon successful gym tenant creation. */
+    CreateGymResponse: {
+      gym: components["schemas"]["GymTenantSummary"];
+      config: components["schemas"]["GymConfig"];
+      owner: components["schemas"]["UserSummary"];
+      /** Format: uuid */
+      payment_id: string;
+      invite_link: string;
+    };
     /** @description Payload for creating an additional Super Admin account. */
     CreateSuperAdminRequestRequest: {
       /** Format: email */
       email: string;
       password: string;
       current_password: string;
+    };
+    /** @description Feature gating and configuration settings of a gym. */
+    GymConfig: {
+      readonly has_trainer_module: boolean;
+      readonly has_ai_plans: boolean;
+      readonly has_analytics: boolean;
+      readonly has_group_classes: boolean;
+      readonly has_multi_branch: boolean;
+      readonly freeze_days_allowed: number;
+      readonly payment_grace_days: number;
+      readonly subscription_reminder_days: unknown;
+      readonly member_reminder_days: unknown;
+    };
+    GymDetailResponse: {
+      gym: components["schemas"]["GymTenantSummary"];
+      config: components["schemas"]["GymConfig"];
+    };
+    /** @description Summary of a gym tenant. */
+    GymTenantSummary: {
+      /** Format: uuid */
+      readonly id: string;
+      readonly name: string;
+      readonly subdomain: string;
+      readonly status: components["schemas"]["StatusEnum"];
+      readonly tier: components["schemas"]["TierEnum"];
+      readonly currency: string;
+      readonly location: string;
+      readonly contact_name: string;
+      readonly contact_phone: string;
+      /** Format: email */
+      readonly contact_email: string;
+      /** Format: date-time */
+      readonly subscription_expires_at: string | null;
+      /** Format: date-time */
+      readonly tls_confirmed_at: string | null;
+      /** Format: date-time */
+      readonly created_at: string;
+      /** Format: date-time */
+      readonly updated_at: string;
     };
     HealthCheckResponse: {
       /** @default ok */
@@ -258,6 +438,10 @@ export interface components {
       full_name?: string;
       phone?: string;
     };
+    /** @description Response containing proposed candidate subdomain. */
+    ProposeSubdomainResponse: {
+      subdomain: string;
+    };
     /**
      * @description * `super_admin` - Super Admin
      *     * `owner` - Owner
@@ -269,6 +453,23 @@ export interface components {
      */
     RoleEnum:
       "super_admin" | "owner" | "manager" | "trainer" | "reception" | "member";
+    /** @description Payload for setting initial password from an invite token. */
+    SetPasswordFromInviteRequestRequest: {
+      token: string;
+      new_password: string;
+    };
+    /** @description Response returned upon successful invite password completion. */
+    SetPasswordFromInviteResponse: {
+      detail: string;
+    };
+    /**
+     * @description * `pending` - Pending
+     *     * `active` - Active
+     *     * `suspended` - Suspended
+     *     * `terminated` - Terminated
+     * @enum {string}
+     */
+    StatusEnum: "pending" | "active" | "suspended" | "terminated";
     /** @description Response for created Super Admin. */
     SuperAdminResponse: {
       /** Format: uuid */
@@ -280,6 +481,13 @@ export interface components {
       /** Format: date-time */
       readonly created_at: string;
     };
+    /**
+     * @description * `starter` - Starter
+     *     * `growth` - Growth
+     *     * `pro` - Pro
+     * @enum {string}
+     */
+    TierEnum: "starter" | "growth" | "pro";
     /** @description Payload for token refresh. */
     TokenRefreshRequestRequest: {
       refresh: string;
@@ -593,6 +801,38 @@ export interface operations {
       };
     };
   };
+  auth_set_password_create: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["SetPasswordFromInviteRequestRequest"];
+        "application/x-www-form-urlencoded": components["schemas"]["SetPasswordFromInviteRequestRequest"];
+        "multipart/form-data": components["schemas"]["SetPasswordFromInviteRequestRequest"];
+      };
+    };
+    responses: {
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["SetPasswordFromInviteResponse"];
+        };
+      };
+      /** @description Invalid or expired token, or weak password */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
   health_retrieve: {
     parameters: {
       query?: never;
@@ -608,6 +848,146 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["HealthCheckResponse"];
+        };
+      };
+    };
+  };
+  platform_gyms_list: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["GymTenantSummary"][];
+        };
+      };
+    };
+  };
+  platform_gyms_create: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["CreateGymRequestRequest"];
+        "application/x-www-form-urlencoded": components["schemas"]["CreateGymRequestRequest"];
+        "multipart/form-data": components["schemas"]["CreateGymRequestRequest"];
+      };
+    };
+    responses: {
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["CreateGymResponse"];
+        };
+      };
+      /** @description Validation error */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Forbidden */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  platform_gyms_retrieve: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        gym_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["GymDetailResponse"];
+        };
+      };
+      /** @description Not found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  platform_gyms_confirm_tls_create: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        gym_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ConfirmTLSResponse"];
+        };
+      };
+      /** @description Gym not found */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Forbidden */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  platform_gyms_propose_subdomain_retrieve: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProposeSubdomainResponse"];
         };
       };
     };

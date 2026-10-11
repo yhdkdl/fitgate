@@ -294,3 +294,95 @@ def confirm_password_reset(
         ).exclude(pk=auth_token.pk).update(used_at=now_consume)
 
     return {"detail": "password_reset_complete"}
+
+
+def set_password_from_invite(
+    raw_token: str, new_password: str, tenant: Optional[GymTenant]
+) -> Dict[str, str]:
+    """
+    Set initial password for an invited user (e.g. newly created Gym Owner) using AuthToken.PURPOSE_INVITE.
+
+    Order of checks:
+    (1) Find AuthToken by sha256(raw_token) and purpose 'invite'.
+    (2) Validate user is active, matches host context (gym tenant).
+    (3) Verify token has not expired and has not been used.
+    (4) Validate password strength with Django AUTH_PASSWORD_VALIDATORS.
+    (5) In transaction.atomic: consume token (used_at=now), set password,
+        clear must_change_password, email_verified_at=now, failed_login_count=0.
+    """
+    if not raw_token or not isinstance(raw_token, str):
+        raise ValidationError({"detail": "token_invalid"})
+
+    token_hash = hashlib.sha256(raw_token.encode("utf-8")).hexdigest()
+    auth_token = (
+        AuthToken.objects.select_related("user", "user__gym")
+        .filter(token_hash=token_hash, purpose=AuthToken.PURPOSE_INVITE)
+        .first()
+    )
+
+    if auth_token is None:
+        raise ValidationError({"detail": "token_invalid"})
+
+    user = auth_token.user
+    if not user.is_active:
+        raise ValidationError({"detail": "token_invalid"})
+
+    # Host context check: Gym users must match tenant subdomain; Super Admin at apex
+    if tenant is None:
+        if user.gym_id is not None or user.role != User.ROLE_SUPER_ADMIN:
+            raise ValidationError({"detail": "token_invalid"})
+    else:
+        if user.gym_id is None or str(user.gym_id) != str(tenant.id):
+            raise ValidationError({"detail": "token_invalid"})
+
+    if auth_token.used_at is not None:
+        raise ValidationError({"detail": "token_invalid"})
+
+    now = timezone.now()
+    if auth_token.expires_at <= now:
+        raise ValidationError({"detail": "token_expired"})
+
+    if not new_password or not isinstance(new_password, str):
+        raise ValidationError({"new_password": ["This field may not be blank."]})
+
+    try:
+        validate_password(new_password, user=user)
+    except ValidationError as exc:
+        raise ValidationError({"new_password": list(exc.messages)})
+
+    with transaction.atomic():
+        now_consume = timezone.now()
+        rows_updated = AuthToken.objects.filter(
+            pk=auth_token.pk,
+            used_at__isnull=True,
+            expires_at__gt=now_consume,
+        ).update(used_at=now_consume)
+
+        if rows_updated == 0:
+            raise ValidationError({"detail": "token_invalid"})
+
+        user.set_password(new_password)
+        user.must_change_password = False
+        user.failed_login_count = 0
+        user.locked_until = None
+        if not user.email_verified_at:
+            user.email_verified_at = now_consume
+        user.save(
+            update_fields=[
+                "password",
+                "password_changed_at",
+                "must_change_password",
+                "failed_login_count",
+                "locked_until",
+                "email_verified_at",
+            ]
+        )
+
+        # Mark all other unused invite tokens for this user as used
+        AuthToken.objects.filter(
+            user=user,
+            purpose=AuthToken.PURPOSE_INVITE,
+            used_at__isnull=True,
+        ).exclude(pk=auth_token.pk).update(used_at=now_consume)
+
+    return {"detail": "password_set_complete"}

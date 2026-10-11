@@ -200,3 +200,16 @@ class PasswordResetConfirmResponseSerializer(serializers.Serializer):
     """Response returned upon successful password reset completion."""
 
     detail = serializers.CharField()
+
+
+class SetPasswordFromInviteRequestSerializer(serializers.Serializer):
+    """Payload for setting initial password from an invite token."""
+
+    token = serializers.CharField(required=True)
+    new_password = serializers.CharField(required=True, write_only=True)
+
+
+class SetPasswordFromInviteResponseSerializer(serializers.Serializer):
+    """Response returned upon successful invite password completion."""
+
+    detail = serializers.CharField()

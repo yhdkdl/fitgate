@@ -236,6 +236,37 @@ paths:
           description: ''
         '401':
           description: Invalid or expired refresh token
+  /api/auth/set-password/:
+    post:
+      operationId: auth_set_password_create
+      description: Consumes a single-use invite token and sets initial password for
+        an invited user.
+      summary: Set password from invite
+      tags:
+      - auth
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SetPasswordFromInviteRequestRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/SetPasswordFromInviteRequestRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/SetPasswordFromInviteRequestRequest'
+        required: true
+      security:
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SetPasswordFromInviteResponse'
+          description: ''
+        '400':
+          description: Invalid or expired token, or weak password
   /api/health/:
     get:
       operationId: health_retrieve
@@ -251,6 +282,125 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HealthCheckResponse'
+          description: ''
+  /api/platform/gyms/:
+    get:
+      operationId: platform_gyms_list
+      description: Lists all gym tenants on the platform for Super Admin.
+      summary: List gym tenants
+      tags:
+      - platform
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/GymTenantSummary'
+          description: ''
+    post:
+      operationId: platform_gyms_create
+      description: Super Admin creates an active gym tenant, records bank transfer
+        payment, and provisions subdomain.
+      summary: Create gym tenant
+      tags:
+      - platform
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateGymRequestRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/CreateGymRequestRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/CreateGymRequestRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreateGymResponse'
+          description: ''
+        '400':
+          description: Validation error
+        '403':
+          description: Forbidden
+  /api/platform/gyms/{gym_id}/:
+    get:
+      operationId: platform_gyms_retrieve
+      description: Retrieves a specific gym tenant and its configuration.
+      summary: Get gym tenant details
+      parameters:
+      - in: path
+        name: gym_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - platform
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GymDetailResponse'
+          description: ''
+        '404':
+          description: Not found
+  /api/platform/gyms/{gym_id}/confirm-tls/:
+    post:
+      operationId: platform_gyms_confirm_tls_create
+      description: Confirms subdomain TLS certificate, activating login access and
+        establishing subscription expiry.
+      summary: Confirm gym TLS certificate
+      parameters:
+      - in: path
+        name: gym_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - platform
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmTLSResponse'
+          description: ''
+        '400':
+          description: Gym not found
+        '403':
+          description: Forbidden
+  /api/platform/gyms/propose-subdomain/:
+    get:
+      operationId: platform_gyms_propose_subdomain_retrieve
+      description: Generates a sanitized DNS label candidate for a proposed gym name.
+      summary: Propose candidate subdomain
+      tags:
+      - platform
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProposeSubdomainResponse'
           description: ''
   /api/platform/super-admins/:
     post:
@@ -316,6 +466,103 @@ components:
       - access
       - refresh
       - user
+    ConfirmTLSResponse:
+      type: object
+      description: Response returned upon TLS certificate confirmation.
+      properties:
+        gym:
+          $ref: '#/components/schemas/GymTenantSummary'
+        message:
+          type: string
+      required:
+      - gym
+      - message
+    CreateGymRequestRequest:
+      type: object
+      description: Payload for Super Admin gym creation.
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 150
+        subdomain:
+          type: string
+          minLength: 1
+          maxLength: 63
+        tier:
+          $ref: '#/components/schemas/TierEnum'
+        location:
+          type: string
+          default: ''
+          maxLength: 255
+        contact_name:
+          type: string
+          default: ''
+          maxLength: 150
+        contact_phone:
+          type: string
+          default: ''
+          maxLength: 20
+        contact_email:
+          oneOf:
+          - type: string
+            format: email
+            default: ''
+          - type: string
+            maxLength: 0
+        owner_name:
+          type: string
+          default: ''
+          maxLength: 150
+        owner_email:
+          type: string
+          format: email
+          minLength: 1
+        payment_amount:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,10}(?:\.\d{0,2})?$
+        payment_reference:
+          type: string
+          minLength: 1
+          maxLength: 100
+        payment_method:
+          type: string
+          minLength: 1
+          default: bank_transfer
+          maxLength: 30
+        demo_request_id:
+          type: string
+          nullable: true
+          maxLength: 100
+      required:
+      - name
+      - owner_email
+      - payment_amount
+      - payment_reference
+      - subdomain
+      - tier
+    CreateGymResponse:
+      type: object
+      description: Response returned upon successful gym tenant creation.
+      properties:
+        gym:
+          $ref: '#/components/schemas/GymTenantSummary'
+        config:
+          $ref: '#/components/schemas/GymConfig'
+        owner:
+          $ref: '#/components/schemas/UserSummary'
+        payment_id:
+          type: string
+          format: uuid
+        invite_link:
+          type: string
+      required:
+      - config
+      - gym
+      - invite_link
+      - owner
+      - payment_id
     CreateSuperAdminRequestRequest:
       type: object
       description: Payload for creating an additional Super Admin account.
@@ -336,6 +583,126 @@ components:
       - current_password
       - email
       - password
+    GymConfig:
+      type: object
+      description: Feature gating and configuration settings of a gym.
+      properties:
+        has_trainer_module:
+          type: boolean
+          readOnly: true
+        has_ai_plans:
+          type: boolean
+          readOnly: true
+        has_analytics:
+          type: boolean
+          readOnly: true
+        has_group_classes:
+          type: boolean
+          readOnly: true
+        has_multi_branch:
+          type: boolean
+          readOnly: true
+        freeze_days_allowed:
+          type: integer
+          readOnly: true
+        payment_grace_days:
+          type: integer
+          readOnly: true
+        subscription_reminder_days:
+          readOnly: true
+        member_reminder_days:
+          readOnly: true
+      required:
+      - freeze_days_allowed
+      - has_ai_plans
+      - has_analytics
+      - has_group_classes
+      - has_multi_branch
+      - has_trainer_module
+      - member_reminder_days
+      - payment_grace_days
+      - subscription_reminder_days
+    GymDetailResponse:
+      type: object
+      properties:
+        gym:
+          $ref: '#/components/schemas/GymTenantSummary'
+        config:
+          $ref: '#/components/schemas/GymConfig'
+      required:
+      - config
+      - gym
+    GymTenantSummary:
+      type: object
+      description: Summary of a gym tenant.
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        name:
+          type: string
+          readOnly: true
+        subdomain:
+          type: string
+          readOnly: true
+        status:
+          allOf:
+          - $ref: '#/components/schemas/StatusEnum'
+          readOnly: true
+        tier:
+          allOf:
+          - $ref: '#/components/schemas/TierEnum'
+          readOnly: true
+        currency:
+          type: string
+          readOnly: true
+        location:
+          type: string
+          readOnly: true
+        contact_name:
+          type: string
+          readOnly: true
+        contact_phone:
+          type: string
+          readOnly: true
+        contact_email:
+          type: string
+          format: email
+          readOnly: true
+        subscription_expires_at:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+        tls_confirmed_at:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - contact_email
+      - contact_name
+      - contact_phone
+      - created_at
+      - currency
+      - id
+      - location
+      - name
+      - status
+      - subdomain
+      - subscription_expires_at
+      - tier
+      - tls_confirmed_at
+      - updated_at
     HealthCheckResponse:
       type: object
       properties:
@@ -437,6 +804,14 @@ components:
         phone:
           type: string
           maxLength: 20
+    ProposeSubdomainResponse:
+      type: object
+      description: Response containing proposed candidate subdomain.
+      properties:
+        subdomain:
+          type: string
+      required:
+      - subdomain
     RoleEnum:
       enum:
       - super_admin
@@ -453,6 +828,40 @@ components:
         * `trainer` - Trainer
         * `reception` - Reception
         * `member` - Member
+    SetPasswordFromInviteRequestRequest:
+      type: object
+      description: Payload for setting initial password from an invite token.
+      properties:
+        token:
+          type: string
+          minLength: 1
+        new_password:
+          type: string
+          writeOnly: true
+          minLength: 1
+      required:
+      - new_password
+      - token
+    SetPasswordFromInviteResponse:
+      type: object
+      description: Response returned upon successful invite password completion.
+      properties:
+        detail:
+          type: string
+      required:
+      - detail
+    StatusEnum:
+      enum:
+      - pending
+      - active
+      - suspended
+      - terminated
+      type: string
+      description: |-
+        * `pending` - Pending
+        * `active` - Active
+        * `suspended` - Suspended
+        * `terminated` - Terminated
     SuperAdminResponse:
       type: object
       description: Response for created Super Admin.
@@ -482,6 +891,16 @@ components:
       - id
       - must_change_password
       - role
+    TierEnum:
+      enum:
+      - starter
+      - growth
+      - pro
+      type: string
+      description: |-
+        * `starter` - Starter
+        * `growth` - Growth
+        * `pro` - Pro
     TokenRefreshRequestRequest:
       type: object
       description: Payload for token refresh.

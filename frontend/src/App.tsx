@@ -8,6 +8,7 @@ import { ForgotPasswordScreen } from "./screens/ForgotPasswordScreen";
 import { LoginScreen } from "./screens/LoginScreen";
 import { ProfileScreen } from "./screens/ProfileScreen";
 import { ResetPasswordScreen } from "./screens/ResetPasswordScreen";
+import { SetPasswordScreen } from "./screens/SetPasswordScreen";
 
 export const App: React.FC = () => {
   return (
@@ -17,6 +18,7 @@ export const App: React.FC = () => {
         <Route path="/login" element={<LoginScreen />} />
         <Route path="/forgot-password" element={<ForgotPasswordScreen />} />
         <Route path="/reset-password" element={<ResetPasswordScreen />} />
+        <Route path="/set-password" element={<SetPasswordScreen />} />
 
         {/* Forced password change screen (accessible ONLY when must_change_password is true) */}
         <Route

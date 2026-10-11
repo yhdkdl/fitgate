@@ -26,11 +26,23 @@ export const LoginScreen: React.FC = () => {
     try {
       await login({ email, password });
       navigate("/dashboard");
-    } catch {
-      // Every login failure returns the exact same generic message without field hints
-      setErrorMessage(
-        "Invalid email or password. Please check your credentials and try again."
-      );
+    } catch (err: unknown) {
+      const errorObj = err as {
+        response?: { status?: number; data?: { detail?: string } };
+      };
+      if (
+        errorObj.response?.status === 503 &&
+        errorObj.response?.data?.detail === "still_securing"
+      ) {
+        setErrorMessage(
+          "This gym domain is currently being secured with an SSL certificate. Please check back shortly once security verification completes."
+        );
+      } else {
+        // Every other login failure returns the exact same generic message without field hints
+        setErrorMessage(
+          "Invalid email or password. Please check your credentials and try again."
+        );
+      }
     } finally {
       setIsSubmitting(false);
     }

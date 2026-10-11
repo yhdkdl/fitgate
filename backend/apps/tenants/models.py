@@ -80,6 +80,15 @@ class GymTenant(models.Model):
     )
     tier = models.CharField(max_length=20, choices=TIER_CHOICES, default=TIER_STARTER)
     currency = models.CharField(max_length=3, default="ETB")
+    location = models.CharField(max_length=255, blank=True, default="")
+    contact_name = models.CharField(max_length=150, blank=True, default="")
+    contact_phone = models.CharField(max_length=20, blank=True, default="")
+    contact_email = models.EmailField(blank=True, default="")
+    subscription_expires_at = models.DateTimeField(null=True, blank=True)
+    tls_confirmed_at = models.DateTimeField(null=True, blank=True)
+    lapse_flagged_at = models.DateTimeField(null=True, blank=True)
+    suspended_at = models.DateTimeField(null=True, blank=True)
+    is_demo = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -109,6 +118,14 @@ class GymTenant(models.Model):
         return f"{self.name} ({self.subdomain})"
 
 
+def default_subscription_reminder_days():
+    return [14, 7]
+
+
+def default_member_reminder_days():
+    return [7, 2]
+
+
 class GymConfig(models.Model):
     """
     Feature-gating configuration and payment keys for a gym tenant.
@@ -129,6 +146,11 @@ class GymConfig(models.Model):
     has_multi_branch = models.BooleanField(default=False)
     chapa_merchant_id = models.CharField(max_length=100, null=True, blank=True)
     freeze_days_allowed = models.PositiveIntegerField(default=0)
+    payment_grace_days = models.PositiveIntegerField(default=7)
+    subscription_reminder_days = models.JSONField(
+        default=default_subscription_reminder_days
+    )
+    member_reminder_days = models.JSONField(default=default_member_reminder_days)
 
     class Meta:
         verbose_name = "Gym Configuration"
@@ -136,6 +158,49 @@ class GymConfig(models.Model):
 
     def __str__(self):
         return f"Config for {self.gym.name}"
+
+
+def get_tier_defaults(tier: str) -> dict:
+    """Return default GymConfig feature flags and settings for the given tier."""
+    defaults = {
+        "payment_grace_days": 7,
+        "subscription_reminder_days": [14, 7],
+        "member_reminder_days": [7, 2],
+    }
+    if tier == GymTenant.TIER_STARTER:
+        defaults.update(
+            {
+                "has_trainer_module": False,
+                "has_ai_plans": False,
+                "has_analytics": False,
+                "has_group_classes": False,
+                "has_multi_branch": False,
+                "freeze_days_allowed": 0,
+            }
+        )
+    elif tier == GymTenant.TIER_GROWTH:
+        defaults.update(
+            {
+                "has_trainer_module": True,
+                "has_ai_plans": True,
+                "has_analytics": True,
+                "has_group_classes": True,
+                "has_multi_branch": False,
+                "freeze_days_allowed": 30,
+            }
+        )
+    elif tier == GymTenant.TIER_PRO:
+        defaults.update(
+            {
+                "has_trainer_module": True,
+                "has_ai_plans": True,
+                "has_analytics": True,
+                "has_group_classes": True,
+                "has_multi_branch": True,
+                "freeze_days_allowed": 60,
+            }
+        )
+    return defaults
 
 
 class TenantAwareModel(models.Model):

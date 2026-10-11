@@ -60,6 +60,7 @@ INSTALLED_APPS = [
     # FitGate apps
     "apps.tenants.apps.TenantsConfig",
     "apps.accounts.apps.AccountsConfig",
+    "apps.payments.apps.PaymentsConfig",
 ]
 
 
