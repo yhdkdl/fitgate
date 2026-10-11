@@ -10,7 +10,7 @@
 
 ## Current
 
-- Sprint 3a: Frontend shell and auth screens (not started)
+- Sprint 3a: Frontend shell and auth screens (in progress)
 
 ## Next
 
