@@ -9,13 +9,15 @@ import { LoginScreen } from "./screens/LoginScreen";
 import { ProfileScreen } from "./screens/ProfileScreen";
 import { ResetPasswordScreen } from "./screens/ResetPasswordScreen";
 import { SetPasswordScreen } from "./screens/SetPasswordScreen";
+import { RequestDemoScreen } from "./screens/RequestDemoScreen";
 
 export const App: React.FC = () => {
   return (
     <AuthProvider>
       <Routes>
-        {/* Public auth screens */}
+        {/* Public auth and marketing screens */}
         <Route path="/login" element={<LoginScreen />} />
+        <Route path="/request-demo" element={<RequestDemoScreen />} />
         <Route path="/forgot-password" element={<ForgotPasswordScreen />} />
         <Route path="/reset-password" element={<ResetPasswordScreen />} />
         <Route path="/set-password" element={<SetPasswordScreen />} />

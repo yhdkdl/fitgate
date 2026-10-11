@@ -101,3 +101,33 @@ def send_owner_welcome_email(owner, gym, invite_link: str) -> None:
         recipient_list=[owner.email],
         fail_silently=False,
     )
+
+
+def notify_demo_request_received(demo_request) -> None:
+    """
+    Create a platform-level notification for all active Super Admins upon receiving a new demo request.
+
+    Also logs the new request for platform visibility.
+    """
+    from apps.accounts.models import Notification, User
+
+    super_admins = User.all_objects.filter(
+        role=User.ROLE_SUPER_ADMIN,
+        is_active=True,
+    )
+    for admin_user in super_admins:
+        Notification.objects.create(
+            recipient=admin_user,
+            gym=None,
+            type="demo_request",
+            message=(
+                f"New demo request from '{demo_request.gym_name}' "
+                f"(Contact: {demo_request.contact_name}, Phone: {demo_request.phone})"
+            ),
+        )
+
+    logger.info(
+        "Platform notification created for demo request from gym '%s' (%s)",
+        demo_request.gym_name,
+        demo_request.phone,
+    )

@@ -1,9 +1,13 @@
-import React from "react";
+import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Badge } from "../components/ui/Badge";
 import { Button } from "../components/ui/Button";
 import { Card } from "../components/ui/Card";
-import { GymManagementSection } from "../components/superadmin/GymManagementSection";
+import {
+  GymManagementSection,
+  type GymPrefillData,
+} from "../components/superadmin/GymManagementSection";
+import { DemoRequestSection } from "../components/superadmin/DemoRequestSection";
 import { useAuth } from "../context/AuthContext";
 import { getTenantFromHostname } from "../utils/tenant";
 
@@ -11,6 +15,11 @@ export const DashboardScreen: React.FC = () => {
   const { user, dashboardConfig, logout } = useAuth();
   const navigate = useNavigate();
   const tenant = getTenantFromHostname();
+
+  const [adminTab, setAdminTab] = useState<"gyms" | "leads">("gyms");
+  const [prefillGymData, setPrefillGymData] = useState<GymPrefillData | null>(
+    null
+  );
 
   const handleLogout = async () => {
     await logout();
@@ -123,8 +132,47 @@ export const DashboardScreen: React.FC = () => {
             </div>
           </div>
 
-          {/* Super Admin Gym Management */}
-          {user?.role === "super_admin" && <GymManagementSection />}
+          {/* Super Admin Platform Hub */}
+          {user?.role === "super_admin" && (
+            <div className="space-y-6">
+              <div className="flex items-center gap-2 border-b border-border pb-2">
+                <button
+                  onClick={() => setAdminTab("gyms")}
+                  className={`px-4 py-2 text-sm font-semibold rounded-lg transition-colors ${
+                    adminTab === "gyms"
+                      ? "bg-primary text-white shadow-sm"
+                      : "text-text-muted hover:text-text hover:bg-surface-2"
+                  }`}
+                >
+                  Gym Tenants
+                </button>
+                <button
+                  onClick={() => setAdminTab("leads")}
+                  className={`px-4 py-2 text-sm font-semibold rounded-lg transition-colors ${
+                    adminTab === "leads"
+                      ? "bg-primary text-white shadow-sm"
+                      : "text-text-muted hover:text-text hover:bg-surface-2"
+                  }`}
+                >
+                  Demo Requests & Leads
+                </button>
+              </div>
+
+              {adminTab === "gyms" ? (
+                <GymManagementSection
+                  prefillData={prefillGymData}
+                  onClearPrefill={() => setPrefillGymData(null)}
+                />
+              ) : (
+                <DemoRequestSection
+                  onConvertToGym={(data) => {
+                    setPrefillGymData(data);
+                    setAdminTab("gyms");
+                  }}
+                />
+              )}
+            </div>
+          )}
 
           {/* Widgets Grid */}
           <div>

@@ -188,6 +188,90 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/platform/demo-requests/": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * List demo requests
+     * @description Super Admin endpoint to view and filter demo request leads.
+     */
+    get: operations["platform_demo_requests_list"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/platform/demo-requests/{id}/": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Get demo request detail
+     * @description Super Admin endpoint to retrieve and update demo request status/notes.
+     */
+    get: operations["platform_demo_requests_retrieve"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    /**
+     * Update demo request status or notes
+     * @description Super Admin endpoint to retrieve and update demo request status/notes.
+     */
+    patch: operations["platform_demo_requests_partial_update"];
+    trace?: never;
+  };
+  "/api/platform/demo-requests/{id}/convert/": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Convert demo request to gym form data
+     * @description Super Admin endpoint returning pre-filled data to convert a lead to a gym.
+     */
+    get: operations["platform_demo_requests_convert_retrieve"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/platform/demo-requests/public/": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Submit demo request
+     * @description Public endpoint to request a demo for a gym. Only accepted on the apex domain.
+     */
+    post: operations["platform_demo_requests_public_create"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/platform/gyms/": {
     parameters: {
       query?: never;
@@ -351,6 +435,51 @@ export interface components {
       password: string;
       current_password: string;
     };
+    /** @description Serializer for Super Admin lead management. */
+    DemoRequest: {
+      /** Format: uuid */
+      readonly id: string;
+      readonly gym_name: string;
+      readonly contact_name: string;
+      readonly phone: string;
+      readonly city: string;
+      /** Format: email */
+      readonly email: string;
+      readonly message: string;
+      status?: components["schemas"]["DemoRequestStatusEnum"];
+      notes?: string;
+      /** Format: uuid */
+      readonly handled_by: string | null;
+      readonly handled_by_email: string | null;
+      /** Format: uuid */
+      readonly converted_gym: string | null;
+      readonly converted_gym_subdomain: string | null;
+      /** Format: date-time */
+      readonly created_at: string;
+      /** Format: date-time */
+      readonly updated_at: string;
+    };
+    /** @description Data returned to pre-fill the Create Gym form from a demo request. */
+    DemoRequestConvertResponse: {
+      /** Format: uuid */
+      demo_request_id: string;
+      name: string;
+      contact_name: string;
+      contact_phone: string;
+      /** Format: email */
+      contact_email: string;
+      location: string;
+    };
+    /**
+     * @description * `new` - New
+     *     * `contacted` - Contacted
+     *     * `demo_done` - Demo Done
+     *     * `converted` - Converted
+     *     * `lost` - Lost
+     * @enum {string}
+     */
+    DemoRequestStatusEnum:
+      "new" | "contacted" | "demo_done" | "converted" | "lost";
     /** @description Feature gating and configuration settings of a gym. */
     GymConfig: {
       readonly has_trainer_module: boolean;
@@ -367,13 +496,21 @@ export interface components {
       gym: components["schemas"]["GymTenantSummary"];
       config: components["schemas"]["GymConfig"];
     };
+    /**
+     * @description * `pending` - Pending
+     *     * `active` - Active
+     *     * `suspended` - Suspended
+     *     * `terminated` - Terminated
+     * @enum {string}
+     */
+    GymStatusEnum: "pending" | "active" | "suspended" | "terminated";
     /** @description Summary of a gym tenant. */
     GymTenantSummary: {
       /** Format: uuid */
       readonly id: string;
       readonly name: string;
       readonly subdomain: string;
-      readonly status: components["schemas"]["StatusEnum"];
+      readonly status: components["schemas"]["GymStatusEnum"];
       readonly tier: components["schemas"]["TierEnum"];
       readonly currency: string;
       readonly location: string;
@@ -433,6 +570,11 @@ export interface components {
     PasswordResetResponse: {
       detail: string;
     };
+    /** @description Serializer for updating status and internal notes on a demo request. */
+    PatchedDemoRequestUpdateRequest: {
+      status?: components["schemas"]["DemoRequestStatusEnum"];
+      notes?: string;
+    };
     /** @description Payload for updating user profile (full_name and phone only). */
     PatchedUserProfileUpdateRequest: {
       full_name?: string;
@@ -441,6 +583,23 @@ export interface components {
     /** @description Response containing proposed candidate subdomain. */
     ProposeSubdomainResponse: {
       subdomain: string;
+    };
+    /** @description Public serializer for lead demo request submissions with honeypot field. */
+    PublicDemoRequestRequest: {
+      gym_name: string;
+      contact_name: string;
+      phone: string;
+      /** @default  */
+      city: string;
+      email?: string;
+      /** @default  */
+      message: string;
+      /** @default  */
+      website: string;
+    };
+    PublicDemoRequestResponse: {
+      detail: string;
+      id?: string;
     };
     /**
      * @description * `super_admin` - Super Admin
@@ -462,14 +621,6 @@ export interface components {
     SetPasswordFromInviteResponse: {
       detail: string;
     };
-    /**
-     * @description * `pending` - Pending
-     *     * `active` - Active
-     *     * `suspended` - Suspended
-     *     * `terminated` - Terminated
-     * @enum {string}
-     */
-    StatusEnum: "pending" | "active" | "suspended" | "terminated";
     /** @description Response for created Super Admin. */
     SuperAdminResponse: {
       /** Format: uuid */
@@ -849,6 +1000,161 @@ export interface operations {
         content: {
           "application/json": components["schemas"]["HealthCheckResponse"];
         };
+      };
+    };
+  };
+  platform_demo_requests_list: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["DemoRequest"][];
+        };
+      };
+    };
+  };
+  platform_demo_requests_retrieve: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["DemoRequest"];
+        };
+      };
+      /** @description Not found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  platform_demo_requests_partial_update: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: {
+      content: {
+        "application/json": components["schemas"]["PatchedDemoRequestUpdateRequest"];
+        "application/x-www-form-urlencoded": components["schemas"]["PatchedDemoRequestUpdateRequest"];
+        "multipart/form-data": components["schemas"]["PatchedDemoRequestUpdateRequest"];
+      };
+    };
+    responses: {
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["DemoRequest"];
+        };
+      };
+      /** @description Bad request */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Not found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  platform_demo_requests_convert_retrieve: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["DemoRequestConvertResponse"];
+        };
+      };
+      /** @description Not found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  platform_demo_requests_public_create: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["PublicDemoRequestRequest"];
+        "application/x-www-form-urlencoded": components["schemas"]["PublicDemoRequestRequest"];
+        "multipart/form-data": components["schemas"]["PublicDemoRequestRequest"];
+      };
+    };
+    responses: {
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["PublicDemoRequestResponse"];
+        };
+      };
+      /** @description Bad request or rejected on subdomain */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Too many requests */
+      429: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
       };
     };
   };

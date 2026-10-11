@@ -135,6 +135,18 @@ MEDIA_ROOT = BASE_DIR / "media"
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
+# Cache configuration (database cache for rate limiting / non-Redis environments)
+CACHES = {
+    "default": {
+        "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+        "LOCATION": "fitgate-default-cache",
+    },
+    "db_cache": {
+        "BACKEND": "django.core.cache.backends.db.DatabaseCache",
+        "LOCATION": "fitgate_cache_table",
+    },
+}
+
 # Django REST Framework
 REST_FRAMEWORK = {
     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
@@ -166,4 +178,9 @@ SPECTACULAR_SETTINGS = {
     "VERSION": "1.0.0",
     "SERVE_INCLUDE_SCHEMA": False,
     "COMPONENT_SPLIT_REQUEST": True,
+    "ENUM_NAME_OVERRIDES": {
+        "GymStatusEnum": "apps.tenants.models.GymTenant.STATUS_CHOICES",
+        "DemoRequestStatusEnum": "apps.tenants.models.DemoRequest.STATUS_CHOICES",
+        "PaymentStatusEnum": "apps.payments.models.Payment.STATUS_CHOICES",
+    },
 }

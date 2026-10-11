@@ -15,13 +15,11 @@ DATABASES = {"default": env.db("DATABASE_URL")}
 # In production on Yegara cPanel, Redis is unconfirmed.
 # If REDIS_URL is provided, use it; otherwise fallback to LocMem or Database cache.
 if "REDIS_URL" in env:
-    CACHES = {"default": env.cache_url("REDIS_URL")}
+    CACHES["default"] = env.cache_url("REDIS_URL")
 else:
-    CACHES = {
-        "default": {
-            "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
-            "LOCATION": "fitgate-prod-cache",
-        }
+    CACHES["default"] = {
+        "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+        "LOCATION": "fitgate-prod-cache",
     }
 
 # HTTPS & Security Headers

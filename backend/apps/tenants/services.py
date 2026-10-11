@@ -229,6 +229,17 @@ def create_gym(
             gym.subdomain,
         )
 
+    # Link demo request if provided (Sprint 4a)
+    if demo_request_id:
+        from apps.tenants.models import DemoRequest
+
+        demo_req = DemoRequest.objects.filter(id=demo_request_id).first()
+        if demo_req:
+            demo_req.status = DemoRequest.STATUS_CONVERTED
+            demo_req.converted_gym = gym
+            demo_req.handled_by = acting_super_admin
+            demo_req.save()
+
     return {
         "gym": gym,
         "config": gym_config,
