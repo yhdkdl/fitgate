@@ -130,7 +130,7 @@ Trainer specialization and photo are delivered in the Trainer and storage sprint
 - Only Super Admin can list requests, filter by status, add notes, and move a request through new → contacted → demo done → converted / lost; other roles get 403.
 - "Convert to gym" returns the data that pre-fills Sprint 4's form; creating the gym with that `demo_request_id` marks the request `converted` and links the new gym.
 
-- [ ] Status: in progress
+- [x] Status: done — merged to develop (PR #13)
 
 4b. **File storage layer** — Cloudinary (Free plan) behind Django's storage interface.
 
