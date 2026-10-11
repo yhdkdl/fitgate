@@ -8,14 +8,15 @@
 - Sprint 2a: Profile and password management (`107a05d9a0aa249376d9871d7346277fe4d9ed81`)
 - Sprint 3: Password reset (`a616d5a5f08fa8e52f338e3cecdf675386009809`)
 - Sprint 3a: Frontend shell and auth screens (`f44a10875c75ff33d0277df5003b145803975073`)
+- Sprint 4: Super Admin "Create gym" (`d760b36`)
 
 ## Current
 
-- Sprint 4: Super Admin "Create gym"
+- Sprint 4a: Demo requests
 
 ## Next
 
-- Sprint 4a: Demo requests
+- Sprint 4b: File storage layer
 
 ## Open manual steps
 
