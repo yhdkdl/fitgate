@@ -1,8 +1,10 @@
 """FitGate URL Configuration."""
 
 from apps.accounts.permissions import DocsPermission
+from django.conf import settings
 from django.contrib import admin
 from django.urls import include, path
+from django.views.static import serve
 from drf_spectacular.utils import extend_schema, inline_serializer
 from drf_spectacular.views import (
     SpectacularAPIView,
@@ -74,5 +76,12 @@ urlpatterns = [
         "api/redoc/",
         FitGateSpectacularRedocView.as_view(url_name="schema"),
         name="redoc",
+    ),
+    # Public assets (logos) serve route - strictly restricted to logos/
+    path(
+        "media/logos/<path:path>",
+        serve,
+        {"document_root": settings.MEDIA_ROOT / "logos"},
+        name="public-logo-serve",
     ),
 ]

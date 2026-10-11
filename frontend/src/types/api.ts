@@ -188,6 +188,66 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/media/gym-logo/{gym_id}/": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Upload gym logo
+     * @description Uploads and optimizes gym logo (public asset). Only accessible by gym Owner or Super Admin.
+     */
+    post: operations["media_gym_logo_create"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/media/member-photos/{gym_id}/": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Upload member photo
+     * @description Validates image format and size (<= 2 MB), strips EXIF, resizes, and saves to gym-scoped authenticated storage.
+     */
+    post: operations["media_member_photos_create"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/media/member-photos/{gym_id}/{filename}/": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Serve authenticated member photo
+     * @description Serves member photo stream only to users belonging to the specified gym or Super Admin.
+     */
+    get: operations["media_member_photos_retrieve"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/platform/demo-requests/": {
     parameters: {
       query?: never;
@@ -647,6 +707,26 @@ export interface components {
     TokenRefreshResponse: {
       access: string;
     };
+    /** @description Upload serializer for gym logo. */
+    UploadGymLogoRequest: {
+      /** Format: binary */
+      logo: string;
+    };
+    /** @description Response returned upon gym logo upload. */
+    UploadGymLogoResponse: {
+      url: string;
+    };
+    /** @description Upload serializer for member photos. */
+    UploadMemberPhotoRequest: {
+      /** Format: binary */
+      photo: string;
+    };
+    /** @description Response returned upon member photo upload. */
+    UploadMemberPhotoResponse: {
+      file_path: string;
+      filename: string;
+      url: string;
+    };
     /** @description Profile representation of authenticated user. */
     UserProfile: {
       /** Format: uuid */
@@ -1000,6 +1080,135 @@ export interface operations {
         content: {
           "application/json": components["schemas"]["HealthCheckResponse"];
         };
+      };
+    };
+  };
+  media_gym_logo_create: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        gym_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "multipart/form-data": components["schemas"]["UploadGymLogoRequest"];
+        "application/x-www-form-urlencoded": components["schemas"]["UploadGymLogoRequest"];
+      };
+    };
+    responses: {
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["UploadGymLogoResponse"];
+        };
+      };
+      /** @description Validation error or missing file */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Forbidden - only Owner or Super Admin permitted */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  media_member_photos_create: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        gym_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "multipart/form-data": components["schemas"]["UploadMemberPhotoRequest"];
+        "application/x-www-form-urlencoded": components["schemas"]["UploadMemberPhotoRequest"];
+      };
+    };
+    responses: {
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["UploadMemberPhotoResponse"];
+        };
+      };
+      /** @description Validation error or missing file */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Forbidden - cross-tenant access denied */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  media_member_photos_retrieve: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        filename: string;
+        gym_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Image WebP stream */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Invalid request or filename format */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Authentication credentials required */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Forbidden - user belongs to different gym */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Photo not found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
       };
     };
   };

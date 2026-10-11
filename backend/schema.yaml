@@ -283,6 +283,113 @@ paths:
               schema:
                 $ref: '#/components/schemas/HealthCheckResponse'
           description: ''
+  /api/media/gym-logo/{gym_id}/:
+    post:
+      operationId: media_gym_logo_create
+      description: Uploads and optimizes gym logo (public asset). Only accessible
+        by gym Owner or Super Admin.
+      summary: Upload gym logo
+      parameters:
+      - in: path
+        name: gym_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - media
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/UploadGymLogoRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/UploadGymLogoRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UploadGymLogoResponse'
+          description: ''
+        '400':
+          description: Validation error or missing file
+        '403':
+          description: Forbidden - only Owner or Super Admin permitted
+  /api/media/member-photos/{gym_id}/:
+    post:
+      operationId: media_member_photos_create
+      description: Validates image format and size (<= 2 MB), strips EXIF, resizes,
+        and saves to gym-scoped authenticated storage.
+      summary: Upload member photo
+      parameters:
+      - in: path
+        name: gym_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - media
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/UploadMemberPhotoRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/UploadMemberPhotoRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UploadMemberPhotoResponse'
+          description: ''
+        '400':
+          description: Validation error or missing file
+        '403':
+          description: Forbidden - cross-tenant access denied
+  /api/media/member-photos/{gym_id}/{filename}/:
+    get:
+      operationId: media_member_photos_retrieve
+      description: Serves member photo stream only to users belonging to the specified
+        gym or Super Admin.
+      summary: Serve authenticated member photo
+      parameters:
+      - in: path
+        name: filename
+        schema:
+          type: string
+        required: true
+      - in: path
+        name: gym_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - media
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: Image WebP stream
+        '400':
+          description: Invalid request or filename format
+        '401':
+          description: Authentication credentials required
+        '403':
+          description: Forbidden - user belongs to different gym
+        '404':
+          description: Photo not found
   /api/platform/demo-requests/:
     get:
       operationId: platform_demo_requests_list
@@ -1223,6 +1330,46 @@ components:
           type: string
       required:
       - access
+    UploadGymLogoRequest:
+      type: object
+      description: Upload serializer for gym logo.
+      properties:
+        logo:
+          type: string
+          format: binary
+      required:
+      - logo
+    UploadGymLogoResponse:
+      type: object
+      description: Response returned upon gym logo upload.
+      properties:
+        url:
+          type: string
+      required:
+      - url
+    UploadMemberPhotoRequest:
+      type: object
+      description: Upload serializer for member photos.
+      properties:
+        photo:
+          type: string
+          format: binary
+      required:
+      - photo
+    UploadMemberPhotoResponse:
+      type: object
+      description: Response returned upon member photo upload.
+      properties:
+        file_path:
+          type: string
+        filename:
+          type: string
+        url:
+          type: string
+      required:
+      - file_path
+      - filename
+      - url
     UserProfile:
       type: object
       description: Profile representation of authenticated user.

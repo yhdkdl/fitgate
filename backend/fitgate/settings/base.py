@@ -133,6 +133,12 @@ STATIC_ROOT = BASE_DIR / "staticfiles"
 MEDIA_URL = "media/"
 MEDIA_ROOT = BASE_DIR / "media"
 
+# Cloudinary / File Storage settings (Sprint 4b)
+CLOUDINARY_CLOUD_NAME = env.str("CLOUDINARY_CLOUD_NAME", default="")
+CLOUDINARY_API_KEY = env.str("CLOUDINARY_API_KEY", default="")
+CLOUDINARY_API_SECRET = env.str("CLOUDINARY_API_SECRET", default="")
+MAX_UPLOAD_SIZE_BYTES = 2 * 1024 * 1024  # 2 MB limit per SPEC §4b
+
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 # Cache configuration (database cache for rate limiting / non-Redis environments)
