@@ -39,7 +39,7 @@ def notify_account_locked(user) -> None:
                 f"locked following {user.failed_login_count} consecutive failed login attempts.\n"
                 f"The lockout will expire at {user.locked_until}.\n"
             ),
-            from_email=getattr(settings, "DEFAULT_FROM_EMAIL", "noreply@fitgate.org"),
+            from_email=settings.DEFAULT_FROM_EMAIL,
             recipient_list=[owner.email],
             fail_silently=False,
         )
@@ -73,7 +73,7 @@ def send_password_reset_email(user, link: str) -> None:
     send_mail(
         subject=subject,
         message=message,
-        from_email=getattr(settings, "DEFAULT_FROM_EMAIL", "noreply@fitgate.org"),
+        from_email=settings.DEFAULT_FROM_EMAIL,
         recipient_list=[user.email],
         fail_silently=False,
     )

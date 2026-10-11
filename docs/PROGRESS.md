@@ -7,18 +7,22 @@
 - Sprint 2: Custom User model + JWT auth + platform-level base class (`abc0efe2d55aa31d504d70df08cb6f965fe737dd`)
 - Sprint 2a: Profile and password management (`107a05d9a0aa249376d9871d7346277fe4d9ed81`)
 - Sprint 3: Password reset (`a616d5a5f08fa8e52f338e3cecdf675386009809`)
+- Sprint 3a: Frontend shell and auth screens (`f44a10875c75ff33d0277df5003b145803975073`)
 
 ## Current
 
-- Sprint 3a: Frontend shell and auth screens (not started)
+- Sprint 4: Super Admin "Create gym"
 
 ## Next
 
-- Sprint 4: Super Admin "Create gym"
+- Sprint 4a: Demo requests
 
 ## Open manual steps
 
-- none yet
+- Sprint 4: cPanel UAPI token & subdomain provisioning (fallback: mock UAPI client; not verified against real service)
+- Sprints 4, 6, 7: Production SMTP mailbox (fallback: console email backend; not verified against real service)
+- Sprints 4b, 7: Cloudinary credentials (fallback: local filesystem storage; not verified against real service)
+- Sprint 8: QR asymmetric signing key pair (fallback: dev key generator / test fixture; not verified against real service)
 
 ## Deviations
 

@@ -102,11 +102,11 @@ Trainer specialization and photo are delivered in the Trainer and storage sprint
    - At most one reset email per user per PASSWORD_RESET_COOLDOWN_SECONDS (silent).
    - Known follow-up: the request endpoint's response time differs slightly when an email is sent (no job queue yet).
 
-   - [~] Status: in progress
+   - [x] Status: done — merged to develop (PR #9)
 
 3a. **Frontend shell and auth screens** - Vite React app shell with Tailwind and the tokens from docs/DESIGN.md, React Router, TanStack Query, API client built on the generated TypeScript types. - Dev proxy forwards the ORIGINAL Host header so tenant resolution works at `<gym>.localhost:5173` as well as `localhost:5173`; Vite allows `*.localhost` hosts. - Login screen (apex for Super Admin, gym subdomain for gym users); every failure shows the same generic message; no field-level hints about what was wrong. - Token handling: access token in memory, refresh token handling chosen and documented (explain the choice and the risk in the PR); one in-flight refresh at a time; on refresh failure the user is sent to login; logout calls the logout endpoint. - Forced change-password screen when `must_change_password` is true; every other route is blocked until done. - Forgot-password and reset-password screens; the reset page reads the token from the URL and removes it from the address bar immediately (`history.replaceState`). - Profile page: edit name and phone, change password. - Role dashboard shell: navigation and placeholder cards driven by the login response's dashboard config; protected-route guard by role. - Tests (Vitest + React Testing Library): login success and failure, forced password change, route guard, refresh interceptor, reset-token removal from the URL. Lint and prettier clean. Usable at 320px. - "You can now test": log in as Super Admin at localhost, change the forced password, edit profile, log out, run the forgot-password flow reading the link from the backend logs.
 
-    - [ ] Status: not started
+    - [x] Status: done — merged to develop (PR #11)
 
 4. **Super Admin "Create gym"** — gym creation after payment, subdomain provisioning via cPanel UAPI, Owner creation, welcome message.
 
@@ -167,9 +167,9 @@ Trainer specialization and photo are delivered in the Trainer and storage sprint
    - `Attendance` rows exist only for actual check-ins. An attendance-log endpoint returns ✓/✗ per day for a date range, derived from check-ins and the subscription period (days outside the period are blank).
    - Performance: scan validation plus attendance recording completes in under 2 seconds against a seeded dataset of 10,000 members.
 
-9. **Audit log foundation** — `AuditLog` model + logging utility wired into 1–8; restricted DB role (INSERT/SELECT only).
+9. **Audit log foundation** — `AuditLog` model + logging utility wired into 1–8; database triggers for immutability (BEFORE UPDATE, DELETE, TRUNCATE raise exception).
    - Every action from sprints 1–8 produces exactly one `AuditLog` row with the correct `actor_id`, `action_type` and affected record, including logout, Super Admin creation, and gym creation (platform-level rows have `gym_id` null).
-   - An `UPDATE` or `DELETE` against the audit table using the application's own DB role fails at the database level — tested directly.
+   - An `UPDATE`, `DELETE`, or `TRUNCATE` against the audit table fails at the database level via PostgreSQL triggers — tested directly with raw SQL through the application connection.
 
 9a. **Audit log viewer**
 
@@ -424,4 +424,3 @@ _Not in the original source document — added by direct decision with the proje
 - Access tokens stay valid until expiry after logout; the token blacklist table needs a periodic cleanup (flushexpiredtokens) in the Sprint 38 cron setup.
 - Purge expired AuthToken rows with a management command in the Sprint 38 cron setup.
 - Sprint 1a (GitHub Actions CI) was proposed and skipped to save time; revisit before final submission. (The "every view declares permissions" contract test already exists from Sprint 2.)
-- notifications.py hardcodes a fallback From address; define DEFAULT_FROM_EMAIL from the environment instead (fixed in Sprint 3a).
