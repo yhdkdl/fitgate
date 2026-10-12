@@ -7,6 +7,7 @@ from unittest.mock import patch
 import pytest
 from django.core import mail
 from django.core.exceptions import ValidationError
+from django.urls import reverse
 from django.utils import timezone
 from rest_framework.exceptions import PermissionDenied
 from rest_framework.test import APIClient
@@ -14,6 +15,7 @@ from rest_framework.test import APIClient
 from apps.accounts.models import AuthToken, User
 from apps.accounts.tokens import get_tokens_for_user
 from apps.payments.models import Payment
+from apps.tenants.context import get_current_tenant
 from apps.tenants.models import GymConfig, GymTenant
 from apps.tenants.services import (
     confirm_gym_tls,
@@ -371,24 +373,35 @@ class TestCreateGymSuite:
 
         client = APIClient()
 
+        # Real route names via reverse()
+        login_url = reverse("auth-login")
+        refresh_url = reverse("auth-refresh")
+        logout_url = reverse("auth-logout")
+        set_pwd_url = reverse("auth-set-password")
+        pwd_reset_url = reverse("auth-password-reset")
+        pwd_reset_confirm_url = reverse("auth-password-reset-confirm")
+        me_url = reverse("user-profile")
+        entry_url = reverse("public-gym-entry")
+        health_url = reverse("health-check")
+
         # 1. Auth entry points on unconfirmed host -> 503 still_securing
         auth_calls = [
             (
                 "post",
-                "/api/auth/login/",
+                login_url,
                 {"email": owner.email, "password": "Password123!"},
             ),
-            ("post", "/api/auth/refresh/", {"refresh": "dummy.refresh.token"}),
-            ("post", "/api/auth/logout/", {"refresh": "dummy.refresh.token"}),
+            ("post", refresh_url, {"refresh": "dummy.refresh.token"}),
+            ("post", logout_url, {"refresh": "dummy.refresh.token"}),
             (
                 "post",
-                "/api/auth/set-password/",
+                set_pwd_url,
                 {"token": raw_invite, "new_password": "Password123!"},
             ),
-            ("post", "/api/auth/password-reset/", {"email": owner.email}),
+            ("post", pwd_reset_url, {"email": owner.email}),
             (
                 "post",
-                "/api/auth/password-reset/confirm/",
+                pwd_reset_confirm_url,
                 {"token": "dummy", "new_password": "Password123!"},
             ),
         ]
@@ -404,46 +417,135 @@ class TestCreateGymSuite:
         # Protected endpoint with valid token on unconfirmed host -> 503
         owner_tokens = get_tokens_for_user(owner)
         client.credentials(HTTP_AUTHORIZATION=f"Bearer {owner_tokens['access']}")
-        resp_protected = client.get("/api/auth/me/", HTTP_HOST=subdomain_host)
+        resp_protected = client.get(me_url, HTTP_HOST=subdomain_host)
         assert resp_protected.status_code == 503
         assert resp_protected.json()["detail"] == "still_securing"
         client.credentials()  # clear credentials
 
         # 2. Public entry page on unconfirmed host reports still_securing
-        resp_entry = client.get("/api/public/gym-entry/", HTTP_HOST=subdomain_host)
+        resp_entry = client.get(entry_url, HTTP_HOST=subdomain_host)
         assert resp_entry.status_code == 503
         assert resp_entry.json()["still_securing"] is True
 
         # 3. Health check on unconfirmed host returns 200
-        resp_health = client.get("/api/health/", HTTP_HOST=subdomain_host)
+        resp_health = client.get(health_url, HTTP_HOST=subdomain_host)
         assert resp_health.status_code == 200
 
         # 4. Super Admin at apex (localhost) is completely unaffected
         admin_tokens = get_tokens_for_user(super_admin)
         client.credentials(HTTP_AUTHORIZATION=f"Bearer {admin_tokens['access']}")
-        resp_admin_apex = client.get("/api/platform/gyms/", HTTP_HOST="localhost")
+        resp_admin_apex = client.get(reverse("platform-gyms"), HTTP_HOST="localhost")
         assert resp_admin_apex.status_code == 200
         client.credentials()
 
         # 5. Confirm TLS -> all endpoints unlocked
         confirm_gym_tls(gym.id, acting_super_admin=super_admin)
 
+        # Control: After confirm-tls, set-password succeeds and returns neither 503 nor 404
         resp_set_pwd = client.post(
-            "/api/auth/set-password/",
+            set_pwd_url,
             {"token": raw_invite, "new_password": "NewOwnerPassword123!"},
             format="json",
             HTTP_HOST=subdomain_host,
         )
         assert resp_set_pwd.status_code == 200
 
+        # Login now succeeds with the newly set password
         resp_login = client.post(
-            "/api/auth/login/",
+            login_url,
             {"email": owner.email, "password": "NewOwnerPassword123!"},
             format="json",
             HTTP_HOST=subdomain_host,
         )
         assert resp_login.status_code == 200
         assert "access" in resp_login.json()
+
+        # The other real paths return neither 503 nor 404 on confirmed host
+        other_control_calls = [
+            ("post", refresh_url, {"refresh": "dummy.refresh.token"}),
+            ("post", logout_url, {"refresh": "dummy.refresh.token"}),
+            ("post", pwd_reset_url, {"email": owner.email}),
+            (
+                "post",
+                pwd_reset_confirm_url,
+                {"token": "dummy", "new_password": "Password123!"},
+            ),
+        ]
+        for method, endpoint, payload in other_control_calls:
+            resp = getattr(client, method)(
+                endpoint, payload, format="json", HTTP_HOST=subdomain_host
+            )
+            assert resp.status_code not in (
+                503,
+                404,
+            ), f"{endpoint} unexpectedly returned {resp.status_code}"
+
+        resp_me_unlocked = client.get(me_url, HTTP_HOST=subdomain_host)
+        assert resp_me_unlocked.status_code not in (503, 404)
+
+        resp_entry_unlocked = client.get(entry_url, HTTP_HOST=subdomain_host)
+        assert resp_entry_unlocked.status_code == 200
+        assert resp_entry_unlocked.json()["still_securing"] is False
+
+    def test_safeguard_503_leaves_no_context_leak_and_subsequent_request_resolves_tenant(
+        self, super_admin, mock_uapi
+    ):
+        """
+        B1 Context Leak Test:
+        After a 503 from the middleware on an unconfirmed gym host:
+        - get_current_tenant() is None (no context leak).
+        - A normal request afterwards on another host resolves its own tenant.
+        """
+        create_gym(
+            name="Unconf Leak Test",
+            subdomain="unconf-leak",
+            tier=GymTenant.TIER_STARTER,
+            owner_email="owner@leak.com",
+            payment_amount=Decimal("12000.00"),
+            payment_reference="REF-LEAK-1",
+            acting_super_admin=super_admin,
+            uapi_client=mock_uapi,
+        )
+
+        result_conf = create_gym(
+            name="Confirmed Gym",
+            subdomain="conf-resolved",
+            tier=GymTenant.TIER_STARTER,
+            owner_email="owner@conf.com",
+            payment_amount=Decimal("12000.00"),
+            payment_reference="REF-CONF-1",
+            acting_super_admin=super_admin,
+            uapi_client=mock_uapi,
+        )
+        gym_conf = result_conf["gym"]
+        confirm_gym_tls(gym_conf.id, acting_super_admin=super_admin)
+
+        client = APIClient()
+
+        # 1. Hit unconfirmed gym host -> 503
+        resp_503 = client.post(
+            reverse("auth-login"),
+            {"email": "owner@leak.com", "password": "Password123!"},
+            format="json",
+            HTTP_HOST="unconf-leak.localhost",
+        )
+        assert resp_503.status_code == 503
+        assert resp_503.json()["detail"] == "still_securing"
+
+        # Thread-local / context tenant must be None
+        assert get_current_tenant() is None
+
+        # 2. Subsequent request on another confirmed host resolves its own tenant
+        resp_conf = client.get(
+            reverse("public-gym-entry"),
+            HTTP_HOST="conf-resolved.localhost",
+        )
+        assert resp_conf.status_code == 200
+        assert resp_conf.json()["subdomain"] == "conf-resolved"
+        assert resp_conf.json()["still_securing"] is False
+
+        # Context tenant is clean afterwards
+        assert get_current_tenant() is None
 
     def test_cpanel_uapi_error_returns_502_and_rolls_back(self, super_admin):
         """

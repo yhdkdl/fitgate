@@ -470,25 +470,13 @@ class ServeMemberPhotoView(APIView):
             )
 
         role = getattr(request.user, "role", None)
-        if role == User.ROLE_MEMBER:
-            own_photo = getattr(request.user, "photo", "") or ""
-            is_own = (
-                own_photo
-                and (
-                    filename == own_photo
-                    or filename in own_photo
-                    or own_photo in filename
-                )
-            ) or str(request.user.id) in filename
-            if not is_own:
-                raise PermissionDenied("Members may only access their own photo.")
-        elif role not in (
+        if role not in (
             User.ROLE_OWNER,
             User.ROLE_MANAGER,
             User.ROLE_TRAINER,
             User.ROLE_RECEPTION,
         ):
-            raise PermissionDenied("You do not have permission to view member photos.")
+            raise PermissionDenied("Only gym staff may view member photos.")
 
         try:
             stream, content_type = get_authenticated_photo_stream(gym_id, filename)
@@ -537,7 +525,7 @@ class UploadMemberPhotoView(APIView):
             User.ROLE_TRAINER,
             User.ROLE_RECEPTION,
         ):
-            raise PermissionDenied("Only staff may list member photos.")
+            raise PermissionDenied("Only gym staff may list member photos.")
 
         return Response([], status=status.HTTP_200_OK)
 
@@ -562,9 +550,8 @@ class UploadMemberPhotoView(APIView):
             User.ROLE_MANAGER,
             User.ROLE_TRAINER,
             User.ROLE_RECEPTION,
-            User.ROLE_MEMBER,
         ):
-            raise PermissionDenied("You do not have permission to upload photos.")
+            raise PermissionDenied("Only gym staff may upload member photos.")
 
         uploaded_file = request.FILES.get("photo") or request.FILES.get("file")
         if not uploaded_file:
@@ -585,12 +572,6 @@ class UploadMemberPhotoView(APIView):
 
         filename = os.path.basename(relative_path)
         url = f"/api/media/member-photos/{gym_id}/{filename}/"
-        if role == User.ROLE_MEMBER:
-            if hasattr(request.user, "photo"):
-                request.user.photo = filename
-                request.user.save(update_fields=["photo"])
-            else:
-                setattr(request.user, "photo", filename)
 
         return Response(
             {

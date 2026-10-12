@@ -164,7 +164,7 @@ Trainer specialization and photo are delivered in the Trainer and storage sprint
    - A duplicate registration (same identifying field) within one gym is rejected.
    - Accepting the health waiver is required (`waiver_accepted_at` stored); registration without it is rejected.
    - A self-registered member must verify their email by single-use, expiring link before first login; staff-registered members receive a set-password link and count as verified. Public registration is rate-limited.
-   - A profile photo uploads through Sprint 4b's storage layer.
+   - A profile photo uploads through Sprint 4b's storage layer; member self-service photo ownership is wired there, with an exact-match check against the Member record.
    - Body composition: BMI is computed from the latest height and weight; an estimated body-fat percentage (US Navy circumference method) is computed only when the needed measurements are recorded. Both are labeled estimates, computed on read, and covered by unit tests.
 
 8. **QR check-in (GATE)** — token issuance/rotation (90 s window), scan endpoint, `Attendance`, duplicate/expired-scan handling, manual override.
