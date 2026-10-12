@@ -259,6 +259,7 @@ class TestTenantSubdomainMiddleware:
         import importlib
 
         from django.core.exceptions import ImproperlyConfigured
+
         from fitgate.settings import base
 
         monkeypatch.setattr(
@@ -305,6 +306,7 @@ class TestTenantSubdomainMiddleware:
     def test_build_allowed_hosts_helper(self):
         """Verify build_allowed_hosts starts with domain and .domain, is additive, dedupes, and rejects '*'."""
         from django.core.exceptions import ImproperlyConfigured
+
         from fitgate.settings.hosts import build_allowed_hosts
 
         # Starts with domain and .domain; env hosts are added, never replace
@@ -359,6 +361,7 @@ class TestTenantSubdomainMiddleware:
         import importlib
 
         from django.core.exceptions import ImproperlyConfigured
+
         from fitgate.settings import base, local, prod
 
         for s in (base, local, prod):

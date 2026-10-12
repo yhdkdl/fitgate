@@ -1,12 +1,12 @@
 """Test URLconf including base URLs and dummy test endpoints."""
 
 from django.urls import path
-from fitgate.urls import urlpatterns as base_urlpatterns
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.accounts.permissions import RequirePasswordChanged
+from fitgate.urls import urlpatterns as base_urlpatterns
 
 
 class DummyProtectedView(APIView):
