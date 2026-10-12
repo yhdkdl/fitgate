@@ -92,7 +92,6 @@ class CreateGymResponseSerializer(serializers.Serializer):
     config = GymConfigSerializer()
     owner = UserSummarySerializer()
     payment_id = serializers.UUIDField()
-    invite_link = serializers.CharField()
 
 
 class ProposeSubdomainResponseSerializer(serializers.Serializer):

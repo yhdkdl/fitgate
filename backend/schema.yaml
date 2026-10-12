@@ -979,12 +979,9 @@ components:
         payment_id:
           type: string
           format: uuid
-        invite_link:
-          type: string
       required:
       - config
       - gym
-      - invite_link
       - owner
       - payment_id
     CreateSuperAdminRequestRequest:

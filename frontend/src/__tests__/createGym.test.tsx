@@ -125,8 +125,6 @@ describe("GymManagementSection", () => {
         must_change_password: false,
       },
       payment_id: "pay-1",
-      invite_link:
-        "https://olympic-gym.fitgate.org/set-password?token=secretinvite123",
     };
 
     vi.mocked(gymsApi.createGym).mockResolvedValue(mockCreatedResponse);
@@ -165,9 +163,7 @@ describe("GymManagementSection", () => {
       )
     ).toBeInTheDocument();
     expect(
-      screen.getByText(
-        "https://olympic-gym.fitgate.org/set-password?token=secretinvite123"
-      )
+      screen.getByText(/owner set-password invite email sent/i)
     ).toBeInTheDocument();
   });
 

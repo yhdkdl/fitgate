@@ -135,11 +135,14 @@ class TestGymBrandingAndChecklistEndpoints:
             location="Bole, Addis Ababa",
             contact_phone="+251911223344",
             contact_email="contact@alpha.com",
+            tls_confirmed_at=timezone.now(),
         )
 
     @pytest.fixture
     def gym_b(self):
-        return GymTenant.objects.create(name="Gym Beta", subdomain="gym-beta")
+        return GymTenant.objects.create(
+            name="Gym Beta", subdomain="gym-beta", tls_confirmed_at=timezone.now()
+        )
 
     @pytest.fixture
     def owner_a(self, gym_a):

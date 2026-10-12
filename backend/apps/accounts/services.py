@@ -180,7 +180,7 @@ def request_password_reset(
     )
 
     # Construct reset link
-    scheme = getattr(settings, "PUBLIC_URL_SCHEME", "https")
+    scheme = settings.PUBLIC_URL_SCHEME
     if user.gym:
         host = f"{user.gym.subdomain}.{settings.DOMAIN}"
     else:
