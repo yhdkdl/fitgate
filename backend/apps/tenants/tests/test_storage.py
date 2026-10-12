@@ -240,11 +240,19 @@ class TestMediaEndpointsSuite:
 
     @pytest.fixture
     def gym_a(self):
-        return GymTenant.objects.create(name="Gym Alpha", subdomain="gym-alpha")
+        from django.utils import timezone
+
+        return GymTenant.objects.create(
+            name="Gym Alpha", subdomain="gym-alpha", tls_confirmed_at=timezone.now()
+        )
 
     @pytest.fixture
     def gym_b(self):
-        return GymTenant.objects.create(name="Gym Beta", subdomain="gym-beta")
+        from django.utils import timezone
+
+        return GymTenant.objects.create(
+            name="Gym Beta", subdomain="gym-beta", tls_confirmed_at=timezone.now()
+        )
 
     @pytest.fixture
     def user_gym_a(self, gym_a):

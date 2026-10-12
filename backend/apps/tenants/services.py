@@ -215,19 +215,22 @@ def create_gym(
     client = uapi_client or get_uapi_client()
     client.provision_subdomain(normalized_subdomain)
 
-    # Send welcome email containing set-password link (never a password)
-    scheme = getattr(settings, "PUBLIC_URL_SCHEME", "https")
-    domain = getattr(settings, "DOMAIN", "localhost")
+    # Send welcome email containing set-password link (never a password) via transaction.on_commit
+    scheme = settings.PUBLIC_URL_SCHEME
+    domain = settings.DOMAIN
     invite_link = f"{scheme}://{normalized_subdomain}.{domain}/set-password?token={raw_invite_token}"
 
-    try:
-        send_owner_welcome_email(owner, gym, invite_link)
-    except Exception:
-        logger.exception(
-            "Failed to send welcome email to owner %s for gym %s",
-            owner.email,
-            gym.subdomain,
-        )
+    def _send_welcome():
+        try:
+            send_owner_welcome_email(owner, gym, invite_link)
+        except Exception:
+            logger.exception(
+                "Failed to send welcome email to owner %s for gym %s",
+                owner.email,
+                gym.subdomain,
+            )
+
+    transaction.on_commit(_send_welcome)
 
     # Link demo request if provided (Sprint 4a)
     if demo_request_id:

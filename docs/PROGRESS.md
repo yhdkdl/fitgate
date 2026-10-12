@@ -36,16 +36,16 @@
 
 - **Sprint 4 Data Entities & Primary Write Paths:**
   - `GymTenant`, `GymConfig`, `User` (Owner), `Payment` (`payer_type='gym_subscription'`).
-  - Primary path: `POST /api/platform/gyms/create/` executed via atomic `create_gym(...)` service.
+  - Primary path: `POST /api/platform/gyms/` executed via atomic `create_gym(...)` service.
   - Secondary paths: `POST /api/platform/gyms/<gym_id>/confirm-tls/` (TLS confirmation and 1-year subscription activation), `POST /api/auth/set-password/` (Owner invite token redemption).
 - **Other Paths Reaching the Same Data:**
   - **Bulk operations:** No bulk create/update endpoints exist for gyms, configs, or owner provisioning. Database constraints (`GymTenant.subdomain` unique, `GymConfig.gym_id` 1:1 PK/FK) enforce integrity at the schema layer.
   - **Generators / Seeders:** No automated demo/test gym generators run outside test suites.
   - **Django Admin:** Restricted to platform superusers (`is_staff` / `is_superuser`); not accessible by tenant users or API tokens.
   - **Serializers:** `CreateGymRequestSerializer` strictly validates RFC 1123 DNS labels, reserved names (`admin`, `api`, `apex`, etc.), payment method (`bank_transfer` required, `chapa` rejected), and owner fields.
-  - **Management commands:** `bootstrap_super_admin` creates platform superuser only; does not provision gyms or bypass tenant logic.
-  - **Unscoped managers:** `User.all_objects` is used exclusively for platform user queries (email uniqueness, cross-tenant resolution) and audited login lookups. `GymTenant.objects` is inherently platform-level.
+  - **Management commands:** `create_super_admin` creates platform superuser only; does not provision gyms or bypass tenant logic.
+  - **Unscoped managers:** `User.all_objects` is used exclusively for platform user queries (email uniqueness, cross-tenant resolution). `GymTenant.objects` is inherently platform-level.
 - **Tenant Isolation & Permission Tests:**
   - `IsSuperAdmin` and `RequirePasswordChanged` enforced on all `/api/platform/gyms/*` endpoints. Tested: Owner, Manager, Trainer, Reception, Member receive 403; unauthenticated receives 401.
-  - Certificate safeguard: `LoginView` checks `tls_confirmed_at`; unconfirmed subdomains return HTTP 503 `still_securing` (tested).
+  - Certificate safeguard: `TenantSubdomainMiddleware` checks `tls_confirmed_at`; unconfirmed subdomains return HTTP 503 `still_securing` for all `/api/` paths except `api/health/` and `api/public/gym-entry/` (tested).
   - Transaction atomicity: Provisioning failure with cPanel UAPI triggers complete database rollback of GymTenant, GymConfig, Payment, and User records (tested).

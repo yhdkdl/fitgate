@@ -71,7 +71,7 @@ class CPanelUAPIClient(BaseUAPIClient):
         self.host = host or getattr(settings, "CPANEL_HOST", "")
         self.username = username or getattr(settings, "CPANEL_USERNAME", "")
         self.api_token = api_token or getattr(settings, "CPANEL_API_TOKEN", "")
-        self.root_domain = root_domain or getattr(settings, "DOMAIN", "localhost")
+        self.root_domain = root_domain or settings.DOMAIN
 
     def provision_subdomain(self, subdomain: str) -> bool:
         if not self.api_token or not self.host or not self.username:

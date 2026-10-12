@@ -599,7 +599,6 @@ export interface components {
       owner: components["schemas"]["UserSummary"];
       /** Format: uuid */
       payment_id: string;
-      invite_link: string;
     };
     /** @description Payload for creating an additional Super Admin account. */
     CreateSuperAdminRequestRequest: {

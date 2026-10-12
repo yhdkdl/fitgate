@@ -258,7 +258,7 @@ class TestPasswordResetSuite:
 
         assert len(mail.outbox) == 1
         body = mail.outbox[0].body
-        expected_scheme = getattr(settings, "PUBLIC_URL_SCHEME", "http")
+        expected_scheme = settings.PUBLIC_URL_SCHEME
         expected_prefix = (
             f"{expected_scheme}://gyma.{settings.DOMAIN}/reset-password?token="
         )
