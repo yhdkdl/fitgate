@@ -267,6 +267,91 @@ paths:
           description: ''
         '400':
           description: Invalid or expired token, or weak password
+  /api/gym/checklist/:
+    get:
+      operationId: gym_checklist_retrieve
+      description: Returns first-run checklist progress for the gym Owner.
+      summary: Get first-run onboarding checklist
+      tags:
+      - gym
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FirstRunChecklistResponse'
+          description: ''
+        '403':
+          description: Forbidden - only Owner or Super Admin permitted
+  /api/gym/checklist/dismiss/:
+    post:
+      operationId: gym_checklist_dismiss_create
+      description: Persists dismissal of onboarding checklist for the gym.
+      summary: Dismiss first-run onboarding checklist
+      tags:
+      - gym
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DismissChecklistResponse'
+          description: ''
+        '403':
+          description: Forbidden - only Owner or Super Admin permitted
+  /api/gym/settings/:
+    get:
+      operationId: gym_settings_retrieve
+      description: Returns gym configuration and branding settings for Owner or Super
+        Admin.
+      summary: Get gym settings
+      tags:
+      - gym
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GymConfig'
+          description: ''
+    patch:
+      operationId: gym_settings_partial_update
+      description: Updates Owner-editable gym settings (branding, reminders). Entitlement
+        modifications by Owner return 403.
+      summary: Update gym settings
+      tags:
+      - gym
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedGymSettingsUpdateRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedGymSettingsUpdateRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedGymSettingsUpdateRequest'
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GymConfig'
+          description: ''
+        '400':
+          description: Validation error
+        '403':
+          description: Forbidden - entitlements restricted to Super Admin or non-Owner
+            access
   /api/health/:
     get:
       operationId: health_retrieve
@@ -604,6 +689,69 @@ paths:
           description: ''
         '404':
           description: Not found
+  /api/platform/gyms/{gym_id}/config/:
+    get:
+      operationId: platform_gyms_config_retrieve
+      description: Returns gym configuration and branding settings for Owner or Super
+        Admin.
+      summary: Get gym settings
+      parameters:
+      - in: path
+        name: gym_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - platform
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GymConfig'
+          description: ''
+    patch:
+      operationId: platform_gyms_config_partial_update
+      description: Updates Owner-editable gym settings (branding, reminders). Entitlement
+        modifications by Owner return 403.
+      summary: Update gym settings
+      parameters:
+      - in: path
+        name: gym_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - platform
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedGymSettingsUpdateRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedGymSettingsUpdateRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedGymSettingsUpdateRequest'
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GymConfig'
+          description: ''
+        '400':
+          description: Validation error
+        '403':
+          description: Forbidden - entitlements restricted to Super Admin or non-Owner
+            access
   /api/platform/gyms/{gym_id}/confirm-tls/:
     post:
       operationId: platform_gyms_confirm_tls_create
@@ -681,6 +829,25 @@ paths:
           description: Validation error
         '403':
           description: Forbidden
+  /api/public/gym-entry/:
+    get:
+      operationId: public_gym_entry_retrieve
+      description: Public endpoint returning gym branding, details, and active plans
+        on the gym subdomain. Shows 503 if TLS is pending.
+      summary: Public gym entry page
+      tags:
+      - public
+      security:
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GymPublicEntryResponse'
+          description: ''
+        '503':
+          description: Subdomain is still being secured
 components:
   schemas:
     ChangePasswordRequestRequest:
@@ -712,6 +879,17 @@ components:
       - access
       - refresh
       - user
+    ChecklistItem:
+      type: object
+      description: Item in first-run onboarding checklist.
+      properties:
+        label:
+          type: string
+        completed:
+          type: boolean
+      required:
+      - completed
+      - label
     ConfirmTLSResponse:
       type: object
       description: Response returned upon TLS certificate confirmation.
@@ -939,6 +1117,38 @@ components:
         * `demo_done` - Demo Done
         * `converted` - Converted
         * `lost` - Lost
+    DismissChecklistResponse:
+      type: object
+      properties:
+        is_dismissed:
+          type: boolean
+        dismissed_at:
+          type: string
+          format: date-time
+      required:
+      - dismissed_at
+      - is_dismissed
+    FirstRunChecklistResponse:
+      type: object
+      description: First-run onboarding checklist progress for gym Owner.
+      properties:
+        is_dismissed:
+          type: boolean
+        dismissed_at:
+          type: string
+          format: date-time
+          nullable: true
+        all_completed:
+          type: boolean
+        items:
+          type: object
+          additionalProperties:
+            $ref: '#/components/schemas/ChecklistItem'
+      required:
+      - all_completed
+      - dismissed_at
+      - is_dismissed
+      - items
     GymConfig:
       type: object
       description: Feature gating and configuration settings of a gym.
@@ -968,15 +1178,35 @@ components:
           readOnly: true
         member_reminder_days:
           readOnly: true
+        brand_color:
+          type: string
+          readOnly: true
+          nullable: true
+        logo:
+          type: string
+          readOnly: true
+          nullable: true
+        show_unavailable_equipment:
+          type: boolean
+          readOnly: true
+        first_run_dismissed_at:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
       required:
+      - brand_color
+      - first_run_dismissed_at
       - freeze_days_allowed
       - has_ai_plans
       - has_analytics
       - has_group_classes
       - has_multi_branch
       - has_trainer_module
+      - logo
       - member_reminder_days
       - payment_grace_days
+      - show_unavailable_equipment
       - subscription_reminder_days
     GymDetailResponse:
       type: object
@@ -988,6 +1218,36 @@ components:
       required:
       - config
       - gym
+    GymPublicEntryResponse:
+      type: object
+      description: Public details returned on the gym subdomain entry page.
+      properties:
+        still_securing:
+          type: boolean
+        gym_id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        subdomain:
+          type: string
+        brand_color:
+          type: string
+          nullable: true
+        logo:
+          type: string
+          nullable: true
+        phone:
+          type: string
+        location:
+          type: string
+        currency:
+          type: string
+        message:
+          type: string
+      required:
+      - name
+      - still_securing
     GymStatusEnum:
       enum:
       - pending
@@ -1170,6 +1430,25 @@ components:
           $ref: '#/components/schemas/DemoRequestStatusEnum'
         notes:
           type: string
+    PatchedGymSettingsUpdateRequest:
+      type: object
+      description: Serializer for Owner-editable gym settings.
+      properties:
+        brand_color:
+          type: string
+          nullable: true
+          maxLength: 7
+        logo:
+          type: string
+          nullable: true
+          maxLength: 500
+        show_unavailable_equipment:
+          type: boolean
+        member_reminder_days:
+          type: array
+          items:
+            type: integer
+            minimum: 0
     PatchedUserProfileUpdateRequest:
       type: object
       description: Payload for updating user profile (full_name and phone only).

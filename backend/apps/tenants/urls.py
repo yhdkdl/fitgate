@@ -8,7 +8,11 @@ from apps.tenants.views import (
     DemoRequestConvertView,
     DemoRequestDetailView,
     DemoRequestListView,
+    DismissFirstRunChecklistView,
+    FirstRunChecklistView,
     GymDetailView,
+    GymPublicEntryView,
+    GymSettingsView,
     ProposeSubdomainView,
     PublicDemoRequestView,
     ServeMemberPhotoView,
@@ -69,5 +73,33 @@ urlpatterns = [
         "api/media/gym-logo/<uuid:gym_id>/",
         UploadGymLogoView.as_view(),
         name="media-gym-logo-upload",
+    ),
+    # Gym Settings & Branding (Sprint 4c)
+    path(
+        "api/gym/settings/",
+        GymSettingsView.as_view(),
+        name="gym-settings",
+    ),
+    path(
+        "api/platform/gyms/<uuid:gym_id>/config/",
+        GymSettingsView.as_view(),
+        name="platform-gym-config",
+    ),
+    # First-run Checklist (Sprint 4c)
+    path(
+        "api/gym/checklist/",
+        FirstRunChecklistView.as_view(),
+        name="gym-first-run-checklist",
+    ),
+    path(
+        "api/gym/checklist/dismiss/",
+        DismissFirstRunChecklistView.as_view(),
+        name="gym-first-run-checklist-dismiss",
+    ),
+    # Public Entry Page (Sprint 4c)
+    path(
+        "api/public/gym-entry/",
+        GymPublicEntryView.as_view(),
+        name="public-gym-entry",
     ),
 ]

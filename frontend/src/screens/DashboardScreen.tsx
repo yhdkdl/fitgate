@@ -8,6 +8,8 @@ import {
   type GymPrefillData,
 } from "../components/superadmin/GymManagementSection";
 import { DemoRequestSection } from "../components/superadmin/DemoRequestSection";
+import { FirstRunChecklistCard } from "../components/owner/FirstRunChecklistCard";
+import { GymBrandingSection } from "../components/owner/GymBrandingSection";
 import { useAuth } from "../context/AuthContext";
 import { getTenantFromHostname } from "../utils/tenant";
 
@@ -17,6 +19,7 @@ export const DashboardScreen: React.FC = () => {
   const tenant = getTenantFromHostname();
 
   const [adminTab, setAdminTab] = useState<"gyms" | "leads">("gyms");
+  const [showBranding, setShowBranding] = useState(false);
   const [prefillGymData, setPrefillGymData] = useState<GymPrefillData | null>(
     null
   );
@@ -171,6 +174,37 @@ export const DashboardScreen: React.FC = () => {
                   }}
                 />
               )}
+            </div>
+          )}
+
+          {/* Gym Owner Onboarding & Branding */}
+          {user?.role === "owner" && (
+            <div className="space-y-6">
+              <FirstRunChecklistCard
+                onOpenBranding={() => setShowBranding(true)}
+              />
+
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-border pb-2">
+                <div>
+                  <h2 className="text-lg font-semibold text-text">
+                    Gym Branding & Settings
+                  </h2>
+                  <p className="text-xs text-text-muted">
+                    Manage your gym's brand accent color, logo, and member
+                    renewal notices.
+                  </p>
+                </div>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => setShowBranding((prev) => !prev)}
+                  className="self-start sm:self-center"
+                >
+                  {showBranding ? "Hide Branding" : "Configure Branding"}
+                </Button>
+              </div>
+
+              {showBranding && <GymBrandingSection onUpdated={() => {}} />}
             </div>
           )}
 

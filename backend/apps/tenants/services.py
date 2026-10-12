@@ -282,3 +282,165 @@ def confirm_gym_tls(gym_id: UUID | str, acting_super_admin: User) -> GymTenant:
 
     gym.save(update_fields=update_fields)
     return gym
+
+
+ENTITLEMENT_FIELDS = frozenset(
+    {
+        "tier",
+        "has_trainer_module",
+        "has_ai_plans",
+        "has_analytics",
+        "has_group_classes",
+        "has_multi_branch",
+        "freeze_days_allowed",
+        "payment_grace_days",
+        "subscription_reminder_days",
+    }
+)
+
+
+def get_first_run_checklist(gym: GymTenant) -> dict:
+    """
+    Compute onboarding checklist progress from real application records.
+
+    Items:
+    1. add_branding: brand_color or logo configured.
+    2. create_first_plan: first membership plan created (Sprint 10).
+    3. add_staff: manager, trainer, or reception account created.
+    4. register_first_member: member account registered.
+    """
+    config = GymConfig.objects.filter(gym_id=gym.id).first()
+    if config is None:
+        config, _ = GymConfig.objects.get_or_create(gym=gym)
+
+    branding_completed = bool(config.brand_color or config.logo)
+
+    first_plan_completed = False
+    try:
+        from apps.memberships.models import MembershipPlan
+
+        first_plan_completed = MembershipPlan.objects.filter(gym=gym).exists()
+    except (ImportError, Exception):
+        first_plan_completed = False
+
+    staff_completed = User.all_objects.filter(
+        gym=gym,
+        role__in=[User.ROLE_MANAGER, User.ROLE_TRAINER, User.ROLE_RECEPTION],
+    ).exists()
+
+    member_completed = User.all_objects.filter(
+        gym=gym,
+        role=User.ROLE_MEMBER,
+    ).exists()
+
+    items = {
+        "add_branding": {
+            "label": "Add gym branding & logo",
+            "completed": branding_completed,
+        },
+        "create_first_plan": {
+            "label": "Create your first membership plan",
+            "completed": first_plan_completed,
+        },
+        "add_staff": {
+            "label": "Add a staff account",
+            "completed": staff_completed,
+        },
+        "register_first_member": {
+            "label": "Register your first member",
+            "completed": member_completed,
+        },
+    }
+
+    all_completed = all(item["completed"] for item in items.values())
+    is_dismissed = bool(config.first_run_dismissed_at is not None)
+
+    return {
+        "is_dismissed": is_dismissed,
+        "dismissed_at": config.first_run_dismissed_at,
+        "all_completed": all_completed,
+        "items": items,
+    }
+
+
+def dismiss_first_run_checklist(gym: GymTenant) -> GymConfig:
+    """Mark first-run checklist as dismissed for the gym."""
+    config = getattr(gym, "config", None)
+    if config is None:
+        config, _ = GymConfig.objects.get_or_create(gym=gym)
+
+    if config.first_run_dismissed_at is None:
+        config.first_run_dismissed_at = timezone.now()
+        config.save(update_fields=["first_run_dismissed_at"])
+    return config
+
+
+def update_gym_settings(
+    gym: GymTenant,
+    acting_user: User,
+    data: dict,
+) -> GymConfig:
+    """
+    Update Owner-editable gym settings with strict RBAC enforcement:
+    - Super Admin can update all settings.
+    - Owner can update brand_color, logo, show_unavailable_equipment, member_reminder_days.
+    - Any attempt by an Owner to modify entitlement fields returns 403 Forbidden.
+    - Manager or other roles attempting any modification receive 403 Forbidden.
+    """
+    is_super_admin = getattr(
+        acting_user, "role", None
+    ) == User.ROLE_SUPER_ADMIN or getattr(acting_user, "is_superuser", False)
+    is_owner = (
+        getattr(acting_user, "role", None) == User.ROLE_OWNER
+        and getattr(acting_user, "gym_id", None) == gym.id
+    )
+
+    if not (is_super_admin or is_owner):
+        raise PermissionDenied(
+            "Only the gym owner or Super Admin can edit gym settings."
+        )
+
+    # Entitlement protection against Owner edits
+    if not is_super_admin:
+        unauthorized_fields = ENTITLEMENT_FIELDS.intersection(data.keys())
+        if unauthorized_fields:
+            raise PermissionDenied("Only Super Admin can modify gym entitlements.")
+
+    config = getattr(gym, "config", None)
+    if config is None:
+        config, _ = GymConfig.objects.get_or_create(gym=gym)
+
+    update_fields = []
+    if "brand_color" in data:
+        config.brand_color = data["brand_color"]
+        update_fields.append("brand_color")
+    if "logo" in data:
+        config.logo = data["logo"]
+        update_fields.append("logo")
+    if "show_unavailable_equipment" in data:
+        config.show_unavailable_equipment = data["show_unavailable_equipment"]
+        update_fields.append("show_unavailable_equipment")
+    if "member_reminder_days" in data:
+        config.member_reminder_days = data["member_reminder_days"]
+        update_fields.append("member_reminder_days")
+
+    if is_super_admin:
+        # Entitlements editable by Super Admin
+        for field in [
+            "has_trainer_module",
+            "has_ai_plans",
+            "has_analytics",
+            "has_group_classes",
+            "has_multi_branch",
+            "freeze_days_allowed",
+            "payment_grace_days",
+            "subscription_reminder_days",
+        ]:
+            if field in data:
+                setattr(config, field, data[field])
+                update_fields.append(field)
+
+    if update_fields:
+        config.save(update_fields=update_fields)
+
+    return config
