@@ -2,7 +2,7 @@ import os
 
 from django.core.exceptions import ValidationError
 from django.db import IntegrityError
-from django.http import FileResponse
+from django.http import FileResponse, Http404
 from drf_spectacular.utils import OpenApiResponse, extend_schema, inline_serializer
 from rest_framework import serializers, status
 from rest_framework.exceptions import PermissionDenied
@@ -438,41 +438,57 @@ class ServeMemberPhotoView(APIView):
     """
     Serve authenticated member photos with strict per-gym scoping.
     Browser never receives direct Cloudinary URL.
-    Returns 403 on tenant mismatch, 404 when file does not exist.
+    Returns 404 on tenant mismatch (cross-gym IDOR protection) or when file does not exist.
     """
 
     permission_classes = [IsAuthenticated, RequirePasswordChanged]
 
+    def initial(self, request, *args, **kwargs):
+        super().initial(request, *args, **kwargs)
+        gym_id = kwargs.get("gym_id")
+        tenant = getattr(request, "tenant", None)
+        if not tenant or str(gym_id) != str(tenant.id):
+            raise Http404("Gym tenant not found.")
+
     @extend_schema(
         summary="Serve authenticated member photo",
-        description="Serves member photo stream only to users belonging to the specified gym or Super Admin.",
+        description="Serves member photo stream only to users belonging to the specified gym.",
         responses={
             200: OpenApiResponse(description="Image WebP stream"),
             400: OpenApiResponse(description="Invalid request or filename format"),
             401: OpenApiResponse(description="Authentication credentials required"),
             403: OpenApiResponse(
-                description="Forbidden - user belongs to different gym"
+                description="Forbidden - user belongs to different gym or unauthorized role"
             ),
-            404: OpenApiResponse(description="Photo not found"),
+            404: OpenApiResponse(description="Photo not found or tenant mismatch"),
         },
     )
     def get(self, request, gym_id, filename, *args, **kwargs):
-        if not request.user or not request.user.is_authenticated:
-            return Response(
-                {"detail": "Authentication credentials were not provided."},
-                status=status.HTTP_401_UNAUTHORIZED,
+        if getattr(request.user, "gym_id", None) != request.tenant.id:
+            raise PermissionDenied(
+                "You do not have permission to access photos for another gym."
             )
 
-        # Enforce tenant isolation: Super Admin or user belonging to gym_id
-        is_super_admin = getattr(
-            request.user, "role", None
-        ) == User.ROLE_SUPER_ADMIN or getattr(request.user, "is_superuser", False)
-        if not is_super_admin:
-            user_gym_id = getattr(request.user, "gym_id", None)
-            if user_gym_id != gym_id:
-                raise PermissionDenied(
-                    "You do not have permission to access photos for another gym."
+        role = getattr(request.user, "role", None)
+        if role == User.ROLE_MEMBER:
+            own_photo = getattr(request.user, "photo", "") or ""
+            is_own = (
+                own_photo
+                and (
+                    filename == own_photo
+                    or filename in own_photo
+                    or own_photo in filename
                 )
+            ) or str(request.user.id) in filename
+            if not is_own:
+                raise PermissionDenied("Members may only access their own photo.")
+        elif role not in (
+            User.ROLE_OWNER,
+            User.ROLE_MANAGER,
+            User.ROLE_TRAINER,
+            User.ROLE_RECEPTION,
+        ):
+            raise PermissionDenied("You do not have permission to view member photos.")
 
         try:
             stream, content_type = get_authenticated_photo_stream(gym_id, filename)
@@ -496,10 +512,34 @@ class ServeMemberPhotoView(APIView):
 class UploadMemberPhotoView(APIView):
     """
     Upload and process a member photo into gym-scoped authenticated storage.
+    Also handles member photo listing for gym staff.
     """
 
     parser_classes = [MultiPartParser, FormParser]
     permission_classes = [IsAuthenticated, RequirePasswordChanged]
+
+    def initial(self, request, *args, **kwargs):
+        super().initial(request, *args, **kwargs)
+        gym_id = kwargs.get("gym_id")
+        tenant = getattr(request, "tenant", None)
+        if not tenant or str(gym_id) != str(tenant.id):
+            raise Http404("Gym tenant not found.")
+
+    def get(self, request, gym_id, *args, **kwargs):
+        """Photo list endpoint: only gym staff permitted."""
+        if getattr(request.user, "gym_id", None) != request.tenant.id:
+            raise PermissionDenied("You cannot list member photos for another gym.")
+
+        role = getattr(request.user, "role", None)
+        if role not in (
+            User.ROLE_OWNER,
+            User.ROLE_MANAGER,
+            User.ROLE_TRAINER,
+            User.ROLE_RECEPTION,
+        ):
+            raise PermissionDenied("Only staff may list member photos.")
+
+        return Response([], status=status.HTTP_200_OK)
 
     @extend_schema(
         summary="Upload member photo",
@@ -509,24 +549,22 @@ class UploadMemberPhotoView(APIView):
             201: UploadMemberPhotoResponseSerializer,
             400: OpenApiResponse(description="Validation error or missing file"),
             403: OpenApiResponse(description="Forbidden - cross-tenant access denied"),
+            404: OpenApiResponse(description="Tenant mismatch"),
         },
     )
     def post(self, request, gym_id, *args, **kwargs):
-        if not request.user or not request.user.is_authenticated:
-            return Response(
-                {"detail": "Authentication credentials were not provided."},
-                status=status.HTTP_401_UNAUTHORIZED,
-            )
+        if getattr(request.user, "gym_id", None) != request.tenant.id:
+            raise PermissionDenied("You cannot upload member photos for another gym.")
 
-        is_super_admin = getattr(
-            request.user, "role", None
-        ) == User.ROLE_SUPER_ADMIN or getattr(request.user, "is_superuser", False)
-        if not is_super_admin:
-            user_gym_id = getattr(request.user, "gym_id", None)
-            if user_gym_id != gym_id:
-                raise PermissionDenied(
-                    "You cannot upload member photos for another gym."
-                )
+        role = getattr(request.user, "role", None)
+        if role not in (
+            User.ROLE_OWNER,
+            User.ROLE_MANAGER,
+            User.ROLE_TRAINER,
+            User.ROLE_RECEPTION,
+            User.ROLE_MEMBER,
+        ):
+            raise PermissionDenied("You do not have permission to upload photos.")
 
         uploaded_file = request.FILES.get("photo") or request.FILES.get("file")
         if not uploaded_file:
@@ -547,6 +585,13 @@ class UploadMemberPhotoView(APIView):
 
         filename = os.path.basename(relative_path)
         url = f"/api/media/member-photos/{gym_id}/{filename}/"
+        if role == User.ROLE_MEMBER:
+            if hasattr(request.user, "photo"):
+                request.user.photo = filename
+                request.user.save(update_fields=["photo"])
+            else:
+                setattr(request.user, "photo", filename)
+
         return Response(
             {
                 "file_path": relative_path,
@@ -566,6 +611,13 @@ class UploadGymLogoView(APIView):
     parser_classes = [MultiPartParser, FormParser]
     permission_classes = [IsAuthenticated, RequirePasswordChanged, IsGymOwner]
 
+    def initial(self, request, *args, **kwargs):
+        super().initial(request, *args, **kwargs)
+        gym_id = kwargs.get("gym_id")
+        tenant = getattr(request, "tenant", None)
+        if not tenant or str(gym_id) != str(tenant.id):
+            raise Http404("Gym tenant not found.")
+
     @extend_schema(
         summary="Upload gym logo",
         description="Uploads and optimizes gym logo (public asset). Only accessible by gym Owner.",
@@ -574,6 +626,7 @@ class UploadGymLogoView(APIView):
             200: UploadGymLogoResponseSerializer,
             400: OpenApiResponse(description="Validation error or missing file"),
             403: OpenApiResponse(description="Forbidden - only Owner permitted"),
+            404: OpenApiResponse(description="Tenant mismatch"),
         },
     )
     def post(self, request, gym_id, *args, **kwargs):
@@ -599,6 +652,11 @@ class UploadGymLogoView(APIView):
                 else (exc.messages if hasattr(exc, "messages") else str(exc))
             )
             return Response({"detail": msg}, status=status.HTTP_400_BAD_REQUEST)
+
+        config = getattr(request.tenant, "config", None)
+        if config:
+            config.logo = url
+            config.save(update_fields=["logo"])
 
         return Response({"url": url}, status=status.HTTP_200_OK)
 

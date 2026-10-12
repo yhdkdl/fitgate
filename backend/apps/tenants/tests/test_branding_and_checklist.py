@@ -231,7 +231,6 @@ class TestGymBrandingAndChecklistEndpoints:
         client = self.auth_client(owner_a)
         payload = {
             "brand_color": "#1E90FF",
-            "logo": "/media/logos/gym_a.webp",
             "show_unavailable_equipment": True,
             "member_reminder_days": [5, 1],
         }
@@ -239,9 +238,72 @@ class TestGymBrandingAndChecklistEndpoints:
 
         assert resp.status_code == 200
         assert resp.data["brand_color"] == "#1E90FF"
-        assert resp.data["logo"] == "/media/logos/gym_a.webp"
         assert resp.data["show_unavailable_equipment"] is True
         assert resp.data["member_reminder_days"] == [5, 1]
+
+    def test_owner_patch_logo_field_returns_400_and_leaves_db_unchanged(
+        self, gym_a, owner_a
+    ):
+        """
+        A2 Contract Test:
+        'logo' changes only through the dedicated upload endpoint.
+        Attempting to PATCH 'logo' directly is rejected with 400 and leaves DB unchanged.
+        """
+        client = self.auth_client(owner_a)
+        config = gym_a.config
+        config.logo = "/media/logos/original_logo.webp"
+        config.save()
+
+        malicious_logo_key = "gyms/another-gym-uuid/member_photos/stolen.webp"
+        resp = client.patch(
+            "/api/gym/settings/",
+            {"logo": malicious_logo_key},
+            format="json",
+        )
+        assert resp.status_code == 400
+
+        config.refresh_from_db()
+        assert config.logo == "/media/logos/original_logo.webp"
+
+    def test_member_reminder_days_bounds_validation(self, gym_a, owner_a):
+        """
+        A2 Contract Test:
+        member_reminder_days is bounded: at most 10 items, each between 0 and 90.
+        """
+        client = self.auth_client(owner_a)
+
+        # Valid boundaries (0 and 90, <= 10 items)
+        valid_resp = client.patch(
+            "/api/gym/settings/",
+            {"member_reminder_days": [0, 15, 90]},
+            format="json",
+        )
+        assert valid_resp.status_code == 200
+        assert valid_resp.data["member_reminder_days"] == [0, 15, 90]
+
+        # Item > 90 rejected with 400
+        resp_too_high = client.patch(
+            "/api/gym/settings/",
+            {"member_reminder_days": [91]},
+            format="json",
+        )
+        assert resp_too_high.status_code == 400
+
+        # Item < 0 rejected with 400
+        resp_negative = client.patch(
+            "/api/gym/settings/",
+            {"member_reminder_days": [-1]},
+            format="json",
+        )
+        assert resp_negative.status_code == 400
+
+        # More than 10 items rejected with 400
+        resp_too_many = client.patch(
+            "/api/gym/settings/",
+            {"member_reminder_days": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]},
+            format="json",
+        )
+        assert resp_too_many.status_code == 400
 
     def test_owner_cannot_update_entitlements_returns_403(self, gym_a, owner_a):
         client = self.auth_client(owner_a)

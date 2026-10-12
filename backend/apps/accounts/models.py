@@ -65,6 +65,7 @@ class User(AbstractBaseUser, PlatformTenantAwareModel):
     must_change_password = models.BooleanField(default=False)
     full_name = models.CharField(max_length=150, blank=True, default="")
     phone = models.CharField(max_length=20, blank=True, default="")
+    photo = models.CharField(max_length=255, blank=True, default="")
 
     objects = UserManager()
     all_objects = AllUserManager()

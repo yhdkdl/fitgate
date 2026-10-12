@@ -225,7 +225,6 @@ class GymSettingsUpdateSerializer(serializers.Serializer):
 
     ALLOWED_FIELDS = {
         "brand_color",
-        "logo",
         "show_unavailable_equipment",
         "member_reminder_days",
     }
@@ -244,12 +243,11 @@ class GymSettingsUpdateSerializer(serializers.Serializer):
     brand_color = serializers.CharField(
         max_length=7, required=False, allow_null=True, allow_blank=True
     )
-    logo = serializers.CharField(
-        max_length=500, required=False, allow_null=True, allow_blank=True
-    )
     show_unavailable_equipment = serializers.BooleanField(required=False)
     member_reminder_days = serializers.ListField(
-        child=serializers.IntegerField(min_value=0), required=False
+        child=serializers.IntegerField(min_value=0, max_value=90),
+        max_length=10,
+        required=False,
     )
 
     def to_internal_value(self, data):

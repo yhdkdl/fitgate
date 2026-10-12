@@ -284,7 +284,7 @@ paths:
                 $ref: '#/components/schemas/FirstRunChecklistResponse'
           description: ''
         '403':
-          description: Forbidden - only Owner or Super Admin permitted
+          description: Forbidden - only Owner permitted
   /api/gym/checklist/dismiss/:
     post:
       operationId: gym_checklist_dismiss_create
@@ -302,12 +302,11 @@ paths:
                 $ref: '#/components/schemas/DismissChecklistResponse'
           description: ''
         '403':
-          description: Forbidden - only Owner or Super Admin permitted
+          description: Forbidden - only Owner permitted
   /api/gym/settings/:
     get:
       operationId: gym_settings_retrieve
-      description: Returns gym configuration and branding settings for Owner or Super
-        Admin.
+      description: Returns gym configuration and branding settings for Owner.
       summary: Get gym settings
       tags:
       - gym
@@ -372,7 +371,7 @@ paths:
     post:
       operationId: media_gym_logo_create
       description: Uploads and optimizes gym logo (public asset). Only accessible
-        by gym Owner or Super Admin.
+        by gym Owner.
       summary: Upload gym logo
       parameters:
       - in: path
@@ -404,8 +403,27 @@ paths:
         '400':
           description: Validation error or missing file
         '403':
-          description: Forbidden - only Owner or Super Admin permitted
+          description: Forbidden - only Owner permitted
+        '404':
+          description: Tenant mismatch
   /api/media/member-photos/{gym_id}/:
+    get:
+      operationId: media_member_photos_retrieve
+      description: 'Photo list endpoint: only gym staff permitted.'
+      parameters:
+      - in: path
+        name: gym_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - media
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
     post:
       operationId: media_member_photos_create
       description: Validates image format and size (<= 2 MB), strips EXIF, resizes,
@@ -442,11 +460,13 @@ paths:
           description: Validation error or missing file
         '403':
           description: Forbidden - cross-tenant access denied
+        '404':
+          description: Tenant mismatch
   /api/media/member-photos/{gym_id}/{filename}/:
     get:
-      operationId: media_member_photos_retrieve
+      operationId: media_member_photos_retrieve_2
       description: Serves member photo stream only to users belonging to the specified
-        gym or Super Admin.
+        gym.
       summary: Serve authenticated member photo
       parameters:
       - in: path
@@ -472,9 +492,9 @@ paths:
         '401':
           description: Authentication credentials required
         '403':
-          description: Forbidden - user belongs to different gym
+          description: Forbidden - user belongs to different gym or unauthorized role
         '404':
-          description: Photo not found
+          description: Photo not found or tenant mismatch
   /api/platform/demo-requests/:
     get:
       operationId: platform_demo_requests_list
@@ -692,9 +712,9 @@ paths:
   /api/platform/gyms/{gym_id}/config/:
     get:
       operationId: platform_gyms_config_retrieve
-      description: Returns gym configuration and branding settings for Owner or Super
-        Admin.
-      summary: Get gym settings
+      description: Super Admin views configuration and entitlements of a gym tenant
+        at apex platform.
+      summary: Get gym config (platform)
       parameters:
       - in: path
         name: gym_id
@@ -713,11 +733,12 @@ paths:
               schema:
                 $ref: '#/components/schemas/GymConfig'
           description: ''
+        '404':
+          description: Gym not found
     patch:
       operationId: platform_gyms_config_partial_update
-      description: Updates Owner-editable gym settings (branding, reminders). Entitlement
-        modifications by Owner return 403.
-      summary: Update gym settings
+      description: Super Admin updates gym tier and feature entitlements at apex platform.
+      summary: Update gym entitlements (platform)
       parameters:
       - in: path
         name: gym_id
@@ -727,17 +748,6 @@ paths:
         required: true
       tags:
       - platform
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/PatchedGymSettingsUpdateRequest'
-          application/x-www-form-urlencoded:
-            schema:
-              $ref: '#/components/schemas/PatchedGymSettingsUpdateRequest'
-          multipart/form-data:
-            schema:
-              $ref: '#/components/schemas/PatchedGymSettingsUpdateRequest'
       security:
       - jwtAuth: []
       responses:
@@ -749,9 +759,8 @@ paths:
           description: ''
         '400':
           description: Validation error
-        '403':
-          description: Forbidden - entitlements restricted to Super Admin or non-Owner
-            access
+        '404':
+          description: Gym not found
   /api/platform/gyms/{gym_id}/confirm-tls/:
     post:
       operationId: platform_gyms_confirm_tls_create
@@ -1429,23 +1438,24 @@ components:
           type: string
     PatchedGymSettingsUpdateRequest:
       type: object
-      description: Serializer for Owner-editable gym settings.
+      description: |-
+        Serializer for Owner-editable gym settings with strict allow-list enforcement.
+        Any attempt to modify entitlement fields is rejected with 403 PermissionDenied.
+        Any other unallowed or unknown field is rejected with 400 ValidationError.
       properties:
         brand_color:
           type: string
           nullable: true
           maxLength: 7
-        logo:
-          type: string
-          nullable: true
-          maxLength: 500
         show_unavailable_equipment:
           type: boolean
         member_reminder_days:
           type: array
           items:
             type: integer
+            maximum: 90
             minimum: 0
+          maxItems: 10
     PatchedUserProfileUpdateRequest:
       type: object
       description: Payload for updating user profile (full_name and phone only).

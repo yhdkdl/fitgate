@@ -592,6 +592,7 @@ class TestOwnerSettingsAllowListAndIntrospection:
         # GymConfig concrete fields:
         system_config_fields = {
             "gym",
+            "logo",  # Managed exclusively via dedicated upload endpoint POST /api/media/gym-logo/<gym_id>/
             "chapa_merchant_id",
             "first_run_dismissed_at",
         }
@@ -635,106 +636,213 @@ class TestOwnerSettingsAllowListAndIntrospection:
 @pytest.mark.django_db
 class TestSpec2PermissionMatrixParametrizedTable:
     """
-    Encodes SPEC §2 permission matrix as data (action x role -> allowed or denied)
-    and asserts against permission classes.
+    Encodes the exact 11 rows of SPEC §2's permission matrix (Table 3.1a):
+    Actions x (Super Admin, Owner, Manager, Trainer, Reception, Member).
+    Includes a wired_in_sprint column cross-referenced with docs/SPRINTS.md.
+    Rows without a real endpoint yet are skipped with an explicit reason.
+    Rows with real endpoints are tested directly against those endpoints.
     """
 
-    SPEC_2_MATRIX = [
-        # Action: Edit entitlements
-        ("edit_entitlements", User.ROLE_SUPER_ADMIN, True),
-        ("edit_entitlements", User.ROLE_OWNER, False),
-        ("edit_entitlements", User.ROLE_MANAGER, False),
-        ("edit_entitlements", User.ROLE_TRAINER, False),
-        ("edit_entitlements", User.ROLE_RECEPTION, False),
-        ("edit_entitlements", User.ROLE_MEMBER, False),
-        # Action: Edit gym settings
-        ("edit_gym_settings", User.ROLE_SUPER_ADMIN, False),
-        ("edit_gym_settings", User.ROLE_OWNER, True),
-        ("edit_gym_settings", User.ROLE_MANAGER, False),
-        ("edit_gym_settings", User.ROLE_TRAINER, False),
-        ("edit_gym_settings", User.ROLE_RECEPTION, False),
-        ("edit_gym_settings", User.ROLE_MEMBER, False),
-        # Action: Owner checklist / logo upload
-        ("manage_branding_and_checklist", User.ROLE_SUPER_ADMIN, False),
-        ("manage_branding_and_checklist", User.ROLE_OWNER, True),
-        ("manage_branding_and_checklist", User.ROLE_MANAGER, False),
-        ("manage_branding_and_checklist", User.ROLE_TRAINER, False),
-        ("manage_branding_and_checklist", User.ROLE_RECEPTION, False),
-        ("manage_branding_and_checklist", User.ROLE_MEMBER, False),
-        # Action: Owner or Manager operational actions (plans, freeze, reassign)
-        ("owner_or_manager_operations", User.ROLE_SUPER_ADMIN, False),
-        ("owner_or_manager_operations", User.ROLE_OWNER, True),
-        ("owner_or_manager_operations", User.ROLE_MANAGER, True),
-        ("owner_or_manager_operations", User.ROLE_TRAINER, False),
-        ("owner_or_manager_operations", User.ROLE_RECEPTION, False),
-        ("owner_or_manager_operations", User.ROLE_MEMBER, False),
-        # Action: Staff actions (check-in, photo upload)
-        ("gym_staff_actions", User.ROLE_SUPER_ADMIN, False),
-        ("gym_staff_actions", User.ROLE_OWNER, True),
-        ("gym_staff_actions", User.ROLE_MANAGER, True),
-        ("gym_staff_actions", User.ROLE_TRAINER, True),
-        ("gym_staff_actions", User.ROLE_RECEPTION, True),
-        ("gym_staff_actions", User.ROLE_MEMBER, False),
-        # Action: Trainer client management
-        ("trainer_actions", User.ROLE_SUPER_ADMIN, False),
-        ("trainer_actions", User.ROLE_OWNER, False),
-        ("trainer_actions", User.ROLE_MANAGER, False),
-        ("trainer_actions", User.ROLE_TRAINER, True),
-        ("trainer_actions", User.ROLE_RECEPTION, False),
-        ("trainer_actions", User.ROLE_MEMBER, False),
-        # Action: Reception front-desk actions
-        ("reception_actions", User.ROLE_SUPER_ADMIN, False),
-        ("reception_actions", User.ROLE_OWNER, False),
-        ("reception_actions", User.ROLE_MANAGER, False),
-        ("reception_actions", User.ROLE_TRAINER, False),
-        ("reception_actions", User.ROLE_RECEPTION, True),
-        ("reception_actions", User.ROLE_MEMBER, False),
-        # Action: Member self-service
-        ("member_actions", User.ROLE_SUPER_ADMIN, False),
-        ("member_actions", User.ROLE_OWNER, False),
-        ("member_actions", User.ROLE_MANAGER, False),
-        ("member_actions", User.ROLE_TRAINER, False),
-        ("member_actions", User.ROLE_RECEPTION, False),
-        ("member_actions", User.ROLE_MEMBER, True),
+    SPEC_2_ROWS = [
+        {
+            "row_name": "Edit entitlements: tier, has_* flags, freeze allowance, grace and subscription-reminder days",
+            "super_admin": True,
+            "owner": False,
+            "manager": False,
+            "trainer": False,
+            "reception": False,
+            "member": False,
+            "wired_in_sprint": 5,
+        },
+        {
+            "row_name": "Edit gym settings: branding, member reminder days, payment credentials",
+            "super_admin": False,
+            "owner": True,
+            "manager": False,
+            "trainer": False,
+            "reception": False,
+            "member": False,
+            "wired_in_sprint": 5,
+        },
+        {
+            "row_name": "Create or deactivate Manager accounts",
+            "super_admin": False,
+            "owner": True,
+            "manager": False,
+            "trainer": False,
+            "reception": False,
+            "member": False,
+            "wired_in_sprint": 6,
+        },
+        {
+            "row_name": "Create or deactivate Trainer/Reception accounts",
+            "super_admin": False,
+            "owner": True,
+            "manager": True,
+            "trainer": False,
+            "reception": False,
+            "member": False,
+            "wired_in_sprint": 6,
+        },
+        {
+            "row_name": "Create/edit membership plans and pricing",
+            "super_admin": False,
+            "owner": True,
+            "manager": True,
+            "trainer": False,
+            "reception": False,
+            "member": False,
+            "wired_in_sprint": 10,
+        },
+        {
+            "row_name": "Suspend or reactivate a member",
+            "super_admin": False,
+            "owner": True,
+            "manager": True,
+            "trainer": False,
+            "reception": False,
+            "member": False,
+            "wired_in_sprint": 10,
+        },
+        {
+            "row_name": "Approve or reject a freeze request",
+            "super_admin": False,
+            "owner": True,
+            "manager": True,
+            "trainer": False,
+            "reception": False,
+            "member": False,
+            "wired_in_sprint": 13,
+        },
+        {
+            "row_name": "Manually reassign a trainer",
+            "super_admin": False,
+            "owner": True,
+            "manager": True,
+            "trainer": False,
+            "reception": False,
+            "member": False,
+            "wired_in_sprint": 17,
+        },
+        {
+            "row_name": "View analytics dashboard, audit log, and payment history",
+            "super_admin": True,
+            "owner": True,
+            "manager": True,
+            "trainer": False,
+            "reception": False,
+            "member": False,
+            "wired_in_sprint": "9a, 12, 27",
+        },
+        {
+            "row_name": "Confirm a manual cash payment",
+            "super_admin": False,
+            "owner": True,
+            "manager": True,
+            "trainer": False,
+            "reception": False,
+            "member": False,
+            "wired_in_sprint": 12,
+        },
+        {
+            "row_name": "Post a notice board announcement",
+            "super_admin": True,
+            "owner": True,
+            "manager": True,
+            "trainer": False,
+            "reception": False,
+            "member": False,
+            "wired_in_sprint": 28,
+        },
     ]
 
-    ACTION_PERMISSION_MAP = {
-        "edit_entitlements": CanEditGymEntitlements,
-        "edit_gym_settings": CanEditGymSettings,
-        "manage_branding_and_checklist": IsGymOwner,
-        "owner_or_manager_operations": IsOwnerOrManager,
-        "gym_staff_actions": IsGymStaff,
-        "trainer_actions": IsTrainer,
-        "reception_actions": IsReception,
-        "member_actions": IsMember,
-    }
-
-    class FakeRequest:
-        def __init__(self, user, tenant=None):
-            self.user = user
-            self.tenant = tenant
-
-    @pytest.mark.parametrize("action,role,expected_allowed", SPEC_2_MATRIX)
-    def test_spec_2_matrix_action_against_permission_class(
-        self, action, role, expected_allowed, gym_tenant, super_admin_user
-    ):
-        perm_cls = self.ACTION_PERMISSION_MAP[action]
-        perm = perm_cls()
-
-        if role == User.ROLE_SUPER_ADMIN:
-            user = super_admin_user
-            tenant = None if action == "edit_entitlements" else gym_tenant
-        else:
-            user = User.objects.create_user(
-                email=f"matrix_{action}_{role}@bolehub.com",
-                password="Password123!",
-                gym=gym_tenant,
-                role=role,
+    MATRIX_TEST_CASES = []
+    for row in SPEC_2_ROWS:
+        for r_name in [
+            User.ROLE_SUPER_ADMIN,
+            User.ROLE_OWNER,
+            User.ROLE_MANAGER,
+            User.ROLE_TRAINER,
+            User.ROLE_RECEPTION,
+            User.ROLE_MEMBER,
+        ]:
+            expected = row[r_name]
+            MATRIX_TEST_CASES.append(
+                (row["row_name"], r_name, expected, row["wired_in_sprint"])
             )
-            tenant = gym_tenant
 
-        req = self.FakeRequest(user=user, tenant=tenant)
-        result = perm.has_permission(req, view=None)
-        assert (
-            result is expected_allowed
-        ), f"Action '{action}' for role '{role}' expected {expected_allowed}, got {result}"
+    @pytest.mark.parametrize(
+        "row_name,role,expected_allowed,wired_sprint",
+        MATRIX_TEST_CASES,
+    )
+    def test_spec_2_permission_matrix_endpoint_enforcement(
+        self,
+        row_name,
+        role,
+        expected_allowed,
+        wired_sprint,
+        gym_tenant,
+        super_admin_user,
+        owner_user,
+        manager_user,
+        trainer_user,
+        reception_user,
+        member_user,
+    ):
+        """
+        Verify every row of SPEC §2 Table 3.1a.
+        Rows not yet wired skip with an explicit reason.
+        Wired rows (Sprint 5) assert directly against real HTTP endpoints.
+        """
+        if wired_sprint != 5:
+            pytest.skip(
+                f"Row '{row_name}' has no real endpoint yet (scheduled for Sprint {wired_sprint} in docs/SPRINTS.md)"
+            )
+
+        users_by_role = {
+            User.ROLE_SUPER_ADMIN: super_admin_user,
+            User.ROLE_OWNER: owner_user,
+            User.ROLE_MANAGER: manager_user,
+            User.ROLE_TRAINER: trainer_user,
+            User.ROLE_RECEPTION: reception_user,
+            User.ROLE_MEMBER: member_user,
+        }
+        acting_user = users_by_role[role]
+        tokens = get_tokens_for_user(acting_user)
+        client = APIClient()
+        client.credentials(HTTP_AUTHORIZATION=f"Bearer {tokens['access']}")
+
+        if (
+            row_name
+            == "Edit entitlements: tier, has_* flags, freeze allowance, grace and subscription-reminder days"
+        ):
+            url = f"/api/platform/gyms/{gym_tenant.id}/config/"
+            host = (
+                "localhost"
+                if role == User.ROLE_SUPER_ADMIN
+                else f"{gym_tenant.subdomain}.localhost"
+            )
+            resp = client.patch(
+                url, {"has_ai_plans": True}, format="json", HTTP_HOST=host
+            )
+            if expected_allowed:
+                assert resp.status_code == 200
+            else:
+                assert resp.status_code in (403, 404)
+        elif (
+            row_name
+            == "Edit gym settings: branding, member reminder days, payment credentials"
+        ):
+            url = "/api/gym/settings/"
+            host = (
+                "localhost"
+                if role == User.ROLE_SUPER_ADMIN
+                else f"{gym_tenant.subdomain}.localhost"
+            )
+            resp = client.patch(
+                url, {"brand_color": "#10B981"}, format="json", HTTP_HOST=host
+            )
+            if expected_allowed:
+                assert resp.status_code == 200
+            else:
+                assert resp.status_code in (403, 404)

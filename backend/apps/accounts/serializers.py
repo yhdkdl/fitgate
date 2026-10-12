@@ -20,6 +20,7 @@ PRIVILEGED_FIELDS = (
     "locked_until",
     "is_staff",
     "is_superuser",
+    "photo",
 )
 
 
