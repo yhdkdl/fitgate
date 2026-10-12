@@ -15,7 +15,7 @@
 
 ## Current
 
-- Sprint 5: RBAC framework (GATE)
+- Sprint 5: RBAC framework (GATE) — implemented on `feature/sprint-5-rbac-framework`, full test suite green (271 backend, 36 frontend), stopped at GATE for review.
 
 ## Next
 

@@ -12,7 +12,12 @@ from rest_framework.views import APIView
 
 from apps.accounts.models import User
 from apps.accounts.notifications import notify_demo_request_received
-from apps.accounts.permissions import IsSuperAdmin, RequirePasswordChanged
+from apps.accounts.permissions import (
+    CanEditGymSettings,
+    IsOwnerOrSuperAdmin,
+    IsSuperAdmin,
+    RequirePasswordChanged,
+)
 from apps.accounts.serializers import UserSummarySerializer
 from apps.tenants.models import DemoRequest, GymConfig, GymTenant
 from apps.tenants.serializers import (
@@ -547,7 +552,7 @@ class UploadGymLogoView(APIView):
     """
 
     parser_classes = [MultiPartParser, FormParser]
-    permission_classes = [RequirePasswordChanged]
+    permission_classes = [RequirePasswordChanged, IsOwnerOrSuperAdmin]
 
     @extend_schema(
         summary="Upload gym logo",
@@ -610,7 +615,7 @@ class GymSettingsView(APIView):
     - Super Admin can view and update all settings.
     """
 
-    permission_classes = [RequirePasswordChanged]
+    permission_classes = [RequirePasswordChanged, CanEditGymSettings]
 
     def _resolve_gym(self, request, gym_id=None):
         if gym_id:
@@ -714,7 +719,7 @@ class FirstRunChecklistView(APIView):
     Derived automatically from database rows (branding, plan, staff, member).
     """
 
-    permission_classes = [RequirePasswordChanged]
+    permission_classes = [RequirePasswordChanged, IsOwnerOrSuperAdmin]
 
     @extend_schema(
         summary="Get first-run onboarding checklist",
@@ -765,7 +770,7 @@ class DismissFirstRunChecklistView(APIView):
     Dismissal persists in GymConfig.first_run_dismissed_at.
     """
 
-    permission_classes = [RequirePasswordChanged]
+    permission_classes = [RequirePasswordChanged, IsOwnerOrSuperAdmin]
 
     @extend_schema(
         summary="Dismiss first-run onboarding checklist",

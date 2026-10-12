@@ -57,3 +57,184 @@ class DocsPermission(BasePermission):
             and request.user.is_authenticated
             and getattr(request.user, "role", None) == User.ROLE_SUPER_ADMIN
         )
+
+
+class IsGymOwner(BasePermission):
+    """
+    Grants access only to authenticated Gym Owners belonging to the active tenant.
+    """
+
+    def has_permission(self, request, view):
+        if not (request.user and request.user.is_authenticated):
+            return False
+        if getattr(request.user, "role", None) != User.ROLE_OWNER:
+            return False
+        tenant = getattr(request, "tenant", None)
+        if tenant and getattr(request.user, "gym_id", None) != tenant.id:
+            return False
+        return True
+
+
+class IsGymManager(BasePermission):
+    """
+    Grants access only to authenticated Gym Managers belonging to the active tenant.
+    """
+
+    def has_permission(self, request, view):
+        if not (request.user and request.user.is_authenticated):
+            return False
+        if getattr(request.user, "role", None) != User.ROLE_MANAGER:
+            return False
+        tenant = getattr(request, "tenant", None)
+        if tenant and getattr(request.user, "gym_id", None) != tenant.id:
+            return False
+        return True
+
+
+class IsOwnerOrManager(BasePermission):
+    """
+    Grants access to authenticated Gym Owners or Managers belonging to the active tenant.
+    """
+
+    def has_permission(self, request, view):
+        if not (request.user and request.user.is_authenticated):
+            return False
+        if getattr(request.user, "role", None) not in [
+            User.ROLE_OWNER,
+            User.ROLE_MANAGER,
+        ]:
+            return False
+        tenant = getattr(request, "tenant", None)
+        if tenant and getattr(request.user, "gym_id", None) != tenant.id:
+            return False
+        return True
+
+
+class IsGymStaff(BasePermission):
+    """
+    Grants access to any staff role (Owner, Manager, Trainer, Reception) of the active tenant.
+    """
+
+    def has_permission(self, request, view):
+        if not (request.user and request.user.is_authenticated):
+            return False
+        staff_roles = [
+            User.ROLE_OWNER,
+            User.ROLE_MANAGER,
+            User.ROLE_TRAINER,
+            User.ROLE_RECEPTION,
+        ]
+        if getattr(request.user, "role", None) not in staff_roles:
+            return False
+        tenant = getattr(request, "tenant", None)
+        if tenant and getattr(request.user, "gym_id", None) != tenant.id:
+            return False
+        return True
+
+
+class IsTrainer(BasePermission):
+    """
+    Grants access to authenticated Trainers belonging to the active tenant.
+    """
+
+    def has_permission(self, request, view):
+        if not (request.user and request.user.is_authenticated):
+            return False
+        if getattr(request.user, "role", None) != User.ROLE_TRAINER:
+            return False
+        tenant = getattr(request, "tenant", None)
+        if tenant and getattr(request.user, "gym_id", None) != tenant.id:
+            return False
+        return True
+
+
+class IsReception(BasePermission):
+    """
+    Grants access to authenticated Reception staff belonging to the active tenant.
+    """
+
+    def has_permission(self, request, view):
+        if not (request.user and request.user.is_authenticated):
+            return False
+        if getattr(request.user, "role", None) != User.ROLE_RECEPTION:
+            return False
+        tenant = getattr(request, "tenant", None)
+        if tenant and getattr(request.user, "gym_id", None) != tenant.id:
+            return False
+        return True
+
+
+class IsMember(BasePermission):
+    """
+    Grants access to authenticated Members belonging to the active tenant.
+    """
+
+    def has_permission(self, request, view):
+        if not (request.user and request.user.is_authenticated):
+            return False
+        if getattr(request.user, "role", None) != User.ROLE_MEMBER:
+            return False
+        tenant = getattr(request, "tenant", None)
+        if tenant and getattr(request.user, "gym_id", None) != tenant.id:
+            return False
+        return True
+
+
+class IsOwnerOrSuperAdmin(BasePermission):
+    """
+    Grants access to Super Admin or the Gym Owner of the active tenant.
+    """
+
+    def has_permission(self, request, view):
+        if not (request.user and request.user.is_authenticated):
+            return False
+        is_super = getattr(
+            request.user, "role", None
+        ) == User.ROLE_SUPER_ADMIN or getattr(request.user, "is_superuser", False)
+        if is_super:
+            return True
+        if getattr(request.user, "role", None) == User.ROLE_OWNER:
+            tenant = getattr(request, "tenant", None)
+            if tenant and getattr(request.user, "gym_id", None) != tenant.id:
+                return False
+            return True
+        return False
+
+
+class CanEditGymEntitlements(BasePermission):
+    """
+    Entitlements (tier, has_* flags, freeze allowance, grace and reminder days)
+    can ONLY be modified by Super Admin.
+    """
+
+    def has_permission(self, request, view):
+        return bool(
+            request.user
+            and request.user.is_authenticated
+            and (
+                getattr(request.user, "role", None) == User.ROLE_SUPER_ADMIN
+                or getattr(request.user, "is_superuser", False)
+            )
+        )
+
+
+class CanEditGymSettings(BasePermission):
+    """
+    Gym settings (branding, member reminder days, payment credentials) can be edited
+    by the Gym Owner or Super Admin. Manager and other roles receive 403 Forbidden.
+    """
+
+    def has_permission(self, request, view):
+        if not (request.user and request.user.is_authenticated):
+            return False
+        is_super = getattr(
+            request.user, "role", None
+        ) == User.ROLE_SUPER_ADMIN or getattr(request.user, "is_superuser", False)
+        if is_super:
+            return True
+        if getattr(request.user, "role", None) == User.ROLE_OWNER:
+            tenant = getattr(request, "tenant", None)
+            if tenant and getattr(request.user, "gym_id", None) != tenant.id:
+                return False
+            return True
+        return False
