@@ -3,7 +3,7 @@
 from rest_framework import serializers
 
 from apps.accounts.serializers import UserSummarySerializer
-from apps.tenants.models import DemoRequest, GymConfig, GymTenant
+from apps.tenants.models import DemoRequest, GymConfig, GymTenant, validate_hex_color
 
 
 class GymTenantSummarySerializer(serializers.ModelSerializer):
@@ -45,6 +45,10 @@ class GymConfigSerializer(serializers.ModelSerializer):
             "payment_grace_days",
             "subscription_reminder_days",
             "member_reminder_days",
+            "brand_color",
+            "logo",
+            "show_unavailable_equipment",
+            "first_run_dismissed_at",
         ]
         read_only_fields = fields
 
@@ -210,3 +214,54 @@ class UploadGymLogoResponseSerializer(serializers.Serializer):
     """Response returned upon gym logo upload."""
 
     url = serializers.CharField()
+
+
+class GymSettingsUpdateSerializer(serializers.Serializer):
+    """Serializer for Owner-editable gym settings."""
+
+    brand_color = serializers.CharField(
+        max_length=7, required=False, allow_null=True, allow_blank=True
+    )
+    logo = serializers.CharField(
+        max_length=500, required=False, allow_null=True, allow_blank=True
+    )
+    show_unavailable_equipment = serializers.BooleanField(required=False)
+    member_reminder_days = serializers.ListField(
+        child=serializers.IntegerField(min_value=0), required=False
+    )
+
+    def validate_brand_color(self, value):
+        if value:
+            validate_hex_color(value)
+        return value
+
+
+class ChecklistItemSerializer(serializers.Serializer):
+    """Item in first-run onboarding checklist."""
+
+    label = serializers.CharField()
+    completed = serializers.BooleanField()
+
+
+class FirstRunChecklistResponseSerializer(serializers.Serializer):
+    """First-run onboarding checklist progress for gym Owner."""
+
+    is_dismissed = serializers.BooleanField()
+    dismissed_at = serializers.DateTimeField(allow_null=True)
+    all_completed = serializers.BooleanField()
+    items = serializers.DictField(child=ChecklistItemSerializer())
+
+
+class GymPublicEntryResponseSerializer(serializers.Serializer):
+    """Public details returned on the gym subdomain entry page."""
+
+    still_securing = serializers.BooleanField()
+    gym_id = serializers.UUIDField(required=False)
+    name = serializers.CharField()
+    subdomain = serializers.CharField(required=False)
+    brand_color = serializers.CharField(allow_null=True, required=False)
+    logo = serializers.CharField(allow_null=True, required=False)
+    phone = serializers.CharField(required=False, allow_blank=True)
+    location = serializers.CharField(required=False, allow_blank=True)
+    currency = serializers.CharField(required=False)
+    message = serializers.CharField(required=False)

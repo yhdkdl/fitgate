@@ -39,6 +39,17 @@ def validate_subdomain(value: str) -> None:
         raise ValidationError(f"'{value}' is a reserved subdomain.")
 
 
+HEX_COLOR_REGEX = re.compile(r"^#[0-9a-fA-F]{6}$")
+
+
+def validate_hex_color(value: str) -> None:
+    """Validate 6-digit hex color format (e.g. #FF5733)."""
+    if value and not HEX_COLOR_REGEX.match(value):
+        raise ValidationError(
+            "Brand color must be a valid 6-character hex code (e.g. #FF5733)."
+        )
+
+
 class GymTenant(models.Model):
     """
     Represents a gym tenant on the FitGate platform.
@@ -152,6 +163,12 @@ class GymConfig(models.Model):
         default=default_subscription_reminder_days
     )
     member_reminder_days = models.JSONField(default=default_member_reminder_days)
+    brand_color = models.CharField(
+        max_length=7, null=True, blank=True, validators=[validate_hex_color]
+    )
+    logo = models.CharField(max_length=500, null=True, blank=True)
+    show_unavailable_equipment = models.BooleanField(default=False)
+    first_run_dismissed_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:
         verbose_name = "Gym Configuration"

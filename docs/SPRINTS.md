@@ -147,7 +147,7 @@ Trainer specialization and photo are delivered in the Trainer and storage sprint
 - A public entry page endpoint on the gym subdomain returns the gym name, brand color, logo, phone and location. The page offers Log in and Register; the plan list is added in Sprint 10. Before the certificate is confirmed it shows the "still being secured" state.
 - A first-run checklist is shown to the Owner only: add branding, create a first plan, add a staff account, register a first member. Items tick automatically from real data (no manual flags), and the checklist can be dismissed; dismissal persists.
 
-- [ ] Status: in progress
+- [x] Status: done — merged to develop (PR #15)
 
 5. **RBAC framework (GATE)** — permission classes + Owner/Manager permission matrix enforcement.
    - For every role in the permission matrix (SPEC §2), both an allowed action (succeeds) and a denied action (403, not 200) are covered by a test.

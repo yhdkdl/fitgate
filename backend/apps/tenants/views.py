@@ -14,7 +14,7 @@ from apps.accounts.models import User
 from apps.accounts.notifications import notify_demo_request_received
 from apps.accounts.permissions import IsSuperAdmin, RequirePasswordChanged
 from apps.accounts.serializers import UserSummarySerializer
-from apps.tenants.models import DemoRequest, GymTenant
+from apps.tenants.models import DemoRequest, GymConfig, GymTenant
 from apps.tenants.serializers import (
     ConfirmTLSResponseSerializer,
     CreateGymRequestSerializer,
@@ -22,7 +22,10 @@ from apps.tenants.serializers import (
     DemoRequestConvertResponseSerializer,
     DemoRequestSerializer,
     DemoRequestUpdateSerializer,
+    FirstRunChecklistResponseSerializer,
     GymConfigSerializer,
+    GymPublicEntryResponseSerializer,
+    GymSettingsUpdateSerializer,
     GymTenantSummarySerializer,
     ProposeSubdomainResponseSerializer,
     PublicDemoRequestSerializer,
@@ -31,7 +34,14 @@ from apps.tenants.serializers import (
     UploadMemberPhotoResponseSerializer,
     UploadMemberPhotoSerializer,
 )
-from apps.tenants.services import confirm_gym_tls, create_gym, propose_subdomain
+from apps.tenants.services import (
+    confirm_gym_tls,
+    create_gym,
+    dismiss_first_run_checklist,
+    get_first_run_checklist,
+    propose_subdomain,
+    update_gym_settings,
+)
 from apps.tenants.storage import (
     get_authenticated_photo_stream,
     save_gym_logo,
@@ -589,3 +599,281 @@ class UploadGymLogoView(APIView):
             return Response({"detail": msg}, status=status.HTTP_400_BAD_REQUEST)
 
         return Response({"url": url}, status=status.HTTP_200_OK)
+
+
+class GymSettingsView(APIView):
+    """
+    View and update gym configuration and branding settings.
+    - Owner can update brand_color, logo, show_unavailable_equipment, member_reminder_days.
+    - Owner attempting to update entitlement fields receives 403 Forbidden.
+    - Manager and other staff roles receive 403 Forbidden.
+    - Super Admin can view and update all settings.
+    """
+
+    permission_classes = [RequirePasswordChanged]
+
+    def _resolve_gym(self, request, gym_id=None):
+        if gym_id:
+            try:
+                return GymTenant.objects.get(id=gym_id)
+            except GymTenant.DoesNotExist:
+                raise ValidationError({"gym_id": "Gym not found."})
+
+        if getattr(request, "tenant", None):
+            return request.tenant
+
+        if getattr(request.user, "gym", None):
+            return request.user.gym
+
+        raise ValidationError("Gym tenant context required.")
+
+    @extend_schema(
+        summary="Get gym settings",
+        description="Returns gym configuration and branding settings for Owner or Super Admin.",
+        responses={200: GymConfigSerializer},
+    )
+    def get(self, request, gym_id=None, *args, **kwargs):
+        if not request.user or not request.user.is_authenticated:
+            return Response(
+                {"detail": "Authentication credentials were not provided."},
+                status=status.HTTP_401_UNAUTHORIZED,
+            )
+
+        try:
+            gym = self._resolve_gym(request, gym_id)
+        except ValidationError as e:
+            return Response({"detail": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+        is_super_admin = getattr(
+            request.user, "role", None
+        ) == User.ROLE_SUPER_ADMIN or getattr(request.user, "is_superuser", False)
+        is_owner = (
+            getattr(request.user, "role", None) == User.ROLE_OWNER
+            and getattr(request.user, "gym_id", None) == gym.id
+        )
+
+        if not (is_super_admin or is_owner):
+            raise PermissionDenied(
+                "Only the gym owner or Super Admin can view gym settings."
+            )
+
+        config = getattr(gym, "config", None)
+        if config is None:
+            config, _ = GymConfig.objects.get_or_create(gym=gym)
+
+        return Response(GymConfigSerializer(config).data, status=status.HTTP_200_OK)
+
+    @extend_schema(
+        summary="Update gym settings",
+        description="Updates Owner-editable gym settings (branding, reminders). Entitlement modifications by Owner return 403.",
+        request=GymSettingsUpdateSerializer,
+        responses={
+            200: GymConfigSerializer,
+            400: OpenApiResponse(description="Validation error"),
+            403: OpenApiResponse(
+                description="Forbidden - entitlements restricted to Super Admin or non-Owner access"
+            ),
+        },
+    )
+    def patch(self, request, gym_id=None, *args, **kwargs):
+        if not request.user or not request.user.is_authenticated:
+            return Response(
+                {"detail": "Authentication credentials were not provided."},
+                status=status.HTTP_401_UNAUTHORIZED,
+            )
+
+        try:
+            gym = self._resolve_gym(request, gym_id)
+        except ValidationError as e:
+            return Response({"detail": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+        serializer = GymSettingsUpdateSerializer(data=request.data, partial=True)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        # Merge raw request.data keys for entitlement checking
+        payload = dict(request.data)
+        payload.update(serializer.validated_data)
+
+        try:
+            config = update_gym_settings(gym, request.user, payload)
+        except ValidationError as exc:
+            msg = (
+                exc.messages[0]
+                if hasattr(exc, "messages") and len(exc.messages) == 1
+                else (exc.messages if hasattr(exc, "messages") else str(exc))
+            )
+            return Response({"detail": msg}, status=status.HTTP_400_BAD_REQUEST)
+
+        return Response(GymConfigSerializer(config).data, status=status.HTTP_200_OK)
+
+
+class FirstRunChecklistView(APIView):
+    """
+    Onboarding checklist progress for gym Owner.
+    Derived automatically from database rows (branding, plan, staff, member).
+    """
+
+    permission_classes = [RequirePasswordChanged]
+
+    @extend_schema(
+        summary="Get first-run onboarding checklist",
+        description="Returns first-run checklist progress for the gym Owner.",
+        responses={
+            200: FirstRunChecklistResponseSerializer,
+            403: OpenApiResponse(
+                description="Forbidden - only Owner or Super Admin permitted"
+            ),
+        },
+    )
+    def get(self, request, *args, **kwargs):
+        if not request.user or not request.user.is_authenticated:
+            return Response(
+                {"detail": "Authentication credentials were not provided."},
+                status=status.HTTP_401_UNAUTHORIZED,
+            )
+
+        is_super_admin = getattr(
+            request.user, "role", None
+        ) == User.ROLE_SUPER_ADMIN or getattr(request.user, "is_superuser", False)
+        is_owner = getattr(request.user, "role", None) == User.ROLE_OWNER
+
+        if not (is_super_admin or is_owner):
+            raise PermissionDenied(
+                "Only the gym owner can view the onboarding checklist."
+            )
+
+        gym = getattr(request, "tenant", None) or getattr(request.user, "gym", None)
+        if gym is None and is_super_admin:
+            gym_id = request.query_params.get("gym_id")
+            if gym_id:
+                gym = GymTenant.objects.filter(id=gym_id).first()
+
+        if gym is None:
+            return Response(
+                {"detail": "Gym tenant context required."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        data = get_first_run_checklist(gym)
+        return Response(data, status=status.HTTP_200_OK)
+
+
+class DismissFirstRunChecklistView(APIView):
+    """
+    Dismiss the first-run onboarding checklist for the gym Owner.
+    Dismissal persists in GymConfig.first_run_dismissed_at.
+    """
+
+    permission_classes = [RequirePasswordChanged]
+
+    @extend_schema(
+        summary="Dismiss first-run onboarding checklist",
+        description="Persists dismissal of onboarding checklist for the gym.",
+        request=None,
+        responses={
+            200: inline_serializer(
+                name="DismissChecklistResponse",
+                fields={
+                    "is_dismissed": serializers.BooleanField(),
+                    "dismissed_at": serializers.DateTimeField(),
+                },
+            ),
+            403: OpenApiResponse(
+                description="Forbidden - only Owner or Super Admin permitted"
+            ),
+        },
+    )
+    def post(self, request, *args, **kwargs):
+        if not request.user or not request.user.is_authenticated:
+            return Response(
+                {"detail": "Authentication credentials were not provided."},
+                status=status.HTTP_401_UNAUTHORIZED,
+            )
+
+        is_super_admin = getattr(
+            request.user, "role", None
+        ) == User.ROLE_SUPER_ADMIN or getattr(request.user, "is_superuser", False)
+        is_owner = getattr(request.user, "role", None) == User.ROLE_OWNER
+
+        if not (is_super_admin or is_owner):
+            raise PermissionDenied(
+                "Only the gym owner can dismiss the onboarding checklist."
+            )
+
+        gym = getattr(request, "tenant", None) or getattr(request.user, "gym", None)
+        if gym is None:
+            return Response(
+                {"detail": "Gym tenant context required."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        config = dismiss_first_run_checklist(gym)
+        return Response(
+            {
+                "is_dismissed": True,
+                "dismissed_at": config.first_run_dismissed_at,
+            },
+            status=status.HTTP_200_OK,
+        )
+
+
+class GymPublicEntryView(APIView):
+    """
+    Public entry endpoint on gym subdomain.
+    Returns gym name, brand color, logo, phone, location, currency.
+    If certificate is not confirmed, returns 503 'still being secured'.
+    """
+
+    permission_classes = [AllowAny]
+    authentication_classes = []
+
+    @extend_schema(
+        summary="Public gym entry page",
+        description="Public endpoint returning gym branding, details, and active plans on the gym subdomain. Shows 503 if TLS is pending.",
+        responses={
+            200: GymPublicEntryResponseSerializer,
+            503: OpenApiResponse(description="Subdomain is still being secured"),
+        },
+    )
+    def get(self, request, *args, **kwargs):
+        gym = getattr(request, "tenant", None)
+
+        if gym is None:
+            subdomain = request.query_params.get("subdomain")
+            if subdomain:
+                gym = GymTenant.objects.filter(
+                    subdomain=subdomain.strip().lower()
+                ).first()
+
+        if gym is None:
+            return Response(
+                {"detail": "Gym tenant context required."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Check TLS confirmation status
+        if gym.tls_confirmed_at is None:
+            return Response(
+                {
+                    "still_securing": True,
+                    "name": gym.name,
+                    "message": "This gym portal is still being secured. Please check back shortly.",
+                },
+                status=status.HTTP_503_SERVICE_UNAVAILABLE,
+            )
+
+        config = getattr(gym, "config", None)
+        data = {
+            "still_securing": False,
+            "gym_id": gym.id,
+            "name": gym.name,
+            "subdomain": gym.subdomain,
+            "brand_color": getattr(config, "brand_color", None) if config else None,
+            "logo": getattr(config, "logo", None) if config else None,
+            "phone": gym.contact_phone,
+            "location": gym.location,
+            "currency": gym.currency,
+            "plans": [],
+        }
+        return Response(data, status=status.HTTP_200_OK)

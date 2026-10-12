@@ -10,12 +10,24 @@ import { ProfileScreen } from "./screens/ProfileScreen";
 import { ResetPasswordScreen } from "./screens/ResetPasswordScreen";
 import { SetPasswordScreen } from "./screens/SetPasswordScreen";
 import { RequestDemoScreen } from "./screens/RequestDemoScreen";
+import { GymEntryScreen } from "./screens/GymEntryScreen";
+import { getTenantFromHostname } from "./utils/tenant";
+
+const RootRoute: React.FC = () => {
+  const tenant = getTenantFromHostname();
+  if (tenant) {
+    return <GymEntryScreen />;
+  }
+  return <Navigate to="/dashboard" replace />;
+};
 
 export const App: React.FC = () => {
   return (
     <AuthProvider>
       <Routes>
         {/* Public auth and marketing screens */}
+        <Route path="/" element={<RootRoute />} />
+        <Route path="/entry" element={<GymEntryScreen />} />
         <Route path="/login" element={<LoginScreen />} />
         <Route path="/request-demo" element={<RequestDemoScreen />} />
         <Route path="/forgot-password" element={<ForgotPasswordScreen />} />
@@ -88,8 +100,7 @@ export const App: React.FC = () => {
           }
         />
 
-        {/* Default fallbacks */}
-        <Route path="/" element={<Navigate to="/dashboard" replace />} />
+        {/* Default fallback */}
         <Route path="*" element={<Navigate to="/dashboard" replace />} />
       </Routes>
     </AuthProvider>

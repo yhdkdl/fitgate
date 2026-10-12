@@ -168,6 +168,70 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/gym/checklist/": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Get first-run onboarding checklist
+     * @description Returns first-run checklist progress for the gym Owner.
+     */
+    get: operations["gym_checklist_retrieve"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/gym/checklist/dismiss/": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Dismiss first-run onboarding checklist
+     * @description Persists dismissal of onboarding checklist for the gym.
+     */
+    post: operations["gym_checklist_dismiss_create"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/gym/settings/": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Get gym settings
+     * @description Returns gym configuration and branding settings for Owner or Super Admin.
+     */
+    get: operations["gym_settings_retrieve"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    /**
+     * Update gym settings
+     * @description Updates Owner-editable gym settings (branding, reminders). Entitlement modifications by Owner return 403.
+     */
+    patch: operations["gym_settings_partial_update"];
+    trace?: never;
+  };
   "/api/health/": {
     parameters: {
       query?: never;
@@ -376,6 +440,30 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/platform/gyms/{gym_id}/config/": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Get gym settings
+     * @description Returns gym configuration and branding settings for Owner or Super Admin.
+     */
+    get: operations["platform_gyms_config_retrieve"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    /**
+     * Update gym settings
+     * @description Updates Owner-editable gym settings (branding, reminders). Entitlement modifications by Owner return 403.
+     */
+    patch: operations["platform_gyms_config_partial_update"];
+    trace?: never;
+  };
   "/api/platform/gyms/{gym_id}/confirm-tls/": {
     parameters: {
       query?: never;
@@ -436,6 +524,26 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/public/gym-entry/": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Public gym entry page
+     * @description Public endpoint returning gym branding, details, and active plans on the gym subdomain. Shows 503 if TLS is pending.
+     */
+    get: operations["public_gym_entry_retrieve"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -450,6 +558,11 @@ export interface components {
       access: string;
       refresh: string;
       user: components["schemas"]["UserSummary"];
+    };
+    /** @description Item in first-run onboarding checklist. */
+    ChecklistItem: {
+      label: string;
+      completed: boolean;
     };
     /** @description Response returned upon TLS certificate confirmation. */
     ConfirmTLSResponse: {
@@ -540,6 +653,21 @@ export interface components {
      */
     DemoRequestStatusEnum:
       "new" | "contacted" | "demo_done" | "converted" | "lost";
+    DismissChecklistResponse: {
+      is_dismissed: boolean;
+      /** Format: date-time */
+      dismissed_at: string;
+    };
+    /** @description First-run onboarding checklist progress for gym Owner. */
+    FirstRunChecklistResponse: {
+      is_dismissed: boolean;
+      /** Format: date-time */
+      dismissed_at: string | null;
+      all_completed: boolean;
+      items: {
+        [key: string]: components["schemas"]["ChecklistItem"];
+      };
+    };
     /** @description Feature gating and configuration settings of a gym. */
     GymConfig: {
       readonly has_trainer_module: boolean;
@@ -551,10 +679,29 @@ export interface components {
       readonly payment_grace_days: number;
       readonly subscription_reminder_days: unknown;
       readonly member_reminder_days: unknown;
+      readonly brand_color: string | null;
+      readonly logo: string | null;
+      readonly show_unavailable_equipment: boolean;
+      /** Format: date-time */
+      readonly first_run_dismissed_at: string | null;
     };
     GymDetailResponse: {
       gym: components["schemas"]["GymTenantSummary"];
       config: components["schemas"]["GymConfig"];
+    };
+    /** @description Public details returned on the gym subdomain entry page. */
+    GymPublicEntryResponse: {
+      still_securing: boolean;
+      /** Format: uuid */
+      gym_id?: string;
+      name: string;
+      subdomain?: string;
+      brand_color?: string | null;
+      logo?: string | null;
+      phone?: string;
+      location?: string;
+      currency?: string;
+      message?: string;
     };
     /**
      * @description * `pending` - Pending
@@ -634,6 +781,13 @@ export interface components {
     PatchedDemoRequestUpdateRequest: {
       status?: components["schemas"]["DemoRequestStatusEnum"];
       notes?: string;
+    };
+    /** @description Serializer for Owner-editable gym settings. */
+    PatchedGymSettingsUpdateRequest: {
+      brand_color?: string | null;
+      logo?: string | null;
+      show_unavailable_equipment?: boolean;
+      member_reminder_days?: number[];
     };
     /** @description Payload for updating user profile (full_name and phone only). */
     PatchedUserProfileUpdateRequest: {
@@ -1064,6 +1218,116 @@ export interface operations {
       };
     };
   };
+  gym_checklist_retrieve: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["FirstRunChecklistResponse"];
+        };
+      };
+      /** @description Forbidden - only Owner or Super Admin permitted */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  gym_checklist_dismiss_create: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["DismissChecklistResponse"];
+        };
+      };
+      /** @description Forbidden - only Owner or Super Admin permitted */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  gym_settings_retrieve: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["GymConfig"];
+        };
+      };
+    };
+  };
+  gym_settings_partial_update: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: {
+      content: {
+        "application/json": components["schemas"]["PatchedGymSettingsUpdateRequest"];
+        "application/x-www-form-urlencoded": components["schemas"]["PatchedGymSettingsUpdateRequest"];
+        "multipart/form-data": components["schemas"]["PatchedGymSettingsUpdateRequest"];
+      };
+    };
+    responses: {
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["GymConfig"];
+        };
+      };
+      /** @description Validation error */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Forbidden - entitlements restricted to Super Admin or non-Owner access */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
   health_retrieve: {
     parameters: {
       query?: never;
@@ -1453,6 +1717,68 @@ export interface operations {
       };
     };
   };
+  platform_gyms_config_retrieve: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        gym_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["GymConfig"];
+        };
+      };
+    };
+  };
+  platform_gyms_config_partial_update: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        gym_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: {
+      content: {
+        "application/json": components["schemas"]["PatchedGymSettingsUpdateRequest"];
+        "application/x-www-form-urlencoded": components["schemas"]["PatchedGymSettingsUpdateRequest"];
+        "multipart/form-data": components["schemas"]["PatchedGymSettingsUpdateRequest"];
+      };
+    };
+    responses: {
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["GymConfig"];
+        };
+      };
+      /** @description Validation error */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Forbidden - entitlements restricted to Super Admin or non-Owner access */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
   platform_gyms_confirm_tls_create: {
     parameters: {
       query?: never;
@@ -1539,6 +1865,32 @@ export interface operations {
       };
       /** @description Forbidden */
       403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  public_gym_entry_retrieve: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["GymPublicEntryResponse"];
+        };
+      };
+      /** @description Subdomain is still being secured */
+      503: {
         headers: {
           [name: string]: unknown;
         };
