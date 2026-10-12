@@ -62,12 +62,93 @@ class TestPermissionsAndProjectContracts:
                     # Contract: every authenticated non-auth view must require RequirePasswordChanged
                     is_auth = getattr(view_cls, "is_auth_endpoint", False)
                     if not is_auth and not module.startswith("fitgate.urls"):
+                        from rest_framework.permissions import IsAuthenticated
+
                         from apps.accounts.permissions import RequirePasswordChanged
 
                         assert RequirePasswordChanged in view_cls.permission_classes, (
                             f"Authenticated non-auth view class '{view_cls.__name__}' in module '{module}' "
                             f"must declare RequirePasswordChanged in permission_classes."
                         )
+                        has_auth_class = any(
+                            isinstance(p, type) and issubclass(p, IsAuthenticated)
+                            for p in view_cls.permission_classes
+                        )
+                        assert has_auth_class, (
+                            f"Authenticated non-auth view class '{view_cls.__name__}' in module '{module}' "
+                            f"must declare IsAuthenticated (or a subclass) in permission_classes."
+                        )
+
+    def test_anonymous_access_returns_401_for_all_non_allowany_views(self):
+        """
+        Walks every URL pattern of the project (apps.* and fitgate.* views only).
+        For every view that does not declare AllowAny, sends an anonymous request
+        (no Authorization header) and asserts 401 (not 200, 403, or 404).
+        Produces route inventory (URL -> permission_classes).
+        """
+        import re
+
+        from django.urls import get_resolver
+        from rest_framework.permissions import AllowAny
+        from rest_framework.test import APIClient
+
+        resolver = get_resolver()
+        client = APIClient()
+
+        def collect_routes(patterns, prefix=""):
+            routes = []
+            for pattern in patterns:
+                if hasattr(pattern, "url_patterns"):
+                    sub_prefix = prefix + str(pattern.pattern)
+                    routes.extend(collect_routes(pattern.url_patterns, sub_prefix))
+                elif hasattr(pattern, "callback"):
+                    callback = pattern.callback
+                    view_cls = getattr(callback, "view_class", None) or getattr(
+                        callback, "cls", None
+                    )
+                    if view_cls:
+                        route_path = prefix + str(pattern.pattern)
+                        routes.append((route_path, view_cls))
+            return routes
+
+        all_routes = collect_routes(resolver.url_patterns)
+        inventory = {}
+
+        # Run with DEBUG = False so docs views enforce DocsPermission
+        with patch.object(settings, "DEBUG", False):
+            for route_path, view_cls in all_routes:
+                module = getattr(view_cls, "__module__", "")
+                if not (module.startswith("apps.") or module.startswith("fitgate.")):
+                    continue
+
+                perms = getattr(view_cls, "permission_classes", [])
+                perm_names = [
+                    p.__name__ if hasattr(p, "__name__") else str(p) for p in perms
+                ]
+                inventory[route_path] = perm_names
+
+                if AllowAny in perms:
+                    continue
+
+                # Concrete test URL
+                test_url = "/" + route_path.lstrip("^").rstrip("$")
+                test_url = re.sub(
+                    r"<uuid:[^>]+>", "00000000-0000-0000-0000-000000000000", test_url
+                )
+                test_url = re.sub(r"<str:filename>", "test.webp", test_url)
+                test_url = re.sub(r"<str:[^>]+>", "test", test_url)
+                test_url = re.sub(r"<int:[^>]+>", "1", test_url)
+                test_url = re.sub(r"<[^>]+>", "test", test_url)
+
+                # Send anonymous GET request with no Authorization header
+                response = client.get(test_url, HTTP_HOST="localhost")
+                assert response.status_code == 401, (
+                    f"Route '{route_path}' ({view_cls.__name__}) returned {response.status_code} "
+                    f"instead of 401 on anonymous access. Body: {getattr(response, 'data', None)}"
+                )
+
+        # Store route inventory on test instance for reporting
+        self.__class__.route_inventory = inventory
 
     def test_must_change_password_blocks_authenticated_endpoints_with_403(self):
         """

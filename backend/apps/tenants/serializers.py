@@ -1,6 +1,7 @@
 """Serializers for gym tenant management and Super Admin provisioning."""
 
 from rest_framework import serializers
+from rest_framework.exceptions import PermissionDenied
 
 from apps.accounts.serializers import UserSummarySerializer
 from apps.tenants.models import DemoRequest, GymConfig, GymTenant, validate_hex_color
@@ -217,7 +218,29 @@ class UploadGymLogoResponseSerializer(serializers.Serializer):
 
 
 class GymSettingsUpdateSerializer(serializers.Serializer):
-    """Serializer for Owner-editable gym settings."""
+    """
+    Serializer for Owner-editable gym settings with strict allow-list enforcement.
+    Any attempt to modify entitlement fields is rejected with 403 PermissionDenied.
+    Any other unallowed or unknown field is rejected with 400 ValidationError.
+    """
+
+    ALLOWED_FIELDS = {
+        "brand_color",
+        "logo",
+        "show_unavailable_equipment",
+        "member_reminder_days",
+    }
+    ENTITLEMENT_FIELDS = {
+        "tier",
+        "has_trainer_module",
+        "has_ai_plans",
+        "has_analytics",
+        "has_group_classes",
+        "has_multi_branch",
+        "freeze_days_allowed",
+        "payment_grace_days",
+        "subscription_reminder_days",
+    }
 
     brand_color = serializers.CharField(
         max_length=7, required=False, allow_null=True, allow_blank=True
@@ -229,6 +252,27 @@ class GymSettingsUpdateSerializer(serializers.Serializer):
     member_reminder_days = serializers.ListField(
         child=serializers.IntegerField(min_value=0), required=False
     )
+
+    def to_internal_value(self, data):
+        if not isinstance(data, dict):
+            raise serializers.ValidationError("Expected a dictionary of settings.")
+
+        # Check for entitlement fields first: fail-closed with 403 PermissionDenied
+        forbidden_entitlements = set(data.keys()).intersection(self.ENTITLEMENT_FIELDS)
+        if forbidden_entitlements:
+            raise PermissionDenied("Only Super Admin can modify gym entitlements.")
+
+        # Check for unallowed / unknown fields: fail-closed with 400 ValidationError
+        unknown_fields = set(data.keys()) - self.ALLOWED_FIELDS
+        if unknown_fields:
+            raise serializers.ValidationError(
+                {
+                    field: "Field is read-only or not recognized."
+                    for field in sorted(unknown_fields)
+                }
+            )
+
+        return super().to_internal_value(data)
 
     def validate_brand_color(self, value):
         if value:

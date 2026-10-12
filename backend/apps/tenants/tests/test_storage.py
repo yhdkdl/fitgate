@@ -418,9 +418,8 @@ class TestMediaEndpointsSuite:
         assert resp_owner.status_code == 200
         assert "url" in resp_owner.data
 
-        # Super Admin gets 200
+        # Super Admin gets 403 (SPEC §2 Table 3.1a: Super Admin cannot edit gym settings or branding)
         upload_admin = make_uploaded_image("logo3.png", fmt="PNG", size=(200, 200))
         client_admin = self.auth_client(super_admin)
         resp_admin = client_admin.post(url, {"logo": upload_admin}, format="multipart")
-        assert resp_admin.status_code == 200
-        assert "url" in resp_admin.data
+        assert resp_admin.status_code == 403

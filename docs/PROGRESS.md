@@ -49,3 +49,7 @@
   - `IsSuperAdmin` and `RequirePasswordChanged` enforced on all `/api/platform/gyms/*` endpoints. Tested: Owner, Manager, Trainer, Reception, Member receive 403; unauthenticated receives 401.
   - Certificate safeguard: `LoginView` checks `tls_confirmed_at`; unconfirmed subdomains return HTTP 503 `still_securing` (tested).
   - Transaction atomicity: Provisioning failure with cPanel UAPI triggers complete database rollback of GymTenant, GymConfig, Payment, and User records (tested).
+
+## Docs Note — Sprint 11 Payment Credentials Security Rule
+
+- Payment credentials (`GymPaymentConfig`) must be Owner-only (never Super Admin), encrypted at rest using `TENANT_CREDENTIALS_KEY`, and never returned by any API.

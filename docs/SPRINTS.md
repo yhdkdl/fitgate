@@ -152,6 +152,7 @@ Trainer specialization and photo are delivered in the Trainer and storage sprint
 5. **RBAC framework (GATE)** — permission classes + Owner/Manager permission matrix enforcement.
    - For every role in the permission matrix (SPEC §2), both an allowed action (succeeds) and a denied action (403, not 200) are covered by a test.
    - **Entitlements vs. settings:** an Owner's attempt to change `tier`, any `has_*` flag, `freeze_days_allowed`, `payment_grace_days` or `subscription_reminder_days` is rejected (403) at the API level; the same Owner can change `brand_color`, `member_reminder_days` and their payment credentials; a Manager can change none of them. Super Admin can change the entitlements.
+   - **Super Admin vs. gym settings:** Per SPEC §2 Table 3.1a, Super Admin modifies entitlements only (`/api/platform/gyms/<id>/config/`) and cannot edit gym operational settings (`brand_color`, reminder days, logo) or access the Owner checklist on gym subdomains.
 
 6. **Staff provisioning** — Manager/Trainer/Reception invite-and-set-password flow, deactivation.
    - An invited user cannot authenticate until they complete the set-password step; the invite link is single-use and expires; invited accounts count as email-verified.
@@ -202,7 +203,7 @@ Trainer specialization and photo are delivered in the Trainer and storage sprint
 
 11. **Chapa payment integration (one account per gym) (GATE)** — credentials, checkout, webhook verification, idempotency.
     - Each gym stores its own Chapa secret key and webhook secret in a separate payment-config record. They are encrypted at rest (the raw database value is not the plaintext; decrypting needs the environment key), never returned by any API (the response shows a masked value only), and never written to logs — each tested. A missing encryption key fails fast. `GymConfig.chapa_merchant_id` is removed by migration.
-    - Only Owner and Super Admin can set or replace credentials; Manager and all others get 403.
+    - Only Owner can set or replace credentials (never Super Admin); Manager and all others get 403. Payment credentials must be Owner-only (never Super Admin), encrypted, and never returned.
     - A verify-connection action tests the keys with a harmless authenticated call (mocked in tests) and records the result. "Pay Now" is refused for a gym with no verified configuration, and the member is offered cash.
     - The webhook path includes the gym id. It looks up that gym's secret, verifies the signature, then re-verifies the transaction with Chapa and compares the amount with what was expected; a mismatch is not activated and is flagged. A webhook for gym A signed with gym B's secret is rejected.
     - A redelivered webhook (same event twice) does not double-credit the subscription or create a duplicate `Payment` — the core test for this sprint. An invalid signature is rejected.
