@@ -1,6 +1,5 @@
-"""Tests for the /api/auth/me/ profile endpoint (GET and PATCH)."""
-
 import pytest
+from django.utils import timezone
 from rest_framework.test import APIClient
 
 from apps.accounts.models import User
@@ -15,8 +14,13 @@ class TestUserProfileEndpoint:
     @pytest.fixture
     def setup_data(self):
         """Create gyms and users for multi-tenant profile tests."""
-        gym_a = GymTenant.objects.create(name="Alpha Gym", subdomain="alpha")
-        gym_b = GymTenant.objects.create(name="Beta Gym", subdomain="beta")
+        now = timezone.now()
+        gym_a = GymTenant.objects.create(
+            name="Alpha Gym", subdomain="alpha", tls_confirmed_at=now
+        )
+        gym_b = GymTenant.objects.create(
+            name="Beta Gym", subdomain="beta", tls_confirmed_at=now
+        )
 
         super_admin = User.objects.create_superuser(
             email="admin@fitgate.org",

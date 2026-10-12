@@ -60,6 +60,16 @@ class TenantSubdomainMiddleware:
                 if path.startswith("/admin/") or path == "/admin":
                     return JsonResponse({"detail": "Not found."}, status=404)
 
+                if tenant.tls_confirmed_at is None:
+                    norm_path = path.rstrip("/")
+                    if (
+                        norm_path == "/api/health"
+                        or norm_path == "/api/public/gym-entry"
+                    ):
+                        pass
+                    elif path.startswith("/api/") or path == "/api":
+                        return JsonResponse({"detail": "still_securing"}, status=503)
+
             response = self.get_response(request)
         finally:
             reset_current_tenant(token)

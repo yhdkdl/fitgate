@@ -1,6 +1,7 @@
 import os
 
 from django.core.exceptions import ValidationError
+from django.db import IntegrityError
 from django.http import FileResponse
 from drf_spectacular.utils import OpenApiResponse, extend_schema, inline_serializer
 from rest_framework import serializers, status
@@ -54,6 +55,7 @@ from apps.tenants.storage import (
     save_member_photo,
 )
 from apps.tenants.throttling import DemoRequestRateThrottle
+from apps.tenants.uapi import CPanelUAPIError
 
 
 class CreateGymView(APIView):
@@ -111,13 +113,22 @@ class CreateGymView(APIView):
                 else {"detail": exc.messages}
             )
             return Response(error_dict, status=status.HTTP_400_BAD_REQUEST)
+        except IntegrityError:
+            return Response(
+                {"subdomain": ["Subdomain already exists."]},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        except CPanelUAPIError:
+            return Response(
+                {"detail": "subdomain_provisioning_failed"},
+                status=status.HTTP_502_BAD_GATEWAY,
+            )
 
         response_data = {
             "gym": GymTenantSummarySerializer(result["gym"]).data,
             "config": GymConfigSerializer(result["config"]).data,
             "owner": UserSummarySerializer(result["owner"]).data,
             "payment_id": str(result["payment"].id),
-            "invite_link": result["invite_link"],
         }
         return Response(response_data, status=status.HTTP_201_CREATED)
 

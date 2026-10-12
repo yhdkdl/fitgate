@@ -2,6 +2,7 @@
 
 import pytest
 from django.core.cache import caches
+from django.utils import timezone
 from rest_framework.test import APIClient
 
 from apps.accounts.models import Notification, User
@@ -51,6 +52,7 @@ class TestDemoRequestsSuite:
             subdomain="alphagym",
             status=GymTenant.STATUS_ACTIVE,
             tier=GymTenant.TIER_GROWTH,
+            tls_confirmed_at=timezone.now(),
         )
 
     @pytest.fixture

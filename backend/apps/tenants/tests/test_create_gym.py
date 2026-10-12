@@ -2,6 +2,7 @@
 
 from datetime import timedelta
 from decimal import Decimal
+from unittest.mock import patch
 
 import pytest
 from django.core import mail
@@ -52,7 +53,7 @@ class TestCreateGymSuite:
         assert proposed == "existing-gym-1"
 
     def test_create_gym_atomic_success_for_starter_growth_and_pro(
-        self, super_admin, mock_uapi
+        self, super_admin, mock_uapi, django_capture_on_commit_callbacks
     ):
         """
         Verify create_gym creates tenant as active, config with tier defaults,
@@ -60,21 +61,22 @@ class TestCreateGymSuite:
         """
         mail.outbox.clear()
 
-        result = create_gym(
-            name="Power Gym",
-            subdomain="power-gym",
-            tier=GymTenant.TIER_GROWTH,
-            location="Bole Atlas, Addis Ababa",
-            contact_name="Abebe Bikila",
-            contact_phone="+251911223344",
-            contact_email="contact@powergym.com",
-            owner_name="Abebe Bikila",
-            owner_email="abebe@powergym.com",
-            payment_amount=Decimal("30000.00"),
-            payment_reference="CBE-TX-998877",
-            acting_super_admin=super_admin,
-            uapi_client=mock_uapi,
-        )
+        with django_capture_on_commit_callbacks(execute=True):
+            result = create_gym(
+                name="Power Gym",
+                subdomain="power-gym",
+                tier=GymTenant.TIER_GROWTH,
+                location="Bole Atlas, Addis Ababa",
+                contact_name="Abebe Bikila",
+                contact_phone="+251911223344",
+                contact_email="contact@powergym.com",
+                owner_name="Abebe Bikila",
+                owner_email="abebe@powergym.com",
+                payment_amount=Decimal("30000.00"),
+                payment_reference="CBE-TX-998877",
+                acting_super_admin=super_admin,
+                uapi_client=mock_uapi,
+            )
 
         gym = result["gym"]
         config = result["config"]
@@ -271,9 +273,9 @@ class TestCreateGymSuite:
         gym = result["gym"]
         raw_invite = result["raw_invite_token"]
 
-        # Owner sets their password via the invite link
+        # 1. Before TLS confirmation: set-password and login are refused with 503 still_securing
         client = APIClient()
-        resp_set_pwd = client.post(
+        resp_set_pwd_unconfirmed = client.post(
             "/api/auth/set-password/",
             {
                 "token": raw_invite,
@@ -282,9 +284,9 @@ class TestCreateGymSuite:
             format="json",
             HTTP_HOST="secured-gym.localhost",
         )
-        assert resp_set_pwd.status_code == 200
+        assert resp_set_pwd_unconfirmed.status_code == 503
+        assert resp_set_pwd_unconfirmed.json()["detail"] == "still_securing"
 
-        # Attempt to login while tls_confirmed_at is None -> 503 still_securing
         resp_login_unsecured = client.post(
             "/api/auth/login/",
             {
@@ -297,7 +299,7 @@ class TestCreateGymSuite:
         assert resp_login_unsecured.status_code == 503
         assert resp_login_unsecured.json()["detail"] == "still_securing"
 
-        # Super Admin confirms TLS certificate
+        # 2. Super Admin confirms TLS certificate
         confirmed_gym = confirm_gym_tls(gym.id, acting_super_admin=super_admin)
         assert confirmed_gym.tls_confirmed_at is not None
         assert confirmed_gym.subscription_expires_at is not None
@@ -314,6 +316,18 @@ class TestCreateGymSuite:
         confirmed_again = confirm_gym_tls(gym.id, acting_super_admin=super_admin)
         assert confirmed_again.subscription_expires_at == initial_expiry
 
+        # 3. After confirmation: set-password succeeds
+        resp_set_pwd = client.post(
+            "/api/auth/set-password/",
+            {
+                "token": raw_invite,
+                "new_password": "NewOwnerSecurePassword123!",
+            },
+            format="json",
+            HTTP_HOST="secured-gym.localhost",
+        )
+        assert resp_set_pwd.status_code == 200
+
         # Now login succeeds on secured subdomain
         resp_login_secured = client.post(
             "/api/auth/login/",
@@ -326,6 +340,191 @@ class TestCreateGymSuite:
         )
         assert resp_login_secured.status_code == 200
         assert "access" in resp_login_secured.json()
+
+    def test_certificate_safeguard_covers_all_auth_entry_points(
+        self, super_admin, mock_uapi
+    ):
+        """
+        B1 Contract Test:
+        On an unconfirmed gym host:
+        login, refresh, logout, set-password, password-reset, password-reset/confirm,
+        and protected endpoints with valid tokens ALL return 503 {"detail": "still_securing"}.
+        The entry page reports the still-securing state.
+        The health endpoint returns 200.
+        Super Admin at the apex is unaffected.
+        After confirm-tls, everything works.
+        """
+        result = create_gym(
+            name="Unconfirmed Gym",
+            subdomain="unconfirmed-gym",
+            tier=GymTenant.TIER_STARTER,
+            owner_email="owner@unconfirmed.com",
+            payment_amount=Decimal("12000.00"),
+            payment_reference="REF-UNCONF-1",
+            acting_super_admin=super_admin,
+            uapi_client=mock_uapi,
+        )
+        gym = result["gym"]
+        owner = result["owner"]
+        raw_invite = result["raw_invite_token"]
+        subdomain_host = "unconfirmed-gym.localhost"
+
+        client = APIClient()
+
+        # 1. Auth entry points on unconfirmed host -> 503 still_securing
+        auth_calls = [
+            (
+                "post",
+                "/api/auth/login/",
+                {"email": owner.email, "password": "Password123!"},
+            ),
+            ("post", "/api/auth/refresh/", {"refresh": "dummy.refresh.token"}),
+            ("post", "/api/auth/logout/", {"refresh": "dummy.refresh.token"}),
+            (
+                "post",
+                "/api/auth/set-password/",
+                {"token": raw_invite, "new_password": "Password123!"},
+            ),
+            ("post", "/api/auth/password-reset/", {"email": owner.email}),
+            (
+                "post",
+                "/api/auth/password-reset/confirm/",
+                {"token": "dummy", "new_password": "Password123!"},
+            ),
+        ]
+        for method, endpoint, payload in auth_calls:
+            resp = getattr(client, method)(
+                endpoint, payload, format="json", HTTP_HOST=subdomain_host
+            )
+            assert (
+                resp.status_code == 503
+            ), f"{endpoint} expected 503, got {resp.status_code}"
+            assert resp.json()["detail"] == "still_securing"
+
+        # Protected endpoint with valid token on unconfirmed host -> 503
+        owner_tokens = get_tokens_for_user(owner)
+        client.credentials(HTTP_AUTHORIZATION=f"Bearer {owner_tokens['access']}")
+        resp_protected = client.get("/api/auth/me/", HTTP_HOST=subdomain_host)
+        assert resp_protected.status_code == 503
+        assert resp_protected.json()["detail"] == "still_securing"
+        client.credentials()  # clear credentials
+
+        # 2. Public entry page on unconfirmed host reports still_securing
+        resp_entry = client.get("/api/public/gym-entry/", HTTP_HOST=subdomain_host)
+        assert resp_entry.status_code == 503
+        assert resp_entry.json()["still_securing"] is True
+
+        # 3. Health check on unconfirmed host returns 200
+        resp_health = client.get("/api/health/", HTTP_HOST=subdomain_host)
+        assert resp_health.status_code == 200
+
+        # 4. Super Admin at apex (localhost) is completely unaffected
+        admin_tokens = get_tokens_for_user(super_admin)
+        client.credentials(HTTP_AUTHORIZATION=f"Bearer {admin_tokens['access']}")
+        resp_admin_apex = client.get("/api/platform/gyms/", HTTP_HOST="localhost")
+        assert resp_admin_apex.status_code == 200
+        client.credentials()
+
+        # 5. Confirm TLS -> all endpoints unlocked
+        confirm_gym_tls(gym.id, acting_super_admin=super_admin)
+
+        resp_set_pwd = client.post(
+            "/api/auth/set-password/",
+            {"token": raw_invite, "new_password": "NewOwnerPassword123!"},
+            format="json",
+            HTTP_HOST=subdomain_host,
+        )
+        assert resp_set_pwd.status_code == 200
+
+        resp_login = client.post(
+            "/api/auth/login/",
+            {"email": owner.email, "password": "NewOwnerPassword123!"},
+            format="json",
+            HTTP_HOST=subdomain_host,
+        )
+        assert resp_login.status_code == 200
+        assert "access" in resp_login.json()
+
+    def test_cpanel_uapi_error_returns_502_and_rolls_back(self, super_admin):
+        """
+        B3 Contract Test:
+        When cPanel UAPI raises CPanelUAPIError, the HTTP endpoint returns 502
+        {"detail": "subdomain_provisioning_failed"} and rolls back all database rows.
+        """
+        tokens = get_tokens_for_user(super_admin)
+        client = APIClient()
+        client.credentials(HTTP_AUTHORIZATION=f"Bearer {tokens['access']}")
+
+        payload = {
+            "name": "Failing Host Gym",
+            "subdomain": "fail-host-gym",
+            "tier": "starter",
+            "owner_email": "owner@failhost.com",
+            "payment_amount": "12000.00",
+            "payment_reference": "TX-FAIL-UAPI",
+        }
+
+        initial_gyms = GymTenant.objects.count()
+        initial_configs = GymConfig.objects.count()
+        initial_payments = Payment.objects.count()
+        initial_users = User.all_objects.count()
+        initial_tokens = AuthToken.objects.count()
+
+        failing_uapi = MockCPanelUAPIClient(should_fail=True)
+        with patch("apps.tenants.services.get_uapi_client", return_value=failing_uapi):
+            response = client.post(
+                "/api/platform/gyms/",
+                payload,
+                format="json",
+                HTTP_HOST="localhost",
+            )
+
+        assert response.status_code == 502
+        assert response.json() == {"detail": "subdomain_provisioning_failed"}
+
+        # Zero rows persisted
+        assert GymTenant.objects.count() == initial_gyms
+        assert GymConfig.objects.count() == initial_configs
+        assert Payment.objects.count() == initial_payments
+        assert User.all_objects.count() == initial_users
+        assert AuthToken.objects.count() == initial_tokens
+
+    def test_duplicate_subdomain_race_integrity_error_returns_400(
+        self, super_admin, mock_uapi
+    ):
+        """
+        B3 Contract Test:
+        A database IntegrityError (e.g. race condition on duplicate subdomain)
+        returns 400 {"subdomain": ["Subdomain already exists."]}.
+        """
+        from django.db import IntegrityError
+
+        tokens = get_tokens_for_user(super_admin)
+        client = APIClient()
+        client.credentials(HTTP_AUTHORIZATION=f"Bearer {tokens['access']}")
+
+        payload = {
+            "name": "Race Gym",
+            "subdomain": "race-gym",
+            "tier": "starter",
+            "owner_email": "owner@racegym.com",
+            "payment_amount": "12000.00",
+            "payment_reference": "TX-RACE-001",
+        }
+
+        with patch(
+            "apps.tenants.views.create_gym",
+            side_effect=IntegrityError("unique constraint"),
+        ):
+            response = client.post(
+                "/api/platform/gyms/",
+                payload,
+                format="json",
+                HTTP_HOST="localhost",
+            )
+
+        assert response.status_code == 400
+        assert response.json() == {"subdomain": ["Subdomain already exists."]}
 
     def test_create_gym_http_endpoint_permissions_and_response(
         self, super_admin, mock_uapi
@@ -366,7 +565,7 @@ class TestCreateGymSuite:
         assert data["gym"]["subdomain"] == "bole-apex"
         assert data["config"]["has_multi_branch"] is True
         assert data["owner"]["email"] == "haile@boleapex.com"
-        assert "invite_link" in data
+        assert "invite_link" not in data
 
         # 2. Propose subdomain endpoint
         resp_prop = client.get(

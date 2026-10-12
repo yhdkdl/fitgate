@@ -102,18 +102,6 @@ class LoginView(APIView):
         password = serializer.validated_data["password"]
         normalized_email = raw_email.strip().lower()
 
-        # Certificate safeguard: If on a gym subdomain and TLS is not yet confirmed, refuse login with still_securing
-        if getattr(request, "tenant", None) is not None:
-            if request.tenant.tls_confirmed_at is None:
-                perform_dummy_password_check(password)
-                return Response(
-                    {
-                        "detail": "still_securing",
-                        "message": "Domain is still being secured. Please check back shortly.",
-                    },
-                    status=status.HTTP_503_SERVICE_UNAVAILABLE,
-                )
-
         # Host-scoped lookup via default manager
         user = User.objects.filter(email=normalized_email).first()
 
