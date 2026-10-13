@@ -171,6 +171,64 @@ class TestCreateGymSuite:
         assert User.all_objects.count() == initial_users
         assert AuthToken.objects.count() == initial_tokens
 
+    def test_create_gym_on_commit_email_and_rollback(
+        self, super_admin, mock_uapi, django_capture_on_commit_callbacks, settings
+    ):
+        """
+        Verify on_commit transactional email behavior:
+        (a) A successful create_gym sends exactly one welcome email after commit,
+            whose body has the set-password link on the new gym's own subdomain.
+        (b) When the UAPI client fails (rollback), NO email is sent and no
+            GymTenant, User, or AuthToken row remains.
+        """
+        mail.outbox.clear()
+
+        # (a) Successful create_gym sends exactly one welcome email after commit
+        with django_capture_on_commit_callbacks(execute=True):
+            result = create_gym(
+                name="Email Test Gym",
+                subdomain="email-gym",
+                tier=GymTenant.TIER_STARTER,
+                owner_email="owner@emailgym.com",
+                payment_amount=Decimal("12000.00"),
+                payment_reference="REF-EMAIL-01",
+                acting_super_admin=super_admin,
+                uapi_client=mock_uapi,
+            )
+
+        assert len(mail.outbox) == 1
+        email = mail.outbox[0]
+        assert email.to == ["owner@emailgym.com"]
+        expected_subdomain_url = f"{settings.PUBLIC_URL_SCHEME}://email-gym.{settings.DOMAIN}/set-password?token={result['raw_invite_token']}"
+        assert expected_subdomain_url in email.body
+
+        # Clear outbox before failure case
+        mail.outbox.clear()
+
+        initial_gyms = GymTenant.objects.count()
+        initial_users = User.all_objects.count()
+        initial_tokens = AuthToken.objects.count()
+
+        # (b) When the UAPI client fails (rollback), NO email is sent and no rows remain
+        failing_uapi = MockCPanelUAPIClient(should_fail=True)
+        with pytest.raises(CPanelUAPIError):
+            with django_capture_on_commit_callbacks(execute=True):
+                create_gym(
+                    name="Fail Rollback Gym",
+                    subdomain="fail-rollback-gym",
+                    tier=GymTenant.TIER_STARTER,
+                    owner_email="owner@failrollback.com",
+                    payment_amount=Decimal("12000.00"),
+                    payment_reference="REF-FAIL-02",
+                    acting_super_admin=super_admin,
+                    uapi_client=failing_uapi,
+                )
+
+        assert len(mail.outbox) == 0
+        assert GymTenant.objects.count() == initial_gyms
+        assert User.all_objects.count() == initial_users
+        assert AuthToken.objects.count() == initial_tokens
+
     def test_chapa_rejected_for_gym_subscription(self, super_admin, mock_uapi):
         """A chapa payment method is rejected for gym_subscription payments."""
         with pytest.raises(ValidationError) as exc:
