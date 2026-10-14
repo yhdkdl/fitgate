@@ -220,7 +220,9 @@ export const GymManagementSection: React.FC<GymManagementSectionProps> = ({
               Owner Set-Password Invite Email Sent:
             </span>
             <div className="text-text-muted mt-1">
-              An invitation email containing the single-use set-password link has been dispatched to <strong>{createSuccess.owner.email}</strong>.
+              An invitation email containing the single-use set-password link
+              has been dispatched to{" "}
+              <strong>{createSuccess.owner.email}</strong>.
             </div>
           </div>
         </Alert>

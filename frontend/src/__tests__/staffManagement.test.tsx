@@ -12,7 +12,12 @@ vi.mock("../api/staff", () => ({
   reactivateStaff: vi.fn(),
 }));
 
-let mockCurrentUser: { id: string; email: string; role: string; full_name?: string } | null = {
+let mockCurrentUser: {
+  id: string;
+  email: string;
+  role: string;
+  full_name?: string;
+} | null = {
   id: "owner-1",
   email: "owner@apex-a.com",
   role: "owner",
@@ -169,14 +174,19 @@ describe("Sprint 6: Staff Management UI", () => {
     expect(screen.getByText("Invite New Staff Member")).toBeInTheDocument();
 
     // Owner should see Manager option
-    const roleSelect = screen.getByLabelText("Staff Role *") as HTMLSelectElement;
+    const roleSelect = screen.getByLabelText(
+      "Staff Role *"
+    ) as HTMLSelectElement;
     const optionValues = Array.from(roleSelect.options).map((o) => o.value);
     expect(optionValues).toContain("manager");
     expect(optionValues).toContain("trainer");
     expect(optionValues).toContain("reception");
 
     // Fill in invite form
-    await user.type(screen.getByLabelText("Email Address *"), "newmgr@apex-a.com");
+    await user.type(
+      screen.getByLabelText("Email Address *"),
+      "newmgr@apex-a.com"
+    );
     await user.selectOptions(roleSelect, "manager");
     await user.type(screen.getByLabelText("Full Name"), "New Manager");
     await user.type(screen.getByLabelText("Phone Number"), "+251911999999");
@@ -195,7 +205,9 @@ describe("Sprint 6: Staff Management UI", () => {
     });
 
     expect(
-      await screen.findByText("Staff invitation sent to newmgr@apex-a.com as manager.")
+      await screen.findByText(
+        "Staff invitation sent to newmgr@apex-a.com as manager."
+      )
     ).toBeInTheDocument();
     expect(onUpdated).toHaveBeenCalled();
   });
@@ -223,7 +235,9 @@ describe("Sprint 6: Staff Management UI", () => {
     });
     await user.click(inviteBtn);
 
-    const roleSelect = screen.getByLabelText("Staff Role *") as HTMLSelectElement;
+    const roleSelect = screen.getByLabelText(
+      "Staff Role *"
+    ) as HTMLSelectElement;
     const optionValues = Array.from(roleSelect.options).map((o) => o.value);
     expect(optionValues).not.toContain("manager");
     expect(optionValues).toContain("trainer");
@@ -260,25 +274,35 @@ describe("Sprint 6: Staff Management UI", () => {
     await user.click(deactivateButtons[1]); // trainer-1
 
     // Should prompt with Confirm and Cancel
-    const confirmBtn = await screen.findByRole("button", { name: "Confirm" });
+    expect(
+      await screen.findByRole("button", { name: "Confirm" })
+    ).toBeInTheDocument();
     const cancelBtn = screen.getByRole("button", { name: "Cancel" });
 
     // Cancel first
     await user.click(cancelBtn);
-    expect(screen.queryByRole("button", { name: "Confirm" })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Confirm" })
+    ).not.toBeInTheDocument();
 
     // Click Deactivate again and confirm
-    const deactBtnAgain = screen.getAllByRole("button", { name: "Deactivate" })[1];
+    const deactBtnAgain = screen.getAllByRole("button", {
+      name: "Deactivate",
+    })[1];
     await user.click(deactBtnAgain);
 
-    const confirmBtnAgain = await screen.findByRole("button", { name: "Confirm" });
+    const confirmBtnAgain = await screen.findByRole("button", {
+      name: "Confirm",
+    });
     await user.click(confirmBtnAgain);
 
     await waitFor(() => {
       expect(staffApi.deactivateStaff).toHaveBeenCalledWith("trainer-1");
     });
 
-    expect(await screen.findByText("Deactivated trainer@apex-a.com.")).toBeInTheDocument();
+    expect(
+      await screen.findByText("Deactivated trainer@apex-a.com.")
+    ).toBeInTheDocument();
     expect(onUpdated).toHaveBeenCalled();
   });
 
@@ -310,7 +334,9 @@ describe("Sprint 6: Staff Management UI", () => {
       expect(staffApi.reactivateStaff).toHaveBeenCalledWith("rec-1");
     });
 
-    expect(await screen.findByText("Reactivated reception@apex-a.com.")).toBeInTheDocument();
+    expect(
+      await screen.findByText("Reactivated reception@apex-a.com.")
+    ).toBeInTheDocument();
     expect(onUpdated).toHaveBeenCalled();
   });
 

@@ -267,6 +267,33 @@ paths:
           description: ''
         '400':
           description: Invalid or expired token, or weak password
+  /api/auth/verify-email/:
+    post:
+      operationId: auth_verify_email_create
+      description: Validates single-use token to verify self-registered member email
+        address.
+      summary: Verify member email
+      tags:
+      - auth
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VerifyEmailRequestRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/VerifyEmailRequestRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/VerifyEmailRequestRequest'
+        required: true
+      security:
+      - {}
+      responses:
+        '200':
+          description: Email verified successfully
+        '400':
+          description: Invalid or expired token
   /api/gym/checklist/:
     get:
       operationId: gym_checklist_retrieve
@@ -303,6 +330,159 @@ paths:
           description: ''
         '403':
           description: Forbidden - only Owner permitted
+  /api/gym/members/:
+    get:
+      operationId: gym_members_list
+      description: Retrieves a list of members belonging to the current gym tenant.
+      summary: List gym members
+      tags:
+      - gym
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Member'
+          description: ''
+    post:
+      operationId: gym_members_create
+      description: Registers a new member with set-password invitation link. Allowed
+        for Owner, Manager, Reception.
+      summary: Staff-assisted member registration
+      tags:
+      - gym
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StaffMemberRegistrationRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/StaffMemberRegistrationRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/StaffMemberRegistrationRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Member'
+          description: ''
+        '400':
+          description: Validation error or duplicate
+        '403':
+          description: Forbidden - Trainers cannot register members
+  /api/gym/members/{id}/:
+    get:
+      operationId: gym_members_retrieve
+      description: Retrieves detailed member profile with body metrics history and
+        estimates.
+      summary: Get member details
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - gym
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MemberDetail'
+          description: ''
+        '404':
+          description: Not found
+    patch:
+      operationId: gym_members_partial_update
+      description: Allows Owner, Manager, or Reception to update member information.
+      summary: Update member profile
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - gym
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedMemberUpdateRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedMemberUpdateRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedMemberUpdateRequest'
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MemberDetail'
+          description: ''
+        '400':
+          description: Validation error
+        '403':
+          description: Forbidden
+        '404':
+          description: Not found
+  /api/gym/members/{id}/metrics/:
+    post:
+      operationId: gym_members_metrics_create
+      description: Records new weight, height, and circumferences for a member.
+      summary: Record member body metrics
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - gym
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RecordBodyMetricsRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/RecordBodyMetricsRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/RecordBodyMetricsRequest'
+      security:
+      - jwtAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BodyMetrics'
+          description: ''
+        '400':
+          description: Validation error
+        '404':
+          description: Member not found
   /api/gym/settings/:
     get:
       operationId: gym_settings_retrieve
@@ -611,6 +791,96 @@ paths:
           description: Forbidden - user belongs to different gym or unauthorized role
         '404':
           description: Photo not found or tenant mismatch
+  /api/members/me/:
+    get:
+      operationId: members_me_retrieve
+      description: Retrieves the logged-in member's profile and body metrics calculations.
+      summary: View own member profile
+      tags:
+      - members
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MemberDetail'
+          description: ''
+    patch:
+      operationId: members_me_partial_update
+      description: Updates logged-in member's phone and emergency contact details.
+      summary: Update own member contact info
+      tags:
+      - members
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedMemberUpdateRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedMemberUpdateRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedMemberUpdateRequest'
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MemberDetail'
+          description: ''
+        '400':
+          description: Validation error
+  /api/members/me/metrics/:
+    get:
+      operationId: members_me_metrics_list
+      description: Retrieves past body metrics records for the logged-in member.
+      summary: List own body metrics history
+      tags:
+      - members
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/BodyMetrics'
+          description: ''
+    post:
+      operationId: members_me_metrics_create
+      description: Records new measurements for the logged-in member.
+      summary: Record own body metrics
+      tags:
+      - members
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RecordBodyMetricsRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/RecordBodyMetricsRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/RecordBodyMetricsRequest'
+      security:
+      - jwtAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BodyMetrics'
+          description: ''
+        '400':
+          description: Validation error
   /api/platform/demo-requests/:
     get:
       operationId: platform_demo_requests_list
@@ -973,8 +1243,90 @@ paths:
           description: ''
         '503':
           description: Subdomain is still being secured
+  /api/public/members/register/:
+    post:
+      operationId: public_members_register_create
+      description: Public registration for new gym members on a gym subdomain. Requires
+        health waiver.
+      summary: Self-service member registration
+      tags:
+      - public
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PublicMemberRegistrationRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PublicMemberRegistrationRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PublicMemberRegistrationRequest'
+        required: true
+      security:
+      - {}
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Member'
+          description: ''
+        '400':
+          description: Validation error, missing waiver, or duplicate email/phone
+        '404':
+          description: Gym tenant not found
 components:
   schemas:
+    BlankEnum:
+      enum:
+      - ''
+    BodyMetrics:
+      type: object
+      description: |-
+        Serializer for member body composition metrics.
+        Exposes BMI and US Navy body-fat estimates, explicitly labeled as estimates.
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        weight_kg:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,3}(?:\.\d{0,2})?$
+          nullable: true
+        height_cm:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,3}(?:\.\d{0,2})?$
+          nullable: true
+        measurements: {}
+        recorded_at:
+          type: string
+          format: date-time
+          readOnly: true
+        estimated_bmi:
+          type: number
+          format: double
+          readOnly: true
+        estimated_body_fat_percentage:
+          type: number
+          format: double
+          readOnly: true
+        bmi_label:
+          type: string
+          readOnly: true
+        body_fat_label:
+          type: string
+          readOnly: true
+      required:
+      - bmi_label
+      - body_fat_label
+      - estimated_bmi
+      - estimated_body_fat_percentage
+      - id
+      - recorded_at
     ChangePasswordRequestRequest:
       type: object
       description: Payload for changing user password.
@@ -1271,6 +1623,18 @@ components:
       - dismissed_at
       - is_dismissed
       - items
+    GenderEnum:
+      enum:
+      - male
+      - female
+      - other
+      - prefer_not_to_say
+      type: string
+      description: |-
+        * `male` - Male
+        * `female` - Female
+        * `other` - Other
+        * `prefer_not_to_say` - Prefer not to say
     GymConfig:
       type: object
       description: Feature gating and configuration settings of a gym.
@@ -1546,6 +1910,126 @@ components:
           minLength: 1
       required:
       - refresh
+    Member:
+      type: object
+      description: Summary serializer for gym members.
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        email:
+          type: string
+          format: email
+          readOnly: true
+        full_name:
+          type: string
+          maxLength: 150
+        phone:
+          type: string
+          maxLength: 20
+        date_of_birth:
+          type: string
+          format: date
+          nullable: true
+        gender:
+          oneOf:
+          - $ref: '#/components/schemas/GenderEnum'
+          - $ref: '#/components/schemas/BlankEnum'
+        emergency_contact:
+          type: string
+          maxLength: 255
+        referral_source:
+          type: string
+          maxLength: 100
+        photo_url:
+          type: string
+          maxLength: 255
+        status:
+          $ref: '#/components/schemas/StatusBa9Enum'
+        joined_at:
+          type: string
+          format: date-time
+          readOnly: true
+        waiver_accepted_at:
+          type: string
+          format: date-time
+          readOnly: true
+        latest_metrics:
+          allOf:
+          - $ref: '#/components/schemas/BodyMetrics'
+          readOnly: true
+      required:
+      - email
+      - full_name
+      - id
+      - joined_at
+      - latest_metrics
+      - phone
+      - waiver_accepted_at
+    MemberDetail:
+      type: object
+      description: Detailed member profile including historical body metrics and calculations.
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        email:
+          type: string
+          format: email
+          readOnly: true
+        full_name:
+          type: string
+          maxLength: 150
+        phone:
+          type: string
+          maxLength: 20
+        date_of_birth:
+          type: string
+          format: date
+          nullable: true
+        gender:
+          oneOf:
+          - $ref: '#/components/schemas/GenderEnum'
+          - $ref: '#/components/schemas/BlankEnum'
+        emergency_contact:
+          type: string
+          maxLength: 255
+        referral_source:
+          type: string
+          maxLength: 100
+        photo_url:
+          type: string
+          maxLength: 255
+        status:
+          $ref: '#/components/schemas/StatusBa9Enum'
+        joined_at:
+          type: string
+          format: date-time
+          readOnly: true
+        waiver_accepted_at:
+          type: string
+          format: date-time
+          readOnly: true
+        latest_metrics:
+          allOf:
+          - $ref: '#/components/schemas/BodyMetrics'
+          readOnly: true
+        body_metrics:
+          type: array
+          items:
+            $ref: '#/components/schemas/BodyMetrics'
+          readOnly: true
+      required:
+      - body_metrics
+      - email
+      - full_name
+      - id
+      - joined_at
+      - latest_metrics
+      - phone
+      - waiver_accepted_at
     PasswordResetConfirmRequestRequest:
       type: object
       description: Payload for confirming a password reset.
@@ -1614,6 +2098,37 @@ components:
             maximum: 90
             minimum: 0
           maxItems: 10
+    PatchedMemberUpdateRequest:
+      type: object
+      description: Serializer for updating member profile details.
+      properties:
+        full_name:
+          type: string
+          minLength: 1
+          maxLength: 150
+        phone:
+          type: string
+          minLength: 1
+          maxLength: 20
+        date_of_birth:
+          type: string
+          format: date
+          nullable: true
+        gender:
+          oneOf:
+          - $ref: '#/components/schemas/GenderEnum'
+          - $ref: '#/components/schemas/BlankEnum'
+        emergency_contact:
+          type: string
+          maxLength: 255
+        referral_source:
+          type: string
+          maxLength: 100
+        photo_url:
+          type: string
+          maxLength: 255
+        status:
+          $ref: '#/components/schemas/StatusBa9Enum'
     PatchedUserProfileUpdateRequest:
       type: object
       description: Payload for updating user profile (full_name and phone only).
@@ -1680,6 +2195,87 @@ components:
           type: string
       required:
       - detail
+    PublicMemberRegistrationRequest:
+      type: object
+      description: |-
+        Serializer for public self-service registration on gym subdomains.
+        Requires health waiver acceptance and password.
+      properties:
+        full_name:
+          type: string
+          minLength: 1
+          maxLength: 150
+        email:
+          type: string
+          format: email
+          minLength: 1
+          maxLength: 255
+        phone:
+          type: string
+          minLength: 1
+          maxLength: 20
+        password:
+          type: string
+          writeOnly: true
+          minLength: 1
+          maxLength: 128
+        waiver_accepted:
+          type: boolean
+        date_of_birth:
+          type: string
+          format: date
+          nullable: true
+        gender:
+          oneOf:
+          - $ref: '#/components/schemas/GenderEnum'
+          - $ref: '#/components/schemas/BlankEnum'
+        emergency_contact:
+          type: string
+          maxLength: 255
+        referral_source:
+          type: string
+          maxLength: 100
+        photo_url:
+          type: string
+          maxLength: 255
+        weight_kg:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,3}(?:\.\d{0,2})?$
+          nullable: true
+        height_cm:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,3}(?:\.\d{0,2})?$
+          nullable: true
+        measurements:
+          type: object
+          additionalProperties: {}
+          nullable: true
+      required:
+      - email
+      - full_name
+      - password
+      - phone
+      - waiver_accepted
+    RecordBodyMetricsRequest:
+      type: object
+      description: Serializer for recording a new body metrics entry.
+      properties:
+        weight_kg:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,3}(?:\.\d{0,2})?$
+          nullable: true
+        height_cm:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,3}(?:\.\d{0,2})?$
+          nullable: true
+        measurements:
+          type: object
+          additionalProperties: {}
+          nullable: true
     SetPasswordFromInviteRequestRequest:
       type: object
       description: Payload for setting initial password from an invite token.
@@ -1762,6 +2358,75 @@ components:
       - is_active
       - phone
       - role
+    StaffMemberRegistrationRequest:
+      type: object
+      description: |-
+        Serializer for staff-assisted member registration (Owner, Manager, Reception).
+        Does not require a password; generates set-password invite link instead.
+      properties:
+        full_name:
+          type: string
+          minLength: 1
+          maxLength: 150
+        email:
+          type: string
+          format: email
+          minLength: 1
+          maxLength: 255
+        phone:
+          type: string
+          minLength: 1
+          maxLength: 20
+        waiver_accepted:
+          type: boolean
+        date_of_birth:
+          type: string
+          format: date
+          nullable: true
+        gender:
+          oneOf:
+          - $ref: '#/components/schemas/GenderEnum'
+          - $ref: '#/components/schemas/BlankEnum'
+        emergency_contact:
+          type: string
+          maxLength: 255
+        referral_source:
+          type: string
+          maxLength: 100
+        photo_url:
+          type: string
+          maxLength: 255
+        weight_kg:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,3}(?:\.\d{0,2})?$
+          nullable: true
+        height_cm:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,3}(?:\.\d{0,2})?$
+          nullable: true
+        measurements:
+          type: object
+          additionalProperties: {}
+          nullable: true
+      required:
+      - email
+      - full_name
+      - phone
+      - waiver_accepted
+    StatusBa9Enum:
+      enum:
+      - active
+      - expired
+      - frozen
+      - suspended
+      type: string
+      description: |-
+        * `active` - Active
+        * `expired` - Expired
+        * `frozen` - Frozen
+        * `suspended` - Suspended
     SuperAdminResponse:
       type: object
       description: Response for created Super Admin.
@@ -1950,6 +2615,16 @@ components:
       - must_change_password
       - phone
       - role
+    VerifyEmailRequestRequest:
+      type: object
+      description: Serializer for email verification request.
+      properties:
+        token:
+          type: string
+          minLength: 1
+          maxLength: 128
+      required:
+      - token
   securitySchemes:
     jwtAuth:
       type: http

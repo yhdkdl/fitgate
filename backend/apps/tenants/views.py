@@ -475,8 +475,47 @@ class ServeMemberPhotoView(APIView):
             User.ROLE_MANAGER,
             User.ROLE_TRAINER,
             User.ROLE_RECEPTION,
+            User.ROLE_MEMBER,
         ):
-            raise PermissionDenied("Only gym staff may view member photos.")
+            raise PermissionDenied("Only gym staff or members may view member photos.")
+
+        if role == User.ROLE_MEMBER:
+            member = getattr(request.user, "member_profile", None)
+            if not member or not member.photo_url:
+                raise PermissionDenied("Members may only view their own photo.")
+            # Exact-match check against member's stored photo
+            stored_filename = os.path.basename(member.photo_url)
+            if filename != stored_filename:
+                raise PermissionDenied("Members may only view their own photo.")
+
+        elif role == User.ROLE_TRAINER:
+            # Member photo read access for Trainers must narrow to their assigned members (Sprint 17 wires assignment)
+            from apps.memberships.models import Member
+
+            member = Member.objects.filter(
+                gym=request.tenant, photo_url__endswith=filename
+            ).first()
+            if not member:
+                return Response(
+                    {"detail": "Photo not found."}, status=status.HTTP_404_NOT_FOUND
+                )
+
+            is_assigned = False
+            try:
+                from apps.memberships.models import TrainerAssignment
+
+                is_assigned = TrainerAssignment.objects.filter(
+                    trainer__user=request.user,
+                    member=member,
+                    ended_at__isnull=True,
+                ).exists()
+            except (ImportError, Exception):
+                is_assigned = False
+
+            if not is_assigned:
+                raise PermissionDenied(
+                    "Trainers may only view photos of their assigned members."
+                )
 
         try:
             stream, content_type = get_authenticated_photo_stream(gym_id, filename)
@@ -545,13 +584,19 @@ class UploadMemberPhotoView(APIView):
             raise PermissionDenied("You cannot upload member photos for another gym.")
 
         role = getattr(request.user, "role", None)
-        if role not in (
+        if role == User.ROLE_MEMBER:
+            member = getattr(request.user, "member_profile", None)
+            if not member:
+                raise PermissionDenied("Only registered members may upload a photo.")
+        elif role not in (
             User.ROLE_OWNER,
             User.ROLE_MANAGER,
             User.ROLE_TRAINER,
             User.ROLE_RECEPTION,
         ):
-            raise PermissionDenied("Only gym staff may upload member photos.")
+            raise PermissionDenied(
+                "Only gym staff or members may upload member photos."
+            )
 
         uploaded_file = request.FILES.get("photo") or request.FILES.get("file")
         if not uploaded_file:
@@ -569,6 +614,24 @@ class UploadMemberPhotoView(APIView):
                 else (exc.messages if hasattr(exc, "messages") else str(exc))
             )
             return Response({"detail": msg}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Update member record if member is uploading their own photo or staff uploads for a member
+        if role == User.ROLE_MEMBER:
+            member = getattr(request.user, "member_profile", None)
+            if member:
+                member.photo_url = relative_path
+                member.save(update_fields=["photo_url"])
+        else:
+            member_id = request.data.get("member_id") or request.query_params.get(
+                "member_id"
+            )
+            if member_id:
+                from apps.memberships.models import Member
+
+                member = Member.objects.filter(gym=request.tenant, id=member_id).first()
+                if member:
+                    member.photo_url = relative_path
+                    member.save(update_fields=["photo_url"])
 
         filename = os.path.basename(relative_path)
         url = f"/api/media/member-photos/{gym_id}/{filename}/"

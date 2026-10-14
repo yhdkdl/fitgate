@@ -11,6 +11,8 @@ import { ResetPasswordScreen } from "./screens/ResetPasswordScreen";
 import { SetPasswordScreen } from "./screens/SetPasswordScreen";
 import { RequestDemoScreen } from "./screens/RequestDemoScreen";
 import { GymEntryScreen } from "./screens/GymEntryScreen";
+import { RegisterScreen } from "./screens/RegisterScreen";
+import { VerifyEmailScreen } from "./screens/VerifyEmailScreen";
 import { getTenantFromHostname } from "./utils/tenant";
 
 const RootRoute: React.FC = () => {
@@ -29,6 +31,8 @@ export const App: React.FC = () => {
         <Route path="/" element={<RootRoute />} />
         <Route path="/entry" element={<GymEntryScreen />} />
         <Route path="/login" element={<LoginScreen />} />
+        <Route path="/register" element={<RegisterScreen />} />
+        <Route path="/verify-email" element={<VerifyEmailScreen />} />
         <Route path="/request-demo" element={<RequestDemoScreen />} />
         <Route path="/forgot-password" element={<ForgotPasswordScreen />} />
         <Route path="/reset-password" element={<ResetPasswordScreen />} />

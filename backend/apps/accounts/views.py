@@ -139,6 +139,11 @@ class LoginView(APIView):
             perform_dummy_password_check(password)
             return generic_auth_error_response()
 
+        # 3a. Unverified account (self-registered member must verify email first)
+        if user.email_verified_at is None:
+            perform_dummy_password_check(password)
+            return generic_auth_error_response()
+
         # 4. Password verification failure
         if not user.check_password(password):
             user.failed_login_count += 1

@@ -11,6 +11,8 @@ import { DemoRequestSection } from "../components/superadmin/DemoRequestSection"
 import { FirstRunChecklistCard } from "../components/owner/FirstRunChecklistCard";
 import { GymBrandingSection } from "../components/owner/GymBrandingSection";
 import { StaffManagementSection } from "../components/owner/StaffManagementSection";
+import { MemberManagementSection } from "../components/dashboard/MemberManagementSection";
+import { MemberSelfSection } from "../components/dashboard/MemberSelfSection";
 import { useAuth } from "../context/AuthContext";
 import { getTenantFromHostname } from "../utils/tenant";
 
@@ -212,6 +214,11 @@ export const DashboardScreen: React.FC = () => {
               <StaffManagementSection
                 onStaffUpdated={() => setChecklistKey((k) => k + 1)}
               />
+
+              <MemberManagementSection
+                userRole={user?.role}
+                onMemberRegistered={() => setChecklistKey((k) => k + 1)}
+              />
             </div>
           )}
 
@@ -219,6 +226,21 @@ export const DashboardScreen: React.FC = () => {
           {user?.role === "manager" && (
             <div className="space-y-6">
               <StaffManagementSection />
+              <MemberManagementSection userRole={user?.role} />
+            </div>
+          )}
+
+          {/* Reception / Trainer Hub */}
+          {(user?.role === "reception" || user?.role === "trainer") && (
+            <div className="space-y-6">
+              <MemberManagementSection userRole={user?.role} />
+            </div>
+          )}
+
+          {/* Member Self-Service Hub */}
+          {user?.role === "member" && (
+            <div className="space-y-6">
+              <MemberSelfSection />
             </div>
           )}
 
