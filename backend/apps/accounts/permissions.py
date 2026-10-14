@@ -253,3 +253,24 @@ class CanEditGymSettings(IsAuthenticated):
         if getattr(request.user, "gym_id", None) != tenant.id:
             return False
         return getattr(request.user, "role", None) == User.ROLE_OWNER
+
+
+class CanRegisterMember(IsAuthenticated):
+    """
+    Grants access to Gym Owner, Manager, or Reception on the active tenant.
+    Trainers, Members, and Super Admin (at gym host) receive 403 Forbidden.
+    """
+
+    def has_permission(self, request, view):
+        if not super().has_permission(request, view):
+            return False
+        tenant = getattr(request, "tenant", None)
+        if not tenant:
+            return False
+        if getattr(request.user, "gym_id", None) != tenant.id:
+            return False
+        return getattr(request.user, "role", None) in [
+            User.ROLE_OWNER,
+            User.ROLE_MANAGER,
+            User.ROLE_RECEPTION,
+        ]

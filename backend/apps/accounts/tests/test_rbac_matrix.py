@@ -124,13 +124,25 @@ def reception_user(db, gym_tenant):
 
 @pytest.fixture
 def member_user(db, gym_tenant):
-    return User.objects.create_user(
+    user = User.objects.create_user(
         email="member@bolehub.com",
         password="MemberPassword123!",
         gym=gym_tenant,
         role=User.ROLE_MEMBER,
         must_change_password=False,
     )
+    from django.utils import timezone
+
+    from apps.memberships.models import Member
+
+    Member.objects.create(
+        gym=gym_tenant,
+        user=user,
+        full_name="Bole Member",
+        phone="+251911999888",
+        waiver_accepted_at=timezone.now(),
+    )
+    return user
 
 
 def auth_client(
@@ -323,6 +335,14 @@ class TestRBACPermissionMatrixEveryRole:
         # Allowed: Read own profile
         resp_me = client.get("/api/auth/me/")
         assert resp_me.status_code == 200
+
+        # Allowed: Read own member profile
+        resp_member_me = client.get("/api/members/me/")
+        assert resp_member_me.status_code == 200
+
+        # Denied (403): Attempt to register staff or members
+        resp_reg = client.post("/api/gym/members/", {}, format="json")
+        assert resp_reg.status_code == 403
 
         # Denied (403): Attempt to modify gym settings
         resp_settings = client.patch(

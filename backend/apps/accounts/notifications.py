@@ -129,6 +129,52 @@ def send_staff_invite_email(user, gym, invite_link: str) -> None:
     )
 
 
+def send_member_verification_email(user, gym, verify_link: str) -> None:
+    """
+    Send email verification link to newly self-registered gym member.
+    """
+    subject = f"Verify your email address for {gym.name}"
+    message = (
+        f"Hello {user.full_name or 'there'},\n\n"
+        f"Thank you for registering at '{gym.name}'.\n\n"
+        f"To complete your registration and activate your account, please verify your email "
+        f"using the link below:\n"
+        f"{verify_link}\n\n"
+        f"This verification link is valid for 24 hours.\n\n"
+        f"Best regards,\nThe {gym.name} Team\n"
+    )
+    send_mail(
+        subject=subject,
+        message=message,
+        from_email=settings.DEFAULT_FROM_EMAIL,
+        recipient_list=[user.email],
+        fail_silently=False,
+    )
+
+
+def send_member_invite_email(user, gym, invite_link: str) -> None:
+    """
+    Send invitation email with set-password link to staff-registered member.
+    """
+    subject = f"Welcome to {gym.name} — Set up your member account"
+    message = (
+        f"Hello {user.full_name or 'there'},\n\n"
+        f"You have been registered as a member at '{gym.name}'.\n\n"
+        f"To activate your account and choose your password, please use the secure link below:\n"
+        f"{invite_link}\n\n"
+        f"This link is valid for 7 days. Once your password is set, you can log in to view your profile, "
+        f"subscription, and check-in QR codes.\n\n"
+        f"Welcome aboard,\nThe {gym.name} Team\n"
+    )
+    send_mail(
+        subject=subject,
+        message=message,
+        from_email=settings.DEFAULT_FROM_EMAIL,
+        recipient_list=[user.email],
+        fail_silently=False,
+    )
+
+
 def notify_demo_request_received(demo_request) -> None:
     """
     Create a platform-level notification for all active Super Admins upon receiving a new demo request.

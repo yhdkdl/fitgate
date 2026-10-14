@@ -107,7 +107,9 @@ export const StaffManagementSection: React.FC<StaffManagementSectionProps> = ({
         } else if ("detail" in data && typeof data.detail === "string") {
           setInviteError(data.detail);
         } else {
-          setInviteError("Failed to invite staff member. Please check details.");
+          setInviteError(
+            "Failed to invite staff member. Please check details."
+          );
         }
       } else {
         setInviteError("Failed to invite staff member.");

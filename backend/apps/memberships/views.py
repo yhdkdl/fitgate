@@ -1,0 +1,407 @@
+"""Views for member registration, email verification, member profile management, and body metrics."""
+
+from django.core.exceptions import PermissionDenied, ValidationError
+from django.db.models import Q
+from django.http import Http404
+from drf_spectacular.utils import OpenApiResponse, extend_schema
+from rest_framework import status
+from rest_framework.permissions import AllowAny, IsAuthenticated
+from rest_framework.response import Response
+from rest_framework.views import APIView
+
+from apps.accounts.models import User
+from apps.accounts.permissions import (
+    IsGymStaff,
+    IsMember,
+    RequirePasswordChanged,
+)
+from apps.memberships.models import BodyMetrics, Member
+from apps.memberships.serializers import (
+    BodyMetricsSerializer,
+    MemberDetailSerializer,
+    MemberSerializer,
+    MemberUpdateSerializer,
+    PublicMemberRegistrationSerializer,
+    RecordBodyMetricsSerializer,
+    StaffMemberRegistrationSerializer,
+    VerifyEmailRequestSerializer,
+)
+from apps.memberships.services import (
+    register_member_self_service,
+    register_member_staff_assisted,
+    verify_member_email,
+)
+from apps.memberships.throttling import MemberRegistrationRateThrottle
+
+
+class PublicMemberRegistrationView(APIView):
+    """
+    Public endpoint for self-service member registration on a gym subdomain.
+    Requires health waiver acceptance and rate-limited.
+    """
+
+    permission_classes = [AllowAny]
+    authentication_classes = []
+    throttle_classes = [MemberRegistrationRateThrottle]
+
+    @extend_schema(
+        summary="Self-service member registration",
+        description="Public registration for new gym members on a gym subdomain. Requires health waiver.",
+        request=PublicMemberRegistrationSerializer,
+        responses={
+            201: MemberSerializer,
+            400: OpenApiResponse(
+                description="Validation error, missing waiver, or duplicate email/phone"
+            ),
+            404: OpenApiResponse(description="Gym tenant not found"),
+        },
+    )
+    def post(self, request, *args, **kwargs):
+        tenant = getattr(request, "tenant", None)
+        if tenant is None:
+            return Response(
+                {"detail": "Member registration is only available on a gym portal."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        serializer = PublicMemberRegistrationSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            member, _ = register_member_self_service(tenant, serializer.validated_data)
+        except ValidationError as exc:
+            detail = exc.message_dict if hasattr(exc, "message_dict") else exc.messages
+            return Response(detail, status=status.HTTP_400_BAD_REQUEST)
+
+        return Response(
+            {
+                "detail": "Registration successful. Please check your email to verify your account.",
+                "member": MemberSerializer(member).data,
+            },
+            status=status.HTTP_201_CREATED,
+        )
+
+
+class VerifyEmailView(APIView):
+    """
+    Public endpoint to verify member email address with a single-use token.
+    """
+
+    permission_classes = [AllowAny]
+    authentication_classes = []
+    is_auth_endpoint = True
+
+    @extend_schema(
+        summary="Verify member email",
+        description="Validates single-use token to verify self-registered member email address.",
+        request=VerifyEmailRequestSerializer,
+        responses={
+            200: OpenApiResponse(description="Email verified successfully"),
+            400: OpenApiResponse(description="Invalid or expired token"),
+        },
+    )
+    def post(self, request, *args, **kwargs):
+        serializer = VerifyEmailRequestSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        raw_token = serializer.validated_data["token"]
+        tenant = getattr(request, "tenant", None)
+
+        try:
+            verify_member_email(raw_token, tenant=tenant)
+        except ValidationError as exc:
+            detail = exc.message_dict if hasattr(exc, "message_dict") else exc.messages
+            return Response(detail, status=status.HTTP_400_BAD_REQUEST)
+
+        return Response(
+            {"detail": "Email verified successfully."},
+            status=status.HTTP_200_OK,
+        )
+
+
+class GymMemberListCreateView(APIView):
+    """
+    Staff endpoint to list gym members or register a new member (staff-assisted).
+    List: Owner, Manager, Trainer, Reception.
+    Create: Owner, Manager, Reception (Trainer gets 403).
+    """
+
+    permission_classes = [IsAuthenticated, RequirePasswordChanged, IsGymStaff]
+
+    @extend_schema(
+        summary="List gym members",
+        description="Retrieves a list of members belonging to the current gym tenant.",
+        responses={200: MemberSerializer(many=True)},
+    )
+    def get(self, request, *args, **kwargs):
+        queryset = Member.objects.select_related("user").prefetch_related(
+            "body_metrics"
+        )
+
+        search = request.query_params.get("search", "").strip()
+        if search:
+            queryset = queryset.filter(
+                Q(full_name__icontains=search)
+                | Q(phone__icontains=search)
+                | Q(user__email__icontains=search)
+            )
+
+        status_filter = request.query_params.get("status", "").strip()
+        if status_filter:
+            queryset = queryset.filter(status=status_filter)
+
+        return Response(
+            MemberSerializer(queryset, many=True).data, status=status.HTTP_200_OK
+        )
+
+    @extend_schema(
+        summary="Staff-assisted member registration",
+        description="Registers a new member with set-password invitation link. Allowed for Owner, Manager, Reception.",
+        request=StaffMemberRegistrationSerializer,
+        responses={
+            201: MemberSerializer,
+            400: OpenApiResponse(description="Validation error or duplicate"),
+            403: OpenApiResponse(
+                description="Forbidden - Trainers cannot register members"
+            ),
+        },
+    )
+    def post(self, request, *args, **kwargs):
+        role = getattr(request.user, "role", None)
+        if role not in (User.ROLE_OWNER, User.ROLE_MANAGER, User.ROLE_RECEPTION):
+            raise PermissionDenied(
+                "Only Gym Owner, Manager, or Reception can register members."
+            )
+
+        serializer = StaffMemberRegistrationSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            member, _ = register_member_staff_assisted(
+                request.user,
+                request.tenant,
+                serializer.validated_data,
+            )
+        except ValidationError as exc:
+            detail = exc.message_dict if hasattr(exc, "message_dict") else exc.messages
+            return Response(detail, status=status.HTTP_400_BAD_REQUEST)
+
+        return Response(
+            {
+                "detail": "Member registered successfully. Invitation email sent.",
+                "member": MemberSerializer(member).data,
+            },
+            status=status.HTTP_201_CREATED,
+        )
+
+
+class GymMemberDetailView(APIView):
+    """
+    Staff endpoint for viewing and updating member details.
+    """
+
+    permission_classes = [IsAuthenticated, RequirePasswordChanged, IsGymStaff]
+
+    def get_object(self, pk, gym):
+        try:
+            return (
+                Member.objects.select_related("user")
+                .prefetch_related("body_metrics")
+                .get(pk=pk, gym=gym)
+            )
+        except Member.DoesNotExist:
+            raise Http404("Member not found.")
+
+    @extend_schema(
+        summary="Get member details",
+        description="Retrieves detailed member profile with body metrics history and estimates.",
+        responses={
+            200: MemberDetailSerializer,
+            404: OpenApiResponse(description="Not found"),
+        },
+    )
+    def get(self, request, pk, *args, **kwargs):
+        member = self.get_object(pk, request.tenant)
+        return Response(MemberDetailSerializer(member).data, status=status.HTTP_200_OK)
+
+    @extend_schema(
+        summary="Update member profile",
+        description="Allows Owner, Manager, or Reception to update member information.",
+        request=MemberUpdateSerializer,
+        responses={
+            200: MemberDetailSerializer,
+            400: OpenApiResponse(description="Validation error"),
+            403: OpenApiResponse(description="Forbidden"),
+            404: OpenApiResponse(description="Not found"),
+        },
+    )
+    def patch(self, request, pk, *args, **kwargs):
+        role = getattr(request.user, "role", None)
+        if role not in (User.ROLE_OWNER, User.ROLE_MANAGER, User.ROLE_RECEPTION):
+            raise PermissionDenied(
+                "Only Gym Owner, Manager, or Reception can update member details."
+            )
+
+        member = self.get_object(pk, request.tenant)
+        serializer = MemberUpdateSerializer(member, data=request.data, partial=True)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        serializer.save()
+        # Also sync full_name and phone to user record if modified
+        user_updates = []
+        if "full_name" in serializer.validated_data:
+            member.user.full_name = serializer.validated_data["full_name"]
+            user_updates.append("full_name")
+        if "phone" in serializer.validated_data:
+            member.user.phone = serializer.validated_data["phone"]
+            user_updates.append("phone")
+        if user_updates:
+            member.user.save(update_fields=user_updates)
+
+        return Response(MemberDetailSerializer(member).data, status=status.HTTP_200_OK)
+
+
+class GymMemberRecordMetricsView(APIView):
+    """
+    Staff endpoint for recording new body composition measurements for a member.
+    """
+
+    permission_classes = [IsAuthenticated, RequirePasswordChanged, IsGymStaff]
+
+    @extend_schema(
+        summary="Record member body metrics",
+        description="Records new weight, height, and circumferences for a member.",
+        request=RecordBodyMetricsSerializer,
+        responses={
+            201: BodyMetricsSerializer,
+            400: OpenApiResponse(description="Validation error"),
+            404: OpenApiResponse(description="Member not found"),
+        },
+    )
+    def post(self, request, pk, *args, **kwargs):
+        try:
+            member = Member.objects.get(pk=pk, gym=request.tenant)
+        except Member.DoesNotExist:
+            raise Http404("Member not found.")
+
+        serializer = RecordBodyMetricsSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        metrics = BodyMetrics.objects.create(
+            gym=request.tenant,
+            member=member,
+            weight_kg=serializer.validated_data.get("weight_kg"),
+            height_cm=serializer.validated_data.get("height_cm"),
+            measurements=serializer.validated_data.get("measurements") or {},
+        )
+
+        return Response(
+            BodyMetricsSerializer(metrics).data, status=status.HTTP_201_CREATED
+        )
+
+
+class MemberSelfProfileView(APIView):
+    """
+    Member self-service endpoint to view and update own profile.
+    """
+
+    permission_classes = [IsAuthenticated, RequirePasswordChanged, IsMember]
+
+    @extend_schema(
+        summary="View own member profile",
+        description="Retrieves the logged-in member's profile and body metrics calculations.",
+        responses={200: MemberDetailSerializer},
+    )
+    def get(self, request, *args, **kwargs):
+        member = getattr(request.user, "member_profile", None)
+        if member is None:
+            raise Http404("Member profile not found.")
+
+        return Response(MemberDetailSerializer(member).data, status=status.HTTP_200_OK)
+
+    @extend_schema(
+        summary="Update own member contact info",
+        description="Updates logged-in member's phone and emergency contact details.",
+        request=MemberUpdateSerializer,
+        responses={
+            200: MemberDetailSerializer,
+            400: OpenApiResponse(description="Validation error"),
+        },
+    )
+    def patch(self, request, *args, **kwargs):
+        member = getattr(request.user, "member_profile", None)
+        if member is None:
+            raise Http404("Member profile not found.")
+
+        # Members can update phone and emergency contact
+        allowed_fields = {"phone", "emergency_contact"}
+        filtered_data = {k: v for k, v in request.data.items() if k in allowed_fields}
+
+        serializer = MemberUpdateSerializer(member, data=filtered_data, partial=True)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        serializer.save()
+        if "phone" in filtered_data:
+            member.user.phone = filtered_data["phone"]
+            member.user.save(update_fields=["phone"])
+
+        return Response(MemberDetailSerializer(member).data, status=status.HTTP_200_OK)
+
+
+class MemberSelfMetricsView(APIView):
+    """
+    Member self-service endpoint to list own metrics and record new measurements.
+    """
+
+    permission_classes = [IsAuthenticated, RequirePasswordChanged, IsMember]
+
+    @extend_schema(
+        summary="List own body metrics history",
+        description="Retrieves past body metrics records for the logged-in member.",
+        responses={200: BodyMetricsSerializer(many=True)},
+    )
+    def get(self, request, *args, **kwargs):
+        member = getattr(request.user, "member_profile", None)
+        if member is None:
+            raise Http404("Member profile not found.")
+
+        metrics = member.body_metrics.all().order_by("-recorded_at")
+        return Response(
+            BodyMetricsSerializer(metrics, many=True).data, status=status.HTTP_200_OK
+        )
+
+    @extend_schema(
+        summary="Record own body metrics",
+        description="Records new measurements for the logged-in member.",
+        request=RecordBodyMetricsSerializer,
+        responses={
+            201: BodyMetricsSerializer,
+            400: OpenApiResponse(description="Validation error"),
+        },
+    )
+    def post(self, request, *args, **kwargs):
+        member = getattr(request.user, "member_profile", None)
+        if member is None:
+            raise Http404("Member profile not found.")
+
+        serializer = RecordBodyMetricsSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        metrics = BodyMetrics.objects.create(
+            gym=request.tenant,
+            member=member,
+            weight_kg=serializer.validated_data.get("weight_kg"),
+            height_cm=serializer.validated_data.get("height_cm"),
+            measurements=serializer.validated_data.get("measurements") or {},
+        )
+
+        return Response(
+            BodyMetricsSerializer(metrics).data, status=status.HTTP_201_CREATED
+        )

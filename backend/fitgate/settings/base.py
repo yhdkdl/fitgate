@@ -61,6 +61,7 @@ INSTALLED_APPS = [
     "apps.tenants.apps.TenantsConfig",
     "apps.accounts.apps.AccountsConfig",
     "apps.payments.apps.PaymentsConfig",
+    "apps.memberships.apps.MembershipsConfig",
 ]
 
 

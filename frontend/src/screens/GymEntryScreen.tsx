@@ -224,15 +224,11 @@ export const GymEntryScreen: React.FC = () => {
                   Member & Staff Sign In
                 </Button>
               </Link>
-              <Button
-                size="lg"
-                variant="secondary"
-                disabled
-                title="Member registration opening in Sprint 7"
-                className="min-h-[44px]"
-              >
-                Register (Sprint 7)
-              </Button>
+              <Link to="/register">
+                <Button size="lg" variant="secondary" className="min-h-[44px]">
+                  Join & Register
+                </Button>
+              </Link>
             </div>
           </div>
         </div>
