@@ -154,10 +154,14 @@ Trainer specialization and photo are delivered in the Trainer and storage sprint
    - **Entitlements vs. settings:** an Owner's attempt to change `tier`, any `has_*` flag, `freeze_days_allowed`, `payment_grace_days` or `subscription_reminder_days` is rejected (403) at the API level; the same Owner can change `brand_color`, `member_reminder_days` and their payment credentials; a Manager can change none of them. Super Admin can change the entitlements.
    - **Super Admin vs. gym settings:** Per SPEC §2 Table 3.1a, Super Admin modifies entitlements only (`/api/platform/gyms/<id>/config/`) and cannot edit gym operational settings (`brand_color`, reminder days, logo) or access the Owner checklist on gym subdomains.
 
+- [x] Status: done — merged to develop (tag sprint-5-done)
+
 6. **Staff provisioning** — Manager/Trainer/Reception invite-and-set-password flow, deactivation.
    - An invited user cannot authenticate until they complete the set-password step; the invite link is single-use and expires; invited accounts count as email-verified.
    - Owner can create Managers, Trainers and Reception; Manager can create only Trainers and Reception — a Manager creating a Manager gets 403, enforced at the API.
    - **Deactivation** blocks login and invalidates existing tokens immediately, never deletes, and keeps that user's history (audit entries, messages, approvals) visible to everyone who could see it before. No foreign key to a user cascades a delete, and there is no user hard-delete route. The email stays reserved; reactivation is possible instead of creating a duplicate.
+
+- [x] Status: done — merged to develop (tag sprint-6-done)
 
 7. **Member registration** — self-service + staff-assisted, `Member` + `BodyMetrics`, waiver, verification, photo.
    - Self-service and staff-assisted registration produce an identical `Member` + `BodyMetrics` structure.
