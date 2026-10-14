@@ -13,6 +13,7 @@ from apps.tenants.views import (
     GymDetailView,
     GymPublicEntryView,
     GymSettingsView,
+    PlatformGymConfigView,
     ProposeSubdomainView,
     PublicDemoRequestView,
     ServeMemberPhotoView,
@@ -82,7 +83,7 @@ urlpatterns = [
     ),
     path(
         "api/platform/gyms/<uuid:gym_id>/config/",
-        GymSettingsView.as_view(),
+        PlatformGymConfigView.as_view(),
         name="platform-gym-config",
     ),
     # First-run Checklist (Sprint 4c)

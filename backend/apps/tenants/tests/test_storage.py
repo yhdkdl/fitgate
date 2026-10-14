@@ -285,6 +285,16 @@ class TestMediaEndpointsSuite:
         )
 
     @pytest.fixture
+    def owner_gym_b(self, gym_b):
+        return User.objects.create_user(
+            email="owner@beta.com",
+            password="OwnerPassword123!",
+            role=User.ROLE_OWNER,
+            gym=gym_b,
+            must_change_password=False,
+        )
+
+    @pytest.fixture
     def super_admin(self):
         return User.objects.create_superuser(
             email="superadmin@fitgate.org",
@@ -305,18 +315,18 @@ class TestMediaEndpointsSuite:
     def test_serve_photo_unauthenticated_returns_401(self, gym_a):
         client = APIClient()
         url = f"/api/media/member-photos/{gym_a.id}/photo.webp/"
-        resp = client.get(url)
+        resp = client.get(url, HTTP_HOST=f"{gym_a.subdomain}.localhost")
         assert resp.status_code == 401
 
-    def test_serve_photo_same_gym_member_returns_200(
-        self, gym_a, user_gym_a, tmp_path, settings
+    def test_serve_photo_same_gym_staff_returns_200(
+        self, gym_a, owner_gym_a, tmp_path, settings
     ):
         settings.MEDIA_ROOT = tmp_path
         upload = make_uploaded_image("pic.png", fmt="PNG")
         rel_path = save_member_photo(gym_a.id, upload)
         filename = rel_path.split("/")[-1]
 
-        client = self.auth_client(user_gym_a)
+        client = self.auth_client(owner_gym_a)
         url = f"/api/media/member-photos/{gym_a.id}/{filename}/"
         resp = client.get(url)
 
@@ -324,7 +334,7 @@ class TestMediaEndpointsSuite:
         assert resp["Content-Type"] == "image/webp"
         assert "private" in resp["Cache-Control"]
 
-    def test_serve_photo_cross_tenant_denied_with_403(
+    def test_serve_photo_cross_tenant_denied_with_404(
         self, gym_a, user_gym_b, tmp_path, settings
     ):
         settings.MEDIA_ROOT = tmp_path
@@ -332,15 +342,14 @@ class TestMediaEndpointsSuite:
         rel_path = save_member_photo(gym_a.id, upload)
         filename = rel_path.split("/")[-1]
 
-        # User B belongs to Gym B, attempts to access Gym A photo
+        # User B belongs to Gym B, attempts to access Gym A photo (host is betagym, URL has gym_a.id)
         client = self.auth_client(user_gym_b)
         url = f"/api/media/member-photos/{gym_a.id}/{filename}/"
         resp = client.get(url)
 
-        assert resp.status_code == 403
-        assert "another gym" in resp.data["detail"].lower()
+        assert resp.status_code == 404
 
-    def test_serve_photo_super_admin_allowed_for_any_gym(
+    def test_serve_photo_super_admin_at_apex_returns_404(
         self, gym_a, super_admin, tmp_path, settings
     ):
         settings.MEDIA_ROOT = tmp_path
@@ -348,34 +357,34 @@ class TestMediaEndpointsSuite:
         rel_path = save_member_photo(gym_a.id, upload)
         filename = rel_path.split("/")[-1]
 
+        # Super Admin at apex has no tenant context -> IDOR rule returns 404
         client = self.auth_client(super_admin)
         url = f"/api/media/member-photos/{gym_a.id}/{filename}/"
         resp = client.get(url)
 
-        assert resp.status_code == 200
-        assert resp["Content-Type"] == "image/webp"
+        assert resp.status_code == 404
 
     def test_serve_photo_missing_file_returns_404(
-        self, gym_a, user_gym_a, tmp_path, settings
+        self, gym_a, owner_gym_a, tmp_path, settings
     ):
         settings.MEDIA_ROOT = tmp_path
-        client = self.auth_client(user_gym_a)
+        client = self.auth_client(owner_gym_a)
         url = f"/api/media/member-photos/{gym_a.id}/00000000000000000000000000000000.webp/"
         resp = client.get(url)
 
         assert resp.status_code == 404
         assert "Photo not found" in resp.data["detail"]
 
-    def test_serve_photo_invalid_filename_returns_400(self, gym_a, user_gym_a):
-        client = self.auth_client(user_gym_a)
+    def test_serve_photo_invalid_filename_returns_400(self, gym_a, owner_gym_a):
+        client = self.auth_client(owner_gym_a)
         url = f"/api/media/member-photos/{gym_a.id}/malicious..filename.php/"
         resp = client.get(url)
 
         assert resp.status_code == 400
 
-    def test_upload_member_photo_success(self, gym_a, user_gym_a, tmp_path, settings):
+    def test_upload_member_photo_success(self, gym_a, owner_gym_a, tmp_path, settings):
         settings.MEDIA_ROOT = tmp_path
-        client = self.auth_client(user_gym_a)
+        client = self.auth_client(owner_gym_a)
         upload = make_uploaded_image("avatar.jpg", fmt="JPEG", size=(250, 250))
 
         url = f"/api/media/member-photos/{gym_a.id}/"
@@ -393,10 +402,10 @@ class TestMediaEndpointsSuite:
         url = f"/api/media/member-photos/{gym_a.id}/"
         resp = client.post(url, {"photo": upload}, format="multipart")
 
-        assert resp.status_code == 403
+        assert resp.status_code == 404
 
-    def test_upload_member_photo_invalid_image_rejected(self, gym_a, user_gym_a):
-        client = self.auth_client(user_gym_a)
+    def test_upload_member_photo_invalid_image_rejected(self, gym_a, owner_gym_a):
+        client = self.auth_client(owner_gym_a)
         bad_file = SimpleUploadedFile(
             "bad.txt", b"plain text is not an image", content_type="text/plain"
         )
@@ -426,9 +435,152 @@ class TestMediaEndpointsSuite:
         assert resp_owner.status_code == 200
         assert "url" in resp_owner.data
 
-        # Super Admin gets 200
+        # Super Admin gets 403 (only Gym Owner is permitted to upload logo)
         upload_admin = make_uploaded_image("logo3.png", fmt="PNG", size=(200, 200))
         client_admin = self.auth_client(super_admin)
         resp_admin = client_admin.post(url, {"logo": upload_admin}, format="multipart")
-        assert resp_admin.status_code == 200
-        assert "url" in resp_admin.data
+        assert resp_admin.status_code == 403
+
+    def test_cross_gym_idor_protection_returns_404_and_does_nothing(
+        self, gym_a, gym_b, owner_gym_a, tmp_path, settings
+    ):
+        """
+        A1 Contract Test:
+        Owner of gym A at gym A's host using gym B's gym_id in URL:
+        - Logo upload -> 404, nothing written to disk or config
+        - Photo read -> 404, nothing returned
+        - Photo list -> 404, nothing returned
+        """
+        settings.MEDIA_ROOT = tmp_path
+        client = self.auth_client(owner_gym_a)
+
+        # 1. Logo upload to gym B's id on gym A's host -> 404 with nothing written
+        upload = make_uploaded_image("fake_logo.png", fmt="PNG", size=(200, 200))
+        resp_logo = client.post(
+            f"/api/media/gym-logo/{gym_b.id}/",
+            {"logo": upload},
+            format="multipart",
+        )
+        assert resp_logo.status_code == 404
+        gym_b.config.refresh_from_db()
+        assert gym_b.config.logo is None
+
+        # 2. Photo read of gym B's id on gym A's host -> 404 with nothing returned
+        resp_read = client.get(f"/api/media/member-photos/{gym_b.id}/nonexistent.webp/")
+        assert resp_read.status_code == 404
+
+        # 3. Photo list of gym B's id on gym A's host -> 404 with nothing returned
+        resp_list = client.get(f"/api/media/member-photos/{gym_b.id}/")
+        assert resp_list.status_code == 404
+
+    def test_idor_read_with_real_file_returns_404_and_no_bytes(
+        self, gym_a, gym_b, owner_gym_a, owner_gym_b, tmp_path, settings
+    ):
+        """
+        3. IDOR read test with a real file:
+        Create a real photo in gym B's storage.
+        From gym A's Owner at gym A's host request gym B's gym_id + that real filename:
+          -> 404 and no bytes returned.
+        The same file from gym B's own Owner at gym B's host:
+          -> 200 with real bytes returned (control).
+        """
+        settings.MEDIA_ROOT = tmp_path
+        upload = make_uploaded_image("pic_b.png", fmt="PNG")
+        rel_path = save_member_photo(gym_b.id, upload)
+        filename = rel_path.split("/")[-1]
+
+        # 1. From gym A's Owner at gym A's host, request gym B's gym_id + filename
+        client_a = self.auth_client(owner_gym_a)
+        url_cross = f"/api/media/member-photos/{gym_b.id}/{filename}/"
+        resp_cross = client_a.get(url_cross)
+        assert resp_cross.status_code == 404
+        assert resp_cross.content == b'{"detail":"Gym tenant not found."}'
+
+        # 2. Control: Same file from gym B's own Owner at gym B's host -> 200
+        client_b = self.auth_client(owner_gym_b)
+        url_own = f"/api/media/member-photos/{gym_b.id}/{filename}/"
+        resp_own = client_b.get(url_own)
+        assert resp_own.status_code == 200
+        assert resp_own["Content-Type"] == "image/webp"
+        file_bytes = b"".join(resp_own.streaming_content)
+        assert len(file_bytes) > 0
+
+    def test_member_role_denied_read_list_upload(
+        self, gym_a, user_gym_a, owner_gym_a, tmp_path, settings
+    ):
+        """
+        4. Staff-only until Member model in Sprint 7:
+        A Member role gets 403 on read, list, and upload.
+        """
+        settings.MEDIA_ROOT = tmp_path
+        upload_owner = make_uploaded_image("staff_pic.png", fmt="PNG")
+        rel_path = save_member_photo(gym_a.id, upload_owner)
+        filename = rel_path.split("/")[-1]
+
+        client_member = self.auth_client(user_gym_a)
+
+        # 1. Read -> 403
+        resp_read = client_member.get(
+            f"/api/media/member-photos/{gym_a.id}/{filename}/"
+        )
+        assert resp_read.status_code == 403
+
+        # 2. List -> 403
+        resp_list = client_member.get(f"/api/media/member-photos/{gym_a.id}/")
+        assert resp_list.status_code == 403
+
+        # 3. Upload -> 403
+        upload_member = make_uploaded_image("mem_pic.png", fmt="PNG")
+        resp_upload = client_member.post(
+            f"/api/media/member-photos/{gym_a.id}/",
+            {"photo": upload_member},
+            format="multipart",
+        )
+        assert resp_upload.status_code == 403
+
+    def test_path_traversal_on_read(
+        self, gym_a, gym_b, owner_gym_a, tmp_path, settings
+    ):
+        """
+        4. Path traversal tests on read:
+        filename "..", "%2e%2e", "a..b", encoded slash, another gym's directory
+        -> 400 or 404, never file content.
+        """
+        settings.MEDIA_ROOT = tmp_path
+        client = self.auth_client(owner_gym_a)
+
+        traversal_filenames = [
+            "..",
+            "%2e%2e",
+            "a..b",
+            "foo%2fbar.webp",
+            f"../../gyms/{gym_b.id}/member_photos/stolen.webp",
+            f"../{gym_b.id}/photo.webp",
+            "abc.webp\n",
+        ]
+        for tf in traversal_filenames:
+            url = f"/api/media/member-photos/{gym_a.id}/{tf}/"
+            resp = client.get(url)
+            assert resp.status_code in (
+                400,
+                404,
+            ), f"Filename '{tf}' returned {resp.status_code}"
+            assert resp.get("Content-Type") != "image/webp"
+
+    def test_trailing_newline_filename_rejected(self, gym_a, owner_gym_a):
+        """Verify filenames with trailing newlines are rejected by regex and endpoint."""
+        with pytest.raises(ValidationError):
+            get_authenticated_photo_stream(gym_a.id, "abc.webp\n")
+
+        client = self.auth_client(owner_gym_a)
+        url = f"/api/media/member-photos/{gym_a.id}/abc.webp%0A/"
+        resp = client.get(url)
+        assert resp.status_code in (400, 404)
+        assert resp.get("Content-Type") != "image/webp"
+
+    def test_anonymous_photo_read_returns_401(self, gym_a):
+        anon_client = APIClient()
+        anon_client.defaults["HTTP_HOST"] = f"{gym_a.subdomain}.localhost"
+        url = f"/api/media/member-photos/{gym_a.id}/somefile.webp/"
+        resp = anon_client.get(url)
+        assert resp.status_code == 401

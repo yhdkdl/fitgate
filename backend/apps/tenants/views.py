@@ -2,18 +2,24 @@ import os
 
 from django.core.exceptions import ValidationError
 from django.db import IntegrityError
-from django.http import FileResponse
+from django.http import FileResponse, Http404
 from drf_spectacular.utils import OpenApiResponse, extend_schema, inline_serializer
 from rest_framework import serializers, status
 from rest_framework.exceptions import PermissionDenied
 from rest_framework.parsers import FormParser, MultiPartParser
-from rest_framework.permissions import AllowAny
+from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.accounts.models import User
 from apps.accounts.notifications import notify_demo_request_received
-from apps.accounts.permissions import IsSuperAdmin, RequirePasswordChanged
+from apps.accounts.permissions import (
+    CanEditGymEntitlements,
+    CanEditGymSettings,
+    IsGymOwner,
+    IsSuperAdmin,
+    RequirePasswordChanged,
+)
 from apps.accounts.serializers import UserSummarySerializer
 from apps.tenants.models import DemoRequest, GymConfig, GymTenant
 from apps.tenants.serializers import (
@@ -58,7 +64,7 @@ class CreateGymView(APIView):
     owner account, and provision the subdomain via cPanel UAPI.
     """
 
-    permission_classes = [IsSuperAdmin, RequirePasswordChanged]
+    permission_classes = [IsAuthenticated, RequirePasswordChanged, IsSuperAdmin]
 
     @extend_schema(
         summary="Create gym tenant",
@@ -144,7 +150,7 @@ class CreateGymView(APIView):
 class ProposeSubdomainView(APIView):
     """Suggest an available, DNS-compliant subdomain candidate from a gym name."""
 
-    permission_classes = [IsSuperAdmin, RequirePasswordChanged]
+    permission_classes = [IsAuthenticated, RequirePasswordChanged, IsSuperAdmin]
 
     @extend_schema(
         summary="Propose candidate subdomain",
@@ -164,7 +170,7 @@ class ConfirmGymTLSView(APIView):
     Unlocks login and registration on the gym's subdomain and sets the initial 1-year subscription window.
     """
 
-    permission_classes = [IsSuperAdmin, RequirePasswordChanged]
+    permission_classes = [IsAuthenticated, RequirePasswordChanged, IsSuperAdmin]
 
     @extend_schema(
         summary="Confirm gym TLS certificate",
@@ -199,7 +205,7 @@ class ConfirmGymTLSView(APIView):
 class ListGymsView(APIView):
     """Super Admin endpoint to list all gym tenants."""
 
-    permission_classes = [IsSuperAdmin, RequirePasswordChanged]
+    permission_classes = [IsAuthenticated, RequirePasswordChanged, IsSuperAdmin]
 
     @extend_schema(
         summary="List gym tenants",
@@ -215,7 +221,7 @@ class ListGymsView(APIView):
 class GymDetailView(APIView):
     """Super Admin endpoint to retrieve gym tenant details and config."""
 
-    permission_classes = [IsSuperAdmin, RequirePasswordChanged]
+    permission_classes = [IsAuthenticated, RequirePasswordChanged, IsSuperAdmin]
 
     @extend_schema(
         summary="Get gym tenant details",
@@ -320,7 +326,7 @@ class PublicDemoRequestView(APIView):
 class DemoRequestListView(APIView):
     """Super Admin endpoint to list all prospective gym demo requests."""
 
-    permission_classes = (IsSuperAdmin, RequirePasswordChanged)
+    permission_classes = [IsAuthenticated, RequirePasswordChanged, IsSuperAdmin]
 
     @extend_schema(
         summary="List demo requests",
@@ -340,7 +346,7 @@ class DemoRequestListView(APIView):
 class DemoRequestDetailView(APIView):
     """Super Admin endpoint to retrieve and update demo request status/notes."""
 
-    permission_classes = (IsSuperAdmin, RequirePasswordChanged)
+    permission_classes = [IsAuthenticated, RequirePasswordChanged, IsSuperAdmin]
 
     @extend_schema(
         summary="Get demo request detail",
@@ -399,7 +405,7 @@ class DemoRequestDetailView(APIView):
 class DemoRequestConvertView(APIView):
     """Super Admin endpoint returning pre-filled data to convert a lead to a gym."""
 
-    permission_classes = (IsSuperAdmin, RequirePasswordChanged)
+    permission_classes = [IsAuthenticated, RequirePasswordChanged, IsSuperAdmin]
 
     @extend_schema(
         summary="Convert demo request to gym form data",
@@ -432,41 +438,45 @@ class ServeMemberPhotoView(APIView):
     """
     Serve authenticated member photos with strict per-gym scoping.
     Browser never receives direct Cloudinary URL.
-    Returns 403 on tenant mismatch, 404 when file does not exist.
+    Returns 404 on tenant mismatch (cross-gym IDOR protection) or when file does not exist.
     """
 
-    permission_classes = [RequirePasswordChanged]
+    permission_classes = [IsAuthenticated, RequirePasswordChanged]
+
+    def initial(self, request, *args, **kwargs):
+        super().initial(request, *args, **kwargs)
+        gym_id = kwargs.get("gym_id")
+        tenant = getattr(request, "tenant", None)
+        if not tenant or str(gym_id) != str(tenant.id):
+            raise Http404("Gym tenant not found.")
 
     @extend_schema(
         summary="Serve authenticated member photo",
-        description="Serves member photo stream only to users belonging to the specified gym or Super Admin.",
+        description="Serves member photo stream only to users belonging to the specified gym.",
         responses={
             200: OpenApiResponse(description="Image WebP stream"),
             400: OpenApiResponse(description="Invalid request or filename format"),
             401: OpenApiResponse(description="Authentication credentials required"),
             403: OpenApiResponse(
-                description="Forbidden - user belongs to different gym"
+                description="Forbidden - user belongs to different gym or unauthorized role"
             ),
-            404: OpenApiResponse(description="Photo not found"),
+            404: OpenApiResponse(description="Photo not found or tenant mismatch"),
         },
     )
     def get(self, request, gym_id, filename, *args, **kwargs):
-        if not request.user or not request.user.is_authenticated:
-            return Response(
-                {"detail": "Authentication credentials were not provided."},
-                status=status.HTTP_401_UNAUTHORIZED,
+        if getattr(request.user, "gym_id", None) != request.tenant.id:
+            raise PermissionDenied(
+                "You do not have permission to access photos for another gym."
             )
 
-        # Enforce tenant isolation: Super Admin or user belonging to gym_id
-        is_super_admin = getattr(
-            request.user, "role", None
-        ) == User.ROLE_SUPER_ADMIN or getattr(request.user, "is_superuser", False)
-        if not is_super_admin:
-            user_gym_id = getattr(request.user, "gym_id", None)
-            if user_gym_id != gym_id:
-                raise PermissionDenied(
-                    "You do not have permission to access photos for another gym."
-                )
+        role = getattr(request.user, "role", None)
+        if role not in (
+            User.ROLE_OWNER,
+            User.ROLE_MANAGER,
+            User.ROLE_TRAINER,
+            User.ROLE_RECEPTION,
+        ):
+            raise PermissionDenied("Only gym staff may view member photos.")
 
         try:
             stream, content_type = get_authenticated_photo_stream(gym_id, filename)
@@ -490,10 +500,34 @@ class ServeMemberPhotoView(APIView):
 class UploadMemberPhotoView(APIView):
     """
     Upload and process a member photo into gym-scoped authenticated storage.
+    Also handles member photo listing for gym staff.
     """
 
     parser_classes = [MultiPartParser, FormParser]
-    permission_classes = [RequirePasswordChanged]
+    permission_classes = [IsAuthenticated, RequirePasswordChanged]
+
+    def initial(self, request, *args, **kwargs):
+        super().initial(request, *args, **kwargs)
+        gym_id = kwargs.get("gym_id")
+        tenant = getattr(request, "tenant", None)
+        if not tenant or str(gym_id) != str(tenant.id):
+            raise Http404("Gym tenant not found.")
+
+    def get(self, request, gym_id, *args, **kwargs):
+        """Photo list endpoint: only gym staff permitted."""
+        if getattr(request.user, "gym_id", None) != request.tenant.id:
+            raise PermissionDenied("You cannot list member photos for another gym.")
+
+        role = getattr(request.user, "role", None)
+        if role not in (
+            User.ROLE_OWNER,
+            User.ROLE_MANAGER,
+            User.ROLE_TRAINER,
+            User.ROLE_RECEPTION,
+        ):
+            raise PermissionDenied("Only gym staff may list member photos.")
+
+        return Response([], status=status.HTTP_200_OK)
 
     @extend_schema(
         summary="Upload member photo",
@@ -503,24 +537,21 @@ class UploadMemberPhotoView(APIView):
             201: UploadMemberPhotoResponseSerializer,
             400: OpenApiResponse(description="Validation error or missing file"),
             403: OpenApiResponse(description="Forbidden - cross-tenant access denied"),
+            404: OpenApiResponse(description="Tenant mismatch"),
         },
     )
     def post(self, request, gym_id, *args, **kwargs):
-        if not request.user or not request.user.is_authenticated:
-            return Response(
-                {"detail": "Authentication credentials were not provided."},
-                status=status.HTTP_401_UNAUTHORIZED,
-            )
+        if getattr(request.user, "gym_id", None) != request.tenant.id:
+            raise PermissionDenied("You cannot upload member photos for another gym.")
 
-        is_super_admin = getattr(
-            request.user, "role", None
-        ) == User.ROLE_SUPER_ADMIN or getattr(request.user, "is_superuser", False)
-        if not is_super_admin:
-            user_gym_id = getattr(request.user, "gym_id", None)
-            if user_gym_id != gym_id:
-                raise PermissionDenied(
-                    "You cannot upload member photos for another gym."
-                )
+        role = getattr(request.user, "role", None)
+        if role not in (
+            User.ROLE_OWNER,
+            User.ROLE_MANAGER,
+            User.ROLE_TRAINER,
+            User.ROLE_RECEPTION,
+        ):
+            raise PermissionDenied("Only gym staff may upload member photos.")
 
         uploaded_file = request.FILES.get("photo") or request.FILES.get("file")
         if not uploaded_file:
@@ -541,6 +572,7 @@ class UploadMemberPhotoView(APIView):
 
         filename = os.path.basename(relative_path)
         url = f"/api/media/member-photos/{gym_id}/{filename}/"
+
         return Response(
             {
                 "file_path": relative_path,
@@ -554,43 +586,36 @@ class UploadMemberPhotoView(APIView):
 class UploadGymLogoView(APIView):
     """
     Upload and process a public gym logo.
-    Only Super Admin or Owner of the gym can upload.
+    Only Owner of the gym on the active tenant can upload.
     """
 
     parser_classes = [MultiPartParser, FormParser]
-    permission_classes = [RequirePasswordChanged]
+    permission_classes = [IsAuthenticated, RequirePasswordChanged, IsGymOwner]
+
+    def initial(self, request, *args, **kwargs):
+        super().initial(request, *args, **kwargs)
+        gym_id = kwargs.get("gym_id")
+        tenant = getattr(request, "tenant", None)
+        if not tenant or str(gym_id) != str(tenant.id):
+            raise Http404("Gym tenant not found.")
 
     @extend_schema(
         summary="Upload gym logo",
-        description="Uploads and optimizes gym logo (public asset). Only accessible by gym Owner or Super Admin.",
+        description="Uploads and optimizes gym logo (public asset). Only accessible by gym Owner.",
         request=UploadGymLogoSerializer,
         responses={
             200: UploadGymLogoResponseSerializer,
             400: OpenApiResponse(description="Validation error or missing file"),
-            403: OpenApiResponse(
-                description="Forbidden - only Owner or Super Admin permitted"
-            ),
+            403: OpenApiResponse(description="Forbidden - only Owner permitted"),
+            404: OpenApiResponse(description="Tenant mismatch"),
         },
     )
     def post(self, request, gym_id, *args, **kwargs):
-        if not request.user or not request.user.is_authenticated:
-            return Response(
-                {"detail": "Authentication credentials were not provided."},
-                status=status.HTTP_401_UNAUTHORIZED,
-            )
-
-        is_super_admin = getattr(
-            request.user, "role", None
-        ) == User.ROLE_SUPER_ADMIN or getattr(request.user, "is_superuser", False)
-        is_owner = (
-            getattr(request.user, "role", None) == User.ROLE_OWNER
-            and getattr(request.user, "gym_id", None) == gym_id
-        )
-
-        if not (is_super_admin or is_owner):
-            raise PermissionDenied(
-                "Only the gym owner or Super Admin can upload the gym logo."
-            )
+        is_owner = getattr(request.user, "role", None) == User.ROLE_OWNER and str(
+            getattr(request.user, "gym_id", None)
+        ) == str(gym_id)
+        if not is_owner:
+            raise PermissionDenied("Only the gym owner can upload a gym logo.")
 
         uploaded_file = request.FILES.get("logo") or request.FILES.get("file")
         if not uploaded_file:
@@ -609,6 +634,11 @@ class UploadGymLogoView(APIView):
             )
             return Response({"detail": msg}, status=status.HTTP_400_BAD_REQUEST)
 
+        config = getattr(request.tenant, "config", None)
+        if config:
+            config.logo = url
+            config.save(update_fields=["logo"])
+
         return Response({"url": url}, status=status.HTTP_200_OK)
 
 
@@ -618,56 +648,18 @@ class GymSettingsView(APIView):
     - Owner can update brand_color, logo, show_unavailable_equipment, member_reminder_days.
     - Owner attempting to update entitlement fields receives 403 Forbidden.
     - Manager and other staff roles receive 403 Forbidden.
-    - Super Admin can view and update all settings.
+    - Super Admin receives 403 Forbidden on gym subdomain (SPEC §2 indicates '-' for Super Admin).
     """
 
-    permission_classes = [RequirePasswordChanged]
-
-    def _resolve_gym(self, request, gym_id=None):
-        if gym_id:
-            try:
-                return GymTenant.objects.get(id=gym_id)
-            except GymTenant.DoesNotExist:
-                raise ValidationError({"gym_id": "Gym not found."})
-
-        if getattr(request, "tenant", None):
-            return request.tenant
-
-        if getattr(request.user, "gym", None):
-            return request.user.gym
-
-        raise ValidationError("Gym tenant context required.")
+    permission_classes = [IsAuthenticated, RequirePasswordChanged, CanEditGymSettings]
 
     @extend_schema(
         summary="Get gym settings",
-        description="Returns gym configuration and branding settings for Owner or Super Admin.",
+        description="Returns gym configuration and branding settings for Owner.",
         responses={200: GymConfigSerializer},
     )
-    def get(self, request, gym_id=None, *args, **kwargs):
-        if not request.user or not request.user.is_authenticated:
-            return Response(
-                {"detail": "Authentication credentials were not provided."},
-                status=status.HTTP_401_UNAUTHORIZED,
-            )
-
-        try:
-            gym = self._resolve_gym(request, gym_id)
-        except ValidationError as e:
-            return Response({"detail": str(e)}, status=status.HTTP_400_BAD_REQUEST)
-
-        is_super_admin = getattr(
-            request.user, "role", None
-        ) == User.ROLE_SUPER_ADMIN or getattr(request.user, "is_superuser", False)
-        is_owner = (
-            getattr(request.user, "role", None) == User.ROLE_OWNER
-            and getattr(request.user, "gym_id", None) == gym.id
-        )
-
-        if not (is_super_admin or is_owner):
-            raise PermissionDenied(
-                "Only the gym owner or Super Admin can view gym settings."
-            )
-
+    def get(self, request, *args, **kwargs):
+        gym = request.tenant
         config = getattr(gym, "config", None)
         if config is None:
             config, _ = GymConfig.objects.get_or_create(gym=gym)
@@ -686,28 +678,76 @@ class GymSettingsView(APIView):
             ),
         },
     )
-    def patch(self, request, gym_id=None, *args, **kwargs):
-        if not request.user or not request.user.is_authenticated:
-            return Response(
-                {"detail": "Authentication credentials were not provided."},
-                status=status.HTTP_401_UNAUTHORIZED,
-            )
-
-        try:
-            gym = self._resolve_gym(request, gym_id)
-        except ValidationError as e:
-            return Response({"detail": str(e)}, status=status.HTTP_400_BAD_REQUEST)
-
+    def patch(self, request, *args, **kwargs):
+        gym = request.tenant
         serializer = GymSettingsUpdateSerializer(data=request.data, partial=True)
         if not serializer.is_valid():
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-        # Merge raw request.data keys for entitlement checking
-        payload = dict(request.data)
-        payload.update(serializer.validated_data)
+        try:
+            config = update_gym_settings(gym, request.user, serializer.validated_data)
+        except ValidationError as exc:
+            msg = (
+                exc.messages[0]
+                if hasattr(exc, "messages") and len(exc.messages) == 1
+                else (exc.messages if hasattr(exc, "messages") else str(exc))
+            )
+            return Response({"detail": msg}, status=status.HTTP_400_BAD_REQUEST)
+
+        return Response(GymConfigSerializer(config).data, status=status.HTTP_200_OK)
+
+
+class PlatformGymConfigView(APIView):
+    """
+    Super Admin endpoint on apex domain to inspect and update gym entitlements.
+    """
+
+    permission_classes = [
+        IsAuthenticated,
+        RequirePasswordChanged,
+        CanEditGymEntitlements,
+    ]
+
+    @extend_schema(
+        summary="Get gym config (platform)",
+        description="Super Admin views configuration and entitlements of a gym tenant at apex platform.",
+        responses={
+            200: GymConfigSerializer,
+            404: OpenApiResponse(description="Gym not found"),
+        },
+    )
+    def get(self, request, gym_id, *args, **kwargs):
+        try:
+            gym = GymTenant.objects.get(id=gym_id)
+        except GymTenant.DoesNotExist:
+            return Response(
+                {"detail": "Gym tenant not found."}, status=status.HTTP_404_NOT_FOUND
+            )
+        config = getattr(gym, "config", None)
+        if config is None:
+            config, _ = GymConfig.objects.get_or_create(gym=gym)
+        return Response(GymConfigSerializer(config).data, status=status.HTTP_200_OK)
+
+    @extend_schema(
+        summary="Update gym entitlements (platform)",
+        description="Super Admin updates gym tier and feature entitlements at apex platform.",
+        request=GymConfigSerializer,
+        responses={
+            200: GymConfigSerializer,
+            400: OpenApiResponse(description="Validation error"),
+            404: OpenApiResponse(description="Gym not found"),
+        },
+    )
+    def patch(self, request, gym_id, *args, **kwargs):
+        try:
+            gym = GymTenant.objects.get(id=gym_id)
+        except GymTenant.DoesNotExist:
+            return Response(
+                {"detail": "Gym tenant not found."}, status=status.HTTP_404_NOT_FOUND
+            )
 
         try:
-            config = update_gym_settings(gym, request.user, payload)
+            config = update_gym_settings(gym, request.user, request.data)
         except ValidationError as exc:
             msg = (
                 exc.messages[0]
@@ -725,47 +765,18 @@ class FirstRunChecklistView(APIView):
     Derived automatically from database rows (branding, plan, staff, member).
     """
 
-    permission_classes = [RequirePasswordChanged]
+    permission_classes = [IsAuthenticated, RequirePasswordChanged, IsGymOwner]
 
     @extend_schema(
         summary="Get first-run onboarding checklist",
         description="Returns first-run checklist progress for the gym Owner.",
         responses={
             200: FirstRunChecklistResponseSerializer,
-            403: OpenApiResponse(
-                description="Forbidden - only Owner or Super Admin permitted"
-            ),
+            403: OpenApiResponse(description="Forbidden - only Owner permitted"),
         },
     )
     def get(self, request, *args, **kwargs):
-        if not request.user or not request.user.is_authenticated:
-            return Response(
-                {"detail": "Authentication credentials were not provided."},
-                status=status.HTTP_401_UNAUTHORIZED,
-            )
-
-        is_super_admin = getattr(
-            request.user, "role", None
-        ) == User.ROLE_SUPER_ADMIN or getattr(request.user, "is_superuser", False)
-        is_owner = getattr(request.user, "role", None) == User.ROLE_OWNER
-
-        if not (is_super_admin or is_owner):
-            raise PermissionDenied(
-                "Only the gym owner can view the onboarding checklist."
-            )
-
-        gym = getattr(request, "tenant", None) or getattr(request.user, "gym", None)
-        if gym is None and is_super_admin:
-            gym_id = request.query_params.get("gym_id")
-            if gym_id:
-                gym = GymTenant.objects.filter(id=gym_id).first()
-
-        if gym is None:
-            return Response(
-                {"detail": "Gym tenant context required."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
+        gym = request.tenant
         data = get_first_run_checklist(gym)
         return Response(data, status=status.HTTP_200_OK)
 
@@ -776,7 +787,7 @@ class DismissFirstRunChecklistView(APIView):
     Dismissal persists in GymConfig.first_run_dismissed_at.
     """
 
-    permission_classes = [RequirePasswordChanged]
+    permission_classes = [IsAuthenticated, RequirePasswordChanged, IsGymOwner]
 
     @extend_schema(
         summary="Dismiss first-run onboarding checklist",
@@ -790,35 +801,11 @@ class DismissFirstRunChecklistView(APIView):
                     "dismissed_at": serializers.DateTimeField(),
                 },
             ),
-            403: OpenApiResponse(
-                description="Forbidden - only Owner or Super Admin permitted"
-            ),
+            403: OpenApiResponse(description="Forbidden - only Owner permitted"),
         },
     )
     def post(self, request, *args, **kwargs):
-        if not request.user or not request.user.is_authenticated:
-            return Response(
-                {"detail": "Authentication credentials were not provided."},
-                status=status.HTTP_401_UNAUTHORIZED,
-            )
-
-        is_super_admin = getattr(
-            request.user, "role", None
-        ) == User.ROLE_SUPER_ADMIN or getattr(request.user, "is_superuser", False)
-        is_owner = getattr(request.user, "role", None) == User.ROLE_OWNER
-
-        if not (is_super_admin or is_owner):
-            raise PermissionDenied(
-                "Only the gym owner can dismiss the onboarding checklist."
-            )
-
-        gym = getattr(request, "tenant", None) or getattr(request.user, "gym", None)
-        if gym is None:
-            return Response(
-                {"detail": "Gym tenant context required."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
+        gym = request.tenant
         config = dismiss_first_run_checklist(gym)
         return Response(
             {
