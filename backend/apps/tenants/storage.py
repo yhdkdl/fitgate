@@ -17,7 +17,7 @@ from django.core.files.base import ContentFile
 from django.core.files.storage import FileSystemStorage
 from PIL import Image
 
-SAFE_FILENAME_REGEX = re.compile(r"^[a-zA-Z0-9_-]+\.(webp|jpg|jpeg|png)$")
+SAFE_FILENAME_REGEX = re.compile(r"^[a-zA-Z0-9_-]+\.(webp|jpg|jpeg|png)\Z")
 ALLOWED_IMAGE_FORMATS = frozenset({"JPEG", "JPG", "PNG", "WEBP"})
 MAX_IMAGE_SIZE = getattr(settings, "MAX_UPLOAD_SIZE_BYTES", 2 * 1024 * 1024)  # 2MB
 
@@ -246,7 +246,7 @@ def get_authenticated_photo_stream(gym_id: Any, filename: str) -> Tuple[Any, str
     Retrieve binary stream for an authenticated member photo.
     Enforces safe filename format to protect against path traversal attacks.
     """
-    if not SAFE_FILENAME_REGEX.match(filename):
+    if not SAFE_FILENAME_REGEX.fullmatch(filename):
         raise ValidationError("Invalid filename format.")
 
     relative_path = f"gyms/{gym_id}/member_photos/{filename}"

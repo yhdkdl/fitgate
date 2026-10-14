@@ -556,6 +556,7 @@ class TestMediaEndpointsSuite:
             "foo%2fbar.webp",
             f"../../gyms/{gym_b.id}/member_photos/stolen.webp",
             f"../{gym_b.id}/photo.webp",
+            "abc.webp\n",
         ]
         for tf in traversal_filenames:
             url = f"/api/media/member-photos/{gym_a.id}/{tf}/"
@@ -565,6 +566,17 @@ class TestMediaEndpointsSuite:
                 404,
             ), f"Filename '{tf}' returned {resp.status_code}"
             assert resp.get("Content-Type") != "image/webp"
+
+    def test_trailing_newline_filename_rejected(self, gym_a, owner_gym_a):
+        """Verify filenames with trailing newlines are rejected by regex and endpoint."""
+        with pytest.raises(ValidationError):
+            get_authenticated_photo_stream(gym_a.id, "abc.webp\n")
+
+        client = self.auth_client(owner_gym_a)
+        url = f"/api/media/member-photos/{gym_a.id}/abc.webp%0A/"
+        resp = client.get(url)
+        assert resp.status_code in (400, 404)
+        assert resp.get("Content-Type") != "image/webp"
 
     def test_anonymous_photo_read_returns_401(self, gym_a):
         anon_client = APIClient()
