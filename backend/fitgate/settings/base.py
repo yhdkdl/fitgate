@@ -188,5 +188,6 @@ SPECTACULAR_SETTINGS = {
         "GymStatusEnum": "apps.tenants.models.GymTenant.STATUS_CHOICES",
         "DemoRequestStatusEnum": "apps.tenants.models.DemoRequest.STATUS_CHOICES",
         "PaymentStatusEnum": "apps.payments.models.Payment.STATUS_CHOICES",
+        "UserRoleEnum": "apps.accounts.models.User.ROLE_CHOICES",
     },
 }

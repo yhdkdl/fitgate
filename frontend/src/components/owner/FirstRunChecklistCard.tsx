@@ -12,10 +12,12 @@ import { Spinner } from "../ui/Spinner";
 
 interface FirstRunChecklistCardProps {
   onOpenBranding?: () => void;
+  onOpenStaff?: () => void;
 }
 
 export const FirstRunChecklistCard: React.FC<FirstRunChecklistCardProps> = ({
   onOpenBranding,
+  onOpenStaff,
 }) => {
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState<FirstRunChecklistResponse | null>(null);
@@ -153,6 +155,12 @@ export const FirstRunChecklistCard: React.FC<FirstRunChecklistCardProps> = ({
             {key === "add_branding" && !item.completed && onOpenBranding && (
               <Button size="sm" variant="secondary" onClick={onOpenBranding}>
                 Customize
+              </Button>
+            )}
+
+            {key === "add_staff" && !item.completed && onOpenStaff && (
+              <Button size="sm" variant="secondary" onClick={onOpenStaff}>
+                Invite Staff
               </Button>
             )}
           </div>

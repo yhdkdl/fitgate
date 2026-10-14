@@ -13,14 +13,15 @@
 - Sprint 4b: File storage layer (`3fe54b0`, PR #14)
 - Sprint 4c: Gym branding, entry page, first-run checklist (PR #15)
 - Sprint 5: RBAC framework (GATE) (`6e07935`)
+- Sprint 6: Staff provisioning (`4d957da`)
 
 ## Current
 
-- Sprint 6: Staff provisioning
+- Sprint 7: Member registration
 
 ## Next
 
-- Sprint 7: Member registration
+- Sprint 8: QR check-in (GATE)
 
 ## Open manual steps
 

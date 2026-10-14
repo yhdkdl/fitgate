@@ -103,6 +103,32 @@ def send_owner_welcome_email(owner, gym, invite_link: str) -> None:
     )
 
 
+def send_staff_invite_email(user, gym, invite_link: str) -> None:
+    """
+    Send invitation email to newly invited staff member (Manager, Trainer, or Reception)
+    containing single-use set-password link. Never contains a password.
+    """
+    from apps.accounts.models import User
+
+    role_display = dict(User.ROLE_CHOICES).get(user.role, user.role.capitalize())
+    subject = f"Invitation to join {gym.name} as {role_display}"
+    message = (
+        f"Hello {user.full_name or 'there'},\n\n"
+        f"You have been invited to join '{gym.name}' on FitGate as a {role_display}.\n\n"
+        f"To set up your account and choose your password, please use the secure link below:\n"
+        f"{invite_link}\n\n"
+        f"This link is valid for 7 days. Once your password is set, you can sign in to the staff portal.\n\n"
+        f"Welcome aboard,\nThe FitGate Team\n"
+    )
+    send_mail(
+        subject=subject,
+        message=message,
+        from_email=settings.DEFAULT_FROM_EMAIL,
+        recipient_list=[user.email],
+        fail_silently=False,
+    )
+
+
 def notify_demo_request_received(demo_request) -> None:
     """
     Create a platform-level notification for all active Super Admins upon receiving a new demo request.

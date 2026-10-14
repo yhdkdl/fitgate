@@ -201,6 +201,15 @@ class TestRBACPermissionMatrixEveryRole:
         resp_check = client.get("/api/gym/checklist/")
         assert resp_check.status_code == 200
 
+        # Allowed (Sprint 6): Invite a Manager account
+        resp_invite = client.post(
+            "/api/gym/staff/",
+            {"email": "invited_mgr@bolehub.com", "role": "manager"},
+            format="json",
+        )
+        assert resp_invite.status_code == 201
+        assert resp_invite.data["user"]["role"] == "manager"
+
         # Denied (403): Attempt to change entitlements
         resp_entitlement = client.patch(
             "/api/gym/settings/",
@@ -223,6 +232,23 @@ class TestRBACPermissionMatrixEveryRole:
         resp_profile = client.get("/api/auth/me/")
         assert resp_profile.status_code == 200
         assert resp_profile.data["email"] == manager_user.email
+
+        # Allowed (Sprint 6): Invite a Trainer account
+        resp_invite_trainer = client.post(
+            "/api/gym/staff/",
+            {"email": "invited_trainer@bolehub.com", "role": "trainer"},
+            format="json",
+        )
+        assert resp_invite_trainer.status_code == 201
+        assert resp_invite_trainer.data["user"]["role"] == "trainer"
+
+        # Denied (403, Sprint 6): Manager cannot invite a Manager account
+        resp_invite_mgr = client.post(
+            "/api/gym/staff/",
+            {"email": "forbidden_mgr@bolehub.com", "role": "manager"},
+            format="json",
+        )
+        assert resp_invite_mgr.status_code == 403
 
         # Denied (403): Attempt to update gym settings
         resp_settings = client.patch(
@@ -860,7 +886,7 @@ class TestSpec2PermissionMatrixParametrizedTable:
         Rows not yet wired skip with an explicit reason.
         Wired rows (Sprint 5) assert directly against real HTTP endpoints.
         """
-        if wired_sprint != 5:
+        if wired_sprint not in (5, 6):
             pytest.skip(
                 f"Row '{row_name}' has no real endpoint yet (scheduled for Sprint {wired_sprint} in docs/SPRINTS.md)"
             )
@@ -910,5 +936,56 @@ class TestSpec2PermissionMatrixParametrizedTable:
             )
             if expected_allowed:
                 assert resp.status_code == 200
+            else:
+                assert resp.status_code in (403, 404)
+        elif row_name == "Create or deactivate Manager accounts":
+            url = "/api/gym/staff/"
+            host = (
+                "localhost"
+                if role == User.ROLE_SUPER_ADMIN
+                else f"{gym_tenant.subdomain}.localhost"
+            )
+            resp = client.post(
+                url,
+                {"email": f"matrix_mgr_{role}@bolehub.com", "role": "manager"},
+                format="json",
+                HTTP_HOST=host,
+            )
+            if expected_allowed:
+                assert resp.status_code == 201
+                new_id = resp.data["user"]["id"]
+                deact_resp = client.post(
+                    f"/api/gym/staff/{new_id}/deactivate/",
+                    format="json",
+                    HTTP_HOST=host,
+                )
+                assert deact_resp.status_code == 200
+            else:
+                assert resp.status_code in (403, 404)
+        elif row_name == "Create or deactivate Trainer/Reception accounts":
+            url = "/api/gym/staff/"
+            host = (
+                "localhost"
+                if role == User.ROLE_SUPER_ADMIN
+                else f"{gym_tenant.subdomain}.localhost"
+            )
+            resp = client.post(
+                url,
+                {
+                    "email": f"matrix_rec_{role}@bolehub.com",
+                    "role": "reception",
+                },
+                format="json",
+                HTTP_HOST=host,
+            )
+            if expected_allowed:
+                assert resp.status_code == 201
+                new_id = resp.data["user"]["id"]
+                deact_resp = client.post(
+                    f"/api/gym/staff/{new_id}/deactivate/",
+                    format="json",
+                    HTTP_HOST=host,
+                )
+                assert deact_resp.status_code == 200
             else:
                 assert resp.status_code in (403, 404)

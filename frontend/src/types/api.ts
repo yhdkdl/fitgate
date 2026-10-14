@@ -232,6 +232,70 @@ export interface paths {
         patch: operations["gym_settings_partial_update"];
         trace?: never;
     };
+    "/api/gym/staff/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List gym staff members
+         * @description Returns list of all staff members (Owner, Manager, Trainer, Reception) belonging to the active gym tenant.
+         */
+        get: operations["gym_staff_list"];
+        put?: never;
+        /**
+         * Invite a staff member
+         * @description Invites a staff member (Manager, Trainer, or Reception) and generates a single-use set-password token.
+         */
+        post: operations["gym_staff_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/gym/staff/{user_id}/deactivate/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Deactivate a staff member
+         * @description Deactivates a staff member, invalidating all existing JWT sessions and blocking future logins.
+         */
+        post: operations["gym_staff_deactivate_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/gym/staff/{user_id}/reactivate/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Reactivate a staff member
+         * @description Reactivates a previously deactivated staff member.
+         */
+        post: operations["gym_staff_reactivate_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/health/": {
         parameters: {
             query?: never;
@@ -739,6 +803,28 @@ export interface components {
             /** @default FitGate API */
             app: string;
         };
+        /** @description Payload for inviting a staff member (Manager, Trainer, or Reception). */
+        InviteStaffRequestRequest: {
+            /** Format: email */
+            email: string;
+            role: components["schemas"]["InviteStaffRequestRoleEnum"];
+            /** @default  */
+            full_name: string;
+            /** @default  */
+            phone: string;
+        };
+        /**
+         * @description * `manager` - Manager
+         *     * `trainer` - Trainer
+         *     * `reception` - Reception
+         * @enum {string}
+         */
+        InviteStaffRequestRoleEnum: "manager" | "trainer" | "reception";
+        /** @description Response returned upon successful staff invitation. */
+        InviteStaffResponse: {
+            detail: string;
+            user: components["schemas"]["StaffMember"];
+        };
         /** @description Payload for user authentication. */
         LoginRequestRequest: {
             /** Format: email */
@@ -817,16 +903,6 @@ export interface components {
             detail: string;
             id?: string;
         };
-        /**
-         * @description * `super_admin` - Super Admin
-         *     * `owner` - Owner
-         *     * `manager` - Manager
-         *     * `trainer` - Trainer
-         *     * `reception` - Reception
-         *     * `member` - Member
-         * @enum {string}
-         */
-        RoleEnum: "super_admin" | "owner" | "manager" | "trainer" | "reception" | "member";
         /** @description Payload for setting initial password from an invite token. */
         SetPasswordFromInviteRequestRequest: {
             token: string;
@@ -836,13 +912,35 @@ export interface components {
         SetPasswordFromInviteResponse: {
             detail: string;
         };
+        /** @description Response returned upon staff deactivation or reactivation. */
+        StaffActionResponse: {
+            detail: string;
+            user: components["schemas"]["StaffMember"];
+        };
+        /** @description Serializer representing a staff member in the gym tenant. */
+        StaffMember: {
+            /** Format: uuid */
+            readonly id: string;
+            /** Format: email */
+            readonly email: string;
+            readonly role: components["schemas"]["UserRoleEnum"];
+            /** Format: uuid */
+            readonly gym_id: string | null;
+            readonly full_name: string;
+            readonly phone: string;
+            readonly is_active: boolean;
+            /** Format: date-time */
+            readonly email_verified_at: string | null;
+            /** Format: date-time */
+            readonly created_at: string;
+        };
         /** @description Response for created Super Admin. */
         SuperAdminResponse: {
             /** Format: uuid */
             readonly id: string;
             /** Format: email */
             readonly email: string;
-            readonly role: components["schemas"]["RoleEnum"];
+            readonly role: components["schemas"]["UserRoleEnum"];
             readonly must_change_password: boolean;
             /** Format: date-time */
             readonly created_at: string;
@@ -888,20 +986,30 @@ export interface components {
             readonly id: string;
             /** Format: email */
             readonly email: string;
-            readonly role: components["schemas"]["RoleEnum"];
+            readonly role: components["schemas"]["UserRoleEnum"];
             /** Format: uuid */
             readonly gym_id: string | null;
             readonly full_name: string;
             readonly phone: string;
             readonly must_change_password: boolean;
         };
+        /**
+         * @description * `super_admin` - Super Admin
+         *     * `owner` - Owner
+         *     * `manager` - Manager
+         *     * `trainer` - Trainer
+         *     * `reception` - Reception
+         *     * `member` - Member
+         * @enum {string}
+         */
+        UserRoleEnum: "super_admin" | "owner" | "manager" | "trainer" | "reception" | "member";
         /** @description Minimal representation of authenticated user. */
         UserSummary: {
             /** Format: uuid */
             readonly id: string;
             /** Format: email */
             readonly email: string;
-            readonly role: components["schemas"]["RoleEnum"];
+            readonly role: components["schemas"]["UserRoleEnum"];
             /** Format: uuid */
             readonly gym_id: string | null;
             readonly full_name: string;
@@ -1322,6 +1430,169 @@ export interface operations {
             };
             /** @description Forbidden - entitlements restricted to Super Admin or non-Owner access */
             403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    gym_staff_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StaffMember"][];
+                };
+            };
+            /** @description Authentication required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    gym_staff_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["InviteStaffRequestRequest"];
+                "application/x-www-form-urlencoded": components["schemas"]["InviteStaffRequestRequest"];
+                "multipart/form-data": components["schemas"]["InviteStaffRequestRequest"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InviteStaffResponse"];
+                };
+            };
+            /** @description Validation error */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Authentication required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    gym_staff_deactivate_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                user_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StaffActionResponse"];
+                };
+            };
+            /** @description Authentication required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Staff member not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    gym_staff_reactivate_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                user_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StaffActionResponse"];
+                };
+            };
+            /** @description Authentication required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Staff member not found */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };
