@@ -10,6 +10,7 @@ import {
 import { DemoRequestSection } from "../components/superadmin/DemoRequestSection";
 import { FirstRunChecklistCard } from "../components/owner/FirstRunChecklistCard";
 import { GymBrandingSection } from "../components/owner/GymBrandingSection";
+import { StaffManagementSection } from "../components/owner/StaffManagementSection";
 import { useAuth } from "../context/AuthContext";
 import { getTenantFromHostname } from "../utils/tenant";
 
@@ -20,6 +21,7 @@ export const DashboardScreen: React.FC = () => {
 
   const [adminTab, setAdminTab] = useState<"gyms" | "leads">("gyms");
   const [showBranding, setShowBranding] = useState(false);
+  const [checklistKey, setChecklistKey] = useState(0);
   const [prefillGymData, setPrefillGymData] = useState<GymPrefillData | null>(
     null
   );
@@ -181,6 +183,7 @@ export const DashboardScreen: React.FC = () => {
           {user?.role === "owner" && (
             <div className="space-y-6">
               <FirstRunChecklistCard
+                key={checklistKey}
                 onOpenBranding={() => setShowBranding(true)}
               />
 
@@ -205,6 +208,17 @@ export const DashboardScreen: React.FC = () => {
               </div>
 
               {showBranding && <GymBrandingSection onUpdated={() => {}} />}
+
+              <StaffManagementSection
+                onStaffUpdated={() => setChecklistKey((k) => k + 1)}
+              />
+            </div>
+          )}
+
+          {/* Gym Manager Hub */}
+          {user?.role === "manager" && (
+            <div className="space-y-6">
+              <StaffManagementSection />
             </div>
           )}
 

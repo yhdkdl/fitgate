@@ -351,6 +351,122 @@ paths:
         '403':
           description: Forbidden - entitlements restricted to Super Admin or non-Owner
             access
+  /api/gym/staff/:
+    get:
+      operationId: gym_staff_list
+      description: Returns list of all staff members (Owner, Manager, Trainer, Reception)
+        belonging to the active gym tenant.
+      summary: List gym staff members
+      tags:
+      - gym
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/StaffMember'
+          description: ''
+        '401':
+          description: Authentication required
+        '403':
+          description: Forbidden
+    post:
+      operationId: gym_staff_create
+      description: Invites a staff member (Manager, Trainer, or Reception) and generates
+        a single-use set-password token.
+      summary: Invite a staff member
+      tags:
+      - gym
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/InviteStaffRequestRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/InviteStaffRequestRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/InviteStaffRequestRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InviteStaffResponse'
+          description: ''
+        '400':
+          description: Validation error
+        '401':
+          description: Authentication required
+        '403':
+          description: Forbidden
+  /api/gym/staff/{user_id}/deactivate/:
+    post:
+      operationId: gym_staff_deactivate_create
+      description: Deactivates a staff member, invalidating all existing JWT sessions
+        and blocking future logins.
+      summary: Deactivate a staff member
+      parameters:
+      - in: path
+        name: user_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - gym
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StaffActionResponse'
+          description: ''
+        '401':
+          description: Authentication required
+        '403':
+          description: Forbidden
+        '404':
+          description: Staff member not found
+  /api/gym/staff/{user_id}/reactivate/:
+    post:
+      operationId: gym_staff_reactivate_create
+      description: Reactivates a previously deactivated staff member.
+      summary: Reactivate a staff member
+      parameters:
+      - in: path
+        name: user_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - gym
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StaffActionResponse'
+          description: ''
+        '401':
+          description: Authentication required
+        '403':
+          description: Forbidden
+        '404':
+          description: Staff member not found
   /api/health/:
     get:
       operationId: health_retrieve
@@ -1346,6 +1462,48 @@ components:
         app:
           type: string
           default: FitGate API
+    InviteStaffRequestRequest:
+      type: object
+      description: Payload for inviting a staff member (Manager, Trainer, or Reception).
+      properties:
+        email:
+          type: string
+          format: email
+          minLength: 1
+        role:
+          $ref: '#/components/schemas/InviteStaffRequestRoleEnum'
+        full_name:
+          type: string
+          default: ''
+          maxLength: 150
+        phone:
+          type: string
+          default: ''
+          maxLength: 20
+      required:
+      - email
+      - role
+    InviteStaffRequestRoleEnum:
+      enum:
+      - manager
+      - trainer
+      - reception
+      type: string
+      description: |-
+        * `manager` - Manager
+        * `trainer` - Trainer
+        * `reception` - Reception
+    InviteStaffResponse:
+      type: object
+      description: Response returned upon successful staff invitation.
+      properties:
+        detail:
+          type: string
+        user:
+          $ref: '#/components/schemas/StaffMember'
+      required:
+      - detail
+      - user
     LoginRequestRequest:
       type: object
       description: Payload for user authentication.
@@ -1522,22 +1680,6 @@ components:
           type: string
       required:
       - detail
-    RoleEnum:
-      enum:
-      - super_admin
-      - owner
-      - manager
-      - trainer
-      - reception
-      - member
-      type: string
-      description: |-
-        * `super_admin` - Super Admin
-        * `owner` - Owner
-        * `manager` - Manager
-        * `trainer` - Trainer
-        * `reception` - Reception
-        * `member` - Member
     SetPasswordFromInviteRequestRequest:
       type: object
       description: Payload for setting initial password from an invite token.
@@ -1560,6 +1702,66 @@ components:
           type: string
       required:
       - detail
+    StaffActionResponse:
+      type: object
+      description: Response returned upon staff deactivation or reactivation.
+      properties:
+        detail:
+          type: string
+        user:
+          $ref: '#/components/schemas/StaffMember'
+      required:
+      - detail
+      - user
+    StaffMember:
+      type: object
+      description: Serializer representing a staff member in the gym tenant.
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        email:
+          type: string
+          format: email
+          readOnly: true
+        role:
+          allOf:
+          - $ref: '#/components/schemas/UserRoleEnum'
+          readOnly: true
+        gym_id:
+          type: string
+          format: uuid
+          readOnly: true
+          nullable: true
+        full_name:
+          type: string
+          readOnly: true
+        phone:
+          type: string
+          readOnly: true
+        is_active:
+          type: boolean
+          readOnly: true
+        email_verified_at:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - created_at
+      - email
+      - email_verified_at
+      - full_name
+      - gym_id
+      - id
+      - is_active
+      - phone
+      - role
     SuperAdminResponse:
       type: object
       description: Response for created Super Admin.
@@ -1574,7 +1776,7 @@ components:
           readOnly: true
         role:
           allOf:
-          - $ref: '#/components/schemas/RoleEnum'
+          - $ref: '#/components/schemas/UserRoleEnum'
           readOnly: true
         must_change_password:
           type: boolean
@@ -1670,7 +1872,7 @@ components:
           readOnly: true
         role:
           allOf:
-          - $ref: '#/components/schemas/RoleEnum'
+          - $ref: '#/components/schemas/UserRoleEnum'
           readOnly: true
         gym_id:
           type: string
@@ -1694,6 +1896,22 @@ components:
       - must_change_password
       - phone
       - role
+    UserRoleEnum:
+      enum:
+      - super_admin
+      - owner
+      - manager
+      - trainer
+      - reception
+      - member
+      type: string
+      description: |-
+        * `super_admin` - Super Admin
+        * `owner` - Owner
+        * `manager` - Manager
+        * `trainer` - Trainer
+        * `reception` - Reception
+        * `member` - Member
     UserSummary:
       type: object
       description: Minimal representation of authenticated user.
@@ -1708,7 +1926,7 @@ components:
           readOnly: true
         role:
           allOf:
-          - $ref: '#/components/schemas/RoleEnum'
+          - $ref: '#/components/schemas/UserRoleEnum'
           readOnly: true
         gym_id:
           type: string

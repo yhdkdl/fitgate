@@ -12,7 +12,10 @@ from django.utils import timezone
 from rest_framework.exceptions import PermissionDenied
 
 from apps.accounts.models import AuthToken, User
-from apps.accounts.notifications import send_password_reset_email
+from apps.accounts.notifications import (
+    send_password_reset_email,
+    send_staff_invite_email,
+)
 from apps.accounts.serializers import UserSummarySerializer
 from apps.accounts.tokens import get_tokens_for_user
 from apps.tenants.models import GymTenant
@@ -386,3 +389,163 @@ def set_password_from_invite(
         ).exclude(pk=auth_token.pk).update(used_at=now_consume)
 
     return {"detail": "password_set_complete"}
+
+
+def invite_staff_member(
+    acting_user: User, gym: GymTenant, data: Dict[str, Any]
+) -> tuple[User, AuthToken, str]:
+    """
+    Invite a staff member (Manager, Trainer, Reception) to the gym tenant.
+
+    Permissions:
+    - Owner can invite Managers, Trainers, Reception.
+    - Manager can invite Trainers and Reception only.
+    - Manager inviting a Manager raises 403 PermissionDenied.
+    - Other roles raise 403 PermissionDenied.
+
+    Behavior:
+    - Verifies acting_user.gym_id == gym.id.
+    - Verifies email is globally unique across all gyms (case-insensitive).
+    - Creates User with unusable password, email_verified_at=now, is_active=True.
+    - Creates AuthToken with purpose=invite, expires_at=now + 7 days.
+    - Sends invitation email with set-password link via transaction.on_commit.
+    """
+    if getattr(acting_user, "gym_id", None) != gym.id:
+        raise PermissionDenied(
+            "You do not have permission to invite staff for another gym."
+        )
+
+    acting_role = getattr(acting_user, "role", None)
+    if acting_role not in (User.ROLE_OWNER, User.ROLE_MANAGER):
+        raise PermissionDenied("Only Gym Owner or Manager can invite staff members.")
+
+    target_role = data.get("role")
+    valid_roles = (User.ROLE_MANAGER, User.ROLE_TRAINER, User.ROLE_RECEPTION)
+    if target_role not in valid_roles:
+        raise ValidationError({"role": [f"Invalid staff role '{target_role}'."]})
+
+    if acting_role == User.ROLE_MANAGER and target_role == User.ROLE_MANAGER:
+        raise PermissionDenied("Managers cannot invite or manage Manager accounts.")
+
+    raw_email = data.get("email", "")
+    if not raw_email or not isinstance(raw_email, str):
+        raise ValidationError({"email": ["This field may not be blank."]})
+
+    normalized_email = raw_email.strip().lower()
+    if User.all_objects.filter(email=normalized_email).exists():
+        raise ValidationError({"email": ["A user with this email already exists."]})
+
+    full_name = str(data.get("full_name") or "").strip()
+    phone = str(data.get("phone") or "").strip()
+
+    with transaction.atomic():
+        user = User.objects.create(
+            email=normalized_email,
+            role=target_role,
+            gym=gym,
+            full_name=full_name,
+            phone=phone,
+            is_active=True,
+            email_verified_at=timezone.now(),
+            must_change_password=False,
+        )
+        user.set_unusable_password()
+        user.save()
+
+        raw_token = secrets.token_urlsafe(32)
+        token_hash = hashlib.sha256(raw_token.encode("utf-8")).hexdigest()
+        expires_at = timezone.now() + timedelta(days=7)
+        token_obj = AuthToken.objects.create(
+            user=user,
+            token_hash=token_hash,
+            purpose=AuthToken.PURPOSE_INVITE,
+            expires_at=expires_at,
+        )
+
+        scheme = settings.PUBLIC_URL_SCHEME
+        domain = settings.DOMAIN
+        invite_link = (
+            f"{scheme}://{gym.subdomain}.{domain}/set-password?token={raw_token}"
+        )
+
+        def _send():
+            try:
+                send_staff_invite_email(user, gym, invite_link)
+            except Exception:
+                logger.exception(
+                    "Failed to send staff invitation email to %s", user.email
+                )
+
+        transaction.on_commit(_send)
+
+    return user, token_obj, raw_token
+
+
+def deactivate_staff_member(acting_user: User, target_user: User) -> User:
+    """
+    Deactivate a staff member.
+    Immediately blocks login and invalidates existing JWT tokens.
+    Never hard-deletes; email remains reserved.
+    """
+    if acting_user.id == target_user.id:
+        raise PermissionDenied("You cannot deactivate your own account.")
+
+    if getattr(acting_user, "gym_id", None) != target_user.gym_id:
+        raise PermissionDenied(
+            "You do not have permission to manage staff for another gym."
+        )
+
+    acting_role = getattr(acting_user, "role", None)
+    target_role = getattr(target_user, "role", None)
+
+    if acting_role == User.ROLE_OWNER:
+        if target_role not in (
+            User.ROLE_MANAGER,
+            User.ROLE_TRAINER,
+            User.ROLE_RECEPTION,
+        ):
+            raise PermissionDenied("Cannot deactivate this account.")
+    elif acting_role == User.ROLE_MANAGER:
+        if target_role not in (User.ROLE_TRAINER, User.ROLE_RECEPTION):
+            raise PermissionDenied(
+                "Managers cannot deactivate Manager or Owner accounts."
+            )
+    else:
+        raise PermissionDenied("Only Gym Owner or Manager can deactivate staff.")
+
+    target_user.is_active = False
+    target_user.password_changed_at = timezone.now()
+    target_user.save(update_fields=["is_active", "password_changed_at"])
+    return target_user
+
+
+def reactivate_staff_member(acting_user: User, target_user: User) -> User:
+    """
+    Reactivate a previously deactivated staff member.
+    """
+    if getattr(acting_user, "gym_id", None) != target_user.gym_id:
+        raise PermissionDenied(
+            "You do not have permission to manage staff for another gym."
+        )
+
+    acting_role = getattr(acting_user, "role", None)
+    target_role = getattr(target_user, "role", None)
+
+    if acting_role == User.ROLE_OWNER:
+        if target_role not in (
+            User.ROLE_MANAGER,
+            User.ROLE_TRAINER,
+            User.ROLE_RECEPTION,
+        ):
+            raise PermissionDenied("Cannot reactivate this account.")
+    elif acting_role == User.ROLE_MANAGER:
+        if target_role not in (User.ROLE_TRAINER, User.ROLE_RECEPTION):
+            raise PermissionDenied(
+                "Managers cannot reactivate Manager or Owner accounts."
+            )
+    else:
+        raise PermissionDenied("Only Gym Owner or Manager can reactivate staff.")
+
+    target_user.is_active = True
+    target_user.save(update_fields=["is_active"])
+    return target_user
