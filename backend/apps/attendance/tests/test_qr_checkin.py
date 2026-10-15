@@ -332,6 +332,22 @@ class TestQRTokenIssuanceAndVerification:
         assert decoded["gym_id"] == str(gym_tenant.id)
         assert decoded["type"] == "qr_checkin"
 
+    def test_member_me_qr_token_endpoint_no_subscription_returns_400_expired(
+        self, api_client, gym_tenant, member_user, active_member
+    ):
+        """A Member with NO MemberSubscription calls GET /api/members/me/qr-token/ and gets clean 400 with reason 'expired', never 500, and no QRToken row is created."""
+        MemberSubscription.all_objects.filter(member=active_member).delete()
+        assert MemberSubscription.all_objects.filter(member=active_member).count() == 0
+
+        initial_token_count = QRToken.all_objects.count()
+
+        client = auth_client(api_client, member_user, gym_tenant.subdomain)
+        response = client.get("/api/members/me/qr-token/")
+        assert response.status_code == 400
+        assert response.data["reason"] == "expired"
+        assert "Member has no active subscription" in response.data["detail"]
+        assert QRToken.all_objects.count() == initial_token_count
+
     def test_frozen_clock_valid_at_89s_rejected_at_91s(
         self, api_client, gym_tenant, reception_user, active_member
     ):
