@@ -14,14 +14,15 @@
 - Sprint 4c: Gym branding, entry page, first-run checklist (PR #15)
 - Sprint 5: RBAC framework (GATE) (`6e07935`)
 - Sprint 6: Staff provisioning (`4d957da`)
+- Sprint 7: Member registration (`c7c948cb4114442c53947884cc191c865f05116a`)
 
 ## Current
 
-- Sprint 7: Member registration
+- Sprint 8: QR check-in (GATE, not merged)
 
 ## Next
 
-- Sprint 8: QR check-in (GATE)
+- Sprint 9: Audit log foundation
 
 ## Open manual steps
 

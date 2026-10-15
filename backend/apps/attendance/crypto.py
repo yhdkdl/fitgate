@@ -1,7 +1,7 @@
 """Asymmetric cryptography and JWT operations for QR check-in."""
 
 import hashlib
-from typing import Optional, Tuple
+from typing import Tuple
 
 import jwt
 from cryptography.hazmat.primitives import serialization
@@ -25,9 +25,6 @@ class InvalidTokenError(QRTokenCryptoError):
     """Raised when QR token signature is invalid, tampered with, or malformed."""
 
     pass
-
-
-_CACHED_KEYPAIR: Optional[Tuple[str, str]] = None
 
 
 def generate_rsa_keypair(key_size: int = 2048) -> Tuple[str, str]:
@@ -55,42 +52,26 @@ def generate_rsa_keypair(key_size: int = 2048) -> Tuple[str, str]:
 
 def get_rsa_private_key_pem() -> str:
     """
-    Retrieve RSA private key PEM.
-
-    Prefers settings.QR_JWT_PRIVATE_KEY; generates and caches in-memory keypair
-    for local development and testing if unset.
+    Retrieve RSA private key PEM from settings.QR_JWT_PRIVATE_KEY.
+    Fails fast if unset. No runtime auto-generation permitted.
     """
-    global _CACHED_KEYPAIR
-    config_key = getattr(settings, "QR_JWT_PRIVATE_KEY", "")
-    if config_key and config_key.strip():
-        return config_key.strip()
+    config_key = getattr(settings, "QR_JWT_PRIVATE_KEY", None)
+    if config_key and str(config_key).strip():
+        return str(config_key).strip()
 
-    if _CACHED_KEYPAIR is None:
-        _CACHED_KEYPAIR = generate_rsa_keypair()
-    return _CACHED_KEYPAIR[0]
+    raise QRTokenCryptoError("QR_JWT_PRIVATE_KEY is not configured.")
 
 
 def get_rsa_public_key_pem() -> str:
     """
-    Retrieve RSA public key PEM.
-
-    Prefers settings.QR_JWT_PUBLIC_KEY; generates and caches in-memory keypair
-    for local development and testing if unset.
+    Retrieve RSA public key PEM from settings.QR_JWT_PUBLIC_KEY.
+    Fails fast if unset. No runtime auto-generation permitted.
     """
-    global _CACHED_KEYPAIR
-    config_key = getattr(settings, "QR_JWT_PUBLIC_KEY", "")
-    if config_key and config_key.strip():
-        return config_key.strip()
+    config_key = getattr(settings, "QR_JWT_PUBLIC_KEY", None)
+    if config_key and str(config_key).strip():
+        return str(config_key).strip()
 
-    if _CACHED_KEYPAIR is None:
-        _CACHED_KEYPAIR = generate_rsa_keypair()
-    return _CACHED_KEYPAIR[1]
-
-
-def reset_keypair_cache() -> None:
-    """Reset cached in-memory keypair (used in tests)."""
-    global _CACHED_KEYPAIR
-    _CACHED_KEYPAIR = None
+    raise QRTokenCryptoError("QR_JWT_PUBLIC_KEY is not configured.")
 
 
 def hash_token(token: str) -> str:

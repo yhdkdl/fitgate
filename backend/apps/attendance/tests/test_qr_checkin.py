@@ -527,21 +527,70 @@ class TestManualOverride:
         assert Attendance.all_objects.count() == 0
         assert AuditLog.all_objects.count() == 0
 
-    def test_manual_override_refused_for_member_role(
+    def test_member_role_denied_scan_and_manual_override(
         self, api_client, gym_tenant, member_user, active_member
     ):
-        """Members cannot perform manual overrides on attendance."""
+        """Member role receives 403 Forbidden on staff scan and manual override routes."""
         client = auth_client(api_client, member_user, gym_tenant.subdomain)
-        response = client.post(
+
+        # 1. Member cannot call scan
+        scan_resp = client.post(
+            "/api/gym/attendance/scan/",
+            {"token": "dummy.token.string"},
+            format="json",
+        )
+        assert scan_resp.status_code == 403
+
+        # 2. Member cannot call manual override
+        override_resp = client.post(
             "/api/gym/attendance/manual-override/",
             {
                 "member_id": str(active_member.id),
-                "reason": "Attempting self override",
+                "reason": "Self override attempt",
             },
             format="json",
         )
-        assert response.status_code == 403
+        assert override_resp.status_code == 403
         assert Attendance.all_objects.count() == 0
+
+    def test_anonymous_access_to_all_new_routes_including_public_key(
+        self, api_client, gym_tenant, active_member
+    ):
+        """
+        Verify anonymous access behavior across all new routes in Sprint 8:
+        - Public key endpoint is AllowAny and accessible anonymously (200 OK)
+        - All authenticated/staff routes return 401 Unauthorized
+        """
+        api_client.credentials()  # Unauthenticated
+        api_client.defaults["HTTP_HOST"] = f"{gym_tenant.subdomain}.localhost"
+
+        # 1. Public key routes are AllowAny
+        for path in ("/api/attendance/public-key/", "/api/gym/attendance/public-key/"):
+            pub_resp = api_client.get(path)
+            assert pub_resp.status_code == 200
+            assert "BEGIN PUBLIC KEY" in pub_resp.data["public_key"]
+
+        # 2. Protected routes require authentication (401)
+        protected_routes = [
+            ("get", "/api/members/me/qr-token/", {}),
+            ("get", "/api/members/me/qr/", {}),
+            ("post", "/api/gym/attendance/scan/", {"token": "dummy"}),
+            (
+                "post",
+                "/api/gym/attendance/manual-override/",
+                {"member_id": str(active_member.id), "reason": "reason"},
+            ),
+            ("get", f"/api/gym/members/{active_member.id}/attendance/", {}),
+            ("get", "/api/members/me/attendance/", {}),
+        ]
+        for method, path, payload in protected_routes:
+            if method == "get":
+                resp = api_client.get(path)
+            else:
+                resp = api_client.post(path, payload, format="json")
+            assert (
+                resp.status_code == 401
+            ), f"Expected 401 for anonymous access to {path}, got {resp.status_code}"
 
 
 @pytest.mark.django_db

@@ -273,9 +273,19 @@ def verify_and_process_scan(
 
     # 7. Atomically consume token, record attendance, and issue replacement token
     with transaction.atomic():
-        qr_record.is_active = False
-        qr_record.used_at = timezone.now()
-        qr_record.save(update_fields=["is_active", "used_at"])
+        updated = QRToken.all_objects.filter(
+            id=qr_record.id,
+            is_active=True,
+            used_at__isnull=True,
+        ).update(
+            is_active=False,
+            used_at=timezone.now(),
+        )
+        if updated == 0:
+            raise ScanValidationError(
+                reason="token_consumed",
+                message="This QR token has already been used.",
+            )
 
         attendance = Attendance.all_objects.create(
             gym=gym,
