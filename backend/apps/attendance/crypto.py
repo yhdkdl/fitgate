@@ -99,7 +99,7 @@ def verify_qr_jwt(token: str) -> dict:
             token,
             public_pem,
             algorithms=["RS256"],
-            options={"verify_exp": True},
+            options={"verify_exp": True, "require": ["exp"]},
             leeway=0,
         )
         return payload

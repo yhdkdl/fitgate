@@ -184,6 +184,7 @@ Trainer specialization and photo are delivered in the Trainer and storage sprint
    - Performance: scan validation plus attendance recording completes in under 2 seconds against a seeded dataset of 10,000 members.
 
 9. **Audit log foundation** — `AuditLog` model + logging utility wired into 1–8; database triggers for immutability (BEFORE UPDATE, DELETE, TRUNCATE raise exception).
+   - _Note (Sprint 8 Gate decision):_ Extend the existing `AuditLog` model in `apps.accounts` and migration `0005`, adding the immutability triggers; do NOT create a second model or recreate the table.
    - Every action from sprints 1–8 produces exactly one `AuditLog` row with the correct `actor_id`, `action_type` and affected record, including logout, Super Admin creation, and gym creation (platform-level rows have `gym_id` null).
    - An `UPDATE`, `DELETE`, or `TRUNCATE` against the audit table fails at the database level via PostgreSQL triggers — tested directly with raw SQL through the application connection.
 
@@ -201,6 +202,7 @@ Trainer specialization and photo are delivered in the Trainer and storage sprint
 - Sprint 11 (a Chapa TEST merchant account per gym, keys entered in that gym's settings screen not in .env, plus a tunnel such as ngrok so Chapa can reach the local webhook; fallback: signed mocked webhooks)
 
 10. **Membership plans & subscription lifecycle** — `MembershipPlan` CRUD, `MemberSubscription` state machine.
+    - _Note (Sprint 8 Gate decision):_ Extend the existing `MemberSubscription` model in `apps.memberships` (migration `0002`) with new migrations; never recreate it. Establish ONE documented source of truth for member status across `Member` and `MemberSubscription`.
     - A plan's duration is a number plus a unit (days or months). End dates are correct for both, including month-end cases (31 January + 1 month).
     - Creating a subscription against an inactive plan is rejected. Deactivating a plan hides it from new members but leaves existing subscriptions untouched. Editing a plan's price never changes recorded payments.
     - Saving a trainer-inclusive plan in a gym with no trainers succeeds but returns a clear warning.

@@ -179,7 +179,6 @@ SIMPLE_JWT = {
 }
 
 # QR Check-in Asymmetric Token Configuration (Sprint 8)
-QR_JWT_ALGORITHM = env.str("QR_JWT_ALGORITHM", default="RS256")
 QR_JWT_PRIVATE_KEY = env.str("QR_JWT_PRIVATE_KEY", default="")
 QR_JWT_PUBLIC_KEY = env.str("QR_JWT_PUBLIC_KEY", default="")
 QR_TOKEN_WINDOW_SECONDS = 90

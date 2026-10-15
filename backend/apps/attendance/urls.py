@@ -18,21 +18,11 @@ urlpatterns = [
         AttendancePublicKeyView.as_view(),
         name="attendance-public-key",
     ),
-    path(
-        "api/gym/attendance/public-key/",
-        AttendancePublicKeyView.as_view(),
-        name="gym-attendance-public-key",
-    ),
     # Member QR token issuance & rotation
     path(
         "api/members/me/qr-token/",
         MemberQrTokenView.as_view(),
         name="member-me-qr-token",
-    ),
-    path(
-        "api/members/me/qr/",
-        MemberQrTokenView.as_view(),
-        name="member-me-qr",
     ),
     # Staff scan and manual override
     path(

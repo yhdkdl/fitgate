@@ -32,11 +32,15 @@ class TestDefaultFromEmailSettings:
         assert prod.DEFAULT_FROM_EMAIL == "prod@fitgate.org"
         assert prod.QR_JWT_PRIVATE_KEY == "dummy-private-key"
 
-    def test_production_settings_fail_fast_without_qr_keys(self, monkeypatch):
-        """Production settings must raise ImproperlyConfigured if QR_JWT keys are unset."""
+    @pytest.mark.parametrize("missing_key", ["QR_JWT_PRIVATE_KEY", "QR_JWT_PUBLIC_KEY"])
+    def test_production_settings_fail_fast_without_qr_keys(
+        self, monkeypatch, missing_key
+    ):
+        """Production settings must raise ImproperlyConfigured if either QR_JWT key is unset."""
         monkeypatch.setenv("DEFAULT_FROM_EMAIL", "prod@fitgate.org")
-        monkeypatch.delenv("QR_JWT_PRIVATE_KEY", raising=False)
+        monkeypatch.setenv("QR_JWT_PRIVATE_KEY", "dummy-private-key")
         monkeypatch.setenv("QR_JWT_PUBLIC_KEY", "dummy-public-key")
+        monkeypatch.delenv(missing_key, raising=False)
         with patch("environ.Env.read_env"):
             with pytest.raises(ImproperlyConfigured):
                 if "fitgate.settings.prod" in sys.modules:

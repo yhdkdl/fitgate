@@ -7,7 +7,7 @@ from django.utils import timezone
 from drf_spectacular.utils import OpenApiParameter, extend_schema, inline_serializer
 from rest_framework import serializers, status
 from rest_framework.exceptions import NotFound, PermissionDenied
-from rest_framework.permissions import AllowAny
+from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
@@ -29,6 +29,7 @@ from apps.attendance.serializers import (
 )
 from apps.attendance.services import (
     ScanValidationError,
+    format_member_photo_url,
     get_member_attendance_log,
     issue_member_qr_token,
     process_manual_override,
@@ -84,7 +85,7 @@ class MemberQrTokenView(APIView):
     Valid for 90 seconds. Refreshes token on valid scan or periodic fetch.
     """
 
-    permission_classes = [RequirePasswordChanged, IsMember]
+    permission_classes = [IsAuthenticated, RequirePasswordChanged, IsMember]
 
     def _get_member(self, request) -> Member:
         tenant = getattr(request, "tenant", None)
@@ -147,7 +148,7 @@ class AttendanceScanView(APIView):
     and single daily check-in per member.
     """
 
-    permission_classes = [RequirePasswordChanged, CanManageAttendance]
+    permission_classes = [IsAuthenticated, RequirePasswordChanged, CanManageAttendance]
 
     @extend_schema(
         summary="Scan QR Check-in Token",
@@ -186,7 +187,9 @@ class AttendanceScanView(APIView):
                 data["member"] = {
                     "id": str(e.member.id),
                     "full_name": e.member.full_name,
-                    "photo_url": e.member.photo_url or "",
+                    "photo_url": format_member_photo_url(
+                        e.member.gym_id, e.member.photo_url
+                    ),
                     "status": e.member.status,
                     "phone": e.member.phone,
                 }
@@ -201,7 +204,7 @@ class AttendanceManualOverrideView(APIView):
     frozen, or suspended members. Produces an Attendance row and an AuditLog entry.
     """
 
-    permission_classes = [RequirePasswordChanged, CanManageAttendance]
+    permission_classes = [IsAuthenticated, RequirePasswordChanged, CanManageAttendance]
 
     @extend_schema(
         summary="Manual Check-in Override",
@@ -242,7 +245,9 @@ class AttendanceManualOverrideView(APIView):
                 data["member"] = {
                     "id": str(e.member.id),
                     "full_name": e.member.full_name,
-                    "photo_url": e.member.photo_url or "",
+                    "photo_url": format_member_photo_url(
+                        e.member.gym_id, e.member.photo_url
+                    ),
                     "status": e.member.status,
                     "phone": e.member.phone,
                 }
@@ -284,7 +289,7 @@ class GymMemberAttendanceLogView(APIView):
     Returns ✓/✗ per day for date range, derived from check-ins and subscription period.
     """
 
-    permission_classes = [RequirePasswordChanged, CanManageAttendance]
+    permission_classes = [IsAuthenticated, RequirePasswordChanged, CanManageAttendance]
 
     @extend_schema(
         summary="Get Member Attendance Calendar Log",
@@ -328,7 +333,7 @@ class MemberSelfAttendanceLogView(APIView):
     Returns ✓/✗ per day for date range, derived from check-ins and subscription period.
     """
 
-    permission_classes = [RequirePasswordChanged, IsMember]
+    permission_classes = [IsAuthenticated, RequirePasswordChanged, IsMember]
 
     @extend_schema(
         summary="Get Self Attendance Calendar Log",

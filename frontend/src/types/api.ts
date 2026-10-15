@@ -228,26 +228,6 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
-  "/api/gym/attendance/public-key/": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    /**
-     * Get QR Verification Public Key
-     * @description Returns the RSA public key used to verify asymmetric QR check-in tokens offline.
-     */
-    get: operations["gym_attendance_public_key_retrieve"];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
   "/api/gym/attendance/scan/": {
     parameters: {
       query?: never;
@@ -627,30 +607,6 @@ export interface paths {
      * @description Records new measurements for the logged-in member.
      */
     post: operations["members_me_metrics_create"];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/members/me/qr/": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    /**
-     * Get Active Member QR Token
-     * @description Generates a signed RS256 QR check-in token (90s window) for the authenticated member.
-     */
-    get: operations["members_me_qr_retrieve"];
-    put?: never;
-    /**
-     * Rotate Member QR Token
-     * @description Explicitly issues a rotated QR check-in token for the member.
-     */
-    post: operations["members_me_qr_create"];
     delete?: never;
     options?: never;
     head?: never;
@@ -2026,25 +1982,6 @@ export interface operations {
       };
     };
   };
-  gym_attendance_public_key_retrieve: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["AttendancePublicKeyResponse"];
-        };
-      };
-    };
-  };
   gym_attendance_scan_create: {
     parameters: {
       query?: never;
@@ -2857,60 +2794,6 @@ export interface operations {
           [name: string]: unknown;
         };
         content?: never;
-      };
-    };
-  };
-  members_me_qr_retrieve: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["MemberQrTokenResponse"];
-        };
-      };
-      400: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["MemberQrTokenErrorResponse"];
-        };
-      };
-    };
-  };
-  members_me_qr_create: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["MemberQrTokenResponse"];
-        };
-      };
-      400: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["MemberQrTokenErrorResponse"];
-        };
       };
     };
   };

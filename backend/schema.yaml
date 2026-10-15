@@ -345,23 +345,6 @@ paths:
               schema:
                 $ref: '#/components/schemas/AttendanceScanErrorResponse'
           description: ''
-  /api/gym/attendance/public-key/:
-    get:
-      operationId: gym_attendance_public_key_retrieve
-      description: Returns the RSA public key used to verify asymmetric QR check-in
-        tokens offline.
-      summary: Get QR Verification Public Key
-      tags:
-      - gym
-      security:
-      - {}
-      responses:
-        '200':
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/AttendancePublicKeyResponse'
-          description: ''
   /api/gym/attendance/scan/:
     post:
       operationId: gym_attendance_scan_create
@@ -1045,50 +1028,6 @@ paths:
           description: ''
         '400':
           description: Validation error
-  /api/members/me/qr/:
-    get:
-      operationId: members_me_qr_retrieve
-      description: Generates a signed RS256 QR check-in token (90s window) for the
-        authenticated member.
-      summary: Get Active Member QR Token
-      tags:
-      - members
-      security:
-      - jwtAuth: []
-      responses:
-        '200':
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/MemberQrTokenResponse'
-          description: ''
-        '400':
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/MemberQrTokenErrorResponse'
-          description: ''
-    post:
-      operationId: members_me_qr_create
-      description: Explicitly issues a rotated QR check-in token for the member.
-      summary: Rotate Member QR Token
-      tags:
-      - members
-      security:
-      - jwtAuth: []
-      responses:
-        '200':
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/MemberQrTokenResponse'
-          description: ''
-        '400':
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/MemberQrTokenErrorResponse'
-          description: ''
   /api/members/me/qr-token/:
     get:
       operationId: members_me_qr_token_retrieve

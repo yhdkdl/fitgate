@@ -1,11 +1,10 @@
-"""Domain services for QR token issuance, validation, scan processing, and attendance logging."""
-
+import os
 import uuid
 from datetime import date, timedelta
 from typing import Optional, Tuple
 
 from django.conf import settings
-from django.db import transaction
+from django.db import IntegrityError, transaction
 from django.utils import timezone
 
 from apps.accounts.models import Notification, User
@@ -20,6 +19,23 @@ from apps.attendance.crypto import (
 from apps.attendance.models import Attendance, QRToken
 from apps.memberships.models import Member, MemberSubscription
 from apps.tenants.models import GymTenant
+
+
+def format_member_photo_url(gym_id: uuid.UUID, photo_url: Optional[str]) -> str:
+    """
+    Format member photo URL to a backend route path through permission-checked photo view.
+
+    Route: /api/media/member-photos/<uuid:gym_id>/<str:filename>/
+    Never returns a raw Cloudinary, S3, or external storage URL.
+    """
+    if not photo_url or not str(photo_url).strip():
+        return ""
+    cleaned = str(photo_url).strip()
+    prefix = f"/api/media/member-photos/{gym_id}/"
+    if cleaned.startswith(prefix):
+        return cleaned
+    filename = os.path.basename(cleaned)
+    return f"{prefix}{filename}/"
 
 
 class ScanValidationError(Exception):
@@ -272,33 +288,41 @@ def verify_and_process_scan(
         )
 
     # 7. Atomically consume token, record attendance, and issue replacement token
-    with transaction.atomic():
-        updated = QRToken.all_objects.filter(
-            id=qr_record.id,
-            is_active=True,
-            used_at__isnull=True,
-        ).update(
-            is_active=False,
-            used_at=timezone.now(),
-        )
-        if updated == 0:
-            raise ScanValidationError(
-                reason="token_consumed",
-                message="This QR token has already been used.",
+    try:
+        with transaction.atomic():
+            updated = QRToken.all_objects.filter(
+                id=qr_record.id,
+                is_active=True,
+                used_at__isnull=True,
+            ).update(
+                is_active=False,
+                used_at=timezone.now(),
+            )
+            if updated == 0:
+                raise ScanValidationError(
+                    reason="token_consumed",
+                    message="This QR token has already been used.",
+                )
+
+            attendance = Attendance.all_objects.create(
+                gym=gym,
+                member=member,
+                branch_id=branch_id,
+                date=today,
+                status=Attendance.STATUS_CHECKED_IN,
+                checked_in_at=timezone.now(),
+                is_override=False,
+                recorded_by=recorded_by,
             )
 
-        attendance = Attendance.all_objects.create(
-            gym=gym,
+            next_token, _ = issue_member_qr_token(member)
+    except IntegrityError as e:
+        notify_staff_duplicate_scan(gym, member, today)
+        raise ScanValidationError(
+            reason="already_checked_in",
+            message=f"Member {member.full_name} has already checked in today.",
             member=member,
-            branch_id=branch_id,
-            date=today,
-            status=Attendance.STATUS_CHECKED_IN,
-            checked_in_at=timezone.now(),
-            is_override=False,
-            recorded_by=recorded_by,
-        )
-
-        next_token, _ = issue_member_qr_token(member)
+        ) from e
 
     return {
         "status": "success",
@@ -306,7 +330,7 @@ def verify_and_process_scan(
         "member": {
             "id": str(member.id),
             "full_name": member.full_name,
-            "photo_url": member.photo_url or "",
+            "photo_url": format_member_photo_url(gym.id, member.photo_url),
             "status": member.status,
             "phone": member.phone,
         },
@@ -402,32 +426,39 @@ def process_manual_override(
             member=member,
         )
 
-    with transaction.atomic():
-        attendance = Attendance.all_objects.create(
-            gym=gym,
-            member=member,
-            branch_id=branch_id,
-            date=today,
-            status=Attendance.STATUS_CHECKED_IN,
-            checked_in_at=timezone.now(),
-            is_override=True,
-            override_reason=clean_reason,
-            recorded_by=recorded_by,
-        )
+    try:
+        with transaction.atomic():
+            attendance = Attendance.all_objects.create(
+                gym=gym,
+                member=member,
+                branch_id=branch_id,
+                date=today,
+                status=Attendance.STATUS_CHECKED_IN,
+                checked_in_at=timezone.now(),
+                is_override=True,
+                override_reason=clean_reason,
+                recorded_by=recorded_by,
+            )
 
-        record_audit_log(
-            action_type="attendance_manual_override",
-            affected_record_type="Attendance",
-            affected_record_id=str(attendance.id),
-            actor=recorded_by,
-            gym=gym,
-            metadata={
-                "member_id": str(member.id),
-                "member_name": member.full_name,
-                "reason": clean_reason,
-                "date": str(today),
-            },
-        )
+            record_audit_log(
+                action_type="attendance_manual_override",
+                affected_record_type="Attendance",
+                affected_record_id=str(attendance.id),
+                actor=recorded_by,
+                gym=gym,
+                metadata={
+                    "member_id": str(member.id),
+                    "member_name": member.full_name,
+                    "reason": clean_reason,
+                    "date": str(today),
+                },
+            )
+    except IntegrityError as e:
+        raise ScanValidationError(
+            reason="already_checked_in",
+            message=f"Member {member.full_name} has already checked in today.",
+            member=member,
+        ) from e
 
     return {
         "status": "success",
@@ -435,7 +466,7 @@ def process_manual_override(
         "member": {
             "id": str(member.id),
             "full_name": member.full_name,
-            "photo_url": member.photo_url or "",
+            "photo_url": format_member_photo_url(gym.id, member.photo_url),
             "status": member.status,
             "phone": member.phone,
         },

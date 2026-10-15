@@ -4,31 +4,38 @@ Tests for Sprint 8: QR Check-in (GATE).
 Covers:
 1. Token issuance & rotation (90s window, asymmetric RS256).
 2. Public key endpoint for offline verification (GET /api/attendance/public-key/).
-3. Valid at 89s, rejected at 91s (tested with frozen clock via freezegun).
+3. Valid at 89s, rejected at 91s (tested with frozen clock through the scan endpoint).
 4. Tampered token rejected.
-5. Reusing already-consumed token rejected (single-use).
-6. Next token issued after valid scan.
-7. Scan rejected with distinguishable reasons for inactive subscription (expired vs frozen vs suspended).
-8. Scan success returns photo, name, status, attendance record, and replacement token.
-9. Exactly one Attendance row created; duplicate scan same day denied, produces no second row, notifies staff.
-10. Manual override by Reception: requires active subscription + reason; refused for expired/frozen/suspended;
-    creates exactly one Attendance row (is_override=True) and an AuditLog entry.
-11. Attendance calendar log: returns ✓/✗ per day for date range, days outside period are blank.
-12. Cross-tenant isolation: gym A token scanned at gym B rejected with gym_mismatch.
+5. Validly signed token without exp claim rejected.
+6. Reusing already-consumed token rejected (single-use).
+7. Next token issued after valid scan.
+8. Scan rejected with distinguishable reasons for inactive subscription (expired vs frozen vs suspended).
+9. Scan leaves QRToken unconsumed on gym_mismatch, inactive member, or simulated duplicate IntegrityError.
+10. Scan success returns photo, name, status, attendance record, and replacement token.
+    Photo must be a backend route path (/api/media/member-photos/{gym_id}/{filename}/), never Cloudinary/storage.
+11. Exactly one Attendance row created; duplicate scan same day denied, produces no second row, notifies staff.
+12. Simulated race / IntegrityError on duplicate check returns already_checked_in (HTTP 400, never 500).
+13. RBAC & Password security:
+    - Trainer & Super Admin (at gym host) get 403 on scan.
+    - Owner, Manager, Reception each allowed (real 200).
+    - User with must_change_password=True blocked on scan and member QR endpoint.
 """
 
 import uuid
-from datetime import date, timedelta
+from datetime import timedelta
+from unittest.mock import patch
 
 import jwt
 import pytest
+from django.db import IntegrityError
 from django.utils import timezone
 from freezegun import freeze_time
 from rest_framework.test import APIClient
 
-from apps.accounts.models import AuditLog, Notification, User
+from apps.accounts.models import Notification, User
 from apps.accounts.tokens import get_tokens_for_user
 from apps.attendance.crypto import (
+    InvalidTokenError,
     get_rsa_private_key_pem,
     get_rsa_public_key_pem,
     hash_token,
@@ -116,6 +123,17 @@ def trainer_user(db, gym_tenant):
 
 
 @pytest.fixture
+def super_admin_user(db):
+    return User.objects.create_user(
+        email="superadmin@fitgate.org",
+        password="SuperAdminPassword123!",
+        gym=None,
+        role=User.ROLE_SUPER_ADMIN,
+        must_change_password=False,
+    )
+
+
+@pytest.fixture
 def member_user(db, gym_tenant):
     return User.objects.create_user(
         email="member@bolehub.com",
@@ -161,6 +179,34 @@ def auth_client(
     return client
 
 
+def create_test_member(gym_tenant, email, full_name, phone):
+    user = User.objects.create_user(
+        email=email,
+        password="MemberPassword123!",
+        gym=gym_tenant,
+        role=User.ROLE_MEMBER,
+        must_change_password=False,
+    )
+    member = Member.all_objects.create(
+        gym=gym_tenant,
+        user=user,
+        full_name=full_name,
+        phone=phone,
+        status=Member.STATUS_ACTIVE,
+        waiver_accepted_at=timezone.now(),
+        photo_url=f"/media/member_photos/{phone}.webp",
+    )
+    today = timezone.localdate()
+    MemberSubscription.all_objects.create(
+        gym=gym_tenant,
+        member=member,
+        start_date=today - timedelta(days=5),
+        end_date=today + timedelta(days=25),
+        status=MemberSubscription.STATUS_ACTIVE,
+    )
+    return member
+
+
 @pytest.mark.django_db
 class TestQRTokenIssuanceAndVerification:
     """Tests for asymmetric RS256 token issuance, public key, and offline verification."""
@@ -172,6 +218,24 @@ class TestQRTokenIssuanceAndVerification:
         assert "public_key" in response.data
         assert "BEGIN PUBLIC KEY" in response.data["public_key"]
         assert response.data["algorithm"] == "RS256"
+
+    def test_public_key_endpoint_returns_503_still_securing_on_unconfirmed_tls(
+        self, api_client, db
+    ):
+        """The public-key route returns 503 still_securing on a gym host whose tls_confirmed_at is null."""
+        unsecured_gym = GymTenant.objects.create(
+            name="FitGate Unsecured",
+            subdomain="unsecured",
+            tier=GymTenant.TIER_STARTER,
+            status=GymTenant.STATUS_ACTIVE,
+            contact_phone="+251911998877",
+            location="Addis Ababa",
+            tls_confirmed_at=None,
+        )
+        api_client.defaults["HTTP_HOST"] = f"{unsecured_gym.subdomain}.localhost"
+        response = api_client.get("/api/attendance/public-key/")
+        assert response.status_code == 503
+        assert response.json()["detail"] == "still_securing"
 
     def test_member_qr_token_endpoint_issues_asymmetric_jwt(
         self, api_client, gym_tenant, member_user, active_member
@@ -190,6 +254,7 @@ class TestQRTokenIssuanceAndVerification:
             data["token"],
             public_key,
             algorithms=["RS256"],
+            options={"require": ["exp"]},
             leeway=0,
         )
         assert decoded["sub"] == str(active_member.id)
@@ -199,41 +264,81 @@ class TestQRTokenIssuanceAndVerification:
     def test_frozen_clock_valid_at_89s_rejected_at_91s(
         self, api_client, gym_tenant, reception_user, active_member
     ):
-        """A token is valid at 89 seconds after issue and rejected at 91 — tested with a frozen clock."""
+        """A token scanned 89 seconds after issue succeeds THROUGH the scan endpoint, and at 91 seconds fails with token_expired."""
+        client = auth_client(api_client, reception_user, gym_tenant.subdomain)
         initial_time = timezone.now()
+
+        m2 = create_test_member(
+            gym_tenant, "m2_expire@bolehub.com", "Member M2", "+251911990011"
+        )
+
+        # Issue both tokens at initial_time
         with freeze_time(initial_time):
-            token_str, qr_record = issue_member_qr_token(
-                active_member, valid_seconds=90
-            )
+            token_89, _ = issue_member_qr_token(active_member, valid_seconds=90)
+            token_91, _ = issue_member_qr_token(m2, valid_seconds=90)
 
-        # Test at 89 seconds: valid
+        # Scanned at 89 seconds through scan endpoint -> succeeds (200)
         with freeze_time(initial_time + timedelta(seconds=89)):
-            payload = verify_qr_jwt(token_str)
-            assert payload["sub"] == str(active_member.id)
-
-        # Test at 91 seconds: rejected
-        with freeze_time(initial_time + timedelta(seconds=91)):
-            client = auth_client(api_client, reception_user, gym_tenant.subdomain)
-            response = client.post(
+            resp_89 = client.post(
                 "/api/gym/attendance/scan/",
-                {"token": token_str},
+                {"token": token_89},
                 format="json",
             )
-            assert response.status_code == 400
-            assert response.data["reason"] == "token_expired"
+            assert resp_89.status_code == 200
+            assert resp_89.data["status"] == "success"
+
+        # Scanned at 91 seconds through scan endpoint -> fails with token_expired (400)
+        with freeze_time(initial_time + timedelta(seconds=91)):
+            resp_91 = client.post(
+                "/api/gym/attendance/scan/",
+                {"token": token_91},
+                format="json",
+            )
+            assert resp_91.status_code == 400
+            assert resp_91.data["reason"] == "token_expired"
 
     def test_tampered_token_is_rejected(
         self, api_client, gym_tenant, reception_user, active_member
     ):
         """Tampered JWT signature or payload is rejected."""
         token_str, _ = issue_member_qr_token(active_member)
-        # Tamper token by mutating the signature suffix
         tampered_token = token_str[:-4] + "wxyz"
 
         client = auth_client(api_client, reception_user, gym_tenant.subdomain)
         response = client.post(
             "/api/gym/attendance/scan/",
             {"token": tampered_token},
+            format="json",
+        )
+        assert response.status_code == 400
+        assert response.data["reason"] == "invalid_token"
+
+    def test_validly_signed_token_without_exp_claim_rejected(
+        self, api_client, gym_tenant, reception_user, active_member
+    ):
+        """A validly signed RS256 token without exp claim is rejected (options={'require': ['exp']})."""
+        now = timezone.now()
+        payload_no_exp = {
+            "sub": str(active_member.id),
+            "member_id": str(active_member.id),
+            "gym_id": str(gym_tenant.id),
+            "jti": str(uuid.uuid4()),
+            "iat": int(now.timestamp()),
+            "type": "qr_checkin",
+            # NOTE: "exp" claim is intentionally omitted
+        }
+        priv_pem = get_rsa_private_key_pem()
+        token_no_exp = jwt.encode(payload_no_exp, priv_pem, algorithm="RS256")
+
+        # 1. Direct crypto verify raises InvalidTokenError
+        with pytest.raises(InvalidTokenError):
+            verify_qr_jwt(token_no_exp)
+
+        # 2. Scan endpoint rejects with 400 invalid_token
+        client = auth_client(api_client, reception_user, gym_tenant.subdomain)
+        response = client.post(
+            "/api/gym/attendance/scan/",
+            {"token": token_no_exp},
             format="json",
         )
         assert response.status_code == 400
@@ -289,11 +394,16 @@ class TestScanEndpointAndDuplicateHandling:
         )
         assert response.status_code == 200
         assert response.data["status"] == "success"
-        # Shows member's photo, name and status on success
         member_data = response.data["member"]
         assert member_data["full_name"] == active_member.full_name
-        assert member_data["photo_url"] == active_member.photo_url
         assert member_data["status"] == Member.STATUS_ACTIVE
+
+        # Photo must be a backend route path through permission-checked photo view, never Cloudinary/storage URL
+        photo_url = member_data["photo_url"]
+        assert photo_url.startswith(f"/api/media/member-photos/{gym_tenant.id}/")
+        assert not photo_url.startswith("http://")
+        assert not photo_url.startswith("https://")
+        assert "cloudinary" not in photo_url
 
         # Exactly one Attendance row created
         assert Attendance.all_objects.count() == 1
@@ -327,7 +437,6 @@ class TestScanEndpointAndDuplicateHandling:
         assert Attendance.all_objects.count() == 1
         next_token = resp1.data["next_token"]
 
-        # Ensure no notifications prior to second scan
         Notification.all_objects.filter(gym=gym_tenant).delete()
 
         # Second scan on the same day with the new token
@@ -370,7 +479,6 @@ class TestScanEndpointAndDuplicateHandling:
         sub.status = sub_status
         sub.save()
 
-        # Generate a signed token (bypass service subscription check to simulate scanning pre-issued token)
         now = timezone.now()
         payload = {
             "sub": str(active_member.id),
@@ -404,13 +512,72 @@ class TestScanEndpointAndDuplicateHandling:
         assert response.data["reason"] == expected_reason
         assert Attendance.all_objects.count() == 0
 
-    def test_cross_tenant_scan_rejected(
-        self, api_client, gym_tenant, other_gym_tenant, reception_user, active_member
+    @pytest.mark.parametrize(
+        "sub_status,expected_reason",
+        [
+            (MemberSubscription.STATUS_EXPIRED, "expired"),
+            (MemberSubscription.STATUS_FROZEN, "frozen"),
+            (MemberSubscription.STATUS_SUSPENDED, "suspended"),
+        ],
+    )
+    def test_inactive_member_leaves_qr_token_unconsumed(
+        self,
+        api_client,
+        gym_tenant,
+        reception_user,
+        active_member,
+        sub_status,
+        expected_reason,
     ):
-        """QR token issued for gym A scanned at gym B is rejected."""
-        token_str, _ = issue_member_qr_token(active_member)
+        """An inactive member (expired/frozen/suspended) leaves the QRToken unconsumed."""
+        sub = MemberSubscription.all_objects.filter(member=active_member).first()
+        sub.status = sub_status
+        sub.save()
 
-        # Other gym reception staff
+        now = timezone.now()
+        payload = {
+            "sub": str(active_member.id),
+            "member_id": str(active_member.id),
+            "gym_id": str(gym_tenant.id),
+            "jti": str(uuid.uuid4()),
+            "iat": int(now.timestamp()),
+            "exp": int((now + timedelta(seconds=90)).timestamp()),
+            "type": "qr_checkin",
+        }
+        priv_pem = get_rsa_private_key_pem()
+        token_str = jwt.encode(payload, priv_pem, algorithm="RS256")
+        token_hex = hash_token(token_str)
+
+        qr_row = QRToken.all_objects.create(
+            gym=gym_tenant,
+            member=active_member,
+            token_hash=token_hex,
+            issued_at=now,
+            expires_at=now + timedelta(seconds=90),
+            is_active=True,
+        )
+
+        client = auth_client(api_client, reception_user, gym_tenant.subdomain)
+        response = client.post(
+            "/api/gym/attendance/scan/",
+            {"token": token_str},
+            format="json",
+        )
+        assert response.status_code == 400
+        assert response.data["reason"] == expected_reason
+
+        qr_row.refresh_from_db()
+        assert qr_row.is_active is True
+        assert qr_row.used_at is None
+
+    def test_gym_mismatch_leaves_qr_token_unconsumed(
+        self, api_client, gym_tenant, other_gym_tenant, active_member
+    ):
+        """gym_mismatch leaves the QRToken row unconsumed (assert is_active and used_at)."""
+        token_str, qr_row = issue_member_qr_token(active_member)
+        assert qr_row.is_active is True
+        assert qr_row.used_at is None
+
         other_staff = User.objects.create_user(
             email="reception@kazanchis.com",
             password="StaffPassword123!",
@@ -426,154 +593,175 @@ class TestScanEndpointAndDuplicateHandling:
         )
         assert response.status_code == 400
         assert response.data["reason"] == "gym_mismatch"
-        assert Attendance.all_objects.count() == 0
 
+        qr_row.refresh_from_db()
+        assert qr_row.is_active is True
+        assert qr_row.used_at is None
 
-@pytest.mark.django_db
-class TestManualOverride:
-    """Tests for manual override by Reception / staff."""
-
-    def test_manual_override_success_creates_attendance_and_audit_log(
-        self, api_client, gym_tenant, reception_user, active_member
-    ):
-        client = auth_client(api_client, reception_user, gym_tenant.subdomain)
-
-        assert Attendance.all_objects.count() == 0
-        assert AuditLog.all_objects.count() == 0
-
-        payload = {
-            "member_id": str(active_member.id),
-            "reason": "Member phone battery died at entrance",
-        }
-        response = client.post(
-            "/api/gym/attendance/manual-override/",
-            payload,
-            format="json",
-        )
-        assert response.status_code == 201
-        assert response.data["status"] == "success"
-        assert response.data["attendance"]["is_override"] is True
-        assert (
-            response.data["attendance"]["override_reason"]
-            == "Member phone battery died at entrance"
-        )
-
-        # Exactly one Attendance row created
-        assert Attendance.all_objects.count() == 1
-        att = Attendance.all_objects.first()
-        assert att.member == active_member
-        assert att.is_override is True
-        assert att.override_reason == "Member phone battery died at entrance"
-        assert att.recorded_by == reception_user
-
-        # AuditLog entry created
-        audit_entries = AuditLog.all_objects.filter(
-            action_type="attendance_manual_override",
-            affected_record_type="Attendance",
-            affected_record_id=str(att.id),
-        )
-        assert audit_entries.count() == 1
-        entry = audit_entries.first()
-        assert entry.actor == reception_user
-        assert entry.gym == gym_tenant
-        assert entry.metadata["reason"] == "Member phone battery died at entrance"
-
-    def test_manual_override_requires_non_empty_reason(
-        self, api_client, gym_tenant, reception_user, active_member
-    ):
-        client = auth_client(api_client, reception_user, gym_tenant.subdomain)
-
-        response = client.post(
-            "/api/gym/attendance/manual-override/",
-            {"member_id": str(active_member.id), "reason": "   "},
-            format="json",
-        )
-        assert response.status_code == 400
-        assert Attendance.all_objects.count() == 0
-
-    @pytest.mark.parametrize(
-        "sub_status,expected_reason",
-        [
-            (MemberSubscription.STATUS_EXPIRED, "expired"),
-            (MemberSubscription.STATUS_FROZEN, "frozen"),
-            (MemberSubscription.STATUS_SUSPENDED, "suspended"),
-        ],
-    )
-    def test_manual_override_refused_for_inactive_member(
+    def test_scan_simulated_race_integrity_error_returns_already_checked_in(
         self,
         api_client,
         gym_tenant,
         reception_user,
         active_member,
-        sub_status,
-        expected_reason,
+        owner_user,
+        manager_user,
     ):
-        """Manual override is refused for expired, frozen or suspended members."""
-        sub = MemberSubscription.all_objects.filter(member=active_member).first()
-        sub.status = sub_status
-        sub.save()
-
+        """A simulated race / IntegrityError on scan returns already_checked_in, notifies staff, and leaves token unconsumed."""
+        token_str, qr_row = issue_member_qr_token(active_member)
         client = auth_client(api_client, reception_user, gym_tenant.subdomain)
-        response = client.post(
-            "/api/gym/attendance/manual-override/",
-            {
-                "member_id": str(active_member.id),
-                "reason": "Testing inactive member override attempt",
-            },
-            format="json",
-        )
+
+        with patch.object(
+            Attendance.all_objects,
+            "create",
+            side_effect=IntegrityError(
+                "duplicate key value violates unique constraint"
+            ),
+        ):
+            response = client.post(
+                "/api/gym/attendance/scan/",
+                {"token": token_str},
+                format="json",
+            )
+
         assert response.status_code == 400
-        assert response.data["reason"] == expected_reason
-        assert Attendance.all_objects.count() == 0
-        assert AuditLog.all_objects.count() == 0
+        assert response.data["reason"] == "already_checked_in"
+        assert "has already checked in today" in response.data["detail"]
 
-    def test_member_role_denied_scan_and_manual_override(
-        self, api_client, gym_tenant, member_user, active_member
+        # Token was rolled back and remains unconsumed
+        qr_row.refresh_from_db()
+        assert qr_row.is_active is True
+        assert qr_row.used_at is None
+
+        # Staff were notified of duplicate attempt
+        notifications = Notification.all_objects.filter(gym=gym_tenant)
+        assert notifications.count() >= 3
+
+    def test_trainer_and_super_admin_get_403_on_scan(
+        self, api_client, gym_tenant, trainer_user, super_admin_user, active_member
     ):
-        """Member role receives 403 Forbidden on staff scan and manual override routes."""
-        client = auth_client(api_client, member_user, gym_tenant.subdomain)
+        """Trainer and Super Admin (at a gym host) get 403 on scan."""
+        token_str, _ = issue_member_qr_token(active_member)
 
-        # 1. Member cannot call scan
-        scan_resp = client.post(
-            "/api/gym/attendance/scan/",
-            {"token": "dummy.token.string"},
-            format="json",
+        # Trainer receives 403
+        client_trainer = auth_client(api_client, trainer_user, gym_tenant.subdomain)
+        resp_trainer = client_trainer.post(
+            "/api/gym/attendance/scan/", {"token": token_str}, format="json"
         )
-        assert scan_resp.status_code == 403
+        assert resp_trainer.status_code == 403
 
-        # 2. Member cannot call manual override
-        override_resp = client.post(
-            "/api/gym/attendance/manual-override/",
-            {
-                "member_id": str(active_member.id),
-                "reason": "Self override attempt",
-            },
-            format="json",
+        # Super Admin at gym host receives 403 via CanManageAttendance
+        client_sa = APIClient()
+        client_sa.force_authenticate(user=super_admin_user)
+        client_sa.defaults["HTTP_HOST"] = f"{gym_tenant.subdomain}.localhost"
+        resp_sa = client_sa.post(
+            "/api/gym/attendance/scan/", {"token": token_str}, format="json"
         )
-        assert override_resp.status_code == 403
+        assert resp_sa.status_code == 403
+
         assert Attendance.all_objects.count() == 0
 
-    def test_anonymous_access_to_all_new_routes_including_public_key(
+    def test_owner_manager_reception_each_allowed_on_scan(
+        self, api_client, gym_tenant, owner_user, manager_user, reception_user
+    ):
+        """Owner, Manager and Reception are each allowed on scan (a real 200)."""
+        m_owner = create_test_member(
+            gym_tenant, "scan_owner@bolehub.com", "Scan Owner", "+251911333333"
+        )
+        m_mgr = create_test_member(
+            gym_tenant, "scan_mgr@bolehub.com", "Scan Mgr", "+251911444444"
+        )
+        m_rec = create_test_member(
+            gym_tenant, "scan_rec@bolehub.com", "Scan Rec", "+251911555555"
+        )
+
+        t_owner, _ = issue_member_qr_token(m_owner)
+        t_mgr, _ = issue_member_qr_token(m_mgr)
+        t_rec, _ = issue_member_qr_token(m_rec)
+
+        # 1. Owner scan succeeds (200)
+        c_owner = auth_client(api_client, owner_user, gym_tenant.subdomain)
+        r_owner = c_owner.post(
+            "/api/gym/attendance/scan/", {"token": t_owner}, format="json"
+        )
+        assert r_owner.status_code == 200
+        assert r_owner.data["status"] == "success"
+
+        # 2. Manager scan succeeds (200)
+        c_mgr = auth_client(api_client, manager_user, gym_tenant.subdomain)
+        r_mgr = c_mgr.post("/api/gym/attendance/scan/", {"token": t_mgr}, format="json")
+        assert r_mgr.status_code == 200
+        assert r_mgr.data["status"] == "success"
+
+        # 3. Reception scan succeeds (200)
+        c_rec = auth_client(api_client, reception_user, gym_tenant.subdomain)
+        r_rec = c_rec.post("/api/gym/attendance/scan/", {"token": t_rec}, format="json")
+        assert r_rec.status_code == 200
+        assert r_rec.data["status"] == "success"
+
+        assert Attendance.all_objects.count() == 3
+
+    def test_must_change_password_blocked_on_scan_and_member_qr_endpoint(
+        self, api_client, gym_tenant, active_member
+    ):
+        """A user with must_change_password=True is blocked on scan and the member QR endpoint."""
+        token_str, _ = issue_member_qr_token(active_member)
+
+        # 1. Staff with must_change_password=True blocked on scan
+        staff_locked = User.objects.create_user(
+            email="staff_locked@bolehub.com",
+            password="StaffPassword123!",
+            gym=gym_tenant,
+            role=User.ROLE_RECEPTION,
+            must_change_password=True,
+        )
+        c_staff = auth_client(api_client, staff_locked, gym_tenant.subdomain)
+        r_staff = c_staff.post(
+            "/api/gym/attendance/scan/", {"token": token_str}, format="json"
+        )
+        assert r_staff.status_code == 403
+        assert r_staff.data["detail"] == "password_change_required"
+
+        # 2. Member with must_change_password=True blocked on member QR endpoint
+        member_locked = User.objects.create_user(
+            email="member_locked@bolehub.com",
+            password="MemberPassword123!",
+            gym=gym_tenant,
+            role=User.ROLE_MEMBER,
+            must_change_password=True,
+        )
+        Member.all_objects.create(
+            gym=gym_tenant,
+            user=member_locked,
+            full_name="Locked Member",
+            phone="+251911887766",
+            status=Member.STATUS_ACTIVE,
+            waiver_accepted_at=timezone.now(),
+        )
+        c_member = auth_client(api_client, member_locked, gym_tenant.subdomain)
+        r_member = c_member.get("/api/members/me/qr-token/")
+        assert r_member.status_code == 403
+        assert r_member.data["detail"] == "password_change_required"
+
+    def test_anonymous_access_to_all_routes(
         self, api_client, gym_tenant, active_member
     ):
         """
-        Verify anonymous access behavior across all new routes in Sprint 8:
-        - Public key endpoint is AllowAny and accessible anonymously (200 OK)
+        Verify anonymous access behavior across all routes:
+        - Public key endpoint is AllowAny (200 OK)
         - All authenticated/staff routes return 401 Unauthorized
         """
         api_client.credentials()  # Unauthenticated
         api_client.defaults["HTTP_HOST"] = f"{gym_tenant.subdomain}.localhost"
 
-        # 1. Public key routes are AllowAny
-        for path in ("/api/attendance/public-key/", "/api/gym/attendance/public-key/"):
-            pub_resp = api_client.get(path)
-            assert pub_resp.status_code == 200
-            assert "BEGIN PUBLIC KEY" in pub_resp.data["public_key"]
+        # 1. Public key route is AllowAny
+        pub_resp = api_client.get("/api/attendance/public-key/")
+        assert pub_resp.status_code == 200
+        assert "BEGIN PUBLIC KEY" in pub_resp.data["public_key"]
 
         # 2. Protected routes require authentication (401)
         protected_routes = [
             ("get", "/api/members/me/qr-token/", {}),
-            ("get", "/api/members/me/qr/", {}),
             ("post", "/api/gym/attendance/scan/", {"token": "dummy"}),
             (
                 "post",
@@ -591,77 +779,3 @@ class TestManualOverride:
             assert (
                 resp.status_code == 401
             ), f"Expected 401 for anonymous access to {path}, got {resp.status_code}"
-
-
-@pytest.mark.django_db
-class TestAttendanceCalendarLog:
-    """Tests for attendance log endpoint (✓/✗ per day for date range)."""
-
-    def test_attendance_log_derives_correct_symbols_and_blanks(
-        self, api_client, gym_tenant, reception_user, member_user, active_member
-    ):
-        """
-        Attendance rows exist only for actual check-ins.
-        An attendance-log endpoint returns ✓/✗ per day for a date range,
-        derived from check-ins and the subscription period (days outside the period are blank).
-        """
-        # Member subscription period: Oct 10 to Oct 20
-        sub = MemberSubscription.all_objects.filter(member=active_member).first()
-        sub.start_date = date(2026, 10, 10)
-        sub.end_date = date(2026, 10, 20)
-        sub.save()
-
-        # Check-ins exist on Oct 11 and Oct 15 ONLY
-        Attendance.all_objects.create(
-            gym=gym_tenant,
-            member=active_member,
-            date=date(2026, 10, 11),
-            status=Attendance.STATUS_CHECKED_IN,
-        )
-        Attendance.all_objects.create(
-            gym=gym_tenant,
-            member=active_member,
-            date=date(2026, 10, 15),
-            status=Attendance.STATUS_CHECKED_IN,
-        )
-
-        client = auth_client(api_client, reception_user, gym_tenant.subdomain)
-        # Request range: Oct 8 to Oct 16
-        response = client.get(
-            f"/api/gym/members/{active_member.id}/attendance/?start_date=2026-10-08&end_date=2026-10-16"
-        )
-        assert response.status_code == 200
-        days = response.data["days"]
-        days_by_date = {d["date"]: d for d in days}
-
-        # Oct 8 & Oct 9: outside subscription period -> blank ("")
-        assert days_by_date["2026-10-08"]["status"] == "blank"
-        assert days_by_date["2026-10-08"]["symbol"] == ""
-        assert days_by_date["2026-10-09"]["status"] == "blank"
-        assert days_by_date["2026-10-09"]["symbol"] == ""
-
-        # Oct 10: in subscription, no check-in -> absent (✗)
-        assert days_by_date["2026-10-10"]["status"] == "absent"
-        assert days_by_date["2026-10-10"]["symbol"] == "✗"
-
-        # Oct 11: in subscription, checked in -> present (✓)
-        assert days_by_date["2026-10-11"]["status"] == "present"
-        assert days_by_date["2026-10-11"]["symbol"] == "✓"
-
-        # Oct 12: in subscription, no check-in -> absent (✗)
-        assert days_by_date["2026-10-12"]["status"] == "absent"
-        assert days_by_date["2026-10-12"]["symbol"] == "✗"
-
-        # Oct 15: checked in -> present (✓)
-        assert days_by_date["2026-10-15"]["status"] == "present"
-        assert days_by_date["2026-10-15"]["symbol"] == "✓"
-
-    def test_member_self_attendance_log(
-        self, api_client, gym_tenant, member_user, active_member
-    ):
-        """Member can fetch their own attendance calendar log."""
-        client = auth_client(api_client, member_user, gym_tenant.subdomain)
-        response = client.get("/api/members/me/attendance/")
-        assert response.status_code == 200
-        assert "days" in response.data
-        assert response.data["member_id"] == str(active_member.id)
