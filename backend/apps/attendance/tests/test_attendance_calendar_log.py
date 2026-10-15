@@ -161,3 +161,57 @@ class TestAttendanceCalendarLog:
         assert response.status_code == 200
         assert "days" in response.data
         assert response.data["member_id"] == str(active_member.id)
+
+    def test_gym_b_staff_requesting_gym_a_member_returns_404(
+        self, api_client, gym_tenant, active_member
+    ):
+        """Gym B staff requesting a Gym A member ID receives 404."""
+        gym_b = GymTenant.objects.create(
+            name="FitGate Kazanchis",
+            subdomain="kazanchis",
+            tier=GymTenant.TIER_GROWTH,
+            status=GymTenant.STATUS_ACTIVE,
+            contact_phone="+251922334455",
+            location="Kazanchis, Addis Ababa",
+            tls_confirmed_at="2026-10-11T10:00:00Z",
+        )
+        gym_b_reception = User.objects.create_user(
+            email="reception_b@kazanchis.com",
+            password="ReceptionBPassword123!",
+            gym=gym_b,
+            role=User.ROLE_RECEPTION,
+            must_change_password=False,
+        )
+        client = auth_client(api_client, gym_b_reception, gym_b.subdomain)
+        response = client.get(f"/api/gym/members/{active_member.id}/attendance/")
+        assert response.status_code == 404
+
+    def test_trainer_requesting_member_attendance_log_returns_403(
+        self, api_client, gym_tenant, active_member
+    ):
+        """Trainer receives 403 when requesting member attendance log."""
+        trainer = User.objects.create_user(
+            email="trainer@bolehub.com",
+            password="TrainerPassword123!",
+            gym=gym_tenant,
+            role=User.ROLE_TRAINER,
+            must_change_password=False,
+        )
+        client = auth_client(api_client, trainer, gym_tenant.subdomain)
+        response = client.get(f"/api/gym/members/{active_member.id}/attendance/")
+        assert response.status_code == 403
+
+    def test_member_requesting_another_member_attendance_log_returns_403(
+        self, api_client, gym_tenant, active_member
+    ):
+        """A Member requesting another member's attendance log receives 403."""
+        other_member_user = User.objects.create_user(
+            email="other_member@bolehub.com",
+            password="OtherMemberPassword123!",
+            gym=gym_tenant,
+            role=User.ROLE_MEMBER,
+            must_change_password=False,
+        )
+        client = auth_client(api_client, other_member_user, gym_tenant.subdomain)
+        response = client.get(f"/api/gym/members/{active_member.id}/attendance/")
+        assert response.status_code == 403

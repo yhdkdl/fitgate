@@ -110,18 +110,38 @@ def issue_member_qr_token(
             member=member,
         )
 
-    # Validate member subscription
-    active_sub = member.active_subscription
-    if not active_sub:
-        latest_sub = (
-            MemberSubscription.all_objects.filter(gym=member.gym, member=member)
-            .order_by("-end_date")
-            .first()
-        )
-        sub_reason = latest_sub.status if latest_sub else "expired"
+    # Validate member subscription (fail closed: no subscription -> expired)
+    today = timezone.localdate()
+    latest_sub = (
+        MemberSubscription.all_objects.filter(gym=member.gym, member=member)
+        .order_by("-end_date")
+        .first()
+    )
+    if not latest_sub:
         raise ScanValidationError(
-            reason=sub_reason,
-            message=f"Member subscription is {sub_reason}.",
+            reason="expired",
+            message="Member has no active subscription.",
+            member=member,
+        )
+    if latest_sub.status == MemberSubscription.STATUS_SUSPENDED:
+        raise ScanValidationError(
+            reason="suspended",
+            message="Member subscription is suspended.",
+            member=member,
+        )
+    if latest_sub.status == MemberSubscription.STATUS_FROZEN:
+        raise ScanValidationError(
+            reason="frozen",
+            message="Member subscription is frozen.",
+            member=member,
+        )
+    if (
+        latest_sub.status != MemberSubscription.STATUS_ACTIVE
+        or latest_sub.end_date < today
+    ):
+        raise ScanValidationError(
+            reason="expired",
+            message="Member subscription has expired.",
             member=member,
         )
 
@@ -211,17 +231,7 @@ def verify_and_process_scan(
             reason="invalid_token", message="QR token missing member identity."
         )
 
-    # 3. Check single-use token consumption in database
-    token_hex_hash = hash_token(token_str)
-    qr_record = QRToken.all_objects.filter(gym=gym, token_hash=token_hex_hash).first()
-
-    if not qr_record or not qr_record.is_active or qr_record.used_at is not None:
-        raise ScanValidationError(
-            reason="token_consumed",
-            message="This QR token has already been used.",
-        )
-
-    # 4. Lookup member
+    # 3. Lookup member
     member = (
         Member.all_objects.filter(gym=gym, id=member_id).select_related("gym").first()
     )
@@ -230,7 +240,7 @@ def verify_and_process_scan(
             reason="member_not_found", message="Member record not found."
         )
 
-    # 5. Check member status and subscription status
+    # 4. Check member account status
     if member.status == Member.STATUS_SUSPENDED:
         raise ScanValidationError(
             reason="suspended",
@@ -256,22 +266,52 @@ def verify_and_process_scan(
             member=member,
         )
 
-    active_sub = member.active_subscription
-    if not active_sub:
-        latest_sub = (
-            MemberSubscription.all_objects.filter(gym=gym, member=member)
-            .order_by("-end_date")
-            .first()
-        )
-        sub_status = latest_sub.status if latest_sub else "expired"
+    # 5. Check member subscription status (fail closed: no subscription -> expired)
+    today = timezone.localdate()
+    latest_sub = (
+        MemberSubscription.all_objects.filter(gym=gym, member=member)
+        .order_by("-end_date")
+        .first()
+    )
+    if not latest_sub:
         raise ScanValidationError(
-            reason=sub_status,
-            message=f"Member has no active subscription ({sub_status}).",
+            reason="expired",
+            message="Member has no active subscription.",
+            member=member,
+        )
+    if latest_sub.status == MemberSubscription.STATUS_SUSPENDED:
+        raise ScanValidationError(
+            reason="suspended",
+            message="Member subscription is suspended.",
+            member=member,
+        )
+    if latest_sub.status == MemberSubscription.STATUS_FROZEN:
+        raise ScanValidationError(
+            reason="frozen",
+            message="Member subscription is frozen.",
+            member=member,
+        )
+    if (
+        latest_sub.status != MemberSubscription.STATUS_ACTIVE
+        or latest_sub.end_date < today
+    ):
+        raise ScanValidationError(
+            reason="expired",
+            message="Member subscription has expired.",
             member=member,
         )
 
-    # 6. Check duplicate scan on the same calendar day
-    today = timezone.localdate()
+    # 6. Check token consumption and active status in database
+    token_hex_hash = hash_token(token_str)
+    qr_record = QRToken.all_objects.filter(gym=gym, token_hash=token_hex_hash).first()
+
+    if not qr_record or not qr_record.is_active or qr_record.used_at is not None:
+        raise ScanValidationError(
+            reason="token_consumed",
+            message="This QR token has already been used.",
+        )
+
+    # 7. Check duplicate scan on the same calendar day
     existing_attendance = Attendance.all_objects.filter(
         gym=gym,
         member=member,
@@ -403,17 +443,38 @@ def process_manual_override(
             member=member,
         )
 
-    active_sub = member.active_subscription
-    if not active_sub:
-        latest_sub = (
-            MemberSubscription.all_objects.filter(gym=gym, member=member)
-            .order_by("-end_date")
-            .first()
-        )
-        sub_status = latest_sub.status if latest_sub else "expired"
+    # Validate member subscription (fail closed: no subscription -> expired)
+    today = timezone.localdate()
+    latest_sub = (
+        MemberSubscription.all_objects.filter(gym=gym, member=member)
+        .order_by("-end_date")
+        .first()
+    )
+    if not latest_sub:
         raise ScanValidationError(
-            reason=sub_status,
-            message=f"Manual override refused: member has no active subscription ({sub_status}).",
+            reason="expired",
+            message="Manual override refused: member has no active subscription.",
+            member=member,
+        )
+    if latest_sub.status == MemberSubscription.STATUS_SUSPENDED:
+        raise ScanValidationError(
+            reason="suspended",
+            message="Manual override refused: member subscription is suspended.",
+            member=member,
+        )
+    if latest_sub.status == MemberSubscription.STATUS_FROZEN:
+        raise ScanValidationError(
+            reason="frozen",
+            message="Manual override refused: member subscription is frozen.",
+            member=member,
+        )
+    if (
+        latest_sub.status != MemberSubscription.STATUS_ACTIVE
+        or latest_sub.end_date < today
+    ):
+        raise ScanValidationError(
+            reason="expired",
+            message="Manual override refused: member subscription has expired.",
             member=member,
         )
 

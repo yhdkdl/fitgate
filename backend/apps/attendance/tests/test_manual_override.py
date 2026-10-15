@@ -358,6 +358,31 @@ class TestManualOverrideFlow:
         assert Attendance.all_objects.count() == 0
         assert AuditLog.all_objects.count() == 0
 
+    def test_manual_override_no_subscription_row_refused_no_attendance_or_audit(
+        self,
+        api_client,
+        gym_tenant,
+        reception_user,
+        active_member,
+    ):
+        """Manual override is refused with reason 'expired' when member has no subscription row; no Attendance or AuditLog created."""
+        MemberSubscription.all_objects.filter(member=active_member).delete()
+        assert MemberSubscription.all_objects.filter(member=active_member).count() == 0
+
+        client = auth_client(api_client, reception_user, gym_tenant.subdomain)
+        response = client.post(
+            "/api/gym/attendance/manual-override/",
+            {
+                "member_id": str(active_member.id),
+                "reason": "Override attempt without subscription",
+            },
+            format="json",
+        )
+        assert response.status_code == 400
+        assert response.data["reason"] == "expired"
+        assert Attendance.all_objects.count() == 0
+        assert AuditLog.all_objects.count() == 0
+
     def test_manual_override_duplicate_same_day_denied(
         self, api_client, gym_tenant, reception_user, active_member
     ):

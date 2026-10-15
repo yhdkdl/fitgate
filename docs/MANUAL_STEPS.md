@@ -22,6 +22,6 @@ Whenever a manual action comes up later, append numbered steps here (sprint, wha
 
 4. **Sprint 8 — QR Check-in Asymmetric Signing Key Pair**
    - **What to do:** Generate RSA / Ed25519 key pair for production QR token signing and verification.
-   - **What to paste where:** In `.env`, set `QR_JWT_PRIVATE_KEY` and `QR_JWT_PUBLIC_KEY`.
-   - **Fallback in use:** Local management command `generate_qr_dev_keys` prints generated RSA PEM keys to stdout for manual copying into `.env`; in-memory key pair in test fixtures. Production fails fast if unset.
+   - **What to paste where:** In `.env` or cPanel environment variables, set `QR_JWT_PRIVATE_KEY` and `QR_JWT_PUBLIC_KEY` as single-line strings with literal `\n` escapes.
+   - **Fallback in use:** Local management command `generate_qr_dev_keys` prints generated RSA PEM keys as single-line escaped strings to stdout for manual copying into `.env` or cPanel; in-memory key pair in test fixtures. Production fails fast if unset.
    - **Status:** Not verified against the real service.

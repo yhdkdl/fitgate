@@ -26,12 +26,18 @@ class Command(BaseCommand):
         self.stdout.write(f"Generating RSA {key_size}-bit keypair...")
         private_pem, public_pem = generate_rsa_keypair(key_size=key_size)
 
-        self.stdout.write(self.style.SUCCESS("\n--- RSA PRIVATE KEY (PEM) ---"))
-        self.stdout.write(private_pem)
+        private_oneline = private_pem.strip().replace("\n", "\\n")
+        public_oneline = public_pem.strip().replace("\n", "\\n")
 
-        self.stdout.write(self.style.SUCCESS("--- RSA PUBLIC KEY (PEM) ---"))
-        self.stdout.write(public_pem)
-
-        self.stdout.write(self.style.NOTICE("Paste the above into your .env as:"))
-        self.stdout.write(f'QR_JWT_PRIVATE_KEY="{private_pem.strip()}"')
-        self.stdout.write(f'QR_JWT_PUBLIC_KEY="{public_pem.strip()}"\n')
+        self.stdout.write(
+            self.style.SUCCESS(
+                "\n--- RSA KEYPAIR (SINGLE-LINE ESCAPED FOR .ENV / CPANEL) ---"
+            )
+        )
+        self.stdout.write(
+            self.style.NOTICE(
+                "Paste into your .env or cPanel environment variables as:"
+            )
+        )
+        self.stdout.write(f'QR_JWT_PRIVATE_KEY="{private_oneline}"')
+        self.stdout.write(f'QR_JWT_PUBLIC_KEY="{public_oneline}"\n')

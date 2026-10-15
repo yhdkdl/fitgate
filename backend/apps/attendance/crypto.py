@@ -54,10 +54,11 @@ def get_rsa_private_key_pem() -> str:
     """
     Retrieve RSA private key PEM from settings.QR_JWT_PRIVATE_KEY.
     Fails fast if unset. No runtime auto-generation permitted.
+    Converts literal "\\n" escapes back to newlines while preserving multi-line PEM.
     """
     config_key = getattr(settings, "QR_JWT_PRIVATE_KEY", None)
     if config_key and str(config_key).strip():
-        return str(config_key).strip()
+        return str(config_key).strip().replace("\\n", "\n")
 
     raise QRTokenCryptoError("QR_JWT_PRIVATE_KEY is not configured.")
 
@@ -66,10 +67,11 @@ def get_rsa_public_key_pem() -> str:
     """
     Retrieve RSA public key PEM from settings.QR_JWT_PUBLIC_KEY.
     Fails fast if unset. No runtime auto-generation permitted.
+    Converts literal "\\n" escapes back to newlines while preserving multi-line PEM.
     """
     config_key = getattr(settings, "QR_JWT_PUBLIC_KEY", None)
     if config_key and str(config_key).strip():
-        return str(config_key).strip()
+        return str(config_key).strip().replace("\\n", "\n")
 
     raise QRTokenCryptoError("QR_JWT_PUBLIC_KEY is not configured.")
 

@@ -21,30 +21,37 @@ Covers:
     - User with must_change_password=True blocked on scan and member QR endpoint.
 """
 
+import io
 import uuid
 from datetime import timedelta
 from unittest.mock import patch
 
 import jwt
 import pytest
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.db import IntegrityError
 from django.utils import timezone
 from freezegun import freeze_time
+from PIL import Image
 from rest_framework.test import APIClient
 
 from apps.accounts.models import Notification, User
 from apps.accounts.tokens import get_tokens_for_user
 from apps.attendance.crypto import (
     InvalidTokenError,
+    QRTokenCryptoError,
+    generate_rsa_keypair,
     get_rsa_private_key_pem,
     get_rsa_public_key_pem,
     hash_token,
+    sign_qr_payload,
     verify_qr_jwt,
 )
 from apps.attendance.models import Attendance, QRToken
 from apps.attendance.services import issue_member_qr_token
 from apps.memberships.models import Member, MemberSubscription
 from apps.tenants.models import GymTenant
+from apps.tenants.storage import save_member_photo
 
 
 @pytest.fixture
@@ -218,6 +225,70 @@ class TestQRTokenIssuanceAndVerification:
         assert "public_key" in response.data
         assert "BEGIN PUBLIC KEY" in response.data["public_key"]
         assert response.data["algorithm"] == "RS256"
+
+    def test_single_line_escaped_key_signs_and_verifies(self, settings):
+        """Single-line escaped RSA keys (with literal \\n escapes) sign and verify correctly."""
+        priv_pem, pub_pem = generate_rsa_keypair()
+        priv_oneline = priv_pem.strip().replace("\n", "\\n")
+        pub_oneline = pub_pem.strip().replace("\n", "\\n")
+
+        settings.QR_JWT_PRIVATE_KEY = priv_oneline
+        settings.QR_JWT_PUBLIC_KEY = pub_oneline
+
+        # Verify crypto getters unescape properly
+        assert "\n" in get_rsa_private_key_pem()
+        assert "\\n" not in get_rsa_private_key_pem()
+        assert "\n" in get_rsa_public_key_pem()
+        assert "\\n" not in get_rsa_public_key_pem()
+
+        now = timezone.now()
+        payload = {
+            "sub": "test-member",
+            "gym_id": "test-gym",
+            "exp": int((now + timedelta(seconds=90)).timestamp()),
+        }
+        token = sign_qr_payload(payload)
+        verified = verify_qr_jwt(token)
+        assert verified["sub"] == "test-member"
+        assert verified["gym_id"] == "test-gym"
+
+    def test_multi_line_key_still_works(self, settings):
+        """Standard multi-line PEM format still works seamlessly without corruption."""
+        priv_pem, pub_pem = generate_rsa_keypair()
+        assert "\n" in priv_pem
+
+        settings.QR_JWT_PRIVATE_KEY = priv_pem
+        settings.QR_JWT_PUBLIC_KEY = pub_pem
+
+        assert get_rsa_private_key_pem() == priv_pem.strip()
+        assert get_rsa_public_key_pem() == pub_pem.strip()
+
+        now = timezone.now()
+        payload = {
+            "sub": "test-member-2",
+            "gym_id": "test-gym-2",
+            "exp": int((now + timedelta(seconds=90)).timestamp()),
+        }
+        token = sign_qr_payload(payload)
+        verified = verify_qr_jwt(token)
+        assert verified["sub"] == "test-member-2"
+        assert verified["gym_id"] == "test-gym-2"
+
+    @pytest.mark.parametrize("empty_val", [None, "", "   ", "\n\n"])
+    def test_empty_key_still_raises_crypto_error(self, settings, empty_val):
+        """Unset or blank RSA keys raise QRTokenCryptoError."""
+        settings.QR_JWT_PRIVATE_KEY = empty_val
+        settings.QR_JWT_PUBLIC_KEY = empty_val
+
+        with pytest.raises(
+            QRTokenCryptoError, match="QR_JWT_PRIVATE_KEY is not configured"
+        ):
+            get_rsa_private_key_pem()
+
+        with pytest.raises(
+            QRTokenCryptoError, match="QR_JWT_PUBLIC_KEY is not configured"
+        ):
+            get_rsa_public_key_pem()
 
     def test_public_key_endpoint_returns_503_still_securing_on_unconfirmed_tls(
         self, api_client, db
@@ -569,6 +640,240 @@ class TestScanEndpointAndDuplicateHandling:
         qr_row.refresh_from_db()
         assert qr_row.is_active is True
         assert qr_row.used_at is None
+
+    def test_scan_no_subscription_row_rejected_expired_token_unconsumed(
+        self,
+        api_client,
+        gym_tenant,
+        reception_user,
+        active_member,
+    ):
+        """Member with NO MemberSubscription row is rejected with reason 'expired' and token remains unconsumed."""
+        MemberSubscription.all_objects.filter(member=active_member).delete()
+        assert MemberSubscription.all_objects.filter(member=active_member).count() == 0
+
+        now = timezone.now()
+        payload = {
+            "sub": str(active_member.id),
+            "member_id": str(active_member.id),
+            "gym_id": str(gym_tenant.id),
+            "jti": str(uuid.uuid4()),
+            "iat": int(now.timestamp()),
+            "exp": int((now + timedelta(seconds=90)).timestamp()),
+            "type": "qr_checkin",
+        }
+        priv_pem = get_rsa_private_key_pem()
+        token_str = jwt.encode(payload, priv_pem, algorithm="RS256")
+        token_hex = hash_token(token_str)
+
+        qr_token = QRToken.all_objects.create(
+            gym=gym_tenant,
+            member=active_member,
+            token_hash=token_hex,
+            issued_at=now,
+            expires_at=now + timedelta(seconds=90),
+            is_active=True,
+        )
+
+        client = auth_client(api_client, reception_user, gym_tenant.subdomain)
+        response = client.post(
+            "/api/gym/attendance/scan/",
+            {"token": token_str},
+            format="json",
+        )
+        assert response.status_code == 400
+        assert response.data["reason"] == "expired"
+        assert Attendance.all_objects.count() == 0
+
+        qr_token.refresh_from_db()
+        assert qr_token.is_active is True
+        assert qr_token.used_at is None
+
+    @pytest.mark.parametrize(
+        "inactive_scenario,expected_reason",
+        [
+            ("member_suspended", "suspended"),
+            ("sub_expired", "expired"),
+            ("sub_frozen", "frozen"),
+            ("sub_suspended", "suspended"),
+        ],
+    )
+    def test_deactivated_token_on_inactive_member_returns_inactive_status_not_token_consumed(
+        self,
+        api_client,
+        gym_tenant,
+        reception_user,
+        active_member,
+        inactive_scenario,
+        expected_reason,
+    ):
+        """
+        Check order: member and subscription status checks execute BEFORE token is_active/used_at check.
+        A frozen/suspended/expired member whose token was deactivated sees frozen/suspended/expired,
+        NOT token_consumed. The token remains unconsumed.
+        """
+        sub = MemberSubscription.all_objects.filter(member=active_member).first()
+        if inactive_scenario == "member_suspended":
+            active_member.status = Member.STATUS_SUSPENDED
+            active_member.save(update_fields=["status"])
+        elif inactive_scenario == "sub_expired":
+            sub.status = MemberSubscription.STATUS_EXPIRED
+            sub.save(update_fields=["status"])
+        elif inactive_scenario == "sub_frozen":
+            sub.status = MemberSubscription.STATUS_FROZEN
+            sub.save(update_fields=["status"])
+        elif inactive_scenario == "sub_suspended":
+            sub.status = MemberSubscription.STATUS_SUSPENDED
+            sub.save(update_fields=["status"])
+
+        now = timezone.now()
+        payload = {
+            "sub": str(active_member.id),
+            "member_id": str(active_member.id),
+            "gym_id": str(gym_tenant.id),
+            "jti": str(uuid.uuid4()),
+            "iat": int(now.timestamp()),
+            "exp": int((now + timedelta(seconds=90)).timestamp()),
+            "type": "qr_checkin",
+        }
+        priv_pem = get_rsa_private_key_pem()
+        token_str = jwt.encode(payload, priv_pem, algorithm="RS256")
+        token_hex = hash_token(token_str)
+
+        # Deactivated token (is_active=False)
+        qr_token = QRToken.all_objects.create(
+            gym=gym_tenant,
+            member=active_member,
+            token_hash=token_hex,
+            issued_at=now,
+            expires_at=now + timedelta(seconds=90),
+            is_active=False,
+            used_at=None,
+        )
+
+        client = auth_client(api_client, reception_user, gym_tenant.subdomain)
+        response = client.post(
+            "/api/gym/attendance/scan/",
+            {"token": token_str},
+            format="json",
+        )
+        assert response.status_code == 400
+        assert response.data["reason"] == expected_reason
+        assert Attendance.all_objects.count() == 0
+
+        qr_token.refresh_from_db()
+        assert qr_token.used_at is None
+
+    def test_real_replay_with_active_member_returns_token_consumed(
+        self,
+        api_client,
+        gym_tenant,
+        reception_user,
+        active_member,
+    ):
+        """
+        A real replay (token consumed with used_at set, while member is active with active subscription)
+        returns token_consumed.
+        """
+        now = timezone.now()
+        payload = {
+            "sub": str(active_member.id),
+            "member_id": str(active_member.id),
+            "gym_id": str(gym_tenant.id),
+            "jti": str(uuid.uuid4()),
+            "iat": int(now.timestamp()),
+            "exp": int((now + timedelta(seconds=90)).timestamp()),
+            "type": "qr_checkin",
+        }
+        priv_pem = get_rsa_private_key_pem()
+        token_str = jwt.encode(payload, priv_pem, algorithm="RS256")
+        token_hex = hash_token(token_str)
+
+        QRToken.all_objects.create(
+            gym=gym_tenant,
+            member=active_member,
+            token_hash=token_hex,
+            issued_at=now - timedelta(seconds=10),
+            expires_at=now + timedelta(seconds=80),
+            is_active=False,
+            used_at=now - timedelta(seconds=5),
+        )
+
+        client = auth_client(api_client, reception_user, gym_tenant.subdomain)
+        response = client.post(
+            "/api/gym/attendance/scan/",
+            {"token": token_str},
+            format="json",
+        )
+        assert response.status_code == 400
+        assert response.data["reason"] == "token_consumed"
+        assert Attendance.all_objects.count() == 0
+
+    def test_scan_returned_photo_url_access_control(
+        self,
+        api_client,
+        gym_tenant,
+        other_gym_tenant,
+        reception_user,
+        active_member,
+        tmp_path,
+        settings,
+    ):
+        """
+        Photo security test against the REAL URL returned by a scan:
+        - Staff of that gym -> 200 (or local-storage equivalent)
+        - Staff of another gym -> 403/404
+        - Anonymous -> 401
+        """
+        settings.MEDIA_ROOT = tmp_path
+        img = Image.new("RGB", (100, 100), color=(0, 255, 0))
+        buf = io.BytesIO()
+        img.save(buf, format="PNG")
+        buf.seek(0)
+        upload = SimpleUploadedFile(
+            "avatar.png", buf.getvalue(), content_type="image/png"
+        )
+        rel_path = save_member_photo(gym_tenant.id, upload)
+        active_member.photo_url = rel_path
+        active_member.save(update_fields=["photo_url"])
+
+        token_str, _ = issue_member_qr_token(active_member)
+        scan_client = auth_client(api_client, reception_user, gym_tenant.subdomain)
+        response = scan_client.post(
+            "/api/gym/attendance/scan/",
+            {"token": token_str},
+            format="json",
+        )
+        assert response.status_code == 200
+        returned_photo_url = response.data["member"]["photo_url"]
+        assert returned_photo_url.startswith(
+            f"/api/media/member-photos/{gym_tenant.id}/"
+        )
+
+        # 1. Staff of that gym -> 200
+        staff_client = auth_client(APIClient(), reception_user, gym_tenant.subdomain)
+        resp_staff = staff_client.get(returned_photo_url)
+        assert resp_staff.status_code == 200
+        assert resp_staff["Content-Type"] == "image/webp"
+
+        # 2. Staff of another gym -> 403 or 404
+        other_staff = User.objects.create_user(
+            email="other_reception@kazanchis.com",
+            password="OtherReceptionPassword123!",
+            gym=other_gym_tenant,
+            role=User.ROLE_RECEPTION,
+            must_change_password=False,
+        )
+        other_client = auth_client(APIClient(), other_staff, other_gym_tenant.subdomain)
+        resp_other = other_client.get(returned_photo_url)
+        assert resp_other.status_code in (403, 404)
+
+        # 3. Anonymous -> 401
+        anon_client = APIClient()
+        resp_anon = anon_client.get(
+            returned_photo_url, HTTP_HOST=f"{gym_tenant.subdomain}.localhost"
+        )
+        assert resp_anon.status_code == 401
 
     def test_gym_mismatch_leaves_qr_token_unconsumed(
         self, api_client, gym_tenant, other_gym_tenant, active_member
