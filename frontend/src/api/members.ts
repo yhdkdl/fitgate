@@ -1,4 +1,9 @@
-import { getAuthHeader } from "./auth";
+import { getAccessToken } from "./client";
+
+function getAuthHeader(): Record<string, string> {
+  const token = getAccessToken();
+  return token ? { Authorization: `Bearer ${token}` } : {};
+}
 
 export interface ApiError extends Error {
   status?: number;

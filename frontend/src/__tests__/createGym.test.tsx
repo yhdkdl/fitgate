@@ -114,6 +114,10 @@ describe("GymManagementSection", () => {
         payment_grace_days: 7,
         subscription_reminder_days: [14, 7],
         member_reminder_days: [7, 2],
+        brand_color: null,
+        logo: null,
+        show_unavailable_equipment: false,
+        first_run_dismissed_at: null,
       },
       owner: {
         id: "owner-1",

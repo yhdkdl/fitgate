@@ -13,6 +13,7 @@ import { GymBrandingSection } from "../components/owner/GymBrandingSection";
 import { StaffManagementSection } from "../components/owner/StaffManagementSection";
 import { MemberManagementSection } from "../components/dashboard/MemberManagementSection";
 import { MemberSelfSection } from "../components/dashboard/MemberSelfSection";
+import { AttendanceScannerSection } from "../components/attendance/AttendanceScannerSection";
 import { useAuth } from "../context/AuthContext";
 import { getTenantFromHostname } from "../utils/tenant";
 
@@ -215,6 +216,8 @@ export const DashboardScreen: React.FC = () => {
                 onStaffUpdated={() => setChecklistKey((k) => k + 1)}
               />
 
+              <AttendanceScannerSection userRole={user?.role} />
+
               <MemberManagementSection
                 userRole={user?.role}
                 onMemberRegistered={() => setChecklistKey((k) => k + 1)}
@@ -226,12 +229,21 @@ export const DashboardScreen: React.FC = () => {
           {user?.role === "manager" && (
             <div className="space-y-6">
               <StaffManagementSection />
+              <AttendanceScannerSection userRole={user?.role} />
               <MemberManagementSection userRole={user?.role} />
             </div>
           )}
 
-          {/* Reception / Trainer Hub */}
-          {(user?.role === "reception" || user?.role === "trainer") && (
+          {/* Reception Hub */}
+          {user?.role === "reception" && (
+            <div className="space-y-6">
+              <AttendanceScannerSection userRole={user?.role} />
+              <MemberManagementSection userRole={user?.role} />
+            </div>
+          )}
+
+          {/* Trainer Hub */}
+          {user?.role === "trainer" && (
             <div className="space-y-6">
               <MemberManagementSection userRole={user?.role} />
             </div>

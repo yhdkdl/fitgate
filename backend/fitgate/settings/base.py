@@ -62,6 +62,7 @@ INSTALLED_APPS = [
     "apps.accounts.apps.AccountsConfig",
     "apps.payments.apps.PaymentsConfig",
     "apps.memberships.apps.MembershipsConfig",
+    "apps.attendance.apps.AttendanceConfig",
 ]
 
 
@@ -176,6 +177,12 @@ SIMPLE_JWT = {
     "USER_ID_FIELD": "id",
     "USER_ID_CLAIM": "user_id",
 }
+
+# QR Check-in Asymmetric Token Configuration (Sprint 8)
+QR_JWT_ALGORITHM = env.str("QR_JWT_ALGORITHM", default="RS256")
+QR_JWT_PRIVATE_KEY = env.str("QR_JWT_PRIVATE_KEY", default="")
+QR_JWT_PUBLIC_KEY = env.str("QR_JWT_PUBLIC_KEY", default="")
+QR_TOKEN_WINDOW_SECONDS = 90
 
 
 # drf-spectacular configuration

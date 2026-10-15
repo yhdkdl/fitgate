@@ -86,6 +86,38 @@ class Member(TenantAwareModel):
     def latest_metrics(self) -> Optional["BodyMetrics"]:
         return self.body_metrics.order_by("-recorded_at").first()
 
+    @property
+    def active_subscription(self) -> Optional["MemberSubscription"]:
+        from apps.memberships.models import MemberSubscription
+
+        return (
+            MemberSubscription.all_objects.filter(
+                gym=self.gym, member=self, status=self.STATUS_ACTIVE
+            )
+            .order_by("-end_date")
+            .first()
+        )
+
+    def get_subscription_period(self):
+        """
+        Return (start_date, end_date) for attendance calendar calculation.
+        Uses active subscription if present, otherwise defaults to [joined_at.date(), joined_at.date() + 30 days].
+        """
+        from datetime import timedelta
+
+        from apps.memberships.models import MemberSubscription
+
+        sub = (
+            self.active_subscription
+            or MemberSubscription.all_objects.filter(gym=self.gym, member=self)
+            .order_by("-end_date")
+            .first()
+        )
+        if sub:
+            return sub.start_date, sub.end_date
+        start = self.joined_at.date()
+        return start, start + timedelta(days=30)
+
 
 class BodyMetrics(TenantAwareModel):
     """
@@ -134,3 +166,60 @@ class BodyMetrics(TenantAwareModel):
     def estimated_body_fat_percentage(self) -> Optional[float]:
         gender = self.member.gender if self.member_id else None
         return calculate_us_navy_body_fat(gender, self.height_cm, self.measurements)
+
+
+class MemberSubscription(TenantAwareModel):
+    """
+    Member subscription tracking plan validity, freeze periods, and expiry.
+
+    SPEC §8:
+    - id (UUID PK)
+    - member (FK -> Member, CASCADE)
+    - gym_id (inherited from TenantAwareModel)
+    - plan_id (nullable UUID)
+    - start_date (DateField)
+    - end_date (DateField)
+    - status (pending/active/frozen/suspended/expired)
+    - freeze_start_date (DateField, nullable)
+    - frozen_days_total (PositiveIntegerField, default 0)
+    """
+
+    STATUS_PENDING = "pending"
+    STATUS_ACTIVE = "active"
+    STATUS_FROZEN = "frozen"
+    STATUS_SUSPENDED = "suspended"
+    STATUS_EXPIRED = "expired"
+
+    STATUS_CHOICES = [
+        (STATUS_PENDING, "Pending"),
+        (STATUS_ACTIVE, "Active"),
+        (STATUS_FROZEN, "Frozen"),
+        (STATUS_SUSPENDED, "Suspended"),
+        (STATUS_EXPIRED, "Expired"),
+    ]
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    member = models.ForeignKey(
+        Member,
+        on_delete=models.CASCADE,
+        related_name="subscriptions",
+    )
+    plan_id = models.UUIDField(null=True, blank=True)
+    start_date = models.DateField()
+    end_date = models.DateField()
+    status = models.CharField(
+        max_length=20,
+        choices=STATUS_CHOICES,
+        default=STATUS_ACTIVE,
+    )
+    freeze_start_date = models.DateField(null=True, blank=True)
+    frozen_days_total = models.PositiveIntegerField(default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "Member Subscription"
+        verbose_name_plural = "Member Subscriptions"
+        ordering = ["-created_at"]
+
+    def __str__(self) -> str:
+        return f"Subscription({self.member.full_name}: {self.start_date} to {self.end_date} [{self.status}])"

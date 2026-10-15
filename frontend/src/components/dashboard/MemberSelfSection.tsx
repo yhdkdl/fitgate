@@ -10,6 +10,8 @@ import { Button } from "../ui/Button";
 import { Card } from "../ui/Card";
 import { Input } from "../ui/Input";
 import { Spinner } from "../ui/Spinner";
+import { MemberQrCard } from "../attendance/MemberQrCard";
+import { AttendanceLogCard } from "../attendance/AttendanceLogCard";
 
 export const MemberSelfSection: React.FC = () => {
   const [profile, setProfile] = useState<Member | null>(null);
@@ -125,6 +127,16 @@ export const MemberSelfSection: React.FC = () => {
               {new Date(profile.waiver_accepted_at).toLocaleDateString()}
             </Badge>
           </div>
+        </div>
+      </div>
+
+      {/* Dynamic QR Pass & Attendance Calendar */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="lg:col-span-1">
+          <MemberQrCard memberStatus={profile.status} />
+        </div>
+        <div className="lg:col-span-2">
+          <AttendanceLogCard title="My Attendance Calendar" />
         </div>
       </div>
 

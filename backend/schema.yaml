@@ -4,6 +4,23 @@ info:
   version: 1.0.0
   description: Multi-tenant Gym Management Platform API for Ethiopian Gyms
 paths:
+  /api/attendance/public-key/:
+    get:
+      operationId: attendance_public_key_retrieve
+      description: Returns the RSA public key used to verify asymmetric QR check-in
+        tokens offline.
+      summary: Get QR Verification Public Key
+      tags:
+      - attendance
+      security:
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AttendancePublicKeyResponse'
+          description: ''
   /api/auth/change-password/:
     post:
       operationId: auth_change_password_create
@@ -294,6 +311,92 @@ paths:
           description: Email verified successfully
         '400':
           description: Invalid or expired token
+  /api/gym/attendance/manual-override/:
+    post:
+      operationId: gym_attendance_manual_override_create
+      description: Records a manual attendance check-in when QR cannot be used. Audit-logged.
+      summary: Manual Check-in Override
+      tags:
+      - gym
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AttendanceManualOverrideRequestRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/AttendanceManualOverrideRequestRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/AttendanceManualOverrideRequestRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AttendanceManualOverrideResponse'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AttendanceScanErrorResponse'
+          description: ''
+  /api/gym/attendance/public-key/:
+    get:
+      operationId: gym_attendance_public_key_retrieve
+      description: Returns the RSA public key used to verify asymmetric QR check-in
+        tokens offline.
+      summary: Get QR Verification Public Key
+      tags:
+      - gym
+      security:
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AttendancePublicKeyResponse'
+          description: ''
+  /api/gym/attendance/scan/:
+    post:
+      operationId: gym_attendance_scan_create
+      description: Validates a member QR token, records attendance, and issues replacement
+        token.
+      summary: Scan QR Check-in Token
+      tags:
+      - gym
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AttendanceScanRequestRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/AttendanceScanRequestRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/AttendanceScanRequestRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AttendanceScanResponse'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AttendanceScanErrorResponse'
+          description: ''
   /api/gym/checklist/:
     get:
       operationId: gym_checklist_retrieve
@@ -445,6 +548,40 @@ paths:
           description: Forbidden
         '404':
           description: Not found
+  /api/gym/members/{id}/attendance/:
+    get:
+      operationId: gym_members_attendance_retrieve
+      description: Returns daily attendance status (✓ present, ✗ absent, blank outside
+        subscription) for a date range.
+      summary: Get Member Attendance Calendar Log
+      parameters:
+      - in: query
+        name: end_date
+        schema:
+          type: string
+        description: End date (YYYY-MM-DD). Defaults to today.
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: query
+        name: start_date
+        schema:
+          type: string
+        description: Start date (YYYY-MM-DD). Defaults to 30 days ago.
+      tags:
+      - gym
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AttendanceLogResponse'
+          description: ''
   /api/gym/members/{id}/metrics/:
     post:
       operationId: gym_members_metrics_create
@@ -835,6 +972,33 @@ paths:
           description: ''
         '400':
           description: Validation error
+  /api/members/me/attendance/:
+    get:
+      operationId: members_me_attendance_retrieve
+      description: Returns member's daily attendance status for a date range.
+      summary: Get Self Attendance Calendar Log
+      parameters:
+      - in: query
+        name: end_date
+        schema:
+          type: string
+        description: End date (YYYY-MM-DD). Defaults to today.
+      - in: query
+        name: start_date
+        schema:
+          type: string
+        description: Start date (YYYY-MM-DD). Defaults to 30 days ago.
+      tags:
+      - members
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AttendanceLogResponse'
+          description: ''
   /api/members/me/metrics/:
     get:
       operationId: members_me_metrics_list
@@ -881,6 +1045,94 @@ paths:
           description: ''
         '400':
           description: Validation error
+  /api/members/me/qr/:
+    get:
+      operationId: members_me_qr_retrieve
+      description: Generates a signed RS256 QR check-in token (90s window) for the
+        authenticated member.
+      summary: Get Active Member QR Token
+      tags:
+      - members
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MemberQrTokenResponse'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MemberQrTokenErrorResponse'
+          description: ''
+    post:
+      operationId: members_me_qr_create
+      description: Explicitly issues a rotated QR check-in token for the member.
+      summary: Rotate Member QR Token
+      tags:
+      - members
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MemberQrTokenResponse'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MemberQrTokenErrorResponse'
+          description: ''
+  /api/members/me/qr-token/:
+    get:
+      operationId: members_me_qr_token_retrieve
+      description: Generates a signed RS256 QR check-in token (90s window) for the
+        authenticated member.
+      summary: Get Active Member QR Token
+      tags:
+      - members
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MemberQrTokenResponse'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MemberQrTokenErrorResponse'
+          description: ''
+    post:
+      operationId: members_me_qr_token_create
+      description: Explicitly issues a rotated QR check-in token for the member.
+      summary: Rotate Member QR Token
+      tags:
+      - members
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MemberQrTokenResponse'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MemberQrTokenErrorResponse'
+          description: ''
   /api/platform/demo-requests/:
     get:
       operationId: platform_demo_requests_list
@@ -1278,6 +1530,175 @@ paths:
           description: Gym tenant not found
 components:
   schemas:
+    AttendanceLogResponse:
+      type: object
+      description: Response serializer for attendance calendar log.
+      properties:
+        member_id:
+          type: string
+          format: uuid
+        member_name:
+          type: string
+        start_date:
+          type: string
+          format: date
+        end_date:
+          type: string
+          format: date
+        subscription_period:
+          type: object
+          additionalProperties: {}
+        days:
+          type: array
+          items:
+            $ref: '#/components/schemas/DailyAttendanceItem'
+      required:
+      - days
+      - end_date
+      - member_id
+      - member_name
+      - start_date
+      - subscription_period
+    AttendanceManualOverrideRequestRequest:
+      type: object
+      description: Request serializer for manual attendance override by reception.
+      properties:
+        member_id:
+          type: string
+          format: uuid
+          description: UUID of the member to check in.
+        reason:
+          type: string
+          minLength: 1
+          description: Non-empty explanation for manual override.
+          maxLength: 500
+        branch_id:
+          type: string
+          format: uuid
+          nullable: true
+          description: Optional branch UUID.
+      required:
+      - member_id
+      - reason
+    AttendanceManualOverrideResponse:
+      type: object
+      description: Response serializer for manual attendance override.
+      properties:
+        status:
+          type: string
+          default: success
+        message:
+          type: string
+        member:
+          $ref: '#/components/schemas/AttendanceScanResultMember'
+        attendance:
+          $ref: '#/components/schemas/AttendanceRecord'
+      required:
+      - attendance
+      - member
+      - message
+    AttendancePublicKeyResponse:
+      type: object
+      description: Response serializer for public key export.
+      properties:
+        public_key:
+          type: string
+          description: PEM-encoded RSA public key for offline QR signature verification.
+        algorithm:
+          type: string
+          default: RS256
+      required:
+      - public_key
+    AttendanceRecord:
+      type: object
+      description: Attendance record details.
+      properties:
+        id:
+          type: string
+          format: uuid
+        date:
+          type: string
+          format: date
+        checked_in_at:
+          type: string
+          format: date-time
+        is_override:
+          type: boolean
+        override_reason:
+          type: string
+      required:
+      - checked_in_at
+      - date
+      - id
+      - is_override
+    AttendanceScanErrorResponse:
+      type: object
+      properties:
+        detail:
+          type: string
+        reason:
+          type: string
+        member:
+          $ref: '#/components/schemas/AttendanceScanResultMember'
+      required:
+      - detail
+      - reason
+    AttendanceScanRequestRequest:
+      type: object
+      description: Request serializer for QR attendance scan.
+      properties:
+        token:
+          type: string
+          minLength: 1
+          description: Scanned QR token string (RS256 JWT).
+        branch_id:
+          type: string
+          format: uuid
+          nullable: true
+          description: Optional branch UUID for multi-branch check-ins.
+      required:
+      - token
+    AttendanceScanResponse:
+      type: object
+      description: Success response serializer for QR scan.
+      properties:
+        status:
+          type: string
+          default: success
+        message:
+          type: string
+        member:
+          $ref: '#/components/schemas/AttendanceScanResultMember'
+        attendance:
+          $ref: '#/components/schemas/AttendanceRecord'
+        next_token:
+          type: string
+          description: Newly rotated token issued for the member.
+      required:
+      - attendance
+      - member
+      - message
+      - next_token
+    AttendanceScanResultMember:
+      type: object
+      description: Member details returned upon scan.
+      properties:
+        id:
+          type: string
+          format: uuid
+        full_name:
+          type: string
+        photo_url:
+          type: string
+        status:
+          type: string
+        phone:
+          type: string
+      required:
+      - full_name
+      - id
+      - photo_url
+      - status
     BlankEnum:
       enum:
       - ''
@@ -1481,6 +1902,32 @@ components:
       - current_password
       - email
       - password
+    DailyAttendanceItem:
+      type: object
+      description: Daily check-in status within the calendar log.
+      properties:
+        date:
+          type: string
+          format: date
+        status:
+          type: string
+          description: '''present'', ''absent'', or ''blank'''
+        symbol:
+          type: string
+          description: '''✓'', ''✗'', or empty for days outside subscription'
+        attended:
+          type: boolean
+        checked_in_at:
+          type: string
+          format: date-time
+          nullable: true
+        is_override:
+          type: boolean
+      required:
+      - attended
+      - date
+      - status
+      - symbol
     DemoRequest:
       type: object
       description: Serializer for Super Admin lead management.
@@ -2030,6 +2477,38 @@ components:
       - latest_metrics
       - phone
       - waiver_accepted_at
+    MemberQrTokenErrorResponse:
+      type: object
+      properties:
+        detail:
+          type: string
+        reason:
+          type: string
+      required:
+      - detail
+      - reason
+    MemberQrTokenResponse:
+      type: object
+      description: Response serializer for member QR token generation.
+      properties:
+        token:
+          type: string
+          description: Signed RS256 JWT QR token.
+        expires_at:
+          type: string
+          format: date-time
+          description: Timestamp when this token expires.
+        valid_seconds:
+          type: integer
+          default: 90
+          description: Token validity window in seconds.
+        member_id:
+          type: string
+          format: uuid
+      required:
+      - expires_at
+      - member_id
+      - token
     PasswordResetConfirmRequestRequest:
       type: object
       description: Payload for confirming a password reset.

@@ -549,3 +549,30 @@ def reactivate_staff_member(acting_user: User, target_user: User) -> User:
     target_user.is_active = True
     target_user.save(update_fields=["is_active"])
     return target_user
+
+
+def record_audit_log(
+    action_type: str,
+    affected_record_type: str,
+    affected_record_id: str,
+    actor: Optional[User] = None,
+    gym: Optional[GymTenant] = None,
+    metadata: Optional[dict] = None,
+):
+    """
+    Record an append-only audit trail event.
+    Scopes to gym if provided (or derived from actor/record); platform-level if gym is None.
+    """
+    from apps.accounts.models import AuditLog
+
+    if gym is None and actor is not None and getattr(actor, "gym", None) is not None:
+        gym = actor.gym
+
+    return AuditLog.objects.create(
+        actor=actor,
+        gym=gym,
+        action_type=action_type,
+        affected_record_type=affected_record_type,
+        affected_record_id=str(affected_record_id),
+        metadata=metadata or {},
+    )

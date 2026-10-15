@@ -92,7 +92,15 @@ export const RegisterScreen: React.FC = () => {
         );
       } else if (apiErr.data && typeof apiErr.data === "object") {
         const dataObj = apiErr.data as Record<string, unknown>;
-        setFieldErrors(dataObj as Record<string, string>);
+        const formattedErrors: Record<string, string[]> = {};
+        for (const [key, val] of Object.entries(dataObj)) {
+          if (Array.isArray(val)) {
+            formattedErrors[key] = val.map(String);
+          } else if (typeof val === "string") {
+            formattedErrors[key] = [val];
+          }
+        }
+        setFieldErrors(formattedErrors);
         if (typeof dataObj.detail === "string") {
           setError(dataObj.detail);
         } else if (Array.isArray(dataObj.waiver_accepted)) {
