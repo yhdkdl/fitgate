@@ -1,14 +1,16 @@
 """API views for authentication and platform administration."""
 
 import logging
-from datetime import timedelta
+from datetime import datetime, time, timedelta
 
 from django.conf import settings
 from django.contrib.auth.hashers import check_password, make_password
 from django.core.exceptions import ValidationError
 from django.db import transaction
+from django.db.models import Q
 from django.utils import timezone
-from drf_spectacular.utils import OpenApiResponse, extend_schema
+from django.utils.dateparse import parse_date, parse_datetime
+from drf_spectacular.utils import OpenApiParameter, OpenApiResponse, extend_schema
 from rest_framework import status
 from rest_framework.exceptions import PermissionDenied
 from rest_framework.permissions import AllowAny, IsAuthenticated
@@ -18,14 +20,16 @@ from rest_framework_simplejwt.exceptions import TokenError
 from rest_framework_simplejwt.tokens import RefreshToken
 
 from apps.accounts.dashboards import dashboard_config_for
-from apps.accounts.models import User
+from apps.accounts.models import AuditLog, User
 from apps.accounts.notifications import notify_account_locked
+from apps.accounts.pagination import AuditLogPagination
 from apps.accounts.permissions import (
     IsOwnerOrManager,
     IsSuperAdmin,
     RequirePasswordChanged,
 )
 from apps.accounts.serializers import (
+    AuditLogSerializer,
     ChangePasswordRequestSerializer,
     ChangePasswordResponseSerializer,
     CreateSuperAdminRequestSerializer,
@@ -838,3 +842,285 @@ class StaffReactivateView(APIView):
             },
             status=status.HTTP_200_OK,
         )
+
+
+def apply_audit_log_filters(qs, params):
+    """Apply common date range, action type, actor, and text search filters to an AuditLog queryset."""
+    date_from_raw = params.get("date_from")
+    if date_from_raw:
+        date_from_str = str(date_from_raw).strip()
+        # Repair unencoded '+' sign in timezone offset turned to space by query parser
+        if " " in date_from_str and "+" not in date_from_str and "T" in date_from_str:
+            date_from_str = date_from_str.replace(" ", "+")
+        dt = parse_datetime(date_from_str)
+        if not dt:
+            d = parse_date(date_from_str)
+            if d:
+                dt = timezone.make_aware(datetime.combine(d, time.min))
+        if dt:
+            if timezone.is_naive(dt):
+                dt = timezone.make_aware(dt)
+            qs = qs.filter(timestamp__gte=dt)
+
+    date_to_raw = params.get("date_to")
+    if date_to_raw:
+        date_to_str = str(date_to_raw).strip()
+        if " " in date_to_str and "+" not in date_to_str and "T" in date_to_str:
+            date_to_str = date_to_str.replace(" ", "+")
+        dt = parse_datetime(date_to_str)
+        if not dt:
+            d = parse_date(date_to_str)
+            if d:
+                dt = timezone.make_aware(datetime.combine(d, time.max))
+        if dt:
+            if timezone.is_naive(dt):
+                dt = timezone.make_aware(dt)
+            qs = qs.filter(timestamp__lte=dt)
+
+    action_type = params.get("action_type")
+    if action_type:
+        qs = qs.filter(action_type=action_type)
+
+    actor_id = params.get("actor_id")
+    if actor_id:
+        qs = qs.filter(actor_id=actor_id)
+
+    gym_id = params.get("gym_id")
+    if gym_id:
+        qs = qs.filter(gym_id=gym_id)
+
+    search = params.get("search")
+    if search:
+        qs = qs.filter(
+            Q(actor__email__icontains=search)
+            | Q(actor__full_name__icontains=search)
+            | Q(action_type__icontains=search)
+            | Q(affected_record_type__icontains=search)
+            | Q(affected_record_id__icontains=search)
+        )
+
+    return qs.order_by("-timestamp")
+
+
+class GymAuditLogListView(APIView):
+    """
+    Read-only audit log endpoint for gym staff.
+
+    Restricted to Gym Owner and Gym Manager on their gym's subdomain.
+    Returns paginated audit trail rows for the active gym tenant.
+    """
+
+    permission_classes = [IsAuthenticated, RequirePasswordChanged, IsOwnerOrManager]
+    pagination_class = AuditLogPagination
+    http_method_names = ["get", "head", "options"]
+
+    @extend_schema(
+        summary="List gym audit logs",
+        description="Returns paginated, newest-first audit log events for the current gym tenant.",
+        parameters=[
+            OpenApiParameter(
+                name="date_from",
+                description="Filter records starting from date (YYYY-MM-DD) or ISO timestamp",
+                required=False,
+                type=str,
+            ),
+            OpenApiParameter(
+                name="date_to",
+                description="Filter records ending at date (YYYY-MM-DD) or ISO timestamp",
+                required=False,
+                type=str,
+            ),
+            OpenApiParameter(
+                name="action_type",
+                description="Filter by exact action type (e.g. user_login, staff_provisioned)",
+                required=False,
+                type=str,
+            ),
+            OpenApiParameter(
+                name="actor_id",
+                description="Filter by actor UUID",
+                required=False,
+                type=str,
+            ),
+            OpenApiParameter(
+                name="search",
+                description="Search query across actor email, action type, or affected record",
+                required=False,
+                type=str,
+            ),
+            OpenApiParameter(
+                name="page",
+                description="Page number",
+                required=False,
+                type=int,
+            ),
+            OpenApiParameter(
+                name="page_size",
+                description="Number of records per page (default 20, max 100)",
+                required=False,
+                type=int,
+            ),
+        ],
+        responses={
+            200: AuditLogSerializer(many=True),
+            401: OpenApiResponse(description="Authentication required"),
+            403: OpenApiResponse(description="Forbidden"),
+        },
+    )
+    def get(self, request, *args, **kwargs):
+        tenant = getattr(request, "tenant", None)
+        if not tenant:
+            return Response(
+                {"detail": "Gym context required."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        qs = AuditLog.objects.filter(gym=tenant).select_related("actor", "gym")
+        qs = apply_audit_log_filters(qs, request.query_params)
+
+        paginator = self.pagination_class()
+        page = paginator.paginate_queryset(qs, request, view=self)
+        if page is not None:
+            serializer = AuditLogSerializer(page, many=True)
+            return paginator.get_paginated_response(serializer.data)
+
+        serializer = AuditLogSerializer(qs, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+class PlatformAuditLogListView(APIView):
+    """
+    Read-only audit log endpoint for platform super admins.
+
+    Restricted to Super Admin at the apex platform domain.
+    Returns paginated audit trail rows across all gyms and platform operations.
+    """
+
+    permission_classes = [IsAuthenticated, RequirePasswordChanged, IsSuperAdmin]
+    pagination_class = AuditLogPagination
+    http_method_names = ["get", "head", "options"]
+
+    @extend_schema(
+        summary="List platform audit logs",
+        description="Returns paginated, newest-first audit log events across the entire platform.",
+        parameters=[
+            OpenApiParameter(
+                name="gym_id",
+                description="Filter records by gym UUID",
+                required=False,
+                type=str,
+            ),
+            OpenApiParameter(
+                name="date_from",
+                description="Filter records starting from date (YYYY-MM-DD) or ISO timestamp",
+                required=False,
+                type=str,
+            ),
+            OpenApiParameter(
+                name="date_to",
+                description="Filter records ending at date (YYYY-MM-DD) or ISO timestamp",
+                required=False,
+                type=str,
+            ),
+            OpenApiParameter(
+                name="action_type",
+                description="Filter by exact action type",
+                required=False,
+                type=str,
+            ),
+            OpenApiParameter(
+                name="actor_id",
+                description="Filter by actor UUID",
+                required=False,
+                type=str,
+            ),
+            OpenApiParameter(
+                name="search",
+                description="Search query across actor email, action type, or affected record",
+                required=False,
+                type=str,
+            ),
+            OpenApiParameter(
+                name="page",
+                description="Page number",
+                required=False,
+                type=int,
+            ),
+            OpenApiParameter(
+                name="page_size",
+                description="Number of records per page (default 20, max 100)",
+                required=False,
+                type=int,
+            ),
+        ],
+        responses={
+            200: AuditLogSerializer(many=True),
+            401: OpenApiResponse(description="Authentication required"),
+            403: OpenApiResponse(description="Forbidden"),
+        },
+    )
+    def get(self, request, *args, **kwargs):
+        qs = AuditLog.all_objects.all().select_related("actor", "gym")
+        qs = apply_audit_log_filters(qs, request.query_params)
+
+        paginator = self.pagination_class()
+        page = paginator.paginate_queryset(qs, request, view=self)
+        if page is not None:
+            serializer = AuditLogSerializer(page, many=True)
+            return paginator.get_paginated_response(serializer.data)
+
+        serializer = AuditLogSerializer(qs, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+class AuditLogListView(APIView):
+    """
+    Unified read-only audit log endpoint.
+    Routes to gym tenant logs or platform-wide logs depending on request host and user role.
+    """
+
+    permission_classes = [IsAuthenticated, RequirePasswordChanged]
+    pagination_class = AuditLogPagination
+    http_method_names = ["get", "head", "options"]
+
+    @extend_schema(
+        summary="List audit logs",
+        description="Unified endpoint for viewing audit logs according to role and tenant context.",
+        responses={
+            200: AuditLogSerializer(many=True),
+            401: OpenApiResponse(description="Authentication required"),
+            403: OpenApiResponse(description="Forbidden"),
+        },
+    )
+    def get(self, request, *args, **kwargs):
+        tenant = getattr(request, "tenant", None)
+        user = request.user
+
+        if tenant is None:
+            if user.role != User.ROLE_SUPER_ADMIN and not user.is_superuser:
+                return Response(
+                    {"detail": "Super Admin permission required at apex domain."},
+                    status=status.HTTP_403_FORBIDDEN,
+                )
+            qs = AuditLog.all_objects.all().select_related("actor", "gym")
+        else:
+            if (
+                user.role not in [User.ROLE_OWNER, User.ROLE_MANAGER]
+                or getattr(user, "gym_id", None) != tenant.id
+            ):
+                return Response(
+                    {"detail": "Owner or Manager permission required for this gym."},
+                    status=status.HTTP_403_FORBIDDEN,
+                )
+            qs = AuditLog.objects.filter(gym=tenant).select_related("actor", "gym")
+
+        qs = apply_audit_log_filters(qs, request.query_params)
+
+        paginator = self.pagination_class()
+        page = paginator.paginate_queryset(qs, request, view=self)
+        if page is not None:
+            serializer = AuditLogSerializer(page, many=True)
+            return paginator.get_paginated_response(serializer.data)
+
+        serializer = AuditLogSerializer(qs, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)

@@ -16,14 +16,16 @@
 - Sprint 6: Staff provisioning (`4d957da`)
 - Sprint 7: Member registration (`c7c948cb4114442c53947884cc191c865f05116a`)
 - Sprint 8: QR check-in (GATE) (`da91b1546b18e3e0e147934771fce5467b3e0204`)
+- Sprint 9: Audit log foundation (`b29da5c6a93606f1bff87cb1e96d7b716473bfe1`, PR #11)
+- Sprint 9a: Audit log viewer
 
 ## Current
 
-- Sprint 9: Audit log foundation
+- Increment 1 Test & Verification (`docs/INCREMENT_1_TEST.md`)
 
 ## Next
 
-- Sprint 9a: Audit log viewer
+- Increment 2 — Sprint 10: Membership plans & subscription lifecycle
 
 ## Open manual steps
 
@@ -34,7 +36,7 @@
 
 ## Deviations
 
-- (a) Stand-in `AuditLog` model in `apps.accounts` extended in Sprint 9 (migration 0006) with PostgreSQL immutability triggers (preventing UPDATE, DELETE, TRUNCATE), PROTECT on actor, compound indexing, secret redaction, and wired across Sprints 1–8 write operations.
+- (a) Stand-in `AuditLog` model in `apps.accounts` extended in Sprint 9 (migration 0006) with PostgreSQL immutability triggers (preventing UPDATE, DELETE, TRUNCATE), PROTECT on actor, compound indexing, secret redaction, and wired across Sprints 1–8 write operations. Sprint 9a added read-only paginated endpoints (/api/gym/audit-logs/ and /api/platform/audit-logs/) and dashboard audit viewer.
 - (b) Stand-in `MemberSubscription` model in `apps.memberships` (migration 0002) introduced in Sprint 8 to track active/expired/frozen/suspended subscription states during check-in — to be extended/confirmed in Sprint 9 / Sprint 10, never recreated.
 - (c) 30-day fallback period in `Member.get_subscription_period()` when no subscription exists — to be extended/confirmed in Sprint 10.
 - (d) Owner and Manager may also use manual check-in override (SPEC §2 names Reception); accepted by owner.

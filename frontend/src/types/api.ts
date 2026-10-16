@@ -24,6 +24,26 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/audit-logs/": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * List audit logs
+     * @description Unified endpoint for viewing audit logs according to role and tenant context.
+     */
+    get: operations["audit_logs_list"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/auth/change-password/": {
     parameters: {
       query?: never;
@@ -242,6 +262,26 @@ export interface paths {
      * @description Validates a member QR token, records attendance, and issues replacement token.
      */
     post: operations["gym_attendance_scan_create"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/gym/audit-logs/": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * List gym audit logs
+     * @description Returns paginated, newest-first audit log events for the current gym tenant.
+     */
+    get: operations["gym_audit_logs_list"];
+    put?: never;
+    post?: never;
     delete?: never;
     options?: never;
     head?: never;
@@ -637,6 +677,26 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/platform/audit-logs/": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * List platform audit logs
+     * @description Returns paginated, newest-first audit log events across the entire platform.
+     */
+    get: operations["platform_audit_logs_list"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/platform/demo-requests/": {
     parameters: {
       query?: never;
@@ -982,6 +1042,30 @@ export interface components {
       status: string;
       phone?: string;
     };
+    /** @description Read-only representation of an AuditLog entry. */
+    AuditLog: {
+      /** Format: uuid */
+      readonly id: string;
+      /** Format: uuid */
+      readonly gym_id: string | null;
+      readonly gym_name: string | null;
+      readonly actor: components["schemas"]["AuditLogActor"];
+      readonly action_type: string;
+      readonly affected_record_type: string;
+      readonly affected_record_id: string;
+      /** Format: date-time */
+      readonly timestamp: string;
+      readonly metadata: unknown;
+    };
+    /** @description Summary of the actor associated with an audit log entry. */
+    AuditLogActor: {
+      /** Format: uuid */
+      readonly id: string;
+      /** Format: email */
+      readonly email: string;
+      readonly full_name: string;
+      readonly role: components["schemas"]["UserRoleEnum"];
+    };
     /** @enum {unknown} */
     BlankEnum: "";
     /**
@@ -1326,6 +1410,21 @@ export interface components {
       /** Format: uuid */
       member_id: string;
     };
+    PaginatedAuditLogList: {
+      /** @example 123 */
+      count: number;
+      /**
+       * Format: uri
+       * @example http://api.example.org/accounts/?page=4
+       */
+      next?: string | null;
+      /**
+       * Format: uri
+       * @example http://api.example.org/accounts/?page=2
+       */
+      previous?: string | null;
+      results: components["schemas"]["AuditLog"][];
+    };
     /** @description Payload for confirming a password reset. */
     PasswordResetConfirmRequestRequest: {
       token: string;
@@ -1613,6 +1712,44 @@ export interface operations {
         content: {
           "application/json": components["schemas"]["AttendancePublicKeyResponse"];
         };
+      };
+    };
+  };
+  audit_logs_list: {
+    parameters: {
+      query?: {
+        /** @description A page number within the paginated result set. */
+        page?: number;
+        /** @description Number of results to return per page. */
+        page_size?: number;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["PaginatedAuditLogList"];
+        };
+      };
+      /** @description Authentication required */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Forbidden */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
       };
     };
   };
@@ -2012,6 +2149,54 @@ export interface operations {
         content: {
           "application/json": components["schemas"]["AttendanceScanErrorResponse"];
         };
+      };
+    };
+  };
+  gym_audit_logs_list: {
+    parameters: {
+      query?: {
+        /** @description Filter by exact action type (e.g. user_login, staff_provisioned) */
+        action_type?: string;
+        /** @description Filter by actor UUID */
+        actor_id?: string;
+        /** @description Filter records starting from date (YYYY-MM-DD) or ISO timestamp */
+        date_from?: string;
+        /** @description Filter records ending at date (YYYY-MM-DD) or ISO timestamp */
+        date_to?: string;
+        /** @description Page number */
+        page?: number;
+        /** @description Number of records per page (default 20, max 100) */
+        page_size?: number;
+        /** @description Search query across actor email, action type, or affected record */
+        search?: string;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["PaginatedAuditLogList"];
+        };
+      };
+      /** @description Authentication required */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Forbidden */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
       };
     };
   };
@@ -2848,6 +3033,56 @@ export interface operations {
         content: {
           "application/json": components["schemas"]["MemberQrTokenErrorResponse"];
         };
+      };
+    };
+  };
+  platform_audit_logs_list: {
+    parameters: {
+      query?: {
+        /** @description Filter by exact action type */
+        action_type?: string;
+        /** @description Filter by actor UUID */
+        actor_id?: string;
+        /** @description Filter records starting from date (YYYY-MM-DD) or ISO timestamp */
+        date_from?: string;
+        /** @description Filter records ending at date (YYYY-MM-DD) or ISO timestamp */
+        date_to?: string;
+        /** @description Filter records by gym UUID */
+        gym_id?: string;
+        /** @description Page number */
+        page?: number;
+        /** @description Number of records per page (default 20, max 100) */
+        page_size?: number;
+        /** @description Search query across actor email, action type, or affected record */
+        search?: string;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["PaginatedAuditLogList"];
+        };
+      };
+      /** @description Authentication required */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Forbidden */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
       };
     };
   };

@@ -21,6 +21,40 @@ paths:
               schema:
                 $ref: '#/components/schemas/AttendancePublicKeyResponse'
           description: ''
+  /api/audit-logs/:
+    get:
+      operationId: audit_logs_list
+      description: Unified endpoint for viewing audit logs according to role and tenant
+        context.
+      summary: List audit logs
+      parameters:
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      - name: page_size
+        required: false
+        in: query
+        description: Number of results to return per page.
+        schema:
+          type: integer
+      tags:
+      - audit-logs
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedAuditLogList'
+          description: ''
+        '401':
+          description: Authentication required
+        '403':
+          description: Forbidden
   /api/auth/change-password/:
     post:
       operationId: auth_change_password_create
@@ -380,6 +414,63 @@ paths:
               schema:
                 $ref: '#/components/schemas/AttendanceScanErrorResponse'
           description: ''
+  /api/gym/audit-logs/:
+    get:
+      operationId: gym_audit_logs_list
+      description: Returns paginated, newest-first audit log events for the current
+        gym tenant.
+      summary: List gym audit logs
+      parameters:
+      - in: query
+        name: action_type
+        schema:
+          type: string
+        description: Filter by exact action type (e.g. user_login, staff_provisioned)
+      - in: query
+        name: actor_id
+        schema:
+          type: string
+        description: Filter by actor UUID
+      - in: query
+        name: date_from
+        schema:
+          type: string
+        description: Filter records starting from date (YYYY-MM-DD) or ISO timestamp
+      - in: query
+        name: date_to
+        schema:
+          type: string
+        description: Filter records ending at date (YYYY-MM-DD) or ISO timestamp
+      - in: query
+        name: page
+        schema:
+          type: integer
+        description: Page number
+      - in: query
+        name: page_size
+        schema:
+          type: integer
+        description: Number of records per page (default 20, max 100)
+      - in: query
+        name: search
+        schema:
+          type: string
+        description: Search query across actor email, action type, or affected record
+      tags:
+      - gym
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedAuditLogList'
+          description: ''
+        '401':
+          description: Authentication required
+        '403':
+          description: Forbidden
   /api/gym/checklist/:
     get:
       operationId: gym_checklist_retrieve
@@ -1072,6 +1163,68 @@ paths:
               schema:
                 $ref: '#/components/schemas/MemberQrTokenErrorResponse'
           description: ''
+  /api/platform/audit-logs/:
+    get:
+      operationId: platform_audit_logs_list
+      description: Returns paginated, newest-first audit log events across the entire
+        platform.
+      summary: List platform audit logs
+      parameters:
+      - in: query
+        name: action_type
+        schema:
+          type: string
+        description: Filter by exact action type
+      - in: query
+        name: actor_id
+        schema:
+          type: string
+        description: Filter by actor UUID
+      - in: query
+        name: date_from
+        schema:
+          type: string
+        description: Filter records starting from date (YYYY-MM-DD) or ISO timestamp
+      - in: query
+        name: date_to
+        schema:
+          type: string
+        description: Filter records ending at date (YYYY-MM-DD) or ISO timestamp
+      - in: query
+        name: gym_id
+        schema:
+          type: string
+        description: Filter records by gym UUID
+      - in: query
+        name: page
+        schema:
+          type: integer
+        description: Page number
+      - in: query
+        name: page_size
+        schema:
+          type: integer
+        description: Number of records per page (default 20, max 100)
+      - in: query
+        name: search
+        schema:
+          type: string
+        description: Search query across actor email, action type, or affected record
+      tags:
+      - platform
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedAuditLogList'
+          description: ''
+        '401':
+          description: Authentication required
+        '403':
+          description: Forbidden
   /api/platform/demo-requests/:
     get:
       operationId: platform_demo_requests_list
@@ -1638,6 +1791,77 @@ components:
       - id
       - photo_url
       - status
+    AuditLog:
+      type: object
+      description: Read-only representation of an AuditLog entry.
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        gym_id:
+          type: string
+          format: uuid
+          readOnly: true
+          nullable: true
+        gym_name:
+          type: string
+          readOnly: true
+          nullable: true
+        actor:
+          allOf:
+          - $ref: '#/components/schemas/AuditLogActor'
+          readOnly: true
+        action_type:
+          type: string
+          readOnly: true
+        affected_record_type:
+          type: string
+          readOnly: true
+        affected_record_id:
+          type: string
+          readOnly: true
+        timestamp:
+          type: string
+          format: date-time
+          readOnly: true
+        metadata:
+          readOnly: true
+          nullable: true
+      required:
+      - action_type
+      - actor
+      - affected_record_id
+      - affected_record_type
+      - gym_id
+      - gym_name
+      - id
+      - metadata
+      - timestamp
+    AuditLogActor:
+      type: object
+      description: Summary of the actor associated with an audit log entry.
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        email:
+          type: string
+          format: email
+          readOnly: true
+        full_name:
+          type: string
+          readOnly: true
+        role:
+          allOf:
+          - $ref: '#/components/schemas/UserRoleEnum'
+          readOnly: true
+      required:
+      - email
+      - full_name
+      - id
+      - role
     BlankEnum:
       enum:
       - ''
@@ -2448,6 +2672,29 @@ components:
       - expires_at
       - member_id
       - token
+    PaginatedAuditLogList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/AuditLog'
     PasswordResetConfirmRequestRequest:
       type: object
       description: Payload for confirming a password reset.
