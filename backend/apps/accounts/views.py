@@ -6,6 +6,7 @@ from datetime import timedelta
 from django.conf import settings
 from django.contrib.auth.hashers import check_password, make_password
 from django.core.exceptions import ValidationError
+from django.db import transaction
 from django.utils import timezone
 from drf_spectacular.utils import OpenApiResponse, extend_schema
 from rest_framework import status
@@ -55,6 +56,7 @@ from apps.accounts.services import (
     deactivate_staff_member,
     invite_staff_member,
     reactivate_staff_member,
+    record_audit_log,
     request_password_reset,
     set_password_from_invite,
 )
@@ -165,10 +167,21 @@ class LoginView(APIView):
             return generic_auth_error_response()
 
         # 5. Success: reset lockout counters and record login
-        user.failed_login_count = 0
-        user.locked_until = None
-        user.last_login = now
-        user.save(update_fields=["failed_login_count", "locked_until", "last_login"])
+        with transaction.atomic():
+            user.failed_login_count = 0
+            user.locked_until = None
+            user.last_login = now
+            user.save(
+                update_fields=["failed_login_count", "locked_until", "last_login"]
+            )
+            record_audit_log(
+                action_type="user_login",
+                affected_record_type="User",
+                affected_record_id=str(user.id),
+                actor=user,
+                gym=getattr(user, "gym", None),
+                metadata={"email": user.email, "role": user.role},
+            )
 
         tokens = get_tokens_for_user(user)
         dashboard = dashboard_config_for(user)
@@ -295,8 +308,21 @@ class LogoutView(APIView):
 
         refresh_raw = serializer.validated_data["refresh"]
         try:
-            token = RefreshToken(refresh_raw)
-            token.blacklist()
+            with transaction.atomic():
+                token = RefreshToken(refresh_raw)
+                user_id = token.payload.get("user_id")
+                actor_user = (
+                    User.all_objects.filter(id=user_id).first() if user_id else None
+                )
+                token.blacklist()
+                record_audit_log(
+                    action_type="logout",
+                    affected_record_type="User",
+                    affected_record_id=str(actor_user.id) if actor_user else "unknown",
+                    actor=actor_user,
+                    gym=getattr(actor_user, "gym", None) if actor_user else None,
+                    metadata={"reason": "user_logout"},
+                )
         except TokenError:
             return Response(
                 {"detail": "Invalid or expired token."},

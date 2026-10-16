@@ -173,6 +173,21 @@ def register_member_self_service(
             f"{scheme}://{gym.subdomain}.{domain}/verify-email?token={raw_token}"
         )
 
+        from apps.accounts.services import record_audit_log
+
+        record_audit_log(
+            action_type="member_registered",
+            affected_record_type="Member",
+            affected_record_id=str(member.id),
+            actor=user,
+            gym=gym,
+            metadata={
+                "email": user.email,
+                "registration_type": "self_service",
+                "full_name": member.full_name,
+            },
+        )
+
         transaction.on_commit(
             lambda: send_member_verification_email(user, gym, verify_link)
         )
@@ -266,6 +281,21 @@ def register_member_staff_assisted(
         domain = settings.DOMAIN
         invite_link = (
             f"{scheme}://{gym.subdomain}.{domain}/set-password?token={raw_token}"
+        )
+
+        from apps.accounts.services import record_audit_log
+
+        record_audit_log(
+            action_type="member_registered",
+            affected_record_type="Member",
+            affected_record_id=str(member.id),
+            actor=acting_user,
+            gym=gym,
+            metadata={
+                "email": user.email,
+                "registration_type": "staff_assisted",
+                "full_name": member.full_name,
+            },
         )
 
         transaction.on_commit(lambda: send_member_invite_email(user, gym, invite_link))

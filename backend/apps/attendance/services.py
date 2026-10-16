@@ -356,6 +356,19 @@ def verify_and_process_scan(
             )
 
             next_token, _ = issue_member_qr_token(member)
+
+            record_audit_log(
+                action_type="attendance_qr_scan",
+                affected_record_type="Attendance",
+                affected_record_id=str(attendance.id),
+                actor=recorded_by,
+                gym=gym,
+                metadata={
+                    "member_id": str(member.id),
+                    "member_name": member.full_name,
+                    "date": str(today),
+                },
+            )
     except IntegrityError as e:
         notify_staff_duplicate_scan(gym, member, today)
         raise ScanValidationError(

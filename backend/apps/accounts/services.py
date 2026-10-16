@@ -51,9 +51,20 @@ def change_password(
     except ValidationError as exc:
         raise ValidationError({"new_password": list(exc.messages)})
 
-    user.set_password(new_password)
-    user.must_change_password = False
-    user.save(update_fields=["password", "password_changed_at", "must_change_password"])
+    with transaction.atomic():
+        user.set_password(new_password)
+        user.must_change_password = False
+        user.save(
+            update_fields=["password", "password_changed_at", "must_change_password"]
+        )
+        record_audit_log(
+            action_type="password_changed",
+            affected_record_type="User",
+            affected_record_id=str(user.id),
+            actor=user,
+            gym=getattr(user, "gym", None),
+            metadata={"email": user.email},
+        )
 
     tokens = get_tokens_for_user(user)
     return {
@@ -101,11 +112,20 @@ def create_additional_super_admin(
         raise ValidationError({"email": ["A user with this email already exists."]})
 
     try:
-        new_super_admin = User.objects.create_superuser(
-            email=normalized_email,
-            password=password,
-            must_change_password=True,
-        )
+        with transaction.atomic():
+            new_super_admin = User.objects.create_superuser(
+                email=normalized_email,
+                password=password,
+                must_change_password=True,
+            )
+            record_audit_log(
+                action_type="super_admin_created",
+                affected_record_type="User",
+                affected_record_id=str(new_super_admin.id),
+                actor=actor,
+                gym=None,
+                metadata={"created_email": normalized_email},
+            )
     except IntegrityError:
         raise ValidationError({"email": ["A user with this email already exists."]})
 
@@ -468,6 +488,19 @@ def invite_staff_member(
             f"{scheme}://{gym.subdomain}.{domain}/set-password?token={raw_token}"
         )
 
+        record_audit_log(
+            action_type="staff_provisioned",
+            affected_record_type="User",
+            affected_record_id=str(user.id),
+            actor=acting_user,
+            gym=gym,
+            metadata={
+                "email": normalized_email,
+                "role": target_role,
+                "full_name": full_name,
+            },
+        )
+
         def _send():
             try:
                 send_staff_invite_email(user, gym, invite_link)
@@ -513,9 +546,21 @@ def deactivate_staff_member(acting_user: User, target_user: User) -> User:
     else:
         raise PermissionDenied("Only Gym Owner or Manager can deactivate staff.")
 
-    target_user.is_active = False
-    target_user.password_changed_at = timezone.now()
-    target_user.save(update_fields=["is_active", "password_changed_at"])
+    with transaction.atomic():
+        target_user.is_active = False
+        target_user.password_changed_at = timezone.now()
+        target_user.save(update_fields=["is_active", "password_changed_at"])
+        record_audit_log(
+            action_type="staff_deactivated",
+            affected_record_type="User",
+            affected_record_id=str(target_user.id),
+            actor=acting_user,
+            gym=acting_user.gym,
+            metadata={
+                "email": target_user.email,
+                "role": target_user.role,
+            },
+        )
     return target_user
 
 
@@ -546,8 +591,20 @@ def reactivate_staff_member(acting_user: User, target_user: User) -> User:
     else:
         raise PermissionDenied("Only Gym Owner or Manager can reactivate staff.")
 
-    target_user.is_active = True
-    target_user.save(update_fields=["is_active"])
+    with transaction.atomic():
+        target_user.is_active = True
+        target_user.save(update_fields=["is_active"])
+        record_audit_log(
+            action_type="staff_reactivated",
+            affected_record_type="User",
+            affected_record_id=str(target_user.id),
+            actor=acting_user,
+            gym=acting_user.gym,
+            metadata={
+                "email": target_user.email,
+                "role": target_user.role,
+            },
+        )
     return target_user
 
 
@@ -562,17 +619,40 @@ def record_audit_log(
     """
     Record an append-only audit trail event.
     Scopes to gym if provided (or derived from actor/record); platform-level if gym is None.
+    Strips any sensitive keys (passwords, tokens, secrets) before saving.
     """
     from apps.accounts.models import AuditLog
 
-    if gym is None and actor is not None and getattr(actor, "gym", None) is not None:
+    if (
+        actor is not None
+        and getattr(actor, "role", None) == User.ROLE_SUPER_ADMIN
+        and gym is None
+    ):
+        gym = None
+    elif gym is None and actor is not None and getattr(actor, "gym", None) is not None:
         gym = actor.gym
 
-    return AuditLog.objects.create(
+    safe_metadata = {}
+    if metadata:
+        FORBIDDEN_KEY_FRAGMENTS = (
+            "password",
+            "token",
+            "secret",
+            "key",
+            "authorization",
+            "credential",
+        )
+        for k, v in metadata.items():
+            k_lower = str(k).lower()
+            if any(frag in k_lower for frag in FORBIDDEN_KEY_FRAGMENTS):
+                continue
+            safe_metadata[k] = v
+
+    return AuditLog.all_objects.create(
         actor=actor,
         gym=gym,
         action_type=action_type,
         affected_record_type=affected_record_type,
         affected_record_id=str(affected_record_id),
-        metadata=metadata or {},
+        metadata=safe_metadata,
     )

@@ -52,11 +52,24 @@ class Command(BaseCommand):
         normalized_email = email.strip().lower()
 
         # 3. Create Super Admin with must_change_password = True
-        User.objects.create_superuser(
-            email=normalized_email,
-            password=password,
-            must_change_password=True,
-        )
+        from django.db import transaction
+
+        from apps.accounts.services import record_audit_log
+
+        with transaction.atomic():
+            user = User.objects.create_superuser(
+                email=normalized_email,
+                password=password,
+                must_change_password=True,
+            )
+            record_audit_log(
+                action_type="super_admin_created",
+                affected_record_type="User",
+                affected_record_id=str(user.id),
+                actor=user,
+                gym=None,
+                metadata={"source": "bootstrap_command", "email": normalized_email},
+            )
 
         self.stdout.write(
             self.style.SUCCESS(

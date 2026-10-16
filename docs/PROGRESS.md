@@ -34,7 +34,7 @@
 
 ## Deviations
 
-- (a) Stand-in `AuditLog` model in `apps.accounts` (migration 0005) introduced in Sprint 8 to record manual overrides — to be extended/confirmed in Sprint 9 / Sprint 10, never recreated.
+- (a) Stand-in `AuditLog` model in `apps.accounts` extended in Sprint 9 (migration 0006) with PostgreSQL immutability triggers (preventing UPDATE, DELETE, TRUNCATE), PROTECT on actor, compound indexing, secret redaction, and wired across Sprints 1–8 write operations.
 - (b) Stand-in `MemberSubscription` model in `apps.memberships` (migration 0002) introduced in Sprint 8 to track active/expired/frozen/suspended subscription states during check-in — to be extended/confirmed in Sprint 9 / Sprint 10, never recreated.
 - (c) 30-day fallback period in `Member.get_subscription_period()` when no subscription exists — to be extended/confirmed in Sprint 10.
 - (d) Owner and Manager may also use manual check-in override (SPEC §2 names Reception); accepted by owner.

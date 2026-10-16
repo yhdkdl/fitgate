@@ -190,6 +190,8 @@ Trainer specialization and photo are delivered in the Trainer and storage sprint
    - Every action from sprints 1–8 produces exactly one `AuditLog` row with the correct `actor_id`, `action_type` and affected record, including logout, Super Admin creation, and gym creation (platform-level rows have `gym_id` null).
    - An `UPDATE`, `DELETE`, or `TRUNCATE` against the audit table fails at the database level via PostgreSQL triggers — tested directly with raw SQL through the application connection.
 
+- [x] Status: done — merged to develop (tag sprint-9-done)
+
 9a. **Audit log viewer**
 
 - Owner and Manager see their own gym's entries; Super Admin sees all; every other role gets 403.

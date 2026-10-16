@@ -250,30 +250,45 @@ class AuditLog(PlatformTenantAwareModel):
     SPEC §8:
     - id (UUID PK)
     - gym_id (nullable — platform-level)
-    - actor (FK -> User, nullable, SET_NULL)
-    - action_type (CharField)
+    - actor (FK -> User, nullable, PROTECT)
+    - action_type (CharField, indexed)
     - affected_record_type (CharField)
     - affected_record_id (CharField)
-    - timestamp (DateTimeField, auto_now_add=True)
+    - timestamp (DateTimeField, auto_now_add=True, indexed)
     - metadata (JSONField, nullable)
     """
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     actor = models.ForeignKey(
         settings.AUTH_USER_MODEL,
-        on_delete=models.SET_NULL,
+        on_delete=models.PROTECT,
         null=True,
         blank=True,
         related_name="audit_logs",
     )
-    action_type = models.CharField(max_length=100)
+    action_type = models.CharField(max_length=100, db_index=True)
     affected_record_type = models.CharField(max_length=100)
     affected_record_id = models.CharField(max_length=100)
-    timestamp = models.DateTimeField(auto_now_add=True)
+    timestamp = models.DateTimeField(auto_now_add=True, db_index=True)
     metadata = models.JSONField(null=True, blank=True)
 
     class Meta:
         ordering = ["-timestamp"]
+        indexes = [
+            models.Index(fields=["gym", "-timestamp"]),
+            models.Index(fields=["-timestamp"]),
+        ]
+
+    def save(self, *args, **kwargs):
+        """AuditLog is strictly append-only: updates to existing rows are forbidden."""
+        if self.pk and not getattr(self, "_state", None).adding:
+            if AuditLog.all_objects.filter(pk=self.pk).exists():
+                raise ValidationError("AuditLog is append-only and cannot be updated.")
+        super().save(*args, **kwargs)
+
+    def delete(self, *args, **kwargs):
+        """AuditLog is strictly append-only: row deletions are forbidden."""
+        raise ValidationError("AuditLog is append-only and cannot be deleted.")
 
     def __str__(self):
         actor_email = self.actor.email if self.actor else "System"

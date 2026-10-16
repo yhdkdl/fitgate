@@ -243,6 +243,23 @@ def create_gym(
             demo_req.handled_by = acting_super_admin
             demo_req.save()
 
+    from apps.accounts.services import record_audit_log
+
+    record_audit_log(
+        action_type="gym_created",
+        affected_record_type="GymTenant",
+        affected_record_id=str(gym.id),
+        actor=acting_super_admin,
+        gym=None,
+        metadata={
+            "name": gym.name,
+            "subdomain": gym.subdomain,
+            "tier": gym.tier,
+            "owner_email": owner.email,
+            "payment_amount": str(amount_decimal),
+        },
+    )
+
     return {
         "gym": gym,
         "config": gym_config,
