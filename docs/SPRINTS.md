@@ -183,6 +183,8 @@ Trainer specialization and photo are delivered in the Trainer and storage sprint
    - `Attendance` rows exist only for actual check-ins. An attendance-log endpoint returns ✓/✗ per day for a date range, derived from check-ins and the subscription period (days outside the period are blank).
    - Performance: scan validation plus attendance recording completes in under 2 seconds against a seeded dataset of 10,000 members.
 
+- [x] Status: done — merged to develop (tag sprint-8-done)
+
 9. **Audit log foundation** — `AuditLog` model + logging utility wired into 1–8; database triggers for immutability (BEFORE UPDATE, DELETE, TRUNCATE raise exception).
    - _Note (Sprint 8 Gate decision):_ extend the existing AuditLog model with a NEW migration (never edit 0005) that adds the triggers; do NOT create a second model or recreate the table.
    - Every action from sprints 1–8 produces exactly one `AuditLog` row with the correct `actor_id`, `action_type` and affected record, including logout, Super Admin creation, and gym creation (platform-level rows have `gym_id` null).
