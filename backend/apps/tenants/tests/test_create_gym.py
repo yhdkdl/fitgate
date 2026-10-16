@@ -199,7 +199,10 @@ class TestCreateGymSuite:
         assert len(mail.outbox) == 1
         email = mail.outbox[0]
         assert email.to == ["owner@emailgym.com"]
-        expected_subdomain_url = f"{settings.PUBLIC_URL_SCHEME}://email-gym.{settings.DOMAIN}/set-password?token={result['raw_invite_token']}"
+        port_suffix = (
+            f":{settings.PUBLIC_PORT}" if getattr(settings, "PUBLIC_PORT", "") else ""
+        )
+        expected_subdomain_url = f"{settings.PUBLIC_URL_SCHEME}://email-gym.{settings.DOMAIN}{port_suffix}/set-password?token={result['raw_invite_token']}"
         assert expected_subdomain_url in email.body
 
         # Clear outbox before failure case

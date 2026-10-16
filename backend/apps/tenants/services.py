@@ -218,7 +218,10 @@ def create_gym(
     # Send welcome email containing set-password link (never a password) via transaction.on_commit
     scheme = settings.PUBLIC_URL_SCHEME
     domain = settings.DOMAIN
-    invite_link = f"{scheme}://{normalized_subdomain}.{domain}/set-password?token={raw_invite_token}"
+    port_suffix = (
+        f":{settings.PUBLIC_PORT}" if getattr(settings, "PUBLIC_PORT", "") else ""
+    )
+    invite_link = f"{scheme}://{normalized_subdomain}.{domain}{port_suffix}/set-password?token={raw_invite_token}"
 
     def _send_welcome():
         try:

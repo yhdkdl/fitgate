@@ -214,12 +214,15 @@ def request_password_reset(
 
     # Construct reset link
     scheme = settings.PUBLIC_URL_SCHEME
+    port_suffix = (
+        f":{settings.PUBLIC_PORT}" if getattr(settings, "PUBLIC_PORT", "") else ""
+    )
     if user.gym:
         host = f"{user.gym.subdomain}.{settings.DOMAIN}"
     else:
         host = settings.DOMAIN
 
-    link = f"{scheme}://{host}/reset-password?token={raw_token}"
+    link = f"{scheme}://{host}{port_suffix}/reset-password?token={raw_token}"
 
     try:
         send_password_reset_email(user, link)
@@ -512,9 +515,10 @@ def invite_staff_member(
 
         scheme = settings.PUBLIC_URL_SCHEME
         domain = settings.DOMAIN
-        invite_link = (
-            f"{scheme}://{gym.subdomain}.{domain}/set-password?token={raw_token}"
+        port_suffix = (
+            f":{settings.PUBLIC_PORT}" if getattr(settings, "PUBLIC_PORT", "") else ""
         )
+        invite_link = f"{scheme}://{gym.subdomain}.{domain}{port_suffix}/set-password?token={raw_token}"
 
         record_audit_log(
             action_type="staff_provisioned",

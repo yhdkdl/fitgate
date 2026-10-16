@@ -259,9 +259,10 @@ class TestPasswordResetSuite:
         assert len(mail.outbox) == 1
         body = mail.outbox[0].body
         expected_scheme = settings.PUBLIC_URL_SCHEME
-        expected_prefix = (
-            f"{expected_scheme}://gyma.{settings.DOMAIN}/reset-password?token="
+        port_suffix = (
+            f":{settings.PUBLIC_PORT}" if getattr(settings, "PUBLIC_PORT", "") else ""
         )
+        expected_prefix = f"{expected_scheme}://gyma.{settings.DOMAIN}{port_suffix}/reset-password?token="
         assert expected_prefix in body
         assert "evil-attacker.com" not in body
 

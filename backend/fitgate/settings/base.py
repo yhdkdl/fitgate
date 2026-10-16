@@ -33,6 +33,7 @@ LOGIN_LOCKOUT_MINUTES = 15
 PASSWORD_RESET_TOKEN_MINUTES = 60
 PASSWORD_RESET_COOLDOWN_SECONDS = 120
 PUBLIC_URL_SCHEME = "https"
+PUBLIC_PORT = env.str("PUBLIC_PORT", default="")
 
 # Multi-tenancy platform hosts (empty by default in production)
 TENANT_EXTRA_PLATFORM_HOSTS: list[str] = []

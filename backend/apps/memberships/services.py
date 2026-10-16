@@ -169,9 +169,10 @@ def register_member_self_service(
 
         scheme = settings.PUBLIC_URL_SCHEME
         domain = settings.DOMAIN
-        verify_link = (
-            f"{scheme}://{gym.subdomain}.{domain}/verify-email?token={raw_token}"
+        port_suffix = (
+            f":{settings.PUBLIC_PORT}" if getattr(settings, "PUBLIC_PORT", "") else ""
         )
+        verify_link = f"{scheme}://{gym.subdomain}.{domain}{port_suffix}/verify-email?token={raw_token}"
 
         from apps.accounts.services import record_audit_log
 
@@ -279,9 +280,10 @@ def register_member_staff_assisted(
 
         scheme = settings.PUBLIC_URL_SCHEME
         domain = settings.DOMAIN
-        invite_link = (
-            f"{scheme}://{gym.subdomain}.{domain}/set-password?token={raw_token}"
+        port_suffix = (
+            f":{settings.PUBLIC_PORT}" if getattr(settings, "PUBLIC_PORT", "") else ""
         )
+        invite_link = f"{scheme}://{gym.subdomain}.{domain}{port_suffix}/set-password?token={raw_token}"
 
         from apps.accounts.services import record_audit_log
 
