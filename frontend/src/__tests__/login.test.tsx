@@ -124,4 +124,35 @@ describe("LoginScreen", () => {
       ).toBeInTheDocument();
     });
   });
+
+  it("shows server error message when API returns 5xx or network error", async () => {
+    vi.spyOn(global, "fetch").mockImplementationOnce(async () => {
+      return new Response("Internal Server Error", {
+        status: 500,
+        headers: { "Content-Type": "text/plain" },
+      });
+    });
+
+    render(
+      <MemoryRouter initialEntries={["/login"]}>
+        <AuthProvider>
+          <LoginScreen />
+        </AuthProvider>
+      </MemoryRouter>
+    );
+
+    fireEvent.change(screen.getByLabelText(/email address/i), {
+      target: { value: "user@fitgate.org" },
+    });
+    fireEvent.change(screen.getByLabelText(/password/i), {
+      target: { value: "AnyPassword123!" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /sign in/i }));
+
+    await waitFor(() => {
+      expect(
+        screen.getByText("Server error, please try again")
+      ).toBeInTheDocument();
+    });
+  });
 });

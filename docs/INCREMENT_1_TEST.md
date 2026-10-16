@@ -13,20 +13,14 @@ This document is a comprehensive, numbered click-through guide for project owner
    docker compose ps
    ```
 
-   All 4 containers (`fitgate_backend`, `fitgate_postgres`, `fitgate_redis`, `fitgate_pgadmin`) should be running and healthy.
-
-2. **Start Frontend Dev Server**:
-
-   ```bash
-   cd frontend
-   npm run dev
-   ```
-
-   The frontend runs on port `5173`.
+   All 5 containers (`fitgate_backend`, `fitgate_frontend`, `fitgate_postgres`, `fitgate_redis`, `fitgate_pgadmin`) should be running and healthy.
+   The frontend runs inside Docker Compose on port `5173`:
    - Apex platform domain: `http://localhost:5173`
    - Tenant gym subdomain: `http://<subdomain>.localhost:5173`
 
-3. **Bootstrap Super Admin Account** (if not already done):
+   > **Troubleshooting**: If login shows a server error, run `docker compose logs frontend --tail 20` and look for "http proxy error".
+
+2. **Bootstrap Super Admin Account** (if not already done):
 
    ```bash
    docker compose exec backend python manage.py create_super_admin
@@ -36,7 +30,7 @@ This document is a comprehensive, numbered click-through guide for project owner
    - Email: `superadmin@fitgate.com`
    - Temporary Password: `AdminPassword123!` (or value from `.env`)
 
-4. **Where to Find Email Links (Local Development)**:
+3. **Where to Find Email Links (Local Development)**:
    In local development, the console email backend is configured (`EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"`).
    All invitation, password setup, and email verification links are sent via transactional email only (on_commit) and are **never** returned in API responses or on-screen modals.
    To view or copy sent email links, run:
