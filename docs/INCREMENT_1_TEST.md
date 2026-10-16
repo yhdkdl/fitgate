@@ -27,12 +27,42 @@ This document is a comprehensive, numbered click-through guide for project owner
    - Tenant gym subdomain: `http://<subdomain>.localhost:5173`
 
 3. **Bootstrap Super Admin Account** (if not already done):
+
    ```bash
    docker compose exec backend python manage.py create_super_admin
    ```
+
    Default test credentials:
    - Email: `superadmin@fitgate.com`
    - Temporary Password: `AdminPassword123!` (or value from `.env`)
+
+4. **Where to Find Email Links (Local Development)**:
+   In local development, the console email backend is configured (`EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"`).
+   All invitation, password setup, and email verification links are sent via transactional email only (on_commit) and are **never** returned in API responses or on-screen modals.
+   To view or copy sent email links, run:
+   ```bash
+   docker compose logs backend | grep -A 5 "set-password"
+   ```
+   or view backend output in `docker compose logs backend`.
+
+---
+
+## Pending Manual Steps & External Service Status
+
+As documented in `docs/MANUAL_STEPS.md`, external production credentials were systematically skipped during Increment 1 preflight by owner decision; verified fallbacks are active:
+
+1. **Sprint 4 — cPanel UAPI Token & Subdomain Provisioning**:
+   - _Status_: Pending real token.
+   - _Fallback in use_: `MockCPanelUAPIClient` active for local development and test harness.
+2. **Sprints 4, 6, 7 — Production SMTP Mailbox**:
+   - _Status_: Pending real SMTP mailbox (Brevo / Resend / cPanel).
+   - _Fallback in use_: Django console email backend (`EMAIL_BACKEND=django.core.mail.backends.console.EmailBackend`). All invite and verification links output directly to `docker compose logs backend`.
+3. **Sprint 4b, 7 — Cloudinary File Storage**:
+   - _Status_: Pending real Cloudinary credentials.
+   - _Fallback in use_: Local protected filesystem storage behind Django's unified storage interface. Member photos served via backend permission checks.
+4. **Sprint 8 — QR Check-in Asymmetric Signing Key Pair**:
+   - _Status_: Key generation management command verified (`generate_qr_dev_keys`).
+   - _Fallback in use_: Local management command prints generated RSA PEM keys as single-line escaped strings to stdout for manual copying into `.env` or cPanel; in-memory key pair in test fixtures. Production fails fast if unset.
 
 ---
 
@@ -88,12 +118,16 @@ This document is a comprehensive, numbered click-through guide for project owner
    - Tier: Select `Starter`
    - Payment Method: Select `Bank Transfer` (verified offline)
    - Payment Reference: `CBE-TX-987654321`
-   - Payment Amount: `35000` ETB
+   - Payment Amount: `12000` ETB (matches placeholder price of 12,000 ETB/yr for Starter tier; Growth is 30,000 ETB, Pro is 60,000 ETB)
 2. Click **Create Gym Tenant**.
 3. **Expected Result**:
-   - Backend atomically creates `GymTenant`, `GymConfig`, confirmed `Payment`, `User` (Owner), and provisions the subdomain.
-   - An on-screen modal displays the Owner's single-use, time-expiring Set-Password invitation link (e.g. `http://boleelite.localhost:5173/set-password?token=...`).
-4. Copy the invitation link.
+   - Backend atomically creates `GymTenant`, `GymConfig`, confirmed `Payment`, and `User` (Owner) with unusable password.
+   - Per SPEC security rules, invite links are sent via transactional email only (on_commit) and are **never** returned in API responses or shown in modals.
+4. Retrieve the Owner invitation link from backend logs:
+   ```bash
+   docker compose logs backend | grep -A 5 "set-password"
+   ```
+   Copy the link (e.g. `http://boleelite.localhost:5173/set-password?token=...`).
 
 ---
 
@@ -134,7 +168,7 @@ This document is a comprehensive, numbered click-through guide for project owner
    - Full Name: `Selamawit Bekele`
    - Phone: `+251922334455`
 3. Click **Send Invitation**.
-4. **Expected Result**: Manager appears in the staff table with status `Invited`. The invitation link is provided on screen.
+4. **Expected Result**: Manager appears in the staff table with status `Invited`. Per security requirements, the invitation link is sent via email only (find it in `docker compose logs backend`).
 5. Repeat to invite a Receptionist:
    - Role: Select `Reception`
    - Email: `reception@boleelite.com`
@@ -147,7 +181,7 @@ This document is a comprehensive, numbered click-through guide for project owner
    - **Expected Result**: Status updates immediately to `Deactivated` (badge turns red/gray). The user is blocked from logging in.
    - Click **Reactivate**.
    - **Expected Result**: Status returns to active without needing a new account.
-8. Activate the Manager account in an incognito window using their invite link, setting their password to `ManagerPassword2026!`.
+8. Activate the Manager account in an incognito window using their invite link from `docker compose logs backend`, setting their password to `ManagerPassword2026!`.
 9. Log in as `manager@boleelite.com` at `http://boleelite.localhost:5173/login`:
    - Open Staff Management modal as Manager.
    - **Expected Result**: Manager can only invite `Trainer` and `Reception`. The `Manager` role is omitted from the dropdown. Attempts to forge a request return HTTP 403 Forbidden.
@@ -162,6 +196,9 @@ This document is a comprehensive, numbered click-through guide for project owner
      - Full Name: `Dawit Kebede`
      - Email: `dawit@example.com`
      - Phone: `+251944556677`
+     - Date of Birth: `1995-05-15`
+     - Gender: `Male`
+     - Emergency Contact: `Almaz - +251922001122`
      - Height: `180` cm
      - Weight: `80` kg
      - Waist Circumference: `84` cm
@@ -170,62 +207,136 @@ This document is a comprehensive, numbered click-through guide for project owner
    - Click **Register Member**.
    - **Expected Result**:
      - Member is created in verified state.
-     - An invitation set-password link is generated for Dawit.
+     - An invitation set-password link is emailed to Dawit (retrieve via `docker compose logs backend`).
 2. **View Member Details & Derived Body Composition**:
    - In the Member table, click **View Profile** on Dawit Kebede.
    - **Expected Result**:
-     - BMI is displayed as labeled estimate: `24.7` (Normal weight).
-     - Body Fat Percentage is displayed as labeled estimate via US Navy circumference formula: ~`16.8%`.
+     - BMI is displayed as labeled estimate: `24.7` (Normal weight, computed as `80 / (1.80^2)`).
+     - Body Fat Percentage is displayed as labeled estimate via US Navy circumference formula: `15.3%` (computed as `495 / (1.0324 - 0.19077*log10(84-38) + 0.15456*log10(180)) - 450 = 15.3%`).
 3. **Public Self-Service Registration**:
    - In an incognito window, navigate to `http://boleelite.localhost:5173/register`.
    - Enter details:
      - Full Name: `Almaz Ayana`
      - Email: `almaz@example.com`
      - Phone: `+251955667788`
+     - Date of Birth: `1992-08-20`
+     - Gender: `Female`
+     - Emergency Contact: `Kebede - +251911002233`
      - Password: `MemberPassword2026!`
      - Check: _"I accept the health waiver and liability disclaimer"_
    - Click **Register Now**.
-   - **Expected Result**: Confirmation informs the member to verify their email before logging in. Rate limiting prevents automated bot abuse.
+   - **Expected Result**: Confirmation informs the member to verify their email before logging in. Verification link is dispatched via email (inspect `docker compose logs backend`). Rate limiting prevents automated bot abuse.
 
 ---
 
 ## Test Scenario 7: QR Check-in, Scanner Validation & Manual Override
 
+> **Note on Membership Subscriptions**: QR check-in tokens and scan validation fail closed: members without an active `MemberSubscription` cannot issue a QR pass (`/api/members/me/qr-token/` returns HTTP 400 with `reason: "expired"`). Membership plans and subscription billing are formally wired in Sprint 10. For Increment 1 end-to-end testing, provision an active subscription for test members via Django shell:
+
+```bash
+docker compose exec backend python manage.py shell -c "from apps.memberships.models import Member, MemberSubscription; from django.utils import timezone; from datetime import timedelta; member = Member.all_objects.get(user__email='dawit@example.com'); MemberSubscription.objects.create(gym=member.gym, member=member, status='active', start_date=timezone.localdate(), end_date=timezone.localdate()+timedelta(days=30))"
+```
+
 1. **Member QR Pass Issuance**:
-   - Log in as a member (e.g., `dawit@example.com` after completing password setup).
+   - Activate Dawit's account using the email link from backend logs, setting password to `MemberPassword2026!`.
+   - Log in as Dawit at `http://boleelite.localhost:5173/login`.
    - The member dashboard displays the **Check-in QR Pass**.
    - **Expected Result**:
      - High-contrast QR code is rendered with member name and status badge `ACTIVE`.
      - 90-second countdown timer dynamically updates.
      - A Refresh button allows rotating the token.
+
 2. **Reception / Scanner Terminal Check-in**:
    - Log in as Reception (`reception@boleelite.com`) or Owner at `http://boleelite.localhost:5173/dashboard`.
    - Scroll to the **Attendance Scanner Terminal** section.
    - Enter or scan the valid QR token string.
    - Click **Process Scan**.
    - **Expected Result**:
-     - Scan validates in under 2 seconds.
-     - Success banner displays Dawit Kebede's details and photo placeholder.
+     - HTTP 200 OK:
+       ```json
+       {
+         "status": "success",
+         "message": "Welcome, Dawit Kebede!",
+         "member": { "id": "...", "full_name": "Dawit Kebede", "status": "active", ... },
+         "attendance": { "id": "...", "date": "...", "is_override": false },
+         "next_token": "..."
+       }
+       ```
      - Exactly one `Attendance` record is created.
-3. **Duplicate Scan Prevention**:
-   - Immediately rescan the same member's token.
+     - Exactly one `AuditLog` row is created with `action_type = "attendance_qr_scan"`.
+
+3. **Re-scan of Same Token (Token Replay Prevention)**:
+   - Immediately attempt to re-submit the identical QR token.
    - **Expected Result**:
-     - Scanner displays high-priority warning: _"Duplicate check-in detected for this member today"_.
-     - No second `Attendance` row is inserted.
-4. **Manual Check-in Override**:
+     - HTTP 400 Bad Request:
+       ```json
+       {
+         "detail": "This QR token has already been used.",
+         "reason": "token_consumed"
+       }
+       ```
+     - Token is blocked from replay; no attendance row is created.
+
+4. **Scan with Refreshed Token (Duplicate Same-Day Check-in Prevention)**:
+   - As Dawit, refresh the QR pass to obtain a new valid token.
+   - Scan the refreshed token at the terminal.
+   - **Expected Result**:
+     - HTTP 400 Bad Request:
+       ```json
+       {
+         "detail": "Member Dawit Kebede has already checked in today.",
+         "reason": "already_checked_in",
+         "member": { "id": "...", "full_name": "Dawit Kebede" }
+       }
+       ```
+     - Duplicate scan is denied on calendar day; no second attendance row is created.
+
+5. **Manual Check-in Override on Same Member (Refused on Duplicate)**:
    - In the scanner section, click **Manual Override**.
-   - Select or search for member `Dawit Kebede`.
-   - Enter mandatory reason: _"Member phone battery died, verified government ID."_
+   - Select member `Dawit Kebede`.
+   - Enter mandatory reason: _"Forgot phone at home."_
    - Click **Confirm Manual Check-in**.
    - **Expected Result**:
-     - Manual check-in records successfully.
-     - An audit log event `attendance_manual_override` is recorded with the supervisor's actor ID and reason.
+     - HTTP 400 Bad Request:
+       ```json
+       {
+         "detail": "Member Dawit Kebede has already checked in today.",
+         "reason": "already_checked_in"
+       }
+       ```
+
+6. **Manual Check-in Override on Different Member with Active Subscription**:
+   - Provision a subscription for `Almaz Ayana`:
+     ```bash
+     docker compose exec backend python manage.py shell -c "from apps.memberships.models import Member, MemberSubscription; from django.utils import timezone; from datetime import timedelta; member = Member.all_objects.get(user__email='almaz@example.com'); MemberSubscription.objects.create(gym=member.gym, member=member, status='active', start_date=timezone.localdate(), end_date=timezone.localdate()+timedelta(days=30))"
+     ```
+   - In the scanner section, click **Manual Override**.
+   - Select member `Almaz Ayana`.
+   - Enter mandatory reason: _"Phone screen broken, verified ID."_
+   - Click **Confirm Manual Check-in**.
+   - **Expected Result**:
+     - HTTP 201 Created:
+       ```json
+       {
+         "status": "success",
+         "message": "Manual check-in recorded for Almaz Ayana.",
+         "member": { "id": "...", "full_name": "Almaz Ayana" },
+         "attendance": {
+           "id": "...",
+           "is_override": true,
+           "override_reason": "Phone screen broken, verified ID."
+         }
+       }
+       ```
+     - Exactly one `Attendance` record created (`is_override=True`).
+     - Exactly one `AuditLog` event recorded (`action_type="attendance_manual_override"`).
 
 ---
 
 ## Test Scenario 8: Audit Log Viewer & Immutability Verification
 
-1. On the Gym Owner or Manager dashboard, scroll down to **Audit Trail & Security Logs**:
+1. **Tenant Audit Log View (Owner / Manager)**:
+   - On the Gym Owner or Manager dashboard (`http://boleelite.localhost:5173/dashboard`), scroll to **Audit Trail & Security Logs**. (Reception role gets HTTP 403 Forbidden per SPEC §2 RBAC).
    - **Expected Result**:
      - Paginated list of events appears ordered newest first:
        - `attendance_manual_override`
@@ -236,11 +347,11 @@ This document is a comprehensive, numbered click-through guide for project owner
        - `staff_provisioned`
        - `user_login`
 2. **Testing Filter Controls**:
-   - Select Action Type: `QR Check-in Scan`.
+   - Select Action Type: `Manual Attendance Override` (`attendance_manual_override`).
    - Click **Filter**.
-   - **Expected Result**: Table updates to display only `attendance_qr_scan` events.
+   - **Expected Result**: Table updates to display only manual override events.
    - Clear filters to restore all events.
-   - In the Search box, enter `Dawit` or `Abebe`.
+   - In the Search box, enter `Dawit` or `Selamawit`.
    - **Expected Result**: Fast, matching event records are filtered.
 3. **Inspecting Event Metadata & Payload Sanitization**:
    - Click **Inspect** on any event.
@@ -251,16 +362,49 @@ This document is a comprehensive, numbered click-through guide for project owner
    - Click on the **Audit & Security Logs** tab.
    - **Expected Result**: Platform-wide view displays events across all gyms plus platform operations (`gym_created`, `super_admin_created`).
 5. **Database Immutability Trigger Protection**:
-   - Open terminal and attempt to update or delete an audit log row using PostgreSQL CLI:
+   - **Test ORM Update Protection**:
      ```bash
      docker compose exec backend python manage.py shell -c "from apps.accounts.models import AuditLog; log = AuditLog.all_objects.first(); log.action_type = 'tampered'; log.save()"
      ```
-   - **Expected Result**: Blocked with `ValidationError: AuditLog is append-only and cannot be updated.`
-   - Attempt a raw SQL update:
-     ```bash
-     docker compose exec backend python manage.py shell -c "from django.db import connection; cursor = connection.cursor(); cursor.execute('DELETE FROM accounts_auditlog;')"
+     **Real Output**:
      ```
-   - **Expected Result**: Blocked by PostgreSQL trigger: `ProgrammingError: AuditLog is append-only and cannot be modified or deleted. (PL/pgSQL function prevent_auditlog_modification)`.
+     django.core.exceptions.ValidationError: ['AuditLog is append-only and cannot be updated.']
+     ```
+   - **Test ORM Delete Protection**:
+     ```bash
+     docker compose exec backend python manage.py shell -c "from apps.accounts.models import AuditLog; log = AuditLog.all_objects.first(); log.delete()"
+     ```
+     **Real Output**:
+     ```
+     django.core.exceptions.ValidationError: ['AuditLog is append-only and cannot be deleted.']
+     ```
+   - **Test Raw SQL UPDATE Protection (PostgreSQL Trigger)**:
+     ```bash
+     docker compose exec backend python manage.py shell -c "from django.db import connection; cursor = connection.cursor(); cursor.execute(\"UPDATE accounts_auditlog SET action_type = 'tampered'\")"
+     ```
+     **Real Output**:
+     ```
+     django.db.utils.ProgrammingError: AuditLog is append-only and cannot be modified or deleted.
+     CONTEXT:  PL/pgSQL function prevent_auditlog_modification() line 12 at RAISE
+     ```
+   - **Test Raw SQL DELETE Protection (PostgreSQL Trigger)**:
+     ```bash
+     docker compose exec backend python manage.py shell -c "from django.db import connection; cursor = connection.cursor(); cursor.execute('DELETE FROM accounts_auditlog')"
+     ```
+     **Real Output**:
+     ```
+     django.db.utils.ProgrammingError: AuditLog is append-only and cannot be modified or deleted.
+     CONTEXT:  PL/pgSQL function prevent_auditlog_modification() line 12 at RAISE
+     ```
+   - **Test Raw SQL TRUNCATE Protection (PostgreSQL Trigger)**:
+     ```bash
+     docker compose exec backend python manage.py shell -c "from django.db import connection; cursor = connection.cursor(); cursor.execute('TRUNCATE accounts_auditlog')"
+     ```
+     **Real Output**:
+     ```
+     django.db.utils.ProgrammingError: AuditLog is append-only and cannot be modified or deleted.
+     CONTEXT:  PL/pgSQL function prevent_auditlog_modification() line 12 at RAISE
+     ```
 
 ---
 

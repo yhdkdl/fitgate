@@ -103,7 +103,6 @@ class Member(TenantAwareModel):
         Return (start_date, end_date) for attendance calendar calculation.
         Uses active subscription if present, otherwise defaults to [joined_at.date(), joined_at.date() + 30 days].
         """
-        from datetime import timedelta
 
         from apps.memberships.models import MemberSubscription
 
@@ -115,8 +114,7 @@ class Member(TenantAwareModel):
         )
         if sub:
             return sub.start_date, sub.end_date
-        start = self.joined_at.date()
-        return start, start + timedelta(days=30)
+        return None, None
 
 
 class BodyMetrics(TenantAwareModel):
