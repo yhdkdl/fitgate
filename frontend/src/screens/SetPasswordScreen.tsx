@@ -57,12 +57,20 @@ export const SetPasswordScreen: React.FC = () => {
       setIsSuccess(true);
     } catch (err: unknown) {
       const errorObj = err as {
-        response?: { data?: { detail?: string; new_password?: string[] } };
+        status?: number;
+        response?: { status?: number; data?: { detail?: string; new_password?: string[] } };
+        data?: { detail?: string; new_password?: string[] };
       };
-      const detail = errorObj.response?.data?.detail;
-      const pwdErrors = errorObj.response?.data?.new_password;
+      const status = errorObj.status ?? errorObj.response?.status;
+      const data = errorObj.data ?? errorObj.response?.data;
+      const detail = data?.detail;
+      const pwdErrors = data?.new_password;
 
-      if (detail === "token_expired") {
+      if (status === 503 || detail === "still_securing") {
+        setErrorMessage(
+          "This gym domain is currently being secured with an SSL certificate. Please ask your administrator to confirm TLS in the platform dashboard."
+        );
+      } else if (detail === "token_expired") {
         setErrorMessage(
           "This invitation link has expired. Please contact support for a new invitation."
         );

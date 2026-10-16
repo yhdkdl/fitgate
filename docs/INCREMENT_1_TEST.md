@@ -117,11 +117,16 @@ As documented in `docs/MANUAL_STEPS.md`, external production credentials were sy
 3. **Expected Result**:
    - Backend atomically creates `GymTenant`, `GymConfig`, confirmed `Payment`, and `User` (Owner) with unusable password.
    - Per SPEC security rules, invite links are sent via transactional email only (on_commit) and are **never** returned in API responses or shown in modals.
-4. Retrieve the Owner invitation link from backend logs:
+4. **Confirm Subdomain TLS Certificate (Super Admin Gate)**:
+   - In the **Gym Tenants** table on the Super Admin dashboard, locate `Bole Elite Fitness` (shows yellow `Securing...` badge).
+   - Click the **Confirm TLS** button to verify the security certificate and activate subdomain access.
+   - **Expected Result**: The badge turns green (`Secured`). Subdomain API traffic is unlocked.
+5. Retrieve the Owner invitation link from backend logs:
    ```bash
    docker compose logs backend | grep -A 5 "set-password"
    ```
    Copy the link (e.g. `http://boleelite.localhost:5173/set-password?token=...`).
+   _(Note: In local development, the URL automatically includes `:5173` to route directly to the Vite frontend server)._
 
 ---
 
