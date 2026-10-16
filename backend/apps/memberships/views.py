@@ -1,6 +1,7 @@
 """Views for member registration, email verification, member profile management, and body metrics."""
 
 from django.core.exceptions import PermissionDenied, ValidationError
+from django.db import transaction
 from django.db.models import Q
 from django.http import Http404
 from drf_spectacular.utils import OpenApiResponse, extend_schema
@@ -15,6 +16,7 @@ from apps.accounts.permissions import (
     IsMember,
     RequirePasswordChanged,
 )
+from apps.accounts.services import record_audit_log
 from apps.memberships.models import BodyMetrics, Member
 from apps.memberships.serializers import (
     BodyMetricsSerializer,
@@ -247,20 +249,28 @@ class GymMemberDetailView(APIView):
 
         member = self.get_object(pk, request.tenant)
         serializer = MemberUpdateSerializer(member, data=request.data, partial=True)
-        if not serializer.is_valid():
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        serializer.is_valid(raise_exception=True)
+        with transaction.atomic():
+            serializer.save()
+            # Also sync full_name and phone to user record if modified
+            user_updates = []
+            if "full_name" in serializer.validated_data:
+                member.user.full_name = serializer.validated_data["full_name"]
+                user_updates.append("full_name")
+            if "phone" in serializer.validated_data:
+                member.user.phone = serializer.validated_data["phone"]
+                user_updates.append("phone")
+            if user_updates:
+                member.user.save(update_fields=user_updates)
 
-        serializer.save()
-        # Also sync full_name and phone to user record if modified
-        user_updates = []
-        if "full_name" in serializer.validated_data:
-            member.user.full_name = serializer.validated_data["full_name"]
-            user_updates.append("full_name")
-        if "phone" in serializer.validated_data:
-            member.user.phone = serializer.validated_data["phone"]
-            user_updates.append("phone")
-        if user_updates:
-            member.user.save(update_fields=user_updates)
+            record_audit_log(
+                action_type="member_updated",
+                affected_record_type="Member",
+                affected_record_id=str(member.id),
+                actor=request.user,
+                gym=request.tenant,
+                metadata={"status": member.status, "full_name": member.full_name},
+            )
 
         return Response(MemberDetailSerializer(member).data, status=status.HTTP_200_OK)
 
@@ -292,13 +302,25 @@ class GymMemberRecordMetricsView(APIView):
         if not serializer.is_valid():
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-        metrics = BodyMetrics.objects.create(
-            gym=request.tenant,
-            member=member,
-            weight_kg=serializer.validated_data.get("weight_kg"),
-            height_cm=serializer.validated_data.get("height_cm"),
-            measurements=serializer.validated_data.get("measurements") or {},
-        )
+        with transaction.atomic():
+            metrics = BodyMetrics.objects.create(
+                gym=request.tenant,
+                member=member,
+                weight_kg=serializer.validated_data.get("weight_kg"),
+                height_cm=serializer.validated_data.get("height_cm"),
+                measurements=serializer.validated_data.get("measurements") or {},
+            )
+            record_audit_log(
+                action_type="member_metrics_recorded",
+                affected_record_type="BodyMetrics",
+                affected_record_id=str(metrics.id),
+                actor=request.user,
+                gym=request.tenant,
+                metadata={
+                    "member_id": str(member.id),
+                    "weight_kg": str(metrics.weight_kg) if metrics.weight_kg else None,
+                },
+            )
 
         return Response(
             BodyMetricsSerializer(metrics).data, status=status.HTTP_201_CREATED
@@ -346,10 +368,20 @@ class MemberSelfProfileView(APIView):
         if not serializer.is_valid():
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-        serializer.save()
-        if "phone" in filtered_data:
-            member.user.phone = filtered_data["phone"]
-            member.user.save(update_fields=["phone"])
+        with transaction.atomic():
+            serializer.save()
+            if "phone" in filtered_data:
+                member.user.phone = filtered_data["phone"]
+                member.user.save(update_fields=["phone"])
+
+            record_audit_log(
+                action_type="member_profile_updated",
+                affected_record_type="Member",
+                affected_record_id=str(member.id),
+                actor=request.user,
+                gym=request.tenant,
+                metadata={"phone": member.phone},
+            )
 
         return Response(MemberDetailSerializer(member).data, status=status.HTTP_200_OK)
 
@@ -394,13 +426,25 @@ class MemberSelfMetricsView(APIView):
         if not serializer.is_valid():
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-        metrics = BodyMetrics.objects.create(
-            gym=request.tenant,
-            member=member,
-            weight_kg=serializer.validated_data.get("weight_kg"),
-            height_cm=serializer.validated_data.get("height_cm"),
-            measurements=serializer.validated_data.get("measurements") or {},
-        )
+        with transaction.atomic():
+            metrics = BodyMetrics.objects.create(
+                gym=request.tenant,
+                member=member,
+                weight_kg=serializer.validated_data.get("weight_kg"),
+                height_cm=serializer.validated_data.get("height_cm"),
+                measurements=serializer.validated_data.get("measurements") or {},
+            )
+            record_audit_log(
+                action_type="member_metrics_recorded",
+                affected_record_type="BodyMetrics",
+                affected_record_id=str(metrics.id),
+                actor=request.user,
+                gym=request.tenant,
+                metadata={
+                    "member_id": str(member.id),
+                    "weight_kg": str(metrics.weight_kg) if metrics.weight_kg else None,
+                },
+            )
 
         return Response(
             BodyMetricsSerializer(metrics).data, status=status.HTTP_201_CREATED

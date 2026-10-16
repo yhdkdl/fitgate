@@ -349,4 +349,15 @@ def verify_member_email(
         user.email_verified_at = now
         user.save(update_fields=["email_verified_at"])
 
+        from apps.accounts.services import record_audit_log
+
+        record_audit_log(
+            action_type="email_verified",
+            affected_record_type="User",
+            affected_record_id=str(user.id),
+            actor=user,
+            gym=getattr(user, "gym", None),
+            metadata={"email": user.email},
+        )
+
     return user

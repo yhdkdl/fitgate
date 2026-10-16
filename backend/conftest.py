@@ -49,3 +49,21 @@ def qr_jwt_test_keys(settings):
     keys = _get_test_qr_keypair()
     settings.QR_JWT_PRIVATE_KEY = keys[0]
     settings.QR_JWT_PUBLIC_KEY = keys[1]
+
+
+@pytest.fixture
+def allow_auditlog_test_flush():
+    """
+    Fixture for transactional_db tests that need to flush tables.
+    Disables accounts_auditlog USER triggers before flush and re-enables after.
+    Never embedded in database migrations.
+    """
+    from django.db import connection
+
+    with connection.cursor() as cursor:
+        cursor.execute("ALTER TABLE accounts_auditlog DISABLE TRIGGER USER;")
+    try:
+        yield
+    finally:
+        with connection.cursor() as cursor:
+            cursor.execute("ALTER TABLE accounts_auditlog ENABLE TRIGGER USER;")

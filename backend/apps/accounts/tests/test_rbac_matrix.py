@@ -819,7 +819,7 @@ class TestSpec2PermissionMatrixParametrizedTable:
             "wired_in_sprint": 17,
         },
         {
-            "row_name": "View analytics dashboard, audit log, and payment history",
+            "row_name": "View audit log",
             "spec_super_admin": "All gyms",
             "spec_owner": "Yes",
             "spec_manager": "Yes",
@@ -832,7 +832,39 @@ class TestSpec2PermissionMatrixParametrizedTable:
             "trainer": False,
             "reception": False,
             "member": False,
-            "wired_in_sprint": "9a, 12, 27",
+            "wired_in_sprint": "9a",
+        },
+        {
+            "row_name": "View payment history",
+            "spec_super_admin": "All gyms",
+            "spec_owner": "Yes",
+            "spec_manager": "Yes",
+            "spec_trainer": "see SPEC §5",
+            "spec_reception": "see SPEC §5",
+            "spec_member": "see SPEC §5",
+            "super_admin": True,
+            "owner": True,
+            "manager": True,
+            "trainer": False,
+            "reception": False,
+            "member": False,
+            "wired_in_sprint": 12,
+        },
+        {
+            "row_name": "View analytics dashboard",
+            "spec_super_admin": "All gyms",
+            "spec_owner": "Yes",
+            "spec_manager": "Yes",
+            "spec_trainer": "see SPEC §5",
+            "spec_reception": "see SPEC §5",
+            "spec_member": "see SPEC §5",
+            "super_admin": True,
+            "owner": True,
+            "manager": True,
+            "trainer": False,
+            "reception": False,
+            "member": False,
+            "wired_in_sprint": 27,
         },
         {
             "row_name": "Confirm a manual cash payment",
@@ -906,7 +938,7 @@ class TestSpec2PermissionMatrixParametrizedTable:
         Rows not yet wired skip with an explicit reason.
         Wired rows (Sprint 5) assert directly against real HTTP endpoints.
         """
-        if wired_sprint not in (5, 6, "9a, 12, 27"):
+        if wired_sprint not in (5, 6, "9a"):
             pytest.skip(
                 f"Row '{row_name}' has no real endpoint yet (scheduled for Sprint {wired_sprint} in docs/SPRINTS.md)"
             )
@@ -1009,7 +1041,7 @@ class TestSpec2PermissionMatrixParametrizedTable:
                 assert deact_resp.status_code == 200
             else:
                 assert resp.status_code in (403, 404)
-        elif row_name == "View analytics dashboard, audit log, and payment history":
+        elif row_name == "View audit log":
             if role == User.ROLE_SUPER_ADMIN:
                 url = "/api/platform/audit-logs/"
                 host = "localhost"

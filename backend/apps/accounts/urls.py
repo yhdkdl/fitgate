@@ -3,7 +3,6 @@
 from django.urls import path
 
 from apps.accounts.views import (
-    AuditLogListView,
     ChangePasswordView,
     CreateSuperAdminView,
     GymAuditLogListView,
@@ -75,10 +74,5 @@ urlpatterns = [
         "api/platform/audit-logs/",
         PlatformAuditLogListView.as_view(),
         name="platform-audit-logs",
-    ),
-    path(
-        "api/audit-logs/",
-        AuditLogListView.as_view(),
-        name="audit-logs",
     ),
 ]

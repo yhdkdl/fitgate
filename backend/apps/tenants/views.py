@@ -1,7 +1,7 @@
 import os
 
 from django.core.exceptions import ValidationError
-from django.db import IntegrityError
+from django.db import IntegrityError, transaction
 from django.http import FileResponse, Http404
 from drf_spectacular.utils import OpenApiResponse, extend_schema, inline_serializer
 from rest_framework import serializers, status
@@ -21,6 +21,7 @@ from apps.accounts.permissions import (
     RequirePasswordChanged,
 )
 from apps.accounts.serializers import UserSummarySerializer
+from apps.accounts.services import record_audit_log
 from apps.tenants.models import DemoRequest, GymConfig, GymTenant
 from apps.tenants.serializers import (
     ConfirmTLSResponseSerializer,
@@ -392,12 +393,22 @@ class DemoRequestDetailView(APIView):
         if not serializer.is_valid():
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-        if "status" in serializer.validated_data:
-            demo.status = serializer.validated_data["status"]
-        if "notes" in serializer.validated_data:
-            demo.notes = serializer.validated_data["notes"]
-        demo.handled_by = request.user
-        demo.save()
+        with transaction.atomic():
+            if "status" in serializer.validated_data:
+                demo.status = serializer.validated_data["status"]
+            if "notes" in serializer.validated_data:
+                demo.notes = serializer.validated_data["notes"]
+            demo.handled_by = request.user
+            demo.save()
+
+            record_audit_log(
+                action_type="demo_request_updated",
+                affected_record_type="DemoRequest",
+                affected_record_id=str(demo.id),
+                actor=request.user,
+                gym=None,
+                metadata={"status": demo.status},
+            )
 
         return Response(DemoRequestSerializer(demo).data, status=status.HTTP_200_OK)
 
@@ -615,23 +626,37 @@ class UploadMemberPhotoView(APIView):
             )
             return Response({"detail": msg}, status=status.HTTP_400_BAD_REQUEST)
 
-        # Update member record if member is uploading their own photo or staff uploads for a member
-        if role == User.ROLE_MEMBER:
-            member = getattr(request.user, "member_profile", None)
-            if member:
-                member.photo_url = relative_path
-                member.save(update_fields=["photo_url"])
-        else:
-            member_id = request.data.get("member_id") or request.query_params.get(
-                "member_id"
-            )
-            if member_id:
-                from apps.memberships.models import Member
+        target_member = None
+        with transaction.atomic():
+            if role == User.ROLE_MEMBER:
+                target_member = getattr(request.user, "member_profile", None)
+                if target_member:
+                    target_member.photo_url = relative_path
+                    target_member.save(update_fields=["photo_url"])
+            else:
+                member_id = request.data.get("member_id") or request.query_params.get(
+                    "member_id"
+                )
+                if member_id:
+                    from apps.memberships.models import Member
 
-                member = Member.objects.filter(gym=request.tenant, id=member_id).first()
-                if member:
-                    member.photo_url = relative_path
-                    member.save(update_fields=["photo_url"])
+                    target_member = Member.objects.filter(
+                        gym=request.tenant, id=member_id
+                    ).first()
+                    if target_member:
+                        target_member.photo_url = relative_path
+                        target_member.save(update_fields=["photo_url"])
+
+            record_audit_log(
+                action_type="member_photo_uploaded",
+                affected_record_type="Member",
+                affected_record_id=(
+                    str(target_member.id) if target_member else str(request.user.id)
+                ),
+                actor=request.user,
+                gym=request.tenant,
+                metadata={"filename": os.path.basename(relative_path)},
+            )
 
         filename = os.path.basename(relative_path)
         url = f"/api/media/member-photos/{gym_id}/{filename}/"
@@ -699,8 +724,17 @@ class UploadGymLogoView(APIView):
 
         config = getattr(request.tenant, "config", None)
         if config:
-            config.logo = url
-            config.save(update_fields=["logo"])
+            with transaction.atomic():
+                config.logo = url
+                config.save(update_fields=["logo"])
+                record_audit_log(
+                    action_type="gym_logo_uploaded",
+                    affected_record_type="GymConfig",
+                    affected_record_id=str(config.pk),
+                    actor=request.user,
+                    gym=request.tenant,
+                    metadata={"url": url},
+                )
 
         return Response({"url": url}, status=status.HTTP_200_OK)
 
@@ -869,7 +903,7 @@ class DismissFirstRunChecklistView(APIView):
     )
     def post(self, request, *args, **kwargs):
         gym = request.tenant
-        config = dismiss_first_run_checklist(gym)
+        config = dismiss_first_run_checklist(gym, acting_user=request.user)
         return Response(
             {
                 "is_dismissed": True,
