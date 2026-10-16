@@ -452,3 +452,4 @@ _Not in the original source document — added by direct decision with the proje
 - Parametrized tests for the Member.status path.
 - Move freezegun to a dev/test requirements file and check @types/qrcode.react is needed with qrcode.react v4.
 - Alert close button min 44px per DESIGN.md.
+- Before the staging deploy: pin exact versions and split dev/test packages (pytest, freezegun) from production requirements.txt. The Sprint 8 and Increment 1 reports gave different versions for cryptography and freezegun, and different QR libraries (qrcode vs qrcode.react), so regenerate the list from pip freeze / npm ls.

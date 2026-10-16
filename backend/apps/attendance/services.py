@@ -59,6 +59,12 @@ class ScanValidationError(Exception):
         self.member = member
 
 
+class ManualOverrideError(ScanValidationError):
+    """Alias for ScanValidationError for manual override workflows."""
+
+    pass
+
+
 def notify_staff_duplicate_scan(
     gym: GymTenant, member: Member, checkin_date: date
 ) -> None:
@@ -401,8 +407,9 @@ def process_manual_override(
     member_id: uuid.UUID,
     gym: GymTenant,
     reason: str,
-    recorded_by: User,
+    recorded_by: Optional[User] = None,
     branch_id: Optional[uuid.UUID] = None,
+    actor: Optional[User] = None,
 ) -> dict:
     """
     Perform manual attendance check-in override by Reception / staff.
@@ -414,6 +421,12 @@ def process_manual_override(
     - Produces exactly one Attendance row (is_override=True, override_reason)
     - Produces an AuditLog entry
     """
+    staff_user = recorded_by or actor
+    if not staff_user:
+        raise ValueError(
+            "A staff user (recorded_by or actor) is required for manual override."
+        )
+
     if not reason or not reason.strip():
         raise ScanValidationError(
             reason="reason_required",
@@ -511,14 +524,14 @@ def process_manual_override(
                 checked_in_at=timezone.now(),
                 is_override=True,
                 override_reason=clean_reason,
-                recorded_by=recorded_by,
+                recorded_by=staff_user,
             )
 
             record_audit_log(
                 action_type="attendance_manual_override",
                 affected_record_type="Attendance",
                 affected_record_id=str(attendance.id),
-                actor=recorded_by,
+                actor=staff_user,
                 gym=gym,
                 metadata={
                     "member_id": str(member.id),

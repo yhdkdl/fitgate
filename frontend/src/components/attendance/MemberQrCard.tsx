@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef } from "react";
 import QRCode from "qrcode";
-import { RefreshCw, Clock, QrCode, AlertCircle } from "lucide-react";
+import { RefreshCw, Clock, QrCode, AlertCircle, Copy, Check } from "lucide-react";
 import {
   getMemberQrToken,
   type MemberQrTokenResponse,
@@ -26,6 +26,18 @@ export const MemberQrCard: React.FC<MemberQrCardProps> = ({ memberStatus }) => {
   const [error, setError] = useState<string | null>(null);
   const [errorReason, setErrorReason] = useState<string | null>(null);
   const [secondsRemaining, setSecondsRemaining] = useState<number>(90);
+  const [copied, setCopied] = useState(false);
+
+  const handleCopyCode = async () => {
+    if (!tokenData?.token) return;
+    try {
+      await navigator.clipboard.writeText(tokenData.token);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      // clipboard write error fallback
+    }
+  };
 
   const fetchToken = async (isManual = false) => {
     if (isManual) {
@@ -209,7 +221,26 @@ export const MemberQrCard: React.FC<MemberQrCardProps> = ({ memberStatus }) => {
               <RefreshCw
                 className={`w-3.5 h-3.5 ${refreshing ? "animate-spin" : ""}`}
               />
-              {refreshing ? "Refreshing..." : "Refresh Token"}
+              {refreshing ? "Refreshing..." : "Refresh"}
+            </Button>
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={handleCopyCode}
+              disabled={!tokenData?.token}
+              className="flex-1 min-h-[44px] flex items-center justify-center gap-2 text-xs font-semibold"
+            >
+              {copied ? (
+                <>
+                  <Check className="w-3.5 h-3.5 text-emerald-500" />
+                  Copied!
+                </>
+              ) : (
+                <>
+                  <Copy className="w-3.5 h-3.5" />
+                  Copy code
+                </>
+              )}
             </Button>
           </div>
         </div>

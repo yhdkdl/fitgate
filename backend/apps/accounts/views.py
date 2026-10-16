@@ -441,7 +441,20 @@ class UserProfileView(APIView):
         if not serializer.is_valid():
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-        serializer.save()
+        with transaction.atomic():
+            serializer.save()
+            record_audit_log(
+                action_type="user_profile_updated",
+                affected_record_type="User",
+                affected_record_id=str(request.user.id),
+                actor=request.user,
+                gym=getattr(request.user, "gym", None),
+                metadata={
+                    "full_name": request.user.full_name,
+                    "phone": request.user.phone,
+                },
+            )
+
         return Response(
             UserProfileSerializer(request.user).data,
             status=status.HTTP_200_OK,
@@ -1061,59 +1074,6 @@ class PlatformAuditLogListView(APIView):
     )
     def get(self, request, *args, **kwargs):
         qs = AuditLog.all_objects.all().select_related("actor", "gym")
-        qs = apply_audit_log_filters(qs, request.query_params)
-
-        paginator = self.pagination_class()
-        page = paginator.paginate_queryset(qs, request, view=self)
-        if page is not None:
-            serializer = AuditLogSerializer(page, many=True)
-            return paginator.get_paginated_response(serializer.data)
-
-        serializer = AuditLogSerializer(qs, many=True)
-        return Response(serializer.data, status=status.HTTP_200_OK)
-
-
-class AuditLogListView(APIView):
-    """
-    Unified read-only audit log endpoint.
-    Routes to gym tenant logs or platform-wide logs depending on request host and user role.
-    """
-
-    permission_classes = [IsAuthenticated, RequirePasswordChanged]
-    pagination_class = AuditLogPagination
-    http_method_names = ["get", "head", "options"]
-
-    @extend_schema(
-        summary="List audit logs",
-        description="Unified endpoint for viewing audit logs according to role and tenant context.",
-        responses={
-            200: AuditLogSerializer(many=True),
-            401: OpenApiResponse(description="Authentication required"),
-            403: OpenApiResponse(description="Forbidden"),
-        },
-    )
-    def get(self, request, *args, **kwargs):
-        tenant = getattr(request, "tenant", None)
-        user = request.user
-
-        if tenant is None:
-            if user.role != User.ROLE_SUPER_ADMIN and not user.is_superuser:
-                return Response(
-                    {"detail": "Super Admin permission required at apex domain."},
-                    status=status.HTTP_403_FORBIDDEN,
-                )
-            qs = AuditLog.all_objects.all().select_related("actor", "gym")
-        else:
-            if (
-                user.role not in [User.ROLE_OWNER, User.ROLE_MANAGER]
-                or getattr(user, "gym_id", None) != tenant.id
-            ):
-                return Response(
-                    {"detail": "Owner or Manager permission required for this gym."},
-                    status=status.HTTP_403_FORBIDDEN,
-                )
-            qs = AuditLog.objects.filter(gym=tenant).select_related("actor", "gym")
-
         qs = apply_audit_log_filters(qs, request.query_params)
 
         paginator = self.pagination_class()

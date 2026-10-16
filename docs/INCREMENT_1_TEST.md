@@ -234,133 +234,128 @@ As documented in `docs/MANUAL_STEPS.md`, external production credentials were sy
 > **Note on Membership Subscriptions**: QR check-in tokens and scan validation fail closed: members without an active `MemberSubscription` cannot issue a QR pass (`/api/members/me/qr-token/` returns HTTP 400 with `reason: "expired"`). Membership plans and subscription billing are formally wired in Sprint 10. For Increment 1 end-to-end testing, provision an active subscription for test members via Django shell:
 
 ```bash
-docker compose exec backend python manage.py shell -c "from apps.memberships.models import Member, MemberSubscription; from django.utils import timezone; from datetime import timedelta; member = Member.all_objects.get(user__email='dawit@example.com'); MemberSubscription.objects.create(gym=member.gym, member=member, status='active', start_date=timezone.localdate(), end_date=timezone.localdate()+timedelta(days=30))"
+docker compose exec backend python manage.py shell -c "from apps.memberships.models import Member, MemberSubscription; from django.utils import timezone; from datetime import timedelta; member = Member.all_objects.get(user__email='dawit@example.com'); MemberSubscription.all_objects.create(gym=member.gym, member=member, status='active', start_date=timezone.localdate(), end_date=timezone.localdate()+timedelta(days=30))"
 ```
 
-1. **Member QR Pass Issuance**:
+1. **Member QR Pass Issuance & Copying Code**:
    - Activate Dawit's account using the email link from backend logs, setting password to `MemberPassword2026!`.
    - Log in as Dawit at `http://boleelite.localhost:5173/login`.
-   - The member dashboard displays the **Check-in QR Pass**.
-   - **Expected Result**:
-     - High-contrast QR code is rendered with member name and status badge `ACTIVE`.
-     - 90-second countdown timer dynamically updates.
-     - A Refresh button allows rotating the token.
+   - The member dashboard displays the **Check-in QR Pass** card.
+   - **On-Screen Display**:
+     - High-contrast QR code is rendered with member title `Check-in QR Pass` and badge `ACTIVE`.
+     - Live countdown timer displays `Valid for 90s` and dynamically ticks down.
+     - Action buttons: **Refresh** and **Copy code** (both conforming to 44px min touch target).
+   - Click the **Copy code** button. The button briefly transitions to `Copied!` with a green checkmark and copies the asymmetric RS256 token string directly to your clipboard for easy terminal entry.
 
 2. **Reception / Scanner Terminal Check-in**:
    - Log in as Reception (`reception@boleelite.com`) or Owner at `http://boleelite.localhost:5173/dashboard`.
-   - Scroll to the **Attendance Scanner Terminal** section.
-   - Enter or scan the valid QR token string.
-   - Click **Process Scan**.
-   - **Expected Result**:
-     - HTTP 200 OK:
-       ```json
-       {
-         "status": "success",
-         "message": "Welcome, Dawit Kebede!",
-         "member": { "id": "...", "full_name": "Dawit Kebede", "status": "active", ... },
-         "attendance": { "id": "...", "date": "...", "is_override": false },
-         "next_token": "..."
-       }
-       ```
-     - Exactly one `Attendance` record is created.
-     - Exactly one `AuditLog` row is created with `action_type = "attendance_qr_scan"`.
+   - Scroll to the **Front Desk Attendance Scanner** section.
+   - Paste the copied QR token into the input box labeled `Scan QR token or paste token JWT...`.
+   - Click **Verify & Check In** (or press Enter).
+   - **On-Screen Display (Success Card)**:
+     - An emerald-green confirmation banner appears (`border-emerald-500/30 bg-emerald-500/10`).
+     - Member avatar/photo displays with full name **Dawit Kebede** and badge `ACTIVE`.
+     - Check-in details: `Checked in at HH:MM:SS • YYYY-MM-DD` alongside green `UserCheck` icon.
+     - A **View History** button is available to inspect the member's attendance calendar.
+     - Database verification: Exactly one `Attendance` row and one `AuditLog` row (`attendance_qr_scan`) created.
 
 3. **Re-scan of Same Token (Token Replay Prevention)**:
-   - Immediately attempt to re-submit the identical QR token.
-   - **Expected Result**:
-     - HTTP 400 Bad Request:
-       ```json
-       {
-         "detail": "This QR token has already been used.",
-         "reason": "token_consumed"
-       }
-       ```
-     - Token is blocked from replay; no attendance row is created.
+   - Immediately paste the identical QR token into the scanner input and click **Verify & Check In**.
+   - **On-Screen Display (Error Card)**:
+     - A rose-red rejection banner appears (`border-rose-500/30 bg-rose-500/10`).
+     - Header: `Check-in Rejected (token_consumed)`
+     - Detail message: `This QR token has already been used.`
+     - Rejection indicator: `Token already used. Single-use enforcement active.`
+     - No new attendance record or audit log is created.
 
 4. **Scan with Refreshed Token (Duplicate Same-Day Check-in Prevention)**:
-   - As Dawit, refresh the QR pass to obtain a new valid token.
-   - Scan the refreshed token at the terminal.
-   - **Expected Result**:
-     - HTTP 400 Bad Request:
-       ```json
-       {
-         "detail": "Member Dawit Kebede has already checked in today.",
-         "reason": "already_checked_in",
-         "member": { "id": "...", "full_name": "Dawit Kebede" }
-       }
-       ```
-     - Duplicate scan is denied on calendar day; no second attendance row is created.
+   - On Dawit's member pass, click **Refresh** to generate a new token, then click **Copy code**.
+   - In the scanner terminal, paste the new token and click **Verify & Check In**.
+   - **On-Screen Display (Error Card)**:
+     - A rose-red rejection banner appears with Dawit's `ACTIVE` badge.
+     - Header: `Check-in Rejected (already_checked_in)`
+     - Detail message: `Member Dawit Kebede has already checked in today.`
+     - Warning banner: `Duplicate check-in detected today. Staff have been notified.`
+     - An **Open Manual Override** shortcut button appears.
 
 5. **Manual Check-in Override on Same Member (Refused on Duplicate)**:
-   - In the scanner section, click **Manual Override**.
-   - Select member `Dawit Kebede`.
-   - Enter mandatory reason: _"Forgot phone at home."_
-   - Click **Confirm Manual Check-in**.
-   - **Expected Result**:
-     - HTTP 400 Bad Request:
-       ```json
-       {
-         "detail": "Member Dawit Kebede has already checked in today.",
-         "reason": "already_checked_in"
-       }
-       ```
+   - In the scanner section, click **Manual Override** (or **Open Manual Override**).
+   - A modal opens titled `Manual Attendance Override`.
+   - In **Member UUID**, enter Dawit's ID.
+   - In **Override Reason (Required)**, enter: _"Forgot phone at home."_
+   - Click **Confirm Override**.
+   - **On-Screen Display (Modal Alert)**:
+     - Inside the modal, an alert banner appears:
+       - Header: `Override Denied (already_checked_in)`
+       - Detail: `Member Dawit Kebede has already checked in today.`
+     - The modal remains open, preventing duplicate override. Click **Cancel** to close.
 
 6. **Manual Check-in Override on Different Member with Active Subscription**:
-   - Provision a subscription for `Almaz Ayana`:
+   - Provision a subscription for `Almaz Ayana` via Django shell:
      ```bash
-     docker compose exec backend python manage.py shell -c "from apps.memberships.models import Member, MemberSubscription; from django.utils import timezone; from datetime import timedelta; member = Member.all_objects.get(user__email='almaz@example.com'); MemberSubscription.objects.create(gym=member.gym, member=member, status='active', start_date=timezone.localdate(), end_date=timezone.localdate()+timedelta(days=30))"
+     docker compose exec backend python manage.py shell -c "from apps.memberships.models import Member, MemberSubscription; from django.utils import timezone; from datetime import timedelta; member = Member.all_objects.get(user__email='almaz@example.com'); MemberSubscription.all_objects.create(gym=member.gym, member=member, status='active', start_date=timezone.localdate(), end_date=timezone.localdate()+timedelta(days=30))"
      ```
    - In the scanner section, click **Manual Override**.
-   - Select member `Almaz Ayana`.
-   - Enter mandatory reason: _"Phone screen broken, verified ID."_
-   - Click **Confirm Manual Check-in**.
-   - **Expected Result**:
-     - HTTP 201 Created:
-       ```json
-       {
-         "status": "success",
-         "message": "Manual check-in recorded for Almaz Ayana.",
-         "member": { "id": "...", "full_name": "Almaz Ayana" },
-         "attendance": {
-           "id": "...",
-           "is_override": true,
-           "override_reason": "Phone screen broken, verified ID."
-         }
-       }
-       ```
-     - Exactly one `Attendance` record created (`is_override=True`).
-     - Exactly one `AuditLog` event recorded (`action_type="attendance_manual_override"`).
+   - In **Member UUID**, enter Almaz Ayana's ID.
+   - In **Override Reason (Required)**, enter: _"Phone screen broken, verified ID."_
+   - Click **Confirm Override**.
+   - **On-Screen Display (Success Card)**:
+     - The modal closes automatically.
+     - An emerald-green confirmation banner appears displaying **Almaz Ayana**.
+     - Status badges: `ACTIVE` and `OVERRIDE`.
+     - Timestamp: `Checked in at HH:MM:SS • YYYY-MM-DD`.
+     - Override note: `Reason: Phone screen broken, verified ID.`
+     - Button: **View History**.
+     - Exactly one `Attendance` record (`is_override=True`) and one `AuditLog` row (`attendance_manual_override`) created.
 
 ---
 
 ## Test Scenario 8: Audit Log Viewer & Immutability Verification
 
 1. **Tenant Audit Log View (Owner / Manager)**:
-   - On the Gym Owner or Manager dashboard (`http://boleelite.localhost:5173/dashboard`), scroll to **Audit Trail & Security Logs**. (Reception role gets HTTP 403 Forbidden per SPEC §2 RBAC).
-   - **Expected Result**:
-     - Paginated list of events appears ordered newest first:
-       - `attendance_manual_override`
-       - `attendance_qr_scan`
-       - `member_registered`
-       - `staff_reactivated`
-       - `staff_deactivated`
-       - `staff_provisioned`
-       - `user_login`
+   - On the Gym Owner or Manager dashboard (`http://boleelite.localhost:5173/dashboard`), scroll down to the **Audit Trail & Security Logs** section (badged `Read-Only`). (Reception role gets HTTP 403 Forbidden per SPEC §2 RBAC).
+   - **On-Screen Display (Table)**:
+     - Filter bar at top: Search input, Action Type dropdown (`All Action Types`), Date From, Date To, **Filter** and **Clear** buttons.
+     - Table columns: `TIMESTAMP`, `ACTION`, `ACTOR`, `AFFECTED RECORD`, `DETAILS`.
+     - Rows appear ordered newest-first with colored action badges:
+       - `attendance_manual_override` (green badge), Actor: `Gym Owner (owner)`, Affected: `Attendance`
+       - `attendance_qr_scan` (green badge), Actor: `Gym Reception (reception)`, Affected: `Attendance`
+       - `member_registered` (secondary badge), Actor: `Gym Reception (reception)`, Affected: `Member`
+       - `staff_reactivated` (secondary badge), Actor: `Gym Owner (owner)`, Affected: `User`
+       - `staff_deactivated` (secondary badge), Actor: `Gym Owner (owner)`, Affected: `User`
+       - `staff_provisioned` (secondary badge), Actor: `Gym Owner (owner)`, Affected: `User`
+       - `user_login` (primary badge), Actor: `Gym Owner (owner)`, Affected: `User`
+     - Each row includes an **Inspect** button on the right.
+     - Pagination controls at bottom display current page and total entries.
+
 2. **Testing Filter Controls**:
-   - Select Action Type: `Manual Attendance Override` (`attendance_manual_override`).
+   - In the **Action Type** dropdown, select `Manual Check-in Override` (`attendance_manual_override`).
    - Click **Filter**.
-   - **Expected Result**: Table updates to display only manual override events.
-   - Clear filters to restore all events.
-   - In the Search box, enter `Dawit` or `Selamawit`.
-   - **Expected Result**: Fast, matching event records are filtered.
+   - **On-Screen Display**: Table refreshes instantly; all rows display the `attendance_manual_override` badge.
+   - Click **Clear**: All filters reset and the full list of operational events returns.
+   - In the **Search** input, enter `Dawit` and click **Filter**.
+   - **On-Screen Display**: Table shows only entries associated with Dawit's check-in or registration.
+
 3. **Inspecting Event Metadata & Payload Sanitization**:
-   - Click **Inspect** on any event.
-   - A modal opens displaying Event UUID, Action Type, Timestamp, Actor Name/Role, and JSON metadata.
-   - **Verification**: Sensitive secrets, passwords, and JWT tokens are completely absent from the metadata payload.
+   - Click the **Inspect** button on any audit row.
+   - A modal titled **Audit Event Details** opens with badge `Read-Only`.
+   - **On-Screen Display (Modal Fields)**:
+     - `Event ID`: Displayed as a UUID string.
+     - `Timestamp`: Formatted date and time.
+     - `Action Type`: Displayed with badge.
+     - `Actor`: Full name, email, and role.
+     - `Affected Record`: Record type and UUID.
+     - `Metadata (JSON)`: Formatted JSON preview displaying operational keys (e.g., `is_override: true`, `override_reason: "Phone screen broken, verified ID."`).
+     - **Sanitization Verification**: Passwords, hashed passwords, raw tokens, JWT strings, and secret keys are completely absent from the JSON metadata.
+   - Click **Close** (or 'X') to dismiss modal.
+
 4. **Super Admin Platform Audit View**:
    - Log in as Super Admin at `http://localhost:5173/dashboard`.
-   - Click on the **Audit & Security Logs** tab.
-   - **Expected Result**: Platform-wide view displays events across all gyms plus platform operations (`gym_created`, `super_admin_created`).
+   - View the **Audit Trail & Security Logs** section.
+   - **On-Screen Display**:
+     - The table includes an additional column: `GYM TENANT`.
+     - Gym tenant events display the gym name (e.g. `Bole Elite Hub`), while platform operations display the badge `Apex Platform` (e.g. `gym_created`, `super_admin_created`).
+     - Super Admin sees operational logs across all gyms without tenant boundaries.
 5. **Database Immutability Trigger Protection**:
    - **Test ORM Update Protection**:
      ```bash

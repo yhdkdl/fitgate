@@ -33,13 +33,42 @@ describe("Sprint 8: QR Check-in & Attendance Components", () => {
 
       expect(await screen.findByText("Check-in QR Pass")).toBeInTheDocument();
       expect(screen.getByText("ACTIVE")).toBeInTheDocument();
-      expect(await screen.findByText("Refresh Token")).toBeInTheDocument();
+      expect(await screen.findByText("Refresh")).toBeInTheDocument();
+      expect(await screen.findByText("Copy code")).toBeInTheDocument();
 
       await waitFor(() => {
         expect(
           screen.getByAltText("Personal Member Check-in QR Code")
         ).toBeInTheDocument();
       });
+    });
+
+    it("copies token to clipboard when Copy code button is clicked", async () => {
+      const user = userEvent.setup();
+      const expiresAt = new Date(Date.now() + 85 * 1000).toISOString();
+      vi.mocked(attendanceApi.getMemberQrToken).mockResolvedValue({
+        token: "mock-rs256-jwt-token-string",
+        expires_at: expiresAt,
+        valid_seconds: 90,
+        member_id: "3cd1c4f9-704d-4d1e-af75-76e8fa2ba5de",
+      });
+
+      const writeTextMock = vi.fn().mockResolvedValue(undefined);
+      Object.defineProperty(navigator, "clipboard", {
+        value: {
+          writeText: writeTextMock,
+        },
+        configurable: true,
+      });
+
+      render(<MemberQrCard memberStatus="active" />);
+
+      const copyBtn = await screen.findByRole("button", { name: /copy code/i });
+      expect(copyBtn).toBeInTheDocument();
+      await user.click(copyBtn);
+
+      expect(writeTextMock).toHaveBeenCalledWith("mock-rs256-jwt-token-string");
+      expect(await screen.findByText("Copied!")).toBeInTheDocument();
     });
 
     it("displays error state when token generation is rejected", async () => {

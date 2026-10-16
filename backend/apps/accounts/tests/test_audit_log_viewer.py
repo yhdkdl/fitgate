@@ -10,7 +10,6 @@ Covers:
 - Pagination: count, next, previous, results, custom page_size and page.
 - Ordering: newest first (-timestamp).
 - Filtering: date_from, date_to, action_type, actor_id, search query.
-- Unified /api/audit-logs/ endpoint routing.
 - RequirePasswordChanged enforcement.
 """
 
@@ -304,6 +303,64 @@ class TestAuditLogTenantIsolation:
         assert resp.data["results"][0]["id"] == str(log_a.id)
         assert resp.data["results"][0]["gym_id"] == str(gym_tenant.id)
 
+    def test_owner_with_other_gym_id_or_actor_id_never_receives_other_gym_rows(
+        self,
+        api_client,
+        gym_tenant,
+        other_gym_tenant,
+        gym_owner,
+        other_gym_owner,
+    ):
+        """
+        An Owner at Gym A's host querying ?gym_id=<Gym B id> and/or ?actor_id=<Gym B user id>
+        never receives Gym B rows under any circumstance.
+        """
+        # Create log for Gym A
+        AuditLog.all_objects.create(
+            gym=gym_tenant,
+            actor=gym_owner,
+            action_type="member_registered",
+            affected_record_type="Member",
+            affected_record_id="mem-gym-a",
+        )
+        # Create log for Gym B
+        AuditLog.all_objects.create(
+            gym=other_gym_tenant,
+            actor=other_gym_owner,
+            action_type="member_registered",
+            affected_record_type="Member",
+            affected_record_id="mem-gym-b",
+        )
+
+        client = auth_client(api_client, gym_owner)
+
+        # 1. Attacker at Gym A host queries ?gym_id=<Gym B id>
+        resp_gym_b = client.get(
+            f"/api/gym/audit-logs/?gym_id={other_gym_tenant.id}",
+            HTTP_HOST=f"{gym_tenant.subdomain}.localhost",
+        )
+        assert resp_gym_b.status_code == 200
+        assert resp_gym_b.data["count"] == 0
+        assert len(resp_gym_b.data["results"]) == 0
+
+        # 2. Attacker at Gym A host queries ?actor_id=<Gym B owner id>
+        resp_actor_b = client.get(
+            f"/api/gym/audit-logs/?actor_id={other_gym_owner.id}",
+            HTTP_HOST=f"{gym_tenant.subdomain}.localhost",
+        )
+        assert resp_actor_b.status_code == 200
+        assert resp_actor_b.data["count"] == 0
+        assert len(resp_actor_b.data["results"]) == 0
+
+        # 3. Attacker at Gym A host queries with both ?gym_id=<Gym B id>&actor_id=<Gym B owner id>
+        resp_both_b = client.get(
+            f"/api/gym/audit-logs/?gym_id={other_gym_tenant.id}&actor_id={other_gym_owner.id}",
+            HTTP_HOST=f"{gym_tenant.subdomain}.localhost",
+        )
+        assert resp_both_b.status_code == 200
+        assert resp_both_b.data["count"] == 0
+        assert len(resp_both_b.data["results"]) == 0
+
     def test_super_admin_sees_all_gyms_and_platform_logs(
         self,
         api_client,
@@ -512,6 +569,39 @@ class TestAuditLogPaginationAndOrdering:
         assert len(resp_p2.data["results"]) == 2
         assert resp_p2.data["previous"] is not None
 
+    def test_max_page_size_enforced_against_excessive_request(
+        self, api_client, gym_tenant, gym_owner
+    ):
+        """
+        Prove max page size: page_size=100000 returns at most AuditLogPagination.max_page_size (100).
+        """
+        from apps.accounts.pagination import AuditLogPagination
+
+        # Create 105 log rows for Gym A
+        logs = [
+            AuditLog(
+                gym=gym_tenant,
+                actor=gym_owner,
+                action_type=f"action_{i}",
+                affected_record_type="Record",
+                affected_record_id=str(i),
+            )
+            for i in range(105)
+        ]
+        AuditLog.all_objects.bulk_create(logs)
+
+        client = auth_client(api_client, gym_owner)
+        resp = client.get(
+            "/api/gym/audit-logs/?page_size=100000",
+            HTTP_HOST=f"{gym_tenant.subdomain}.localhost",
+        )
+        assert resp.status_code == 200
+        assert resp.data["count"] >= 105
+        # Must cap at max_page_size (100), not return 100000 or 105
+        assert len(resp.data["results"]) == AuditLogPagination.max_page_size
+        assert len(resp.data["results"]) == 100
+        assert resp.data["next"] is not None
+
 
 # -------------------------------------------------------------------------
 # Filtering Tests
@@ -652,55 +742,3 @@ class TestAuditLogFiltering:
         assert resp.status_code == 200
         assert resp.data["count"] == 1
         assert resp.data["results"][0]["action_type"] == "staff_provisioned"
-
-
-# -------------------------------------------------------------------------
-# Unified /api/audit-logs/ Endpoint Tests
-# -------------------------------------------------------------------------
-
-
-@pytest.mark.django_db
-class TestUnifiedAuditLogEndpoint:
-    def test_unified_endpoint_on_gym_subdomain_for_owner(
-        self, api_client, gym_tenant, gym_owner
-    ):
-        AuditLog.all_objects.create(
-            gym=gym_tenant,
-            actor=gym_owner,
-            action_type="test_event",
-            affected_record_type="Record",
-            affected_record_id="1",
-        )
-        client = auth_client(api_client, gym_owner)
-        resp = client.get(
-            "/api/audit-logs/",
-            HTTP_HOST=f"{gym_tenant.subdomain}.localhost",
-        )
-        assert resp.status_code == 200
-        assert resp.data["count"] == 1
-
-    def test_unified_endpoint_on_apex_for_super_admin(
-        self, api_client, gym_tenant, gym_owner, super_admin
-    ):
-        AuditLog.all_objects.create(
-            gym=gym_tenant,
-            actor=gym_owner,
-            action_type="test_event",
-            affected_record_type="Record",
-            affected_record_id="1",
-        )
-        client = auth_client(api_client, super_admin)
-        resp = client.get(
-            "/api/audit-logs/",
-            HTTP_HOST="localhost",
-        )
-        assert resp.status_code == 200
-        assert resp.data["count"] == 1
-
-    def test_unified_endpoint_on_apex_denied_for_gym_owner(self, api_client, gym_owner):
-        client = auth_client(api_client, gym_owner)
-        resp = client.get(
-            "/api/audit-logs/",
-            HTTP_HOST="localhost",
-        )
-        assert resp.status_code in (401, 403)
