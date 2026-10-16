@@ -13,6 +13,7 @@ import { GymBrandingSection } from "../components/owner/GymBrandingSection";
 import { StaffManagementSection } from "../components/owner/StaffManagementSection";
 import { MemberManagementSection } from "../components/dashboard/MemberManagementSection";
 import { MemberSelfSection } from "../components/dashboard/MemberSelfSection";
+import { AuditLogSection } from "../components/dashboard/AuditLogSection";
 import { AttendanceScannerSection } from "../components/attendance/AttendanceScannerSection";
 import { useAuth } from "../context/AuthContext";
 import { getTenantFromHostname } from "../utils/tenant";
@@ -22,7 +23,7 @@ export const DashboardScreen: React.FC = () => {
   const navigate = useNavigate();
   const tenant = getTenantFromHostname();
 
-  const [adminTab, setAdminTab] = useState<"gyms" | "leads">("gyms");
+  const [adminTab, setAdminTab] = useState<"gyms" | "leads" | "audit">("gyms");
   const [showBranding, setShowBranding] = useState(false);
   const [checklistKey, setChecklistKey] = useState(0);
   const [prefillGymData, setPrefillGymData] = useState<GymPrefillData | null>(
@@ -164,20 +165,34 @@ export const DashboardScreen: React.FC = () => {
                 >
                   Demo Requests & Leads
                 </button>
+                <button
+                  onClick={() => setAdminTab("audit")}
+                  className={`px-4 py-2 text-sm font-semibold rounded-lg transition-colors ${
+                    adminTab === "audit"
+                      ? "bg-primary text-white shadow-sm"
+                      : "text-text-muted hover:text-text hover:bg-surface-2"
+                  }`}
+                >
+                  Audit & Security Logs
+                </button>
               </div>
 
-              {adminTab === "gyms" ? (
+              {adminTab === "gyms" && (
                 <GymManagementSection
                   prefillData={prefillGymData}
                   onClearPrefill={() => setPrefillGymData(null)}
                 />
-              ) : (
+              )}
+              {adminTab === "leads" && (
                 <DemoRequestSection
                   onConvertToGym={(data) => {
                     setPrefillGymData(data);
                     setAdminTab("gyms");
                   }}
                 />
+              )}
+              {adminTab === "audit" && (
+                <AuditLogSection userRole={user?.role} isPlatform={true} />
               )}
             </div>
           )}
@@ -222,6 +237,8 @@ export const DashboardScreen: React.FC = () => {
                 userRole={user?.role}
                 onMemberRegistered={() => setChecklistKey((k) => k + 1)}
               />
+
+              <AuditLogSection userRole={user?.role} isPlatform={false} />
             </div>
           )}
 
@@ -231,6 +248,7 @@ export const DashboardScreen: React.FC = () => {
               <StaffManagementSection />
               <AttendanceScannerSection userRole={user?.role} />
               <MemberManagementSection userRole={user?.role} />
+              <AuditLogSection userRole={user?.role} isPlatform={false} />
             </div>
           )}
 

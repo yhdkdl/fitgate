@@ -906,7 +906,7 @@ class TestSpec2PermissionMatrixParametrizedTable:
         Rows not yet wired skip with an explicit reason.
         Wired rows (Sprint 5) assert directly against real HTTP endpoints.
         """
-        if wired_sprint not in (5, 6):
+        if wired_sprint not in (5, 6, "9a, 12, 27"):
             pytest.skip(
                 f"Row '{row_name}' has no real endpoint yet (scheduled for Sprint {wired_sprint} in docs/SPRINTS.md)"
             )
@@ -1007,5 +1007,18 @@ class TestSpec2PermissionMatrixParametrizedTable:
                     HTTP_HOST=host,
                 )
                 assert deact_resp.status_code == 200
+            else:
+                assert resp.status_code in (403, 404)
+        elif row_name == "View analytics dashboard, audit log, and payment history":
+            if role == User.ROLE_SUPER_ADMIN:
+                url = "/api/platform/audit-logs/"
+                host = "localhost"
+            else:
+                url = "/api/gym/audit-logs/"
+                host = f"{gym_tenant.subdomain}.localhost"
+
+            resp = client.get(url, HTTP_HOST=host)
+            if expected_allowed:
+                assert resp.status_code == 200
             else:
                 assert resp.status_code in (403, 404)

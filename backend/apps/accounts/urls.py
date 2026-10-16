@@ -3,12 +3,15 @@
 from django.urls import path
 
 from apps.accounts.views import (
+    AuditLogListView,
     ChangePasswordView,
     CreateSuperAdminView,
+    GymAuditLogListView,
     LoginView,
     LogoutView,
     PasswordResetConfirmView,
     PasswordResetRequestView,
+    PlatformAuditLogListView,
     SetPasswordFromInviteView,
     StaffDeactivateView,
     StaffListCreateView,
@@ -61,5 +64,21 @@ urlpatterns = [
         "api/gym/staff/<uuid:user_id>/reactivate/",
         StaffReactivateView.as_view(),
         name="gym-staff-reactivate",
+    ),
+    # Audit Log Viewer (Sprint 9a)
+    path(
+        "api/gym/audit-logs/",
+        GymAuditLogListView.as_view(),
+        name="gym-audit-logs",
+    ),
+    path(
+        "api/platform/audit-logs/",
+        PlatformAuditLogListView.as_view(),
+        name="platform-audit-logs",
+    ),
+    path(
+        "api/audit-logs/",
+        AuditLogListView.as_view(),
+        name="audit-logs",
     ),
 ]

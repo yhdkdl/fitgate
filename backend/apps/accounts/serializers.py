@@ -4,7 +4,7 @@ import re
 
 from rest_framework import serializers
 
-from apps.accounts.models import User
+from apps.accounts.models import AuditLog, User
 
 PRIVILEGED_FIELDS = (
     "role",
@@ -291,3 +291,37 @@ class StaffActionResponseSerializer(serializers.Serializer):
 
     detail = serializers.CharField()
     user = StaffMemberSerializer()
+
+
+class AuditLogActorSerializer(serializers.ModelSerializer):
+    """Summary of the actor associated with an audit log entry."""
+
+    class Meta:
+        model = User
+        fields = ["id", "email", "full_name", "role"]
+        read_only_fields = fields
+
+
+class AuditLogSerializer(serializers.ModelSerializer):
+    """Read-only representation of an AuditLog entry."""
+
+    actor = AuditLogActorSerializer(read_only=True)
+    gym_id = serializers.UUIDField(allow_null=True, source="gym.id", read_only=True)
+    gym_name = serializers.CharField(
+        source="gym.name", read_only=True, allow_null=True, default=None
+    )
+
+    class Meta:
+        model = AuditLog
+        fields = [
+            "id",
+            "gym_id",
+            "gym_name",
+            "actor",
+            "action_type",
+            "affected_record_type",
+            "affected_record_id",
+            "timestamp",
+            "metadata",
+        ]
+        read_only_fields = fields

@@ -197,7 +197,9 @@ Trainer specialization and photo are delivered in the Trainer and storage sprint
 - Owner and Manager see their own gym's entries; Super Admin sees all; every other role gets 403.
 - Entries are paginated, newest first, filterable by date range, action type and actor, and the endpoint is read-only (no update or delete verbs).
 
-- [ ] All sprints in this increment complete
+- [x] Status: done — merged to develop (tag sprint-9a-done)
+
+- [x] All sprints in this increment complete
 
 ## Increment 2 — Membership & payments
 
