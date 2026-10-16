@@ -60,6 +60,9 @@ INSTALLED_APPS = [
     # FitGate apps
     "apps.tenants.apps.TenantsConfig",
     "apps.accounts.apps.AccountsConfig",
+    "apps.payments.apps.PaymentsConfig",
+    "apps.memberships.apps.MembershipsConfig",
+    "apps.attendance.apps.AttendanceConfig",
 ]
 
 
@@ -132,7 +135,25 @@ STATIC_ROOT = BASE_DIR / "staticfiles"
 MEDIA_URL = "media/"
 MEDIA_ROOT = BASE_DIR / "media"
 
+# Cloudinary / File Storage settings (Sprint 4b)
+CLOUDINARY_CLOUD_NAME = env.str("CLOUDINARY_CLOUD_NAME", default="")
+CLOUDINARY_API_KEY = env.str("CLOUDINARY_API_KEY", default="")
+CLOUDINARY_API_SECRET = env.str("CLOUDINARY_API_SECRET", default="")
+MAX_UPLOAD_SIZE_BYTES = 2 * 1024 * 1024  # 2 MB limit per SPEC §4b
+
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
+
+# Cache configuration (database cache for rate limiting / non-Redis environments)
+CACHES = {
+    "default": {
+        "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+        "LOCATION": "fitgate-default-cache",
+    },
+    "db_cache": {
+        "BACKEND": "django.core.cache.backends.db.DatabaseCache",
+        "LOCATION": "fitgate_cache_table",
+    },
+}
 
 # Django REST Framework
 REST_FRAMEWORK = {
@@ -157,6 +178,11 @@ SIMPLE_JWT = {
     "USER_ID_CLAIM": "user_id",
 }
 
+# QR Check-in Asymmetric Token Configuration (Sprint 8)
+QR_JWT_PRIVATE_KEY = env.str("QR_JWT_PRIVATE_KEY", default="")
+QR_JWT_PUBLIC_KEY = env.str("QR_JWT_PUBLIC_KEY", default="")
+QR_TOKEN_WINDOW_SECONDS = 90
+
 
 # drf-spectacular configuration
 SPECTACULAR_SETTINGS = {
@@ -165,4 +191,10 @@ SPECTACULAR_SETTINGS = {
     "VERSION": "1.0.0",
     "SERVE_INCLUDE_SCHEMA": False,
     "COMPONENT_SPLIT_REQUEST": True,
+    "ENUM_NAME_OVERRIDES": {
+        "GymStatusEnum": "apps.tenants.models.GymTenant.STATUS_CHOICES",
+        "DemoRequestStatusEnum": "apps.tenants.models.DemoRequest.STATUS_CHOICES",
+        "PaymentStatusEnum": "apps.payments.models.Payment.STATUS_CHOICES",
+        "UserRoleEnum": "apps.accounts.models.User.ROLE_CHOICES",
+    },
 }

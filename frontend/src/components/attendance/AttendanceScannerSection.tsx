@@ -1,0 +1,506 @@
+import React, { useState } from "react";
+import {
+  QrCode,
+  Scan,
+  UserCheck,
+  AlertTriangle,
+  UserX,
+  Clock,
+  ShieldAlert,
+  Edit3,
+  Calendar,
+  X,
+  CheckCircle2,
+} from "lucide-react";
+import {
+  scanQrToken,
+  manualAttendanceOverride,
+  type ScanResultResponse,
+  type ManualOverrideResultResponse,
+} from "../../api/attendance";
+import { Card } from "../ui/Card";
+import { Button } from "../ui/Button";
+import { Input } from "../ui/Input";
+import { Badge } from "../ui/Badge";
+import { Alert } from "../ui/Alert";
+import { Spinner } from "../ui/Spinner";
+import { AttendanceLogCard } from "./AttendanceLogCard";
+
+interface AttendanceScannerSectionProps {
+  userRole?: string;
+}
+
+export const AttendanceScannerSection: React.FC<
+  AttendanceScannerSectionProps
+> = ({ userRole }) => {
+  const [tokenInput, setTokenInput] = useState("");
+  const [scanning, setScanning] = useState(false);
+  const [scanResult, setScanResult] = useState<ScanResultResponse | null>(null);
+  const [overrideResult, setOverrideResult] =
+    useState<ManualOverrideResultResponse | null>(null);
+
+  const [scanError, setScanError] = useState<{
+    detail: string;
+    reason: string;
+    member?: { full_name: string; photo_url?: string; status: string };
+  } | null>(null);
+
+  // Manual Override Modal state
+  const [showOverrideModal, setShowOverrideModal] = useState(false);
+  const [overrideMemberId, setOverrideMemberId] = useState("");
+  const [overrideReason, setOverrideReason] = useState("");
+  const [overrideSubmitting, setOverrideSubmitting] = useState(false);
+  const [overrideError, setOverrideError] = useState<{
+    detail: string;
+    reason: string;
+  } | null>(null);
+
+  // Attendance history modal state
+  const [selectedMemberForHistory, setSelectedMemberForHistory] = useState<{
+    id: string;
+    name: string;
+  } | null>(null);
+
+  const handleScanSubmit = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    if (!tokenInput.trim()) return;
+
+    setScanning(true);
+    setScanResult(null);
+    setOverrideResult(null);
+    setScanError(null);
+
+    try {
+      const result = await scanQrToken({ token: tokenInput.trim() });
+      setScanResult(result);
+      setTokenInput("");
+    } catch (err: unknown) {
+      const errorObj = err as {
+        data?: {
+          detail?: string;
+          reason?: string;
+          member?: { full_name: string; photo_url?: string; status: string };
+        };
+        message?: string;
+      };
+      const detail =
+        errorObj.data?.detail || errorObj.message || "Failed to process scan.";
+      const reason = errorObj.data?.reason || "error";
+      setScanError({
+        detail,
+        reason,
+        member: errorObj.data?.member,
+      });
+    } finally {
+      setScanning(false);
+    }
+  };
+
+  const handleOverrideSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!overrideMemberId.trim() || !overrideReason.trim()) {
+      setOverrideError({
+        detail: "Member ID and a non-empty reason are required.",
+        reason: "validation_error",
+      });
+      return;
+    }
+
+    setOverrideSubmitting(true);
+    setOverrideError(null);
+
+    try {
+      const result = await manualAttendanceOverride({
+        member_id: overrideMemberId.trim(),
+        reason: overrideReason.trim(),
+      });
+      setOverrideResult(result);
+      setScanResult(null);
+      setScanError(null);
+      setShowOverrideModal(false);
+      setOverrideReason("");
+      setOverrideMemberId("");
+    } catch (err: unknown) {
+      const errorObj = err as {
+        data?: { detail?: string; reason?: string };
+        message?: string;
+      };
+      setOverrideError({
+        detail:
+          errorObj.data?.detail ||
+          errorObj.message ||
+          "Failed to process manual override.",
+        reason: errorObj.data?.reason || "error",
+      });
+    } finally {
+      setOverrideSubmitting(false);
+    }
+  };
+
+  // Helper to render distinguishable reason badges and tips
+  const renderReasonBadge = (reason: string) => {
+    switch (reason) {
+      case "already_checked_in":
+        return (
+          <div className="flex items-center gap-1.5 text-amber-400 font-semibold text-xs">
+            <AlertTriangle className="w-4 h-4 text-amber-400" />
+            Duplicate check-in detected today. Staff have been notified.
+          </div>
+        );
+      case "expired":
+        return (
+          <div className="flex items-center gap-1.5 text-rose-400 font-semibold text-xs">
+            <UserX className="w-4 h-4 text-rose-400" />
+            Membership expired. Member must renew plan before check-in.
+          </div>
+        );
+      case "frozen":
+        return (
+          <div className="flex items-center gap-1.5 text-sky-400 font-semibold text-xs">
+            <Clock className="w-4 h-4 text-sky-400" />
+            Membership is currently frozen.
+          </div>
+        );
+      case "suspended":
+        return (
+          <div className="flex items-center gap-1.5 text-rose-500 font-semibold text-xs">
+            <ShieldAlert className="w-4 h-4 text-rose-500" />
+            Account is suspended by management.
+          </div>
+        );
+      case "token_expired":
+        return (
+          <div className="flex items-center gap-1.5 text-amber-400 font-semibold text-xs">
+            <Clock className="w-4 h-4 text-amber-400" />
+            QR token window (90s) expired. Member must refresh pass.
+          </div>
+        );
+      case "token_consumed":
+        return (
+          <div className="flex items-center gap-1.5 text-rose-400 font-semibold text-xs">
+            <AlertTriangle className="w-4 h-4 text-rose-400" />
+            Token already used. Single-use enforcement active.
+          </div>
+        );
+      default:
+        return null;
+    }
+  };
+
+  const activeMember = scanResult?.member || overrideResult?.member;
+  const activeAttendance = scanResult?.attendance || overrideResult?.attendance;
+
+  return (
+    <div className="space-y-6">
+      {/* Top Banner / Controls */}
+      <Card className="bg-surface border-border p-6 shadow-sm">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+          <div>
+            <div className="flex items-center gap-2">
+              <QrCode className="w-6 h-6 text-primary" />
+              <h2 className="text-xl font-bold text-text">
+                Front Desk Attendance Scanner
+              </h2>
+            </div>
+            <p className="text-sm text-text-muted mt-1">
+              Validate dynamic 90s QR tokens, detect duplicate attempts, and
+              execute reception overrides.
+            </p>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => {
+                setShowOverrideModal(true);
+                setOverrideError(null);
+              }}
+              className="min-h-[44px] flex items-center gap-2 text-xs font-semibold"
+            >
+              <Edit3 className="w-4 h-4 text-amber-400" />
+              Manual Override
+            </Button>
+          </div>
+        </div>
+
+        {/* Scan Input Form */}
+        <form onSubmit={handleScanSubmit} className="space-y-4">
+          <div className="flex flex-col sm:flex-row gap-3">
+            <div className="flex-1 relative">
+              <Input
+                type="text"
+                placeholder="Scan QR token or paste token JWT..."
+                value={tokenInput}
+                onChange={(e) => setTokenInput(e.target.value)}
+                disabled={scanning}
+                className="font-mono text-xs pr-10 min-h-[44px]"
+                autoFocus
+              />
+              <Scan className="w-4 h-4 text-text-muted absolute right-3 top-3.5 pointer-events-none" />
+            </div>
+
+            <Button
+              type="submit"
+              variant="primary"
+              disabled={scanning || !tokenInput.trim()}
+              className="min-h-[44px] px-6 flex items-center justify-center gap-2 font-semibold"
+            >
+              {scanning ? (
+                <>
+                  <Spinner size="sm" />
+                  Verifying...
+                </>
+              ) : (
+                <>
+                  <Scan className="w-4 h-4" />
+                  Verify & Check In
+                </>
+              )}
+            </Button>
+          </div>
+        </form>
+
+        {/* Result Card: Success */}
+        {activeMember && activeAttendance && (
+          <div className="mt-6 p-4 rounded-xl border border-emerald-500/30 bg-emerald-500/10 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 animate-in fade-in duration-300">
+            <div className="flex items-center gap-4">
+              {activeMember.photo_url ? (
+                <img
+                  src={activeMember.photo_url}
+                  alt={activeMember.full_name}
+                  className="w-16 h-16 rounded-full object-cover border-2 border-emerald-500 shadow-sm"
+                />
+              ) : (
+                <div className="w-16 h-16 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 flex items-center justify-center font-bold text-xl">
+                  {activeMember.full_name.charAt(0)}
+                </div>
+              )}
+
+              <div>
+                <div className="flex items-center gap-2">
+                  <h3 className="font-bold text-lg text-text">
+                    {activeMember.full_name}
+                  </h3>
+                  <Badge variant="primary">
+                    {activeMember.status.toUpperCase()}
+                  </Badge>
+                  {activeAttendance.is_override && (
+                    <Badge variant="secondary">OVERRIDE</Badge>
+                  )}
+                </div>
+                <div className="flex items-center gap-2 text-xs text-text-muted mt-1">
+                  <UserCheck className="w-3.5 h-3.5 text-emerald-400" />
+                  <span>
+                    Checked in at{" "}
+                    {new Date(
+                      activeAttendance.checked_in_at
+                    ).toLocaleTimeString([], {
+                      hour: "2-digit",
+                      minute: "2-digit",
+                      second: "2-digit",
+                    })}
+                  </span>
+                  <span>•</span>
+                  <span>{activeAttendance.date}</span>
+                </div>
+                {activeAttendance.override_reason && (
+                  <p className="text-xs text-amber-300/90 mt-1 italic">
+                    Reason: {activeAttendance.override_reason}
+                  </p>
+                )}
+              </div>
+            </div>
+
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() =>
+                setSelectedMemberForHistory({
+                  id: activeMember.id,
+                  name: activeMember.full_name,
+                })
+              }
+              className="min-h-[44px] flex items-center gap-1.5 text-xs self-stretch sm:self-center"
+            >
+              <Calendar className="w-3.5 h-3.5 text-primary" />
+              View History
+            </Button>
+          </div>
+        )}
+
+        {/* Result Card: Error */}
+        {scanError && (
+          <div className="mt-6 p-4 rounded-xl border border-rose-500/30 bg-rose-500/10 space-y-3 animate-in fade-in duration-300">
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex items-start gap-3">
+                <AlertTriangle className="w-5 h-5 text-rose-400 shrink-0 mt-0.5" />
+                <div>
+                  <h4 className="font-bold text-sm text-text">
+                    Check-in Rejected ({scanError.reason})
+                  </h4>
+                  <p className="text-xs text-rose-300 mt-0.5">
+                    {scanError.detail}
+                  </p>
+                </div>
+              </div>
+
+              {scanError.member && (
+                <Badge variant="danger">
+                  {scanError.member.status.toUpperCase()}
+                </Badge>
+              )}
+            </div>
+
+            {renderReasonBadge(scanError.reason)}
+
+            {/* Quick action to manual override if member is active */}
+            {userRole &&
+              ["owner", "manager", "reception"].includes(userRole) && (
+                <div className="pt-2 border-t border-rose-500/20 flex gap-2">
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => {
+                      if (scanError.member) {
+                        // Prefill modal
+                      }
+                      setShowOverrideModal(true);
+                    }}
+                    className="min-h-[36px] text-xs font-semibold"
+                  >
+                    Open Manual Override
+                  </Button>
+                </div>
+              )}
+          </div>
+        )}
+      </Card>
+
+      {/* Selected Member Attendance History Modal / Section */}
+      {selectedMemberForHistory && (
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <h3 className="text-base font-bold text-text">
+              Member Attendance Calendar
+            </h3>
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => setSelectedMemberForHistory(null)}
+              className="min-h-[36px] text-xs"
+            >
+              Close History
+            </Button>
+          </div>
+          <AttendanceLogCard
+            memberId={selectedMemberForHistory.id}
+            memberName={selectedMemberForHistory.name}
+          />
+        </div>
+      )}
+
+      {/* Manual Override Modal */}
+      {showOverrideModal && (
+        <div className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-4">
+          <div className="bg-surface border border-border rounded-2xl p-6 max-w-md w-full shadow-2xl relative space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Edit3 className="w-5 h-5 text-primary" />
+                <h3 className="font-bold text-lg text-text">
+                  Manual Attendance Override
+                </h3>
+              </div>
+              <button
+                onClick={() => setShowOverrideModal(false)}
+                className="text-text-muted hover:text-text p-1 min-h-[44px] min-w-[44px] flex items-center justify-center rounded-lg"
+                aria-label="Close modal"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <p className="text-xs text-text-muted">
+              Records an official manual check-in when a member cannot scan.
+              Requires an active subscription and creates an immutable AuditLog
+              entry.
+            </p>
+
+            {overrideError && (
+              <Alert variant="danger">
+                <div className="text-xs">
+                  <span className="font-semibold block">
+                    Override Denied ({overrideError.reason})
+                  </span>
+                  {overrideError.detail}
+                </div>
+              </Alert>
+            )}
+
+            <form onSubmit={handleOverrideSubmit} className="space-y-4">
+              <div>
+                <label className="block text-xs font-semibold text-text-muted mb-1">
+                  Member UUID
+                </label>
+                <Input
+                  type="text"
+                  placeholder="e.g. 3cd1c4f9-704d-4d1e-af75-76e8fa2ba5de"
+                  value={overrideMemberId}
+                  onChange={(e) => setOverrideMemberId(e.target.value)}
+                  className="font-mono text-xs min-h-[44px]"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-text-muted mb-1">
+                  Override Reason (Required)
+                </label>
+                <textarea
+                  placeholder="Explain why manual override was needed (e.g. phone died, camera broken)..."
+                  value={overrideReason}
+                  onChange={(e) => setOverrideReason(e.target.value)}
+                  className="w-full bg-surface-2 border border-border rounded-input p-3 text-xs text-text focus:outline-none focus:ring-1 focus:ring-primary min-h-[80px]"
+                  required
+                />
+              </div>
+
+              <div className="flex gap-3 pt-2">
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={() => setShowOverrideModal(false)}
+                  className="flex-1 min-h-[44px]"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="submit"
+                  variant="primary"
+                  disabled={
+                    overrideSubmitting ||
+                    !overrideMemberId.trim() ||
+                    !overrideReason.trim()
+                  }
+                  className="flex-1 min-h-[44px] flex items-center justify-center gap-2 font-semibold"
+                >
+                  {overrideSubmitting ? (
+                    <>
+                      <Spinner size="sm" />
+                      Recording...
+                    </>
+                  ) : (
+                    <>
+                      <CheckCircle2 className="w-4 h-4" />
+                      Confirm Override
+                    </>
+                  )}
+                </Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};

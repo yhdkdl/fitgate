@@ -213,3 +213,83 @@ class AuthToken(models.Model):
 
     def __str__(self):
         return f"AuthToken({self.purpose} for {self.user.email})"
+
+
+class Notification(PlatformTenantAwareModel):
+    """
+    In-app notification for users.
+
+    Platform-level when gym is None (e.g. Super Admin alerts).
+    Tenant-level when gym is set.
+    """
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    recipient = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="notifications",
+    )
+    type = models.CharField(max_length=50)
+    message = models.TextField()
+    is_read = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"Notification({self.recipient.email} - {self.type})"
+
+
+class AuditLog(PlatformTenantAwareModel):
+    """
+    Append-only audit trail for security and operational actions.
+
+    Platform-level when gym is None.
+    Tenant-level when gym is set.
+    SPEC §8:
+    - id (UUID PK)
+    - gym_id (nullable — platform-level)
+    - actor (FK -> User, nullable, PROTECT)
+    - action_type (CharField, indexed)
+    - affected_record_type (CharField)
+    - affected_record_id (CharField)
+    - timestamp (DateTimeField, auto_now_add=True, indexed)
+    - metadata (JSONField, nullable)
+    """
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    actor = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="audit_logs",
+    )
+    action_type = models.CharField(max_length=100, db_index=True)
+    affected_record_type = models.CharField(max_length=100)
+    affected_record_id = models.CharField(max_length=100)
+    timestamp = models.DateTimeField(auto_now_add=True, db_index=True)
+    metadata = models.JSONField(null=True, blank=True)
+
+    class Meta:
+        ordering = ["-timestamp"]
+        indexes = [
+            models.Index(fields=["gym", "-timestamp"]),
+            models.Index(fields=["-timestamp"]),
+        ]
+
+    def save(self, *args, **kwargs):
+        """AuditLog is strictly append-only: updates to existing rows are forbidden."""
+        if self.pk and not getattr(self, "_state", None).adding:
+            if AuditLog.all_objects.filter(pk=self.pk).exists():
+                raise ValidationError("AuditLog is append-only and cannot be updated.")
+        super().save(*args, **kwargs)
+
+    def delete(self, *args, **kwargs):
+        """AuditLog is strictly append-only: row deletions are forbidden."""
+        raise ValidationError("AuditLog is append-only and cannot be deleted.")
+
+    def __str__(self):
+        actor_email = self.actor.email if self.actor else "System"
+        return f"AuditLog({self.action_type} on {self.affected_record_type}:{self.affected_record_id} by {actor_email})"

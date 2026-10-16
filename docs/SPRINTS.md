@@ -102,11 +102,11 @@ Trainer specialization and photo are delivered in the Trainer and storage sprint
    - At most one reset email per user per PASSWORD_RESET_COOLDOWN_SECONDS (silent).
    - Known follow-up: the request endpoint's response time differs slightly when an email is sent (no job queue yet).
 
-   - [~] Status: in progress
+   - [x] Status: done — merged to develop (PR #9)
 
 3a. **Frontend shell and auth screens** - Vite React app shell with Tailwind and the tokens from docs/DESIGN.md, React Router, TanStack Query, API client built on the generated TypeScript types. - Dev proxy forwards the ORIGINAL Host header so tenant resolution works at `<gym>.localhost:5173` as well as `localhost:5173`; Vite allows `*.localhost` hosts. - Login screen (apex for Super Admin, gym subdomain for gym users); every failure shows the same generic message; no field-level hints about what was wrong. - Token handling: access token in memory, refresh token handling chosen and documented (explain the choice and the risk in the PR); one in-flight refresh at a time; on refresh failure the user is sent to login; logout calls the logout endpoint. - Forced change-password screen when `must_change_password` is true; every other route is blocked until done. - Forgot-password and reset-password screens; the reset page reads the token from the URL and removes it from the address bar immediately (`history.replaceState`). - Profile page: edit name and phone, change password. - Role dashboard shell: navigation and placeholder cards driven by the login response's dashboard config; protected-route guard by role. - Tests (Vitest + React Testing Library): login success and failure, forced password change, route guard, refresh interceptor, reset-token removal from the URL. Lint and prettier clean. Usable at 320px. - "You can now test": log in as Super Admin at localhost, change the forced password, edit profile, log out, run the forgot-password flow reading the link from the backend logs.
 
-    - [ ] Status: not started
+    - [x] Status: done — merged to develop (PR #11)
 
 4. **Super Admin "Create gym"** — gym creation after payment, subdomain provisioning via cPanel UAPI, Owner creation, welcome message.
 
@@ -120,6 +120,8 @@ Trainer specialization and photo are delivered in the Trainer and storage sprint
 - **Certificate safeguard (see `docs/SPEC.md` §4):** until the subdomain's TLS certificate is confirmed valid, the app does not force an HTTPS redirect on it and refuses login and registration specifically, showing a "still being secured" state. Login is refused while `tls_confirmed_at` is null and allowed once it is set. When it is set for the first time, `subscription_expires_at` is set to one year later.
 - A migration adds the `GymTenant` columns listed in SPEC §8 and the `GymConfig` fields `payment_grace_days` (default 7), `subscription_reminder_days` (default 14 and 7) and `member_reminder_days` (default 7 and 2).
 
+- [x] Status: done — merged to develop (PR #12)
+
 4a. **Demo requests** — public "Request a Demo" form and Super Admin lead list.
 
 - The public endpoint exists on the apex only and is rejected on a gym subdomain. Required: gym name, contact name, phone; optional: city, email, message.
@@ -128,6 +130,8 @@ Trainer specialization and photo are delivered in the Trainer and storage sprint
 - Only Super Admin can list requests, filter by status, add notes, and move a request through new → contacted → demo done → converted / lost; other roles get 403.
 - "Convert to gym" returns the data that pre-fills Sprint 4's form; creating the gym with that `demo_request_id` marks the request `converted` and links the new gym.
 
+- [x] Status: done — merged to develop (PR #13)
+
 4b. **File storage layer** — Cloudinary (Free plan) behind Django's storage interface.
 
 - Member photos are stored as `authenticated` assets in per-gym folders (`gyms/<gym_id>/…`). They are served only through a backend view that checks the requester is logged in and belongs to that gym; the browser never receives a Cloudinary URL. Requesting another gym's photo returns 403/404 — tested.
@@ -135,28 +139,40 @@ Trainer specialization and photo are delivered in the Trainer and storage sprint
 - Uploads are validated server-side before storage: image type only, maximum size (2 MB), random file names; an invalid upload is rejected with a clear error. Images are resized on upload.
 - Credentials come from the environment; local development and tests use a local folder through the same interface (a fake storage in tests). The Cloudinary `authenticated` type is verified once against a real account before release (see "External checks").
 
+- [x] Status: done — merged to develop (PR #14)
+
 4c. **Gym branding, entry page, first-run checklist**
 
 - `GymConfig` gains optional `brand_color` (hex) and a logo reference. Both are Owner-editable settings; when empty, a default theme and the gym name are shown.
 - A public entry page endpoint on the gym subdomain returns the gym name, brand color, logo, phone and location. The page offers Log in and Register; the plan list is added in Sprint 10. Before the certificate is confirmed it shows the "still being secured" state.
 - A first-run checklist is shown to the Owner only: add branding, create a first plan, add a staff account, register a first member. Items tick automatically from real data (no manual flags), and the checklist can be dismissed; dismissal persists.
 
+- [x] Status: done — merged to develop (PR #15)
+
 5. **RBAC framework (GATE)** — permission classes + Owner/Manager permission matrix enforcement.
    - For every role in the permission matrix (SPEC §2), both an allowed action (succeeds) and a denied action (403, not 200) are covered by a test.
    - **Entitlements vs. settings:** an Owner's attempt to change `tier`, any `has_*` flag, `freeze_days_allowed`, `payment_grace_days` or `subscription_reminder_days` is rejected (403) at the API level; the same Owner can change `brand_color`, `member_reminder_days` and their payment credentials; a Manager can change none of them. Super Admin can change the entitlements.
+   - **Super Admin vs. gym settings:** Per SPEC §2 Table 3.1a, Super Admin modifies entitlements only (`/api/platform/gyms/<id>/config/`) and cannot edit gym operational settings (`brand_color`, reminder days, logo) or access the Owner checklist on gym subdomains.
+
+- [x] Status: done — merged to develop (tag sprint-5-done)
 
 6. **Staff provisioning** — Manager/Trainer/Reception invite-and-set-password flow, deactivation.
    - An invited user cannot authenticate until they complete the set-password step; the invite link is single-use and expires; invited accounts count as email-verified.
    - Owner can create Managers, Trainers and Reception; Manager can create only Trainers and Reception — a Manager creating a Manager gets 403, enforced at the API.
    - **Deactivation** blocks login and invalidates existing tokens immediately, never deletes, and keeps that user's history (audit entries, messages, approvals) visible to everyone who could see it before. No foreign key to a user cascades a delete, and there is no user hard-delete route. The email stays reserved; reactivation is possible instead of creating a duplicate.
 
+- [x] Status: done — merged to develop (tag sprint-6-done)
+
 7. **Member registration** — self-service + staff-assisted, `Member` + `BodyMetrics`, waiver, verification, photo.
    - Self-service and staff-assisted registration produce an identical `Member` + `BodyMetrics` structure.
    - A duplicate registration (same identifying field) within one gym is rejected.
    - Accepting the health waiver is required (`waiver_accepted_at` stored); registration without it is rejected.
    - A self-registered member must verify their email by single-use, expiring link before first login; staff-registered members receive a set-password link and count as verified. Public registration is rate-limited.
-   - A profile photo uploads through Sprint 4b's storage layer.
+   - A profile photo uploads through Sprint 4b's storage layer; member self-service photo ownership is wired there, with an exact-match check against the Member record (Members read their own photo only through the exact-match check).
+   - Member photo read access for Trainers must narrow to their assigned members (Sprint 17 wires assignment).
    - Body composition: BMI is computed from the latest height and weight; an estimated body-fat percentage (US Navy circumference method) is computed only when the needed measurements are recorded. Both are labeled estimates, computed on read, and covered by unit tests.
+
+- [x] Status: done — merged to develop (tag sprint-7-done)
 
 8. **QR check-in (GATE)** — token issuance/rotation (90 s window), scan endpoint, `Attendance`, duplicate/expired-scan handling, manual override.
    - The token is a signed JWT (asymmetric signature, private key in the environment, public key exposed so a scanner can verify offline). A tampered token is rejected; a token is valid at 89 seconds after issue and rejected at 91 — tested with a frozen clock.
@@ -167,9 +183,14 @@ Trainer specialization and photo are delivered in the Trainer and storage sprint
    - `Attendance` rows exist only for actual check-ins. An attendance-log endpoint returns ✓/✗ per day for a date range, derived from check-ins and the subscription period (days outside the period are blank).
    - Performance: scan validation plus attendance recording completes in under 2 seconds against a seeded dataset of 10,000 members.
 
-9. **Audit log foundation** — `AuditLog` model + logging utility wired into 1–8; restricted DB role (INSERT/SELECT only).
+- [x] Status: done — merged to develop (tag sprint-8-done)
+
+9. **Audit log foundation** — `AuditLog` model + logging utility wired into 1–8; database triggers for immutability (BEFORE UPDATE, DELETE, TRUNCATE raise exception).
+   - _Note (Sprint 8 Gate decision):_ extend the existing AuditLog model with a NEW migration (never edit 0005) that adds the triggers; do NOT create a second model or recreate the table.
    - Every action from sprints 1–8 produces exactly one `AuditLog` row with the correct `actor_id`, `action_type` and affected record, including logout, Super Admin creation, and gym creation (platform-level rows have `gym_id` null).
-   - An `UPDATE` or `DELETE` against the audit table using the application's own DB role fails at the database level — tested directly.
+   - An `UPDATE`, `DELETE`, or `TRUNCATE` against the audit table fails at the database level via PostgreSQL triggers — tested directly with raw SQL through the application connection.
+
+- [x] Status: done — merged to develop (tag sprint-9-done)
 
 9a. **Audit log viewer**
 
@@ -185,6 +206,7 @@ Trainer specialization and photo are delivered in the Trainer and storage sprint
 - Sprint 11 (a Chapa TEST merchant account per gym, keys entered in that gym's settings screen not in .env, plus a tunnel such as ngrok so Chapa can reach the local webhook; fallback: signed mocked webhooks)
 
 10. **Membership plans & subscription lifecycle** — `MembershipPlan` CRUD, `MemberSubscription` state machine.
+    - _Note (Sprint 8 Gate decision):_ Extend the existing `MemberSubscription` model in `apps.memberships` (migration `0002`) with new migrations; never recreate it. Establish ONE documented source of truth for member status across `Member` and `MemberSubscription`.
     - A plan's duration is a number plus a unit (days or months). End dates are correct for both, including month-end cases (31 January + 1 month).
     - Creating a subscription against an inactive plan is rejected. Deactivating a plan hides it from new members but leaves existing subscriptions untouched. Editing a plan's price never changes recorded payments.
     - Saving a trainer-inclusive plan in a gym with no trainers succeeds but returns a clear warning.
@@ -194,7 +216,7 @@ Trainer specialization and photo are delivered in the Trainer and storage sprint
 
 11. **Chapa payment integration (one account per gym) (GATE)** — credentials, checkout, webhook verification, idempotency.
     - Each gym stores its own Chapa secret key and webhook secret in a separate payment-config record. They are encrypted at rest (the raw database value is not the plaintext; decrypting needs the environment key), never returned by any API (the response shows a masked value only), and never written to logs — each tested. A missing encryption key fails fast. `GymConfig.chapa_merchant_id` is removed by migration.
-    - Only Owner and Super Admin can set or replace credentials; Manager and all others get 403.
+    - Only Owner can set or replace credentials (never Super Admin); Manager and all others get 403. Payment credentials must be Owner-only (never Super Admin), encrypted, and never returned.
     - A verify-connection action tests the keys with a harmless authenticated call (mocked in tests) and records the result. "Pay Now" is refused for a gym with no verified configuration, and the member is offered cash.
     - The webhook path includes the gym id. It looks up that gym's secret, verifies the signature, then re-verifies the transaction with Chapa and compares the amount with what was expected; a mismatch is not activated and is flagged. A webhook for gym A signed with gym B's secret is rejected.
     - A redelivered webhook (same event twice) does not double-credit the subscription or create a duplicate `Payment` — the core test for this sprint. An invalid signature is rejected.
@@ -424,4 +446,7 @@ _Not in the original source document — added by direct decision with the proje
 - Access tokens stay valid until expiry after logout; the token blacklist table needs a periodic cleanup (flushexpiredtokens) in the Sprint 38 cron setup.
 - Purge expired AuthToken rows with a management command in the Sprint 38 cron setup.
 - Sprint 1a (GitHub Actions CI) was proposed and skipped to save time; revisit before final submission. (The "every view declares permissions" contract test already exists from Sprint 2.)
-- notifications.py hardcodes a fallback From address; define DEFAULT_FROM_EMAIL from the environment instead (fixed in Sprint 3a).
+- Real Super Admin JWT test at gym and apex hosts.
+- Parametrized tests for the Member.status path.
+- Move freezegun to a dev/test requirements file and check @types/qrcode.react is needed with qrcode.react v4.
+- Alert close button min 44px per DESIGN.md.

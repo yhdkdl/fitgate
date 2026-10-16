@@ -23,12 +23,10 @@ DATABASES = {
 }
 
 # Cache - Redis for local dev container
-CACHES = {
-    "default": env.cache_url(
-        "REDIS_URL",
-        default="redis://redis:6379/1",
-    )
-}
+CACHES["default"] = env.cache_url(
+    "REDIS_URL",
+    default="redis://redis:6379/1",
+)
 
 # CORS / CSRF for local dev
 CORS_ALLOW_ALL_ORIGINS = True
@@ -47,3 +45,4 @@ CSRF_TRUSTED_ORIGINS = env.list(
 
 # Email - Console backend for local development
 EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
+DEFAULT_FROM_EMAIL = env("DEFAULT_FROM_EMAIL", default="webmaster@localhost")

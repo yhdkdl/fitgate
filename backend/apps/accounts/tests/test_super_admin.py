@@ -6,6 +6,7 @@ from unittest.mock import patch
 import pytest
 from django.core.management import CommandError, call_command
 from django.urls import get_resolver
+from django.utils import timezone
 from rest_framework.test import APIClient
 
 from apps.accounts.models import User
@@ -146,7 +147,9 @@ class TestSuperAdminBootstrapAndCreation:
 
     def test_create_additional_super_admin_non_super_admin_forbidden(self):
         """Non-super-admin user (e.g. Owner) gets 403 on /api/platform/super-admins/."""
-        gym = GymTenant.objects.create(name="Apex Gym", subdomain="apex")
+        gym = GymTenant.objects.create(
+            name="Apex Gym", subdomain="apex", tls_confirmed_at=timezone.now()
+        )
         owner = User.objects.create_user(
             email="owner@apex.com",
             password="OwnerPassword123!",
@@ -175,7 +178,9 @@ class TestSuperAdminBootstrapAndCreation:
             password="ActorPassword123!",
         )
         tokens = get_tokens_for_user(actor)
-        GymTenant.objects.create(name="Gym Test", subdomain="gymtest")
+        GymTenant.objects.create(
+            name="Gym Test", subdomain="gymtest", tls_confirmed_at=timezone.now()
+        )
 
         client = APIClient()
         client.credentials(HTTP_AUTHORIZATION=f"Bearer {tokens['access']}")

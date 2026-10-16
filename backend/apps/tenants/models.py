@@ -3,6 +3,7 @@
 import re
 import uuid
 
+from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import models
 
@@ -36,6 +37,17 @@ def validate_subdomain(value: str) -> None:
         )
     if value.lower() in RESERVED_SUBDOMAINS:
         raise ValidationError(f"'{value}' is a reserved subdomain.")
+
+
+HEX_COLOR_REGEX = re.compile(r"^#[0-9a-fA-F]{6}$")
+
+
+def validate_hex_color(value: str) -> None:
+    """Validate 6-digit hex color format (e.g. #FF5733)."""
+    if value and not HEX_COLOR_REGEX.match(value):
+        raise ValidationError(
+            "Brand color must be a valid 6-character hex code (e.g. #FF5733)."
+        )
 
 
 class GymTenant(models.Model):
@@ -80,6 +92,15 @@ class GymTenant(models.Model):
     )
     tier = models.CharField(max_length=20, choices=TIER_CHOICES, default=TIER_STARTER)
     currency = models.CharField(max_length=3, default="ETB")
+    location = models.CharField(max_length=255, blank=True, default="")
+    contact_name = models.CharField(max_length=150, blank=True, default="")
+    contact_phone = models.CharField(max_length=20, blank=True, default="")
+    contact_email = models.EmailField(blank=True, default="")
+    subscription_expires_at = models.DateTimeField(null=True, blank=True)
+    tls_confirmed_at = models.DateTimeField(null=True, blank=True)
+    lapse_flagged_at = models.DateTimeField(null=True, blank=True)
+    suspended_at = models.DateTimeField(null=True, blank=True)
+    is_demo = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -109,6 +130,14 @@ class GymTenant(models.Model):
         return f"{self.name} ({self.subdomain})"
 
 
+def default_subscription_reminder_days():
+    return [14, 7]
+
+
+def default_member_reminder_days():
+    return [7, 2]
+
+
 class GymConfig(models.Model):
     """
     Feature-gating configuration and payment keys for a gym tenant.
@@ -129,6 +158,17 @@ class GymConfig(models.Model):
     has_multi_branch = models.BooleanField(default=False)
     chapa_merchant_id = models.CharField(max_length=100, null=True, blank=True)
     freeze_days_allowed = models.PositiveIntegerField(default=0)
+    payment_grace_days = models.PositiveIntegerField(default=7)
+    subscription_reminder_days = models.JSONField(
+        default=default_subscription_reminder_days
+    )
+    member_reminder_days = models.JSONField(default=default_member_reminder_days)
+    brand_color = models.CharField(
+        max_length=7, null=True, blank=True, validators=[validate_hex_color]
+    )
+    logo = models.CharField(max_length=500, null=True, blank=True)
+    show_unavailable_equipment = models.BooleanField(default=False)
+    first_run_dismissed_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:
         verbose_name = "Gym Configuration"
@@ -136,6 +176,49 @@ class GymConfig(models.Model):
 
     def __str__(self):
         return f"Config for {self.gym.name}"
+
+
+def get_tier_defaults(tier: str) -> dict:
+    """Return default GymConfig feature flags and settings for the given tier."""
+    defaults = {
+        "payment_grace_days": 7,
+        "subscription_reminder_days": [14, 7],
+        "member_reminder_days": [7, 2],
+    }
+    if tier == GymTenant.TIER_STARTER:
+        defaults.update(
+            {
+                "has_trainer_module": False,
+                "has_ai_plans": False,
+                "has_analytics": False,
+                "has_group_classes": False,
+                "has_multi_branch": False,
+                "freeze_days_allowed": 0,
+            }
+        )
+    elif tier == GymTenant.TIER_GROWTH:
+        defaults.update(
+            {
+                "has_trainer_module": True,
+                "has_ai_plans": True,
+                "has_analytics": True,
+                "has_group_classes": True,
+                "has_multi_branch": False,
+                "freeze_days_allowed": 30,
+            }
+        )
+    elif tier == GymTenant.TIER_PRO:
+        defaults.update(
+            {
+                "has_trainer_module": True,
+                "has_ai_plans": True,
+                "has_analytics": True,
+                "has_group_classes": True,
+                "has_multi_branch": True,
+                "freeze_days_allowed": 60,
+            }
+        )
+    return defaults
 
 
 class TenantAwareModel(models.Model):
@@ -230,3 +313,62 @@ class PlatformTenantAwareModel(models.Model):
             # Without tenant context (apex): null gym or explicit gym allowed.
             pass
         super().save(*args, **kwargs)
+
+
+class DemoRequest(models.Model):
+    """
+    Platform-level demo request submitted from the public apex marketing site.
+
+    Not tenant-scoped (no gym foreign key until converted).
+    """
+
+    STATUS_NEW = "new"
+    STATUS_CONTACTED = "contacted"
+    STATUS_DEMO_DONE = "demo_done"
+    STATUS_CONVERTED = "converted"
+    STATUS_LOST = "lost"
+
+    STATUS_CHOICES = [
+        (STATUS_NEW, "New"),
+        (STATUS_CONTACTED, "Contacted"),
+        (STATUS_DEMO_DONE, "Demo Done"),
+        (STATUS_CONVERTED, "Converted"),
+        (STATUS_LOST, "Lost"),
+    ]
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    gym_name = models.CharField(max_length=150)
+    contact_name = models.CharField(max_length=150)
+    phone = models.CharField(max_length=50)
+    city = models.CharField(max_length=100, blank=True, default="")
+    email = models.EmailField(blank=True, default="")
+    message = models.TextField(blank=True, default="")
+    status = models.CharField(
+        max_length=20,
+        choices=STATUS_CHOICES,
+        default=STATUS_NEW,
+        db_index=True,
+    )
+    notes = models.TextField(blank=True, default="")
+    handled_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="handled_demo_requests",
+    )
+    converted_gym = models.ForeignKey(
+        GymTenant,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="converted_from_demo",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"DemoRequest({self.gym_name} - {self.status})"

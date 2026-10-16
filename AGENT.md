@@ -58,6 +58,7 @@ Items below are proposed but not yet confirmed by the project owner — do not t
 4. Every sprint that adds user-facing behavior ships the minimal screens for it, following `docs/DESIGN.md`.
 5. At the end of each increment write `docs/INCREMENT_N_TEST.md`, a numbered click-through script for a non-developer (what to open, what to type, what you should see, plus the manual steps still pending), and post a short increment report in chat: sprints done, test summary line, deviations, open questions, manual steps pending.
 6. Chat replies during an increment happen only at the preflight, at GATE sprints, when blocked, and at the end.
+7. Every sprint that adds an endpoint adds the matching rows to the permission matrix test and an allowed plus a denied test per affected role against the REAL endpoint.
 
 ## Before writing any code in a sprint
 

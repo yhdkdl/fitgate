@@ -200,3 +200,94 @@ class PasswordResetConfirmResponseSerializer(serializers.Serializer):
     """Response returned upon successful password reset completion."""
 
     detail = serializers.CharField()
+
+
+class SetPasswordFromInviteRequestSerializer(serializers.Serializer):
+    """Payload for setting initial password from an invite token."""
+
+    token = serializers.CharField(required=True)
+    new_password = serializers.CharField(required=True, write_only=True)
+
+
+class SetPasswordFromInviteResponseSerializer(serializers.Serializer):
+    """Response returned upon successful invite password completion."""
+
+    detail = serializers.CharField()
+
+
+class StaffMemberSerializer(serializers.ModelSerializer):
+    """Serializer representing a staff member in the gym tenant."""
+
+    gym_id = serializers.UUIDField(allow_null=True, source="gym.id", read_only=True)
+
+    class Meta:
+        model = User
+        fields = [
+            "id",
+            "email",
+            "role",
+            "gym_id",
+            "full_name",
+            "phone",
+            "is_active",
+            "email_verified_at",
+            "created_at",
+        ]
+        read_only_fields = fields
+
+
+class InviteStaffRequestSerializer(serializers.Serializer):
+    """Payload for inviting a staff member (Manager, Trainer, or Reception)."""
+
+    email = serializers.EmailField(required=True)
+    role = serializers.ChoiceField(
+        choices=[
+            (User.ROLE_MANAGER, "Manager"),
+            (User.ROLE_TRAINER, "Trainer"),
+            (User.ROLE_RECEPTION, "Reception"),
+        ],
+        required=True,
+    )
+    full_name = serializers.CharField(
+        max_length=150, required=False, allow_blank=True, default=""
+    )
+    phone = serializers.CharField(
+        max_length=20, required=False, allow_blank=True, default=""
+    )
+
+    def validate_full_name(self, value):
+        if value is not None and value != "" and not value.strip():
+            raise serializers.ValidationError("Full name cannot be whitespace-only.")
+        return value.strip() if value else ""
+
+    def validate_phone(self, value):
+        if not value:
+            return ""
+        if len(value) < 7 or len(value) > 20:
+            raise serializers.ValidationError(
+                "Phone number must be between 7 and 20 characters."
+            )
+        check_val = value[1:] if value.startswith("+") else value
+        if not re.match(r"^[0-9 -]+$", check_val):
+            raise serializers.ValidationError(
+                "Phone number can only contain digits, spaces, hyphens, and an optional leading '+'."
+            )
+        if not any(c.isdigit() for c in check_val):
+            raise serializers.ValidationError(
+                "Phone number must contain at least one digit."
+            )
+        return value
+
+
+class InviteStaffResponseSerializer(serializers.Serializer):
+    """Response returned upon successful staff invitation."""
+
+    detail = serializers.CharField()
+    user = StaffMemberSerializer()
+
+
+class StaffActionResponseSerializer(serializers.Serializer):
+    """Response returned upon staff deactivation or reactivation."""
+
+    detail = serializers.CharField()
+    user = StaffMemberSerializer()

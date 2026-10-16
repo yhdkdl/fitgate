@@ -15,13 +15,11 @@ DATABASES = {"default": env.db("DATABASE_URL")}
 # In production on Yegara cPanel, Redis is unconfirmed.
 # If REDIS_URL is provided, use it; otherwise fallback to LocMem or Database cache.
 if "REDIS_URL" in env:
-    CACHES = {"default": env.cache_url("REDIS_URL")}
+    CACHES["default"] = env.cache_url("REDIS_URL")
 else:
-    CACHES = {
-        "default": {
-            "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
-            "LOCATION": "fitgate-prod-cache",
-        }
+    CACHES["default"] = {
+        "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+        "LOCATION": "fitgate-prod-cache",
     }
 
 # HTTPS & Security Headers
@@ -38,3 +36,8 @@ CSRF_TRUSTED_ORIGINS = env.list("CSRF_TRUSTED_ORIGINS")
 
 # Email - Configured via environment in production (fails fast if unset, no default)
 EMAIL_BACKEND = env("EMAIL_BACKEND")
+DEFAULT_FROM_EMAIL = env("DEFAULT_FROM_EMAIL")
+
+# QR asymmetric keys - fails fast if unset in production, no defaults
+QR_JWT_PRIVATE_KEY = env("QR_JWT_PRIVATE_KEY")
+QR_JWT_PUBLIC_KEY = env("QR_JWT_PUBLIC_KEY")

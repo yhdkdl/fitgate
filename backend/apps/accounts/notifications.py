@@ -39,7 +39,7 @@ def notify_account_locked(user) -> None:
                 f"locked following {user.failed_login_count} consecutive failed login attempts.\n"
                 f"The lockout will expire at {user.locked_until}.\n"
             ),
-            from_email=getattr(settings, "DEFAULT_FROM_EMAIL", "noreply@fitgate.org"),
+            from_email=settings.DEFAULT_FROM_EMAIL,
             recipient_list=[owner.email],
             fail_silently=False,
         )
@@ -73,7 +73,133 @@ def send_password_reset_email(user, link: str) -> None:
     send_mail(
         subject=subject,
         message=message,
-        from_email=getattr(settings, "DEFAULT_FROM_EMAIL", "noreply@fitgate.org"),
+        from_email=settings.DEFAULT_FROM_EMAIL,
         recipient_list=[user.email],
         fail_silently=False,
+    )
+
+
+def send_owner_welcome_email(owner, gym, invite_link: str) -> None:
+    """
+    Send welcome email to newly created Gym Owner containing set-password link.
+
+    Crucial: Must never contain any password.
+    """
+    subject = f"Welcome to FitGate — Set up your account for {gym.name}"
+    message = (
+        f"Hello {owner.full_name or 'there'},\n\n"
+        f"Your gym '{gym.name}' has been created on the FitGate platform.\n\n"
+        f"To get started, please set your password using the secure link below:\n"
+        f"{invite_link}\n\n"
+        f"This link is valid for 7 days. Once your password is set and your domain's security certificate is verified, you can log in to manage your gym.\n\n"
+        f"Welcome aboard,\nThe FitGate Team\n"
+    )
+    send_mail(
+        subject=subject,
+        message=message,
+        from_email=settings.DEFAULT_FROM_EMAIL,
+        recipient_list=[owner.email],
+        fail_silently=False,
+    )
+
+
+def send_staff_invite_email(user, gym, invite_link: str) -> None:
+    """
+    Send invitation email to newly invited staff member (Manager, Trainer, or Reception)
+    containing single-use set-password link. Never contains a password.
+    """
+    from apps.accounts.models import User
+
+    role_display = dict(User.ROLE_CHOICES).get(user.role, user.role.capitalize())
+    subject = f"Invitation to join {gym.name} as {role_display}"
+    message = (
+        f"Hello {user.full_name or 'there'},\n\n"
+        f"You have been invited to join '{gym.name}' on FitGate as a {role_display}.\n\n"
+        f"To set up your account and choose your password, please use the secure link below:\n"
+        f"{invite_link}\n\n"
+        f"This link is valid for 7 days. Once your password is set, you can sign in to the staff portal.\n\n"
+        f"Welcome aboard,\nThe FitGate Team\n"
+    )
+    send_mail(
+        subject=subject,
+        message=message,
+        from_email=settings.DEFAULT_FROM_EMAIL,
+        recipient_list=[user.email],
+        fail_silently=False,
+    )
+
+
+def send_member_verification_email(user, gym, verify_link: str) -> None:
+    """
+    Send email verification link to newly self-registered gym member.
+    """
+    subject = f"Verify your email address for {gym.name}"
+    message = (
+        f"Hello {user.full_name or 'there'},\n\n"
+        f"Thank you for registering at '{gym.name}'.\n\n"
+        f"To complete your registration and activate your account, please verify your email "
+        f"using the link below:\n"
+        f"{verify_link}\n\n"
+        f"This verification link is valid for 24 hours.\n\n"
+        f"Best regards,\nThe {gym.name} Team\n"
+    )
+    send_mail(
+        subject=subject,
+        message=message,
+        from_email=settings.DEFAULT_FROM_EMAIL,
+        recipient_list=[user.email],
+        fail_silently=False,
+    )
+
+
+def send_member_invite_email(user, gym, invite_link: str) -> None:
+    """
+    Send invitation email with set-password link to staff-registered member.
+    """
+    subject = f"Welcome to {gym.name} — Set up your member account"
+    message = (
+        f"Hello {user.full_name or 'there'},\n\n"
+        f"You have been registered as a member at '{gym.name}'.\n\n"
+        f"To activate your account and choose your password, please use the secure link below:\n"
+        f"{invite_link}\n\n"
+        f"This link is valid for 7 days. Once your password is set, you can log in to view your profile, "
+        f"subscription, and check-in QR codes.\n\n"
+        f"Welcome aboard,\nThe {gym.name} Team\n"
+    )
+    send_mail(
+        subject=subject,
+        message=message,
+        from_email=settings.DEFAULT_FROM_EMAIL,
+        recipient_list=[user.email],
+        fail_silently=False,
+    )
+
+
+def notify_demo_request_received(demo_request) -> None:
+    """
+    Create a platform-level notification for all active Super Admins upon receiving a new demo request.
+
+    Also logs the new request for platform visibility.
+    """
+    from apps.accounts.models import Notification, User
+
+    super_admins = User.all_objects.filter(
+        role=User.ROLE_SUPER_ADMIN,
+        is_active=True,
+    )
+    for admin_user in super_admins:
+        Notification.objects.create(
+            recipient=admin_user,
+            gym=None,
+            type="demo_request",
+            message=(
+                f"New demo request from '{demo_request.gym_name}' "
+                f"(Contact: {demo_request.contact_name}, Phone: {demo_request.phone})"
+            ),
+        )
+
+    logger.info(
+        "Platform notification created for demo request from gym '%s' (%s)",
+        demo_request.gym_name,
+        demo_request.phone,
     )

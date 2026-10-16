@@ -6,9 +6,11 @@ from datetime import timedelta
 from django.conf import settings
 from django.contrib.auth.hashers import check_password, make_password
 from django.core.exceptions import ValidationError
+from django.db import transaction
 from django.utils import timezone
 from drf_spectacular.utils import OpenApiResponse, extend_schema
 from rest_framework import status
+from rest_framework.exceptions import PermissionDenied
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -18,11 +20,17 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from apps.accounts.dashboards import dashboard_config_for
 from apps.accounts.models import User
 from apps.accounts.notifications import notify_account_locked
-from apps.accounts.permissions import IsSuperAdmin, RequirePasswordChanged
+from apps.accounts.permissions import (
+    IsOwnerOrManager,
+    IsSuperAdmin,
+    RequirePasswordChanged,
+)
 from apps.accounts.serializers import (
     ChangePasswordRequestSerializer,
     ChangePasswordResponseSerializer,
     CreateSuperAdminRequestSerializer,
+    InviteStaffRequestSerializer,
+    InviteStaffResponseSerializer,
     LoginRequestSerializer,
     LoginResponseSerializer,
     LogoutRequestSerializer,
@@ -30,6 +38,10 @@ from apps.accounts.serializers import (
     PasswordResetConfirmResponseSerializer,
     PasswordResetRequestSerializer,
     PasswordResetResponseSerializer,
+    SetPasswordFromInviteRequestSerializer,
+    SetPasswordFromInviteResponseSerializer,
+    StaffActionResponseSerializer,
+    StaffMemberSerializer,
     SuperAdminResponseSerializer,
     TokenRefreshRequestSerializer,
     TokenRefreshResponseSerializer,
@@ -41,7 +53,12 @@ from apps.accounts.services import (
     change_password,
     confirm_password_reset,
     create_additional_super_admin,
+    deactivate_staff_member,
+    invite_staff_member,
+    reactivate_staff_member,
+    record_audit_log,
     request_password_reset,
+    set_password_from_invite,
 )
 from apps.accounts.tokens import datetime_to_microseconds, get_tokens_for_user
 
@@ -124,6 +141,11 @@ class LoginView(APIView):
             perform_dummy_password_check(password)
             return generic_auth_error_response()
 
+        # 3a. Unverified account (self-registered member must verify email first)
+        if user.email_verified_at is None:
+            perform_dummy_password_check(password)
+            return generic_auth_error_response()
+
         # 4. Password verification failure
         if not user.check_password(password):
             user.failed_login_count += 1
@@ -145,10 +167,21 @@ class LoginView(APIView):
             return generic_auth_error_response()
 
         # 5. Success: reset lockout counters and record login
-        user.failed_login_count = 0
-        user.locked_until = None
-        user.last_login = now
-        user.save(update_fields=["failed_login_count", "locked_until", "last_login"])
+        with transaction.atomic():
+            user.failed_login_count = 0
+            user.locked_until = None
+            user.last_login = now
+            user.save(
+                update_fields=["failed_login_count", "locked_until", "last_login"]
+            )
+            record_audit_log(
+                action_type="user_login",
+                affected_record_type="User",
+                affected_record_id=str(user.id),
+                actor=user,
+                gym=getattr(user, "gym", None),
+                metadata={"email": user.email, "role": user.role},
+            )
 
         tokens = get_tokens_for_user(user)
         dashboard = dashboard_config_for(user)
@@ -275,8 +308,21 @@ class LogoutView(APIView):
 
         refresh_raw = serializer.validated_data["refresh"]
         try:
-            token = RefreshToken(refresh_raw)
-            token.blacklist()
+            with transaction.atomic():
+                token = RefreshToken(refresh_raw)
+                user_id = token.payload.get("user_id")
+                actor_user = (
+                    User.all_objects.filter(id=user_id).first() if user_id else None
+                )
+                token.blacklist()
+                record_audit_log(
+                    action_type="logout",
+                    affected_record_type="User",
+                    affected_record_id=str(actor_user.id) if actor_user else "unknown",
+                    actor=actor_user,
+                    gym=getattr(actor_user, "gym", None) if actor_user else None,
+                    metadata={"reason": "user_logout"},
+                )
         except TokenError:
             return Response(
                 {"detail": "Invalid or expired token."},
@@ -545,3 +591,250 @@ class PasswordResetConfirmView(APIView):
             )
 
         return Response(result, status=status.HTTP_200_OK)
+
+
+class SetPasswordFromInviteView(APIView):
+    """
+    Complete account activation by setting initial password via invite link.
+
+    Accessible without active session; strictly host-scoped to matching tenant subdomain.
+    """
+
+    permission_classes = [AllowAny]
+    authentication_classes = []
+    is_auth_endpoint = True
+
+    @extend_schema(
+        summary="Set password from invite",
+        description="Consumes a single-use invite token and sets initial password for an invited user.",
+        request=SetPasswordFromInviteRequestSerializer,
+        responses={
+            200: SetPasswordFromInviteResponseSerializer,
+            400: OpenApiResponse(
+                description="Invalid or expired token, or weak password"
+            ),
+        },
+    )
+    def post(self, request, *args, **kwargs):
+        serializer = SetPasswordFromInviteRequestSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        raw_token = serializer.validated_data.get("token", "")
+        new_password = serializer.validated_data.get("new_password", "")
+
+        if not raw_token or not isinstance(raw_token, str):
+            return Response(
+                {"detail": "token_invalid"}, status=status.HTTP_400_BAD_REQUEST
+            )
+
+        if new_password is None or not isinstance(new_password, str):
+            new_password = ""
+
+        tenant = getattr(request, "tenant", None)
+
+        try:
+            result = set_password_from_invite(
+                raw_token=raw_token,
+                new_password=new_password,
+                tenant=tenant,
+            )
+        except ValidationError as exc:
+            if hasattr(exc, "message_dict"):
+                error_data = {}
+                for k, v in exc.message_dict.items():
+                    error_data[k] = v[0] if (k == "detail" and len(v) == 1) else v
+                return Response(error_data, status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                {"detail": exc.messages}, status=status.HTTP_400_BAD_REQUEST
+            )
+
+        return Response(result, status=status.HTTP_200_OK)
+
+
+class StaffListCreateView(APIView):
+    """
+    List staff members and invite new staff members to the gym tenant.
+    Accessible to Gym Owner and Gym Manager.
+    Fails closed on apex domain or cross-tenant contexts.
+    """
+
+    permission_classes = [IsAuthenticated, RequirePasswordChanged, IsOwnerOrManager]
+
+    @extend_schema(
+        summary="List gym staff members",
+        description="Returns list of all staff members (Owner, Manager, Trainer, Reception) belonging to the active gym tenant.",
+        responses={
+            200: StaffMemberSerializer(many=True),
+            401: OpenApiResponse(description="Authentication required"),
+            403: OpenApiResponse(description="Forbidden"),
+        },
+    )
+    def get(self, request, *args, **kwargs):
+        staff_roles = [
+            User.ROLE_OWNER,
+            User.ROLE_MANAGER,
+            User.ROLE_TRAINER,
+            User.ROLE_RECEPTION,
+        ]
+        qs = User.all_objects.filter(gym=request.tenant, role__in=staff_roles).order_by(
+            "created_at"
+        )
+
+        role_filter = request.query_params.get("role")
+        if role_filter in staff_roles:
+            qs = qs.filter(role=role_filter)
+
+        is_active_param = request.query_params.get("is_active")
+        if is_active_param is not None:
+            if is_active_param.lower() in ("true", "1"):
+                qs = qs.filter(is_active=True)
+            elif is_active_param.lower() in ("false", "0"):
+                qs = qs.filter(is_active=False)
+
+        serializer = StaffMemberSerializer(qs, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+    @extend_schema(
+        summary="Invite a staff member",
+        description="Invites a staff member (Manager, Trainer, or Reception) and generates a single-use set-password token.",
+        request=InviteStaffRequestSerializer,
+        responses={
+            201: InviteStaffResponseSerializer,
+            400: OpenApiResponse(description="Validation error"),
+            401: OpenApiResponse(description="Authentication required"),
+            403: OpenApiResponse(description="Forbidden"),
+        },
+    )
+    def post(self, request, *args, **kwargs):
+        serializer = InviteStaffRequestSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            user, _, _ = invite_staff_member(
+                acting_user=request.user,
+                gym=request.tenant,
+                data=serializer.validated_data,
+            )
+        except ValidationError as exc:
+            if hasattr(exc, "message_dict"):
+                return Response(exc.message_dict, status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                {"detail": exc.messages}, status=status.HTTP_400_BAD_REQUEST
+            )
+        except PermissionDenied as exc:
+            return Response({"detail": str(exc)}, status=status.HTTP_403_FORBIDDEN)
+
+        return Response(
+            {
+                "detail": "Staff member invited successfully.",
+                "user": StaffMemberSerializer(user).data,
+            },
+            status=status.HTTP_201_CREATED,
+        )
+
+
+class StaffDeactivateView(APIView):
+    """
+    Deactivate a staff member.
+    Immediately blocks login and invalidates existing JWT tokens.
+    Accessible to Gym Owner and Gym Manager.
+    """
+
+    permission_classes = [IsAuthenticated, RequirePasswordChanged, IsOwnerOrManager]
+
+    @extend_schema(
+        summary="Deactivate a staff member",
+        description="Deactivates a staff member, invalidating all existing JWT sessions and blocking future logins.",
+        request=None,
+        responses={
+            200: StaffActionResponseSerializer,
+            401: OpenApiResponse(description="Authentication required"),
+            403: OpenApiResponse(description="Forbidden"),
+            404: OpenApiResponse(description="Staff member not found"),
+        },
+    )
+    def post(self, request, user_id, *args, **kwargs):
+        staff_roles = [
+            User.ROLE_OWNER,
+            User.ROLE_MANAGER,
+            User.ROLE_TRAINER,
+            User.ROLE_RECEPTION,
+        ]
+        target_user = User.all_objects.filter(
+            id=user_id, gym=request.tenant, role__in=staff_roles
+        ).first()
+        if not target_user:
+            return Response(
+                {"detail": "Staff member not found."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        try:
+            deactivated = deactivate_staff_member(
+                acting_user=request.user,
+                target_user=target_user,
+            )
+        except PermissionDenied as exc:
+            return Response({"detail": str(exc)}, status=status.HTTP_403_FORBIDDEN)
+
+        return Response(
+            {
+                "detail": "Staff member deactivated successfully.",
+                "user": StaffMemberSerializer(deactivated).data,
+            },
+            status=status.HTTP_200_OK,
+        )
+
+
+class StaffReactivateView(APIView):
+    """
+    Reactivate a previously deactivated staff member.
+    Accessible to Gym Owner and Gym Manager.
+    """
+
+    permission_classes = [IsAuthenticated, RequirePasswordChanged, IsOwnerOrManager]
+
+    @extend_schema(
+        summary="Reactivate a staff member",
+        description="Reactivates a previously deactivated staff member.",
+        request=None,
+        responses={
+            200: StaffActionResponseSerializer,
+            401: OpenApiResponse(description="Authentication required"),
+            403: OpenApiResponse(description="Forbidden"),
+            404: OpenApiResponse(description="Staff member not found"),
+        },
+    )
+    def post(self, request, user_id, *args, **kwargs):
+        staff_roles = [
+            User.ROLE_OWNER,
+            User.ROLE_MANAGER,
+            User.ROLE_TRAINER,
+            User.ROLE_RECEPTION,
+        ]
+        target_user = User.all_objects.filter(
+            id=user_id, gym=request.tenant, role__in=staff_roles
+        ).first()
+        if not target_user:
+            return Response(
+                {"detail": "Staff member not found."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        try:
+            reactivated = reactivate_staff_member(
+                acting_user=request.user,
+                target_user=target_user,
+            )
+        except PermissionDenied as exc:
+            return Response({"detail": str(exc)}, status=status.HTTP_403_FORBIDDEN)
+
+        return Response(
+            {
+                "detail": "Staff member reactivated successfully.",
+                "user": StaffMemberSerializer(reactivated).data,
+            },
+            status=status.HTTP_200_OK,
+        )

@@ -9,6 +9,10 @@ from apps.accounts.views import (
     LogoutView,
     PasswordResetConfirmView,
     PasswordResetRequestView,
+    SetPasswordFromInviteView,
+    StaffDeactivateView,
+    StaffListCreateView,
+    StaffReactivateView,
     TokenRefreshView,
     UserProfileView,
 )
@@ -34,8 +38,28 @@ urlpatterns = [
         name="auth-password-reset-confirm",
     ),
     path(
+        "api/auth/set-password/",
+        SetPasswordFromInviteView.as_view(),
+        name="auth-set-password",
+    ),
+    path(
         "api/platform/super-admins/",
         CreateSuperAdminView.as_view(),
         name="platform-super-admins",
+    ),
+    path(
+        "api/gym/staff/",
+        StaffListCreateView.as_view(),
+        name="gym-staff-list-create",
+    ),
+    path(
+        "api/gym/staff/<uuid:user_id>/deactivate/",
+        StaffDeactivateView.as_view(),
+        name="gym-staff-deactivate",
+    ),
+    path(
+        "api/gym/staff/<uuid:user_id>/reactivate/",
+        StaffReactivateView.as_view(),
+        name="gym-staff-reactivate",
     ),
 ]

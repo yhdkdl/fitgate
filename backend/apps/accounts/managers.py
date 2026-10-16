@@ -38,6 +38,7 @@ class UserManager(BaseUserManager.from_queryset(PlatformTenantQuerySet)):
             raise ValueError("The Email field must be set.")
         email = self.normalize_email(email).lower()
         extra_fields.setdefault("is_active", True)
+        extra_fields.setdefault("email_verified_at", timezone.now())
         user = self.model(email=email, **extra_fields)
 
         if password:

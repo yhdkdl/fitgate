@@ -4,6 +4,23 @@ info:
   version: 1.0.0
   description: Multi-tenant Gym Management Platform API for Ethiopian Gyms
 paths:
+  /api/attendance/public-key/:
+    get:
+      operationId: attendance_public_key_retrieve
+      description: Returns the RSA public key used to verify asymmetric QR check-in
+        tokens offline.
+      summary: Get QR Verification Public Key
+      tags:
+      - attendance
+      security:
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AttendancePublicKeyResponse'
+          description: ''
   /api/auth/change-password/:
     post:
       operationId: auth_change_password_create
@@ -236,6 +253,520 @@ paths:
           description: ''
         '401':
           description: Invalid or expired refresh token
+  /api/auth/set-password/:
+    post:
+      operationId: auth_set_password_create
+      description: Consumes a single-use invite token and sets initial password for
+        an invited user.
+      summary: Set password from invite
+      tags:
+      - auth
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SetPasswordFromInviteRequestRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/SetPasswordFromInviteRequestRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/SetPasswordFromInviteRequestRequest'
+        required: true
+      security:
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SetPasswordFromInviteResponse'
+          description: ''
+        '400':
+          description: Invalid or expired token, or weak password
+  /api/auth/verify-email/:
+    post:
+      operationId: auth_verify_email_create
+      description: Validates single-use token to verify self-registered member email
+        address.
+      summary: Verify member email
+      tags:
+      - auth
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VerifyEmailRequestRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/VerifyEmailRequestRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/VerifyEmailRequestRequest'
+        required: true
+      security:
+      - {}
+      responses:
+        '200':
+          description: Email verified successfully
+        '400':
+          description: Invalid or expired token
+  /api/gym/attendance/manual-override/:
+    post:
+      operationId: gym_attendance_manual_override_create
+      description: Records a manual attendance check-in when QR cannot be used. Audit-logged.
+      summary: Manual Check-in Override
+      tags:
+      - gym
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AttendanceManualOverrideRequestRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/AttendanceManualOverrideRequestRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/AttendanceManualOverrideRequestRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AttendanceManualOverrideResponse'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AttendanceScanErrorResponse'
+          description: ''
+  /api/gym/attendance/scan/:
+    post:
+      operationId: gym_attendance_scan_create
+      description: Validates a member QR token, records attendance, and issues replacement
+        token.
+      summary: Scan QR Check-in Token
+      tags:
+      - gym
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AttendanceScanRequestRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/AttendanceScanRequestRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/AttendanceScanRequestRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AttendanceScanResponse'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AttendanceScanErrorResponse'
+          description: ''
+  /api/gym/checklist/:
+    get:
+      operationId: gym_checklist_retrieve
+      description: Returns first-run checklist progress for the gym Owner.
+      summary: Get first-run onboarding checklist
+      tags:
+      - gym
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FirstRunChecklistResponse'
+          description: ''
+        '403':
+          description: Forbidden - only Owner permitted
+  /api/gym/checklist/dismiss/:
+    post:
+      operationId: gym_checklist_dismiss_create
+      description: Persists dismissal of onboarding checklist for the gym.
+      summary: Dismiss first-run onboarding checklist
+      tags:
+      - gym
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DismissChecklistResponse'
+          description: ''
+        '403':
+          description: Forbidden - only Owner permitted
+  /api/gym/members/:
+    get:
+      operationId: gym_members_list
+      description: Retrieves a list of members belonging to the current gym tenant.
+      summary: List gym members
+      tags:
+      - gym
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Member'
+          description: ''
+    post:
+      operationId: gym_members_create
+      description: Registers a new member with set-password invitation link. Allowed
+        for Owner, Manager, Reception.
+      summary: Staff-assisted member registration
+      tags:
+      - gym
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StaffMemberRegistrationRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/StaffMemberRegistrationRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/StaffMemberRegistrationRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Member'
+          description: ''
+        '400':
+          description: Validation error or duplicate
+        '403':
+          description: Forbidden - Trainers cannot register members
+  /api/gym/members/{id}/:
+    get:
+      operationId: gym_members_retrieve
+      description: Retrieves detailed member profile with body metrics history and
+        estimates.
+      summary: Get member details
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - gym
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MemberDetail'
+          description: ''
+        '404':
+          description: Not found
+    patch:
+      operationId: gym_members_partial_update
+      description: Allows Owner, Manager, or Reception to update member information.
+      summary: Update member profile
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - gym
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedMemberUpdateRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedMemberUpdateRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedMemberUpdateRequest'
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MemberDetail'
+          description: ''
+        '400':
+          description: Validation error
+        '403':
+          description: Forbidden
+        '404':
+          description: Not found
+  /api/gym/members/{id}/attendance/:
+    get:
+      operationId: gym_members_attendance_retrieve
+      description: Returns daily attendance status (✓ present, ✗ absent, blank outside
+        subscription) for a date range.
+      summary: Get Member Attendance Calendar Log
+      parameters:
+      - in: query
+        name: end_date
+        schema:
+          type: string
+        description: End date (YYYY-MM-DD). Defaults to today.
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: query
+        name: start_date
+        schema:
+          type: string
+        description: Start date (YYYY-MM-DD). Defaults to 30 days ago.
+      tags:
+      - gym
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AttendanceLogResponse'
+          description: ''
+  /api/gym/members/{id}/metrics/:
+    post:
+      operationId: gym_members_metrics_create
+      description: Records new weight, height, and circumferences for a member.
+      summary: Record member body metrics
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - gym
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RecordBodyMetricsRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/RecordBodyMetricsRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/RecordBodyMetricsRequest'
+      security:
+      - jwtAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BodyMetrics'
+          description: ''
+        '400':
+          description: Validation error
+        '404':
+          description: Member not found
+  /api/gym/settings/:
+    get:
+      operationId: gym_settings_retrieve
+      description: Returns gym configuration and branding settings for Owner.
+      summary: Get gym settings
+      tags:
+      - gym
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GymConfig'
+          description: ''
+    patch:
+      operationId: gym_settings_partial_update
+      description: Updates Owner-editable gym settings (branding, reminders). Entitlement
+        modifications by Owner return 403.
+      summary: Update gym settings
+      tags:
+      - gym
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedGymSettingsUpdateRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedGymSettingsUpdateRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedGymSettingsUpdateRequest'
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GymConfig'
+          description: ''
+        '400':
+          description: Validation error
+        '403':
+          description: Forbidden - entitlements restricted to Super Admin or non-Owner
+            access
+  /api/gym/staff/:
+    get:
+      operationId: gym_staff_list
+      description: Returns list of all staff members (Owner, Manager, Trainer, Reception)
+        belonging to the active gym tenant.
+      summary: List gym staff members
+      tags:
+      - gym
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/StaffMember'
+          description: ''
+        '401':
+          description: Authentication required
+        '403':
+          description: Forbidden
+    post:
+      operationId: gym_staff_create
+      description: Invites a staff member (Manager, Trainer, or Reception) and generates
+        a single-use set-password token.
+      summary: Invite a staff member
+      tags:
+      - gym
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/InviteStaffRequestRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/InviteStaffRequestRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/InviteStaffRequestRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InviteStaffResponse'
+          description: ''
+        '400':
+          description: Validation error
+        '401':
+          description: Authentication required
+        '403':
+          description: Forbidden
+  /api/gym/staff/{user_id}/deactivate/:
+    post:
+      operationId: gym_staff_deactivate_create
+      description: Deactivates a staff member, invalidating all existing JWT sessions
+        and blocking future logins.
+      summary: Deactivate a staff member
+      parameters:
+      - in: path
+        name: user_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - gym
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StaffActionResponse'
+          description: ''
+        '401':
+          description: Authentication required
+        '403':
+          description: Forbidden
+        '404':
+          description: Staff member not found
+  /api/gym/staff/{user_id}/reactivate/:
+    post:
+      operationId: gym_staff_reactivate_create
+      description: Reactivates a previously deactivated staff member.
+      summary: Reactivate a staff member
+      parameters:
+      - in: path
+        name: user_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - gym
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StaffActionResponse'
+          description: ''
+        '401':
+          description: Authentication required
+        '403':
+          description: Forbidden
+        '404':
+          description: Staff member not found
   /api/health/:
     get:
       operationId: health_retrieve
@@ -251,6 +782,605 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HealthCheckResponse'
+          description: ''
+  /api/media/gym-logo/{gym_id}/:
+    post:
+      operationId: media_gym_logo_create
+      description: Uploads and optimizes gym logo (public asset). Only accessible
+        by gym Owner.
+      summary: Upload gym logo
+      parameters:
+      - in: path
+        name: gym_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - media
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/UploadGymLogoRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/UploadGymLogoRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UploadGymLogoResponse'
+          description: ''
+        '400':
+          description: Validation error or missing file
+        '403':
+          description: Forbidden - only Owner permitted
+        '404':
+          description: Tenant mismatch
+  /api/media/member-photos/{gym_id}/:
+    get:
+      operationId: media_member_photos_retrieve
+      description: 'Photo list endpoint: only gym staff permitted.'
+      parameters:
+      - in: path
+        name: gym_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - media
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+    post:
+      operationId: media_member_photos_create
+      description: Validates image format and size (<= 2 MB), strips EXIF, resizes,
+        and saves to gym-scoped authenticated storage.
+      summary: Upload member photo
+      parameters:
+      - in: path
+        name: gym_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - media
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/UploadMemberPhotoRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/UploadMemberPhotoRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UploadMemberPhotoResponse'
+          description: ''
+        '400':
+          description: Validation error or missing file
+        '403':
+          description: Forbidden - cross-tenant access denied
+        '404':
+          description: Tenant mismatch
+  /api/media/member-photos/{gym_id}/{filename}/:
+    get:
+      operationId: media_member_photos_retrieve_2
+      description: Serves member photo stream only to users belonging to the specified
+        gym.
+      summary: Serve authenticated member photo
+      parameters:
+      - in: path
+        name: filename
+        schema:
+          type: string
+        required: true
+      - in: path
+        name: gym_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - media
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: Image WebP stream
+        '400':
+          description: Invalid request or filename format
+        '401':
+          description: Authentication credentials required
+        '403':
+          description: Forbidden - user belongs to different gym or unauthorized role
+        '404':
+          description: Photo not found or tenant mismatch
+  /api/members/me/:
+    get:
+      operationId: members_me_retrieve
+      description: Retrieves the logged-in member's profile and body metrics calculations.
+      summary: View own member profile
+      tags:
+      - members
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MemberDetail'
+          description: ''
+    patch:
+      operationId: members_me_partial_update
+      description: Updates logged-in member's phone and emergency contact details.
+      summary: Update own member contact info
+      tags:
+      - members
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedMemberUpdateRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedMemberUpdateRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedMemberUpdateRequest'
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MemberDetail'
+          description: ''
+        '400':
+          description: Validation error
+  /api/members/me/attendance/:
+    get:
+      operationId: members_me_attendance_retrieve
+      description: Returns member's daily attendance status for a date range.
+      summary: Get Self Attendance Calendar Log
+      parameters:
+      - in: query
+        name: end_date
+        schema:
+          type: string
+        description: End date (YYYY-MM-DD). Defaults to today.
+      - in: query
+        name: start_date
+        schema:
+          type: string
+        description: Start date (YYYY-MM-DD). Defaults to 30 days ago.
+      tags:
+      - members
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AttendanceLogResponse'
+          description: ''
+  /api/members/me/metrics/:
+    get:
+      operationId: members_me_metrics_list
+      description: Retrieves past body metrics records for the logged-in member.
+      summary: List own body metrics history
+      tags:
+      - members
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/BodyMetrics'
+          description: ''
+    post:
+      operationId: members_me_metrics_create
+      description: Records new measurements for the logged-in member.
+      summary: Record own body metrics
+      tags:
+      - members
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RecordBodyMetricsRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/RecordBodyMetricsRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/RecordBodyMetricsRequest'
+      security:
+      - jwtAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BodyMetrics'
+          description: ''
+        '400':
+          description: Validation error
+  /api/members/me/qr-token/:
+    get:
+      operationId: members_me_qr_token_retrieve
+      description: Generates a signed RS256 QR check-in token (90s window) for the
+        authenticated member.
+      summary: Get Active Member QR Token
+      tags:
+      - members
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MemberQrTokenResponse'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MemberQrTokenErrorResponse'
+          description: ''
+    post:
+      operationId: members_me_qr_token_create
+      description: Explicitly issues a rotated QR check-in token for the member.
+      summary: Rotate Member QR Token
+      tags:
+      - members
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MemberQrTokenResponse'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MemberQrTokenErrorResponse'
+          description: ''
+  /api/platform/demo-requests/:
+    get:
+      operationId: platform_demo_requests_list
+      description: Super Admin endpoint to view and filter demo request leads.
+      summary: List demo requests
+      tags:
+      - platform
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/DemoRequest'
+          description: ''
+  /api/platform/demo-requests/{id}/:
+    get:
+      operationId: platform_demo_requests_retrieve
+      description: Super Admin endpoint to retrieve and update demo request status/notes.
+      summary: Get demo request detail
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - platform
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DemoRequest'
+          description: ''
+        '404':
+          description: Not found
+    patch:
+      operationId: platform_demo_requests_partial_update
+      description: Super Admin endpoint to retrieve and update demo request status/notes.
+      summary: Update demo request status or notes
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - platform
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedDemoRequestUpdateRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedDemoRequestUpdateRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedDemoRequestUpdateRequest'
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DemoRequest'
+          description: ''
+        '400':
+          description: Bad request
+        '404':
+          description: Not found
+  /api/platform/demo-requests/{id}/convert/:
+    get:
+      operationId: platform_demo_requests_convert_retrieve
+      description: Super Admin endpoint returning pre-filled data to convert a lead
+        to a gym.
+      summary: Convert demo request to gym form data
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - platform
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DemoRequestConvertResponse'
+          description: ''
+        '404':
+          description: Not found
+  /api/platform/demo-requests/public/:
+    post:
+      operationId: platform_demo_requests_public_create
+      description: Public endpoint to request a demo for a gym. Only accepted on the
+        apex domain.
+      summary: Submit demo request
+      tags:
+      - platform
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PublicDemoRequestRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PublicDemoRequestRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PublicDemoRequestRequest'
+        required: true
+      security:
+      - {}
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicDemoRequestResponse'
+          description: ''
+        '400':
+          description: Bad request or rejected on subdomain
+        '429':
+          description: Too many requests
+  /api/platform/gyms/:
+    get:
+      operationId: platform_gyms_list
+      description: Lists all gym tenants on the platform for Super Admin.
+      summary: List gym tenants
+      tags:
+      - platform
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/GymTenantSummary'
+          description: ''
+    post:
+      operationId: platform_gyms_create
+      description: Super Admin creates an active gym tenant, records bank transfer
+        payment, and provisions subdomain.
+      summary: Create gym tenant
+      tags:
+      - platform
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateGymRequestRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/CreateGymRequestRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/CreateGymRequestRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreateGymResponse'
+          description: ''
+        '400':
+          description: Validation error
+        '403':
+          description: Forbidden
+  /api/platform/gyms/{gym_id}/:
+    get:
+      operationId: platform_gyms_retrieve
+      description: Retrieves a specific gym tenant and its configuration.
+      summary: Get gym tenant details
+      parameters:
+      - in: path
+        name: gym_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - platform
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GymDetailResponse'
+          description: ''
+        '404':
+          description: Not found
+  /api/platform/gyms/{gym_id}/config/:
+    get:
+      operationId: platform_gyms_config_retrieve
+      description: Super Admin views configuration and entitlements of a gym tenant
+        at apex platform.
+      summary: Get gym config (platform)
+      parameters:
+      - in: path
+        name: gym_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - platform
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GymConfig'
+          description: ''
+        '404':
+          description: Gym not found
+    patch:
+      operationId: platform_gyms_config_partial_update
+      description: Super Admin updates gym tier and feature entitlements at apex platform.
+      summary: Update gym entitlements (platform)
+      parameters:
+      - in: path
+        name: gym_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - platform
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GymConfig'
+          description: ''
+        '400':
+          description: Validation error
+        '404':
+          description: Gym not found
+  /api/platform/gyms/{gym_id}/confirm-tls/:
+    post:
+      operationId: platform_gyms_confirm_tls_create
+      description: Confirms subdomain TLS certificate, activating login access and
+        establishing subscription expiry.
+      summary: Confirm gym TLS certificate
+      parameters:
+      - in: path
+        name: gym_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - platform
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmTLSResponse'
+          description: ''
+        '400':
+          description: Gym not found
+        '403':
+          description: Forbidden
+  /api/platform/gyms/propose-subdomain/:
+    get:
+      operationId: platform_gyms_propose_subdomain_retrieve
+      description: Generates a sanitized DNS label candidate for a proposed gym name.
+      summary: Propose candidate subdomain
+      tags:
+      - platform
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProposeSubdomainResponse'
           description: ''
   /api/platform/super-admins/:
     post:
@@ -285,8 +1415,278 @@ paths:
           description: Validation error
         '403':
           description: Forbidden
+  /api/public/gym-entry/:
+    get:
+      operationId: public_gym_entry_retrieve
+      description: Public endpoint returning gym branding, details, and active plans
+        on the gym subdomain. Shows 503 if TLS is pending.
+      summary: Public gym entry page
+      tags:
+      - public
+      security:
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GymPublicEntryResponse'
+          description: ''
+        '503':
+          description: Subdomain is still being secured
+  /api/public/members/register/:
+    post:
+      operationId: public_members_register_create
+      description: Public registration for new gym members on a gym subdomain. Requires
+        health waiver.
+      summary: Self-service member registration
+      tags:
+      - public
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PublicMemberRegistrationRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PublicMemberRegistrationRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PublicMemberRegistrationRequest'
+        required: true
+      security:
+      - {}
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Member'
+          description: ''
+        '400':
+          description: Validation error, missing waiver, or duplicate email/phone
+        '404':
+          description: Gym tenant not found
 components:
   schemas:
+    AttendanceLogResponse:
+      type: object
+      description: Response serializer for attendance calendar log.
+      properties:
+        member_id:
+          type: string
+          format: uuid
+        member_name:
+          type: string
+        start_date:
+          type: string
+          format: date
+        end_date:
+          type: string
+          format: date
+        subscription_period:
+          type: object
+          additionalProperties: {}
+        days:
+          type: array
+          items:
+            $ref: '#/components/schemas/DailyAttendanceItem'
+      required:
+      - days
+      - end_date
+      - member_id
+      - member_name
+      - start_date
+      - subscription_period
+    AttendanceManualOverrideRequestRequest:
+      type: object
+      description: Request serializer for manual attendance override by reception.
+      properties:
+        member_id:
+          type: string
+          format: uuid
+          description: UUID of the member to check in.
+        reason:
+          type: string
+          minLength: 1
+          description: Non-empty explanation for manual override.
+          maxLength: 500
+        branch_id:
+          type: string
+          format: uuid
+          nullable: true
+          description: Optional branch UUID.
+      required:
+      - member_id
+      - reason
+    AttendanceManualOverrideResponse:
+      type: object
+      description: Response serializer for manual attendance override.
+      properties:
+        status:
+          type: string
+          default: success
+        message:
+          type: string
+        member:
+          $ref: '#/components/schemas/AttendanceScanResultMember'
+        attendance:
+          $ref: '#/components/schemas/AttendanceRecord'
+      required:
+      - attendance
+      - member
+      - message
+    AttendancePublicKeyResponse:
+      type: object
+      description: Response serializer for public key export.
+      properties:
+        public_key:
+          type: string
+          description: PEM-encoded RSA public key for offline QR signature verification.
+        algorithm:
+          type: string
+          default: RS256
+      required:
+      - public_key
+    AttendanceRecord:
+      type: object
+      description: Attendance record details.
+      properties:
+        id:
+          type: string
+          format: uuid
+        date:
+          type: string
+          format: date
+        checked_in_at:
+          type: string
+          format: date-time
+        is_override:
+          type: boolean
+        override_reason:
+          type: string
+      required:
+      - checked_in_at
+      - date
+      - id
+      - is_override
+    AttendanceScanErrorResponse:
+      type: object
+      properties:
+        detail:
+          type: string
+        reason:
+          type: string
+        member:
+          $ref: '#/components/schemas/AttendanceScanResultMember'
+      required:
+      - detail
+      - reason
+    AttendanceScanRequestRequest:
+      type: object
+      description: Request serializer for QR attendance scan.
+      properties:
+        token:
+          type: string
+          minLength: 1
+          description: Scanned QR token string (RS256 JWT).
+        branch_id:
+          type: string
+          format: uuid
+          nullable: true
+          description: Optional branch UUID for multi-branch check-ins.
+      required:
+      - token
+    AttendanceScanResponse:
+      type: object
+      description: Success response serializer for QR scan.
+      properties:
+        status:
+          type: string
+          default: success
+        message:
+          type: string
+        member:
+          $ref: '#/components/schemas/AttendanceScanResultMember'
+        attendance:
+          $ref: '#/components/schemas/AttendanceRecord'
+        next_token:
+          type: string
+          description: Newly rotated token issued for the member.
+      required:
+      - attendance
+      - member
+      - message
+      - next_token
+    AttendanceScanResultMember:
+      type: object
+      description: Member details returned upon scan.
+      properties:
+        id:
+          type: string
+          format: uuid
+        full_name:
+          type: string
+        photo_url:
+          type: string
+        status:
+          type: string
+        phone:
+          type: string
+      required:
+      - full_name
+      - id
+      - photo_url
+      - status
+    BlankEnum:
+      enum:
+      - ''
+    BodyMetrics:
+      type: object
+      description: |-
+        Serializer for member body composition metrics.
+        Exposes BMI and US Navy body-fat estimates, explicitly labeled as estimates.
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        weight_kg:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,3}(?:\.\d{0,2})?$
+          nullable: true
+        height_cm:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,3}(?:\.\d{0,2})?$
+          nullable: true
+        measurements: {}
+        recorded_at:
+          type: string
+          format: date-time
+          readOnly: true
+        estimated_bmi:
+          type: number
+          format: double
+          readOnly: true
+        estimated_body_fat_percentage:
+          type: number
+          format: double
+          readOnly: true
+        bmi_label:
+          type: string
+          readOnly: true
+        body_fat_label:
+          type: string
+          readOnly: true
+      required:
+      - bmi_label
+      - body_fat_label
+      - estimated_bmi
+      - estimated_body_fat_percentage
+      - id
+      - recorded_at
     ChangePasswordRequestRequest:
       type: object
       description: Payload for changing user password.
@@ -316,6 +1716,111 @@ components:
       - access
       - refresh
       - user
+    ChecklistItem:
+      type: object
+      description: Item in first-run onboarding checklist.
+      properties:
+        label:
+          type: string
+        completed:
+          type: boolean
+      required:
+      - completed
+      - label
+    ConfirmTLSResponse:
+      type: object
+      description: Response returned upon TLS certificate confirmation.
+      properties:
+        gym:
+          $ref: '#/components/schemas/GymTenantSummary'
+        message:
+          type: string
+      required:
+      - gym
+      - message
+    CreateGymRequestRequest:
+      type: object
+      description: Payload for Super Admin gym creation.
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 150
+        subdomain:
+          type: string
+          minLength: 1
+          maxLength: 63
+        tier:
+          $ref: '#/components/schemas/TierEnum'
+        location:
+          type: string
+          default: ''
+          maxLength: 255
+        contact_name:
+          type: string
+          default: ''
+          maxLength: 150
+        contact_phone:
+          type: string
+          default: ''
+          maxLength: 20
+        contact_email:
+          oneOf:
+          - type: string
+            format: email
+            default: ''
+          - type: string
+            maxLength: 0
+        owner_name:
+          type: string
+          default: ''
+          maxLength: 150
+        owner_email:
+          type: string
+          format: email
+          minLength: 1
+        payment_amount:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,10}(?:\.\d{0,2})?$
+        payment_reference:
+          type: string
+          minLength: 1
+          maxLength: 100
+        payment_method:
+          type: string
+          minLength: 1
+          default: bank_transfer
+          maxLength: 30
+        demo_request_id:
+          type: string
+          nullable: true
+          maxLength: 100
+      required:
+      - name
+      - owner_email
+      - payment_amount
+      - payment_reference
+      - subdomain
+      - tier
+    CreateGymResponse:
+      type: object
+      description: Response returned upon successful gym tenant creation.
+      properties:
+        gym:
+          $ref: '#/components/schemas/GymTenantSummary'
+        config:
+          $ref: '#/components/schemas/GymConfig'
+        owner:
+          $ref: '#/components/schemas/UserSummary'
+        payment_id:
+          type: string
+          format: uuid
+      required:
+      - config
+      - gym
+      - owner
+      - payment_id
     CreateSuperAdminRequestRequest:
       type: object
       description: Payload for creating an additional Super Admin account.
@@ -336,6 +1841,368 @@ components:
       - current_password
       - email
       - password
+    DailyAttendanceItem:
+      type: object
+      description: Daily check-in status within the calendar log.
+      properties:
+        date:
+          type: string
+          format: date
+        status:
+          type: string
+          description: '''present'', ''absent'', or ''blank'''
+        symbol:
+          type: string
+          description: '''✓'', ''✗'', or empty for days outside subscription'
+        attended:
+          type: boolean
+        checked_in_at:
+          type: string
+          format: date-time
+          nullable: true
+        is_override:
+          type: boolean
+      required:
+      - attended
+      - date
+      - status
+      - symbol
+    DemoRequest:
+      type: object
+      description: Serializer for Super Admin lead management.
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        gym_name:
+          type: string
+          readOnly: true
+        contact_name:
+          type: string
+          readOnly: true
+        phone:
+          type: string
+          readOnly: true
+        city:
+          type: string
+          readOnly: true
+        email:
+          type: string
+          format: email
+          readOnly: true
+        message:
+          type: string
+          readOnly: true
+        status:
+          $ref: '#/components/schemas/DemoRequestStatusEnum'
+        notes:
+          type: string
+        handled_by:
+          type: string
+          format: uuid
+          readOnly: true
+          nullable: true
+        handled_by_email:
+          type: string
+          nullable: true
+          readOnly: true
+        converted_gym:
+          type: string
+          format: uuid
+          readOnly: true
+          nullable: true
+        converted_gym_subdomain:
+          type: string
+          nullable: true
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - city
+      - contact_name
+      - converted_gym
+      - converted_gym_subdomain
+      - created_at
+      - email
+      - gym_name
+      - handled_by
+      - handled_by_email
+      - id
+      - message
+      - phone
+      - updated_at
+    DemoRequestConvertResponse:
+      type: object
+      description: Data returned to pre-fill the Create Gym form from a demo request.
+      properties:
+        demo_request_id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        contact_name:
+          type: string
+        contact_phone:
+          type: string
+        contact_email:
+          type: string
+          format: email
+        location:
+          type: string
+      required:
+      - contact_email
+      - contact_name
+      - contact_phone
+      - demo_request_id
+      - location
+      - name
+    DemoRequestStatusEnum:
+      enum:
+      - new
+      - contacted
+      - demo_done
+      - converted
+      - lost
+      type: string
+      description: |-
+        * `new` - New
+        * `contacted` - Contacted
+        * `demo_done` - Demo Done
+        * `converted` - Converted
+        * `lost` - Lost
+    DismissChecklistResponse:
+      type: object
+      properties:
+        is_dismissed:
+          type: boolean
+        dismissed_at:
+          type: string
+          format: date-time
+      required:
+      - dismissed_at
+      - is_dismissed
+    FirstRunChecklistResponse:
+      type: object
+      description: First-run onboarding checklist progress for gym Owner.
+      properties:
+        is_dismissed:
+          type: boolean
+        dismissed_at:
+          type: string
+          format: date-time
+          nullable: true
+        all_completed:
+          type: boolean
+        items:
+          type: object
+          additionalProperties:
+            $ref: '#/components/schemas/ChecklistItem'
+      required:
+      - all_completed
+      - dismissed_at
+      - is_dismissed
+      - items
+    GenderEnum:
+      enum:
+      - male
+      - female
+      - other
+      - prefer_not_to_say
+      type: string
+      description: |-
+        * `male` - Male
+        * `female` - Female
+        * `other` - Other
+        * `prefer_not_to_say` - Prefer not to say
+    GymConfig:
+      type: object
+      description: Feature gating and configuration settings of a gym.
+      properties:
+        has_trainer_module:
+          type: boolean
+          readOnly: true
+        has_ai_plans:
+          type: boolean
+          readOnly: true
+        has_analytics:
+          type: boolean
+          readOnly: true
+        has_group_classes:
+          type: boolean
+          readOnly: true
+        has_multi_branch:
+          type: boolean
+          readOnly: true
+        freeze_days_allowed:
+          type: integer
+          readOnly: true
+        payment_grace_days:
+          type: integer
+          readOnly: true
+        subscription_reminder_days:
+          readOnly: true
+        member_reminder_days:
+          readOnly: true
+        brand_color:
+          type: string
+          readOnly: true
+          nullable: true
+        logo:
+          type: string
+          readOnly: true
+          nullable: true
+        show_unavailable_equipment:
+          type: boolean
+          readOnly: true
+        first_run_dismissed_at:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+      required:
+      - brand_color
+      - first_run_dismissed_at
+      - freeze_days_allowed
+      - has_ai_plans
+      - has_analytics
+      - has_group_classes
+      - has_multi_branch
+      - has_trainer_module
+      - logo
+      - member_reminder_days
+      - payment_grace_days
+      - show_unavailable_equipment
+      - subscription_reminder_days
+    GymDetailResponse:
+      type: object
+      properties:
+        gym:
+          $ref: '#/components/schemas/GymTenantSummary'
+        config:
+          $ref: '#/components/schemas/GymConfig'
+      required:
+      - config
+      - gym
+    GymPublicEntryResponse:
+      type: object
+      description: Public details returned on the gym subdomain entry page.
+      properties:
+        still_securing:
+          type: boolean
+        gym_id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        subdomain:
+          type: string
+        brand_color:
+          type: string
+          nullable: true
+        logo:
+          type: string
+          nullable: true
+        phone:
+          type: string
+        location:
+          type: string
+        currency:
+          type: string
+        message:
+          type: string
+      required:
+      - name
+      - still_securing
+    GymStatusEnum:
+      enum:
+      - pending
+      - active
+      - suspended
+      - terminated
+      type: string
+      description: |-
+        * `pending` - Pending
+        * `active` - Active
+        * `suspended` - Suspended
+        * `terminated` - Terminated
+    GymTenantSummary:
+      type: object
+      description: Summary of a gym tenant.
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        name:
+          type: string
+          readOnly: true
+        subdomain:
+          type: string
+          readOnly: true
+        status:
+          allOf:
+          - $ref: '#/components/schemas/GymStatusEnum'
+          readOnly: true
+        tier:
+          allOf:
+          - $ref: '#/components/schemas/TierEnum'
+          readOnly: true
+        currency:
+          type: string
+          readOnly: true
+        location:
+          type: string
+          readOnly: true
+        contact_name:
+          type: string
+          readOnly: true
+        contact_phone:
+          type: string
+          readOnly: true
+        contact_email:
+          type: string
+          format: email
+          readOnly: true
+        subscription_expires_at:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+        tls_confirmed_at:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - contact_email
+      - contact_name
+      - contact_phone
+      - created_at
+      - currency
+      - id
+      - location
+      - name
+      - status
+      - subdomain
+      - subscription_expires_at
+      - tier
+      - tls_confirmed_at
+      - updated_at
     HealthCheckResponse:
       type: object
       properties:
@@ -345,6 +2212,48 @@ components:
         app:
           type: string
           default: FitGate API
+    InviteStaffRequestRequest:
+      type: object
+      description: Payload for inviting a staff member (Manager, Trainer, or Reception).
+      properties:
+        email:
+          type: string
+          format: email
+          minLength: 1
+        role:
+          $ref: '#/components/schemas/InviteStaffRequestRoleEnum'
+        full_name:
+          type: string
+          default: ''
+          maxLength: 150
+        phone:
+          type: string
+          default: ''
+          maxLength: 20
+      required:
+      - email
+      - role
+    InviteStaffRequestRoleEnum:
+      enum:
+      - manager
+      - trainer
+      - reception
+      type: string
+      description: |-
+        * `manager` - Manager
+        * `trainer` - Trainer
+        * `reception` - Reception
+    InviteStaffResponse:
+      type: object
+      description: Response returned upon successful staff invitation.
+      properties:
+        detail:
+          type: string
+        user:
+          $ref: '#/components/schemas/StaffMember'
+      required:
+      - detail
+      - user
     LoginRequestRequest:
       type: object
       description: Payload for user authentication.
@@ -387,6 +2296,158 @@ components:
           minLength: 1
       required:
       - refresh
+    Member:
+      type: object
+      description: Summary serializer for gym members.
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        email:
+          type: string
+          format: email
+          readOnly: true
+        full_name:
+          type: string
+          maxLength: 150
+        phone:
+          type: string
+          maxLength: 20
+        date_of_birth:
+          type: string
+          format: date
+          nullable: true
+        gender:
+          oneOf:
+          - $ref: '#/components/schemas/GenderEnum'
+          - $ref: '#/components/schemas/BlankEnum'
+        emergency_contact:
+          type: string
+          maxLength: 255
+        referral_source:
+          type: string
+          maxLength: 100
+        photo_url:
+          type: string
+          maxLength: 255
+        status:
+          $ref: '#/components/schemas/StatusBa9Enum'
+        joined_at:
+          type: string
+          format: date-time
+          readOnly: true
+        waiver_accepted_at:
+          type: string
+          format: date-time
+          readOnly: true
+        latest_metrics:
+          allOf:
+          - $ref: '#/components/schemas/BodyMetrics'
+          readOnly: true
+      required:
+      - email
+      - full_name
+      - id
+      - joined_at
+      - latest_metrics
+      - phone
+      - waiver_accepted_at
+    MemberDetail:
+      type: object
+      description: Detailed member profile including historical body metrics and calculations.
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        email:
+          type: string
+          format: email
+          readOnly: true
+        full_name:
+          type: string
+          maxLength: 150
+        phone:
+          type: string
+          maxLength: 20
+        date_of_birth:
+          type: string
+          format: date
+          nullable: true
+        gender:
+          oneOf:
+          - $ref: '#/components/schemas/GenderEnum'
+          - $ref: '#/components/schemas/BlankEnum'
+        emergency_contact:
+          type: string
+          maxLength: 255
+        referral_source:
+          type: string
+          maxLength: 100
+        photo_url:
+          type: string
+          maxLength: 255
+        status:
+          $ref: '#/components/schemas/StatusBa9Enum'
+        joined_at:
+          type: string
+          format: date-time
+          readOnly: true
+        waiver_accepted_at:
+          type: string
+          format: date-time
+          readOnly: true
+        latest_metrics:
+          allOf:
+          - $ref: '#/components/schemas/BodyMetrics'
+          readOnly: true
+        body_metrics:
+          type: array
+          items:
+            $ref: '#/components/schemas/BodyMetrics'
+          readOnly: true
+      required:
+      - body_metrics
+      - email
+      - full_name
+      - id
+      - joined_at
+      - latest_metrics
+      - phone
+      - waiver_accepted_at
+    MemberQrTokenErrorResponse:
+      type: object
+      properties:
+        detail:
+          type: string
+        reason:
+          type: string
+      required:
+      - detail
+      - reason
+    MemberQrTokenResponse:
+      type: object
+      description: Response serializer for member QR token generation.
+      properties:
+        token:
+          type: string
+          description: Signed RS256 JWT QR token.
+        expires_at:
+          type: string
+          format: date-time
+          description: Timestamp when this token expires.
+        valid_seconds:
+          type: integer
+          default: 90
+          description: Token validity window in seconds.
+        member_id:
+          type: string
+          format: uuid
+      required:
+      - expires_at
+      - member_id
+      - token
     PasswordResetConfirmRequestRequest:
       type: object
       description: Payload for confirming a password reset.
@@ -427,6 +2488,65 @@ components:
           type: string
       required:
       - detail
+    PatchedDemoRequestUpdateRequest:
+      type: object
+      description: Serializer for updating status and internal notes on a demo request.
+      properties:
+        status:
+          $ref: '#/components/schemas/DemoRequestStatusEnum'
+        notes:
+          type: string
+    PatchedGymSettingsUpdateRequest:
+      type: object
+      description: |-
+        Serializer for Owner-editable gym settings with strict allow-list enforcement.
+        Any attempt to modify entitlement fields is rejected with 403 PermissionDenied.
+        Any other unallowed or unknown field is rejected with 400 ValidationError.
+      properties:
+        brand_color:
+          type: string
+          nullable: true
+          maxLength: 7
+        show_unavailable_equipment:
+          type: boolean
+        member_reminder_days:
+          type: array
+          items:
+            type: integer
+            maximum: 90
+            minimum: 0
+          maxItems: 10
+    PatchedMemberUpdateRequest:
+      type: object
+      description: Serializer for updating member profile details.
+      properties:
+        full_name:
+          type: string
+          minLength: 1
+          maxLength: 150
+        phone:
+          type: string
+          minLength: 1
+          maxLength: 20
+        date_of_birth:
+          type: string
+          format: date
+          nullable: true
+        gender:
+          oneOf:
+          - $ref: '#/components/schemas/GenderEnum'
+          - $ref: '#/components/schemas/BlankEnum'
+        emergency_contact:
+          type: string
+          maxLength: 255
+        referral_source:
+          type: string
+          maxLength: 100
+        photo_url:
+          type: string
+          maxLength: 255
+        status:
+          $ref: '#/components/schemas/StatusBa9Enum'
     PatchedUserProfileUpdateRequest:
       type: object
       description: Payload for updating user profile (full_name and phone only).
@@ -437,22 +2557,294 @@ components:
         phone:
           type: string
           maxLength: 20
-    RoleEnum:
+    ProposeSubdomainResponse:
+      type: object
+      description: Response containing proposed candidate subdomain.
+      properties:
+        subdomain:
+          type: string
+      required:
+      - subdomain
+    PublicDemoRequestRequest:
+      type: object
+      description: Public serializer for lead demo request submissions with honeypot
+        field.
+      properties:
+        gym_name:
+          type: string
+          minLength: 1
+          maxLength: 150
+        contact_name:
+          type: string
+          minLength: 1
+          maxLength: 150
+        phone:
+          type: string
+          minLength: 1
+          maxLength: 50
+        city:
+          type: string
+          default: ''
+          maxLength: 100
+        email:
+          oneOf:
+          - type: string
+            format: email
+            default: ''
+          - type: string
+            maxLength: 0
+        message:
+          type: string
+          default: ''
+        website:
+          type: string
+          writeOnly: true
+          default: ''
+      required:
+      - contact_name
+      - gym_name
+      - phone
+    PublicDemoRequestResponse:
+      type: object
+      properties:
+        detail:
+          type: string
+        id:
+          type: string
+      required:
+      - detail
+    PublicMemberRegistrationRequest:
+      type: object
+      description: |-
+        Serializer for public self-service registration on gym subdomains.
+        Requires health waiver acceptance and password.
+      properties:
+        full_name:
+          type: string
+          minLength: 1
+          maxLength: 150
+        email:
+          type: string
+          format: email
+          minLength: 1
+          maxLength: 255
+        phone:
+          type: string
+          minLength: 1
+          maxLength: 20
+        password:
+          type: string
+          writeOnly: true
+          minLength: 1
+          maxLength: 128
+        waiver_accepted:
+          type: boolean
+        date_of_birth:
+          type: string
+          format: date
+          nullable: true
+        gender:
+          oneOf:
+          - $ref: '#/components/schemas/GenderEnum'
+          - $ref: '#/components/schemas/BlankEnum'
+        emergency_contact:
+          type: string
+          maxLength: 255
+        referral_source:
+          type: string
+          maxLength: 100
+        photo_url:
+          type: string
+          maxLength: 255
+        weight_kg:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,3}(?:\.\d{0,2})?$
+          nullable: true
+        height_cm:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,3}(?:\.\d{0,2})?$
+          nullable: true
+        measurements:
+          type: object
+          additionalProperties: {}
+          nullable: true
+      required:
+      - email
+      - full_name
+      - password
+      - phone
+      - waiver_accepted
+    RecordBodyMetricsRequest:
+      type: object
+      description: Serializer for recording a new body metrics entry.
+      properties:
+        weight_kg:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,3}(?:\.\d{0,2})?$
+          nullable: true
+        height_cm:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,3}(?:\.\d{0,2})?$
+          nullable: true
+        measurements:
+          type: object
+          additionalProperties: {}
+          nullable: true
+    SetPasswordFromInviteRequestRequest:
+      type: object
+      description: Payload for setting initial password from an invite token.
+      properties:
+        token:
+          type: string
+          minLength: 1
+        new_password:
+          type: string
+          writeOnly: true
+          minLength: 1
+      required:
+      - new_password
+      - token
+    SetPasswordFromInviteResponse:
+      type: object
+      description: Response returned upon successful invite password completion.
+      properties:
+        detail:
+          type: string
+      required:
+      - detail
+    StaffActionResponse:
+      type: object
+      description: Response returned upon staff deactivation or reactivation.
+      properties:
+        detail:
+          type: string
+        user:
+          $ref: '#/components/schemas/StaffMember'
+      required:
+      - detail
+      - user
+    StaffMember:
+      type: object
+      description: Serializer representing a staff member in the gym tenant.
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        email:
+          type: string
+          format: email
+          readOnly: true
+        role:
+          allOf:
+          - $ref: '#/components/schemas/UserRoleEnum'
+          readOnly: true
+        gym_id:
+          type: string
+          format: uuid
+          readOnly: true
+          nullable: true
+        full_name:
+          type: string
+          readOnly: true
+        phone:
+          type: string
+          readOnly: true
+        is_active:
+          type: boolean
+          readOnly: true
+        email_verified_at:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - created_at
+      - email
+      - email_verified_at
+      - full_name
+      - gym_id
+      - id
+      - is_active
+      - phone
+      - role
+    StaffMemberRegistrationRequest:
+      type: object
+      description: |-
+        Serializer for staff-assisted member registration (Owner, Manager, Reception).
+        Does not require a password; generates set-password invite link instead.
+      properties:
+        full_name:
+          type: string
+          minLength: 1
+          maxLength: 150
+        email:
+          type: string
+          format: email
+          minLength: 1
+          maxLength: 255
+        phone:
+          type: string
+          minLength: 1
+          maxLength: 20
+        waiver_accepted:
+          type: boolean
+        date_of_birth:
+          type: string
+          format: date
+          nullable: true
+        gender:
+          oneOf:
+          - $ref: '#/components/schemas/GenderEnum'
+          - $ref: '#/components/schemas/BlankEnum'
+        emergency_contact:
+          type: string
+          maxLength: 255
+        referral_source:
+          type: string
+          maxLength: 100
+        photo_url:
+          type: string
+          maxLength: 255
+        weight_kg:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,3}(?:\.\d{0,2})?$
+          nullable: true
+        height_cm:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,3}(?:\.\d{0,2})?$
+          nullable: true
+        measurements:
+          type: object
+          additionalProperties: {}
+          nullable: true
+      required:
+      - email
+      - full_name
+      - phone
+      - waiver_accepted
+    StatusBa9Enum:
       enum:
-      - super_admin
-      - owner
-      - manager
-      - trainer
-      - reception
-      - member
+      - active
+      - expired
+      - frozen
+      - suspended
       type: string
       description: |-
-        * `super_admin` - Super Admin
-        * `owner` - Owner
-        * `manager` - Manager
-        * `trainer` - Trainer
-        * `reception` - Reception
-        * `member` - Member
+        * `active` - Active
+        * `expired` - Expired
+        * `frozen` - Frozen
+        * `suspended` - Suspended
     SuperAdminResponse:
       type: object
       description: Response for created Super Admin.
@@ -467,7 +2859,7 @@ components:
           readOnly: true
         role:
           allOf:
-          - $ref: '#/components/schemas/RoleEnum'
+          - $ref: '#/components/schemas/UserRoleEnum'
           readOnly: true
         must_change_password:
           type: boolean
@@ -482,6 +2874,16 @@ components:
       - id
       - must_change_password
       - role
+    TierEnum:
+      enum:
+      - starter
+      - growth
+      - pro
+      type: string
+      description: |-
+        * `starter` - Starter
+        * `growth` - Growth
+        * `pro` - Pro
     TokenRefreshRequestRequest:
       type: object
       description: Payload for token refresh.
@@ -499,6 +2901,46 @@ components:
           type: string
       required:
       - access
+    UploadGymLogoRequest:
+      type: object
+      description: Upload serializer for gym logo.
+      properties:
+        logo:
+          type: string
+          format: binary
+      required:
+      - logo
+    UploadGymLogoResponse:
+      type: object
+      description: Response returned upon gym logo upload.
+      properties:
+        url:
+          type: string
+      required:
+      - url
+    UploadMemberPhotoRequest:
+      type: object
+      description: Upload serializer for member photos.
+      properties:
+        photo:
+          type: string
+          format: binary
+      required:
+      - photo
+    UploadMemberPhotoResponse:
+      type: object
+      description: Response returned upon member photo upload.
+      properties:
+        file_path:
+          type: string
+        filename:
+          type: string
+        url:
+          type: string
+      required:
+      - file_path
+      - filename
+      - url
     UserProfile:
       type: object
       description: Profile representation of authenticated user.
@@ -513,7 +2955,7 @@ components:
           readOnly: true
         role:
           allOf:
-          - $ref: '#/components/schemas/RoleEnum'
+          - $ref: '#/components/schemas/UserRoleEnum'
           readOnly: true
         gym_id:
           type: string
@@ -537,6 +2979,22 @@ components:
       - must_change_password
       - phone
       - role
+    UserRoleEnum:
+      enum:
+      - super_admin
+      - owner
+      - manager
+      - trainer
+      - reception
+      - member
+      type: string
+      description: |-
+        * `super_admin` - Super Admin
+        * `owner` - Owner
+        * `manager` - Manager
+        * `trainer` - Trainer
+        * `reception` - Reception
+        * `member` - Member
     UserSummary:
       type: object
       description: Minimal representation of authenticated user.
@@ -551,7 +3009,7 @@ components:
           readOnly: true
         role:
           allOf:
-          - $ref: '#/components/schemas/RoleEnum'
+          - $ref: '#/components/schemas/UserRoleEnum'
           readOnly: true
         gym_id:
           type: string
@@ -575,6 +3033,16 @@ components:
       - must_change_password
       - phone
       - role
+    VerifyEmailRequestRequest:
+      type: object
+      description: Serializer for email verification request.
+      properties:
+        token:
+          type: string
+          minLength: 1
+          maxLength: 128
+      required:
+      - token
   securitySchemes:
     jwtAuth:
       type: http

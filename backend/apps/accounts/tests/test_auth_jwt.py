@@ -3,6 +3,7 @@
 from unittest.mock import patch
 
 import pytest
+from django.utils import timezone
 from rest_framework.test import APIClient
 
 from apps.accounts.models import User
@@ -18,8 +19,13 @@ class TestJWTAuthenticationAndSessionValidity:
     @pytest.fixture
     def setup_entities(self):
         """Create platform and gym entities for auth testing."""
-        gym_a = GymTenant.objects.create(name="Apex Gym", subdomain="apexgym")
-        gym_b = GymTenant.objects.create(name="Beta Gym", subdomain="betagym")
+        now = timezone.now()
+        gym_a = GymTenant.objects.create(
+            name="Apex Gym", subdomain="apexgym", tls_confirmed_at=now
+        )
+        gym_b = GymTenant.objects.create(
+            name="Beta Gym", subdomain="betagym", tls_confirmed_at=now
+        )
 
         super_admin = User.objects.create_superuser(
             email="admin@fitgate.org",

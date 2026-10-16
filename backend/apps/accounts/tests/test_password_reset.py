@@ -25,8 +25,13 @@ class TestPasswordResetSuite:
     @pytest.fixture
     def setup_data(self):
         """Create gyms, users, and super admin."""
-        gym_a = GymTenant.objects.create(name="Gym Alpha", subdomain="gyma")
-        gym_b = GymTenant.objects.create(name="Gym Beta", subdomain="gymb")
+        now = timezone.now()
+        gym_a = GymTenant.objects.create(
+            name="Gym Alpha", subdomain="gyma", tls_confirmed_at=now
+        )
+        gym_b = GymTenant.objects.create(
+            name="Gym Beta", subdomain="gymb", tls_confirmed_at=now
+        )
 
         user_a = User.objects.create_user(
             email="user_a@gyma.com",
@@ -253,7 +258,7 @@ class TestPasswordResetSuite:
 
         assert len(mail.outbox) == 1
         body = mail.outbox[0].body
-        expected_scheme = getattr(settings, "PUBLIC_URL_SCHEME", "http")
+        expected_scheme = settings.PUBLIC_URL_SCHEME
         expected_prefix = (
             f"{expected_scheme}://gyma.{settings.DOMAIN}/reset-password?token="
         )

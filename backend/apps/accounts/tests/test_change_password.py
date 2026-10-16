@@ -2,6 +2,7 @@
 
 import pytest
 from django.core.exceptions import ValidationError
+from django.utils import timezone
 from rest_framework.test import APIClient
 
 from apps.accounts.models import User
@@ -17,7 +18,9 @@ class TestChangePasswordEndpointAndService:
     @pytest.fixture
     def setup_user(self):
         """Create a gym and user."""
-        gym = GymTenant.objects.create(name="FitCorp", subdomain="fitcorp")
+        gym = GymTenant.objects.create(
+            name="FitCorp", subdomain="fitcorp", tls_confirmed_at=timezone.now()
+        )
         user = User.objects.create_user(
             email="member@fitcorp.com",
             password="OriginalPassword123!",
