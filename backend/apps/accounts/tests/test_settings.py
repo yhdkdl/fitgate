@@ -23,11 +23,30 @@ class TestDefaultFromEmailSettings:
                 else:
                     importlib.import_module("fitgate.settings.prod")
 
-        # When DEFAULT_FROM_EMAIL is set, prod settings load successfully
+        # When DEFAULT_FROM_EMAIL is set (and QR keys present), prod settings load successfully
         monkeypatch.setenv("DEFAULT_FROM_EMAIL", "prod@fitgate.org")
+        monkeypatch.setenv("QR_JWT_PRIVATE_KEY", "dummy-private-key")
+        monkeypatch.setenv("QR_JWT_PUBLIC_KEY", "dummy-public-key")
         prod = importlib.import_module("fitgate.settings.prod")
         importlib.reload(prod)
         assert prod.DEFAULT_FROM_EMAIL == "prod@fitgate.org"
+        assert prod.QR_JWT_PRIVATE_KEY == "dummy-private-key"
+
+    @pytest.mark.parametrize("missing_key", ["QR_JWT_PRIVATE_KEY", "QR_JWT_PUBLIC_KEY"])
+    def test_production_settings_fail_fast_without_qr_keys(
+        self, monkeypatch, missing_key
+    ):
+        """Production settings must raise ImproperlyConfigured if either QR_JWT key is unset."""
+        monkeypatch.setenv("DEFAULT_FROM_EMAIL", "prod@fitgate.org")
+        monkeypatch.setenv("QR_JWT_PRIVATE_KEY", "dummy-private-key")
+        monkeypatch.setenv("QR_JWT_PUBLIC_KEY", "dummy-public-key")
+        monkeypatch.delenv(missing_key, raising=False)
+        with patch("environ.Env.read_env"):
+            with pytest.raises(ImproperlyConfigured):
+                if "fitgate.settings.prod" in sys.modules:
+                    importlib.reload(sys.modules["fitgate.settings.prod"])
+                else:
+                    importlib.import_module("fitgate.settings.prod")
 
     def test_local_settings_has_console_default_from_email(self, monkeypatch):
         """Local settings provide a default console value when DEFAULT_FROM_EMAIL is unset."""

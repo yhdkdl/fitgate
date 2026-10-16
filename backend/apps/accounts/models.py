@@ -239,3 +239,42 @@ class Notification(PlatformTenantAwareModel):
 
     def __str__(self):
         return f"Notification({self.recipient.email} - {self.type})"
+
+
+class AuditLog(PlatformTenantAwareModel):
+    """
+    Append-only audit trail for security and operational actions.
+
+    Platform-level when gym is None.
+    Tenant-level when gym is set.
+    SPEC §8:
+    - id (UUID PK)
+    - gym_id (nullable — platform-level)
+    - actor (FK -> User, nullable, SET_NULL)
+    - action_type (CharField)
+    - affected_record_type (CharField)
+    - affected_record_id (CharField)
+    - timestamp (DateTimeField, auto_now_add=True)
+    - metadata (JSONField, nullable)
+    """
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    actor = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="audit_logs",
+    )
+    action_type = models.CharField(max_length=100)
+    affected_record_type = models.CharField(max_length=100)
+    affected_record_id = models.CharField(max_length=100)
+    timestamp = models.DateTimeField(auto_now_add=True)
+    metadata = models.JSONField(null=True, blank=True)
+
+    class Meta:
+        ordering = ["-timestamp"]
+
+    def __str__(self):
+        actor_email = self.actor.email if self.actor else "System"
+        return f"AuditLog({self.action_type} on {self.affected_record_type}:{self.affected_record_id} by {actor_email})"

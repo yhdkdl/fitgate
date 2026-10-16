@@ -166,7 +166,6 @@ describe("Sprint 4c: Gym branding, entry page, first-run checklist", () => {
 
   describe("GymBrandingSection", () => {
     const mockConfig: gymsApi.GymConfig = {
-      gym: "gym-123",
       has_trainer_module: false,
       has_ai_plans: false,
       has_analytics: false,

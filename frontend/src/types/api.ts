@@ -4,6 +4,26 @@
  */
 
 export interface paths {
+  "/api/attendance/public-key/": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Get QR Verification Public Key
+     * @description Returns the RSA public key used to verify asymmetric QR check-in tokens offline.
+     */
+    get: operations["attendance_public_key_retrieve"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/auth/change-password/": {
     parameters: {
       query?: never;
@@ -188,6 +208,46 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/gym/attendance/manual-override/": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Manual Check-in Override
+     * @description Records a manual attendance check-in when QR cannot be used. Audit-logged.
+     */
+    post: operations["gym_attendance_manual_override_create"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/gym/attendance/scan/": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Scan QR Check-in Token
+     * @description Validates a member QR token, records attendance, and issues replacement token.
+     */
+    post: operations["gym_attendance_scan_create"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/gym/checklist/": {
     parameters: {
       query?: never;
@@ -274,6 +334,26 @@ export interface paths {
      * @description Allows Owner, Manager, or Reception to update member information.
      */
     patch: operations["gym_members_partial_update"];
+    trace?: never;
+  };
+  "/api/gym/members/{id}/attendance/": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Get Member Attendance Calendar Log
+     * @description Returns daily attendance status (✓ present, ✗ absent, blank outside subscription) for a date range.
+     */
+    get: operations["gym_members_attendance_retrieve"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
     trace?: never;
   };
   "/api/gym/members/{id}/metrics/": {
@@ -489,6 +569,26 @@ export interface paths {
     patch: operations["members_me_partial_update"];
     trace?: never;
   };
+  "/api/members/me/attendance/": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Get Self Attendance Calendar Log
+     * @description Returns member's daily attendance status for a date range.
+     */
+    get: operations["members_me_attendance_retrieve"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/members/me/metrics/": {
     parameters: {
       query?: never;
@@ -507,6 +607,30 @@ export interface paths {
      * @description Records new measurements for the logged-in member.
      */
     post: operations["members_me_metrics_create"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/members/me/qr-token/": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Get Active Member QR Token
+     * @description Generates a signed RS256 QR check-in token (90s window) for the authenticated member.
+     */
+    get: operations["members_me_qr_token_retrieve"];
+    put?: never;
+    /**
+     * Rotate Member QR Token
+     * @description Explicitly issues a rotated QR check-in token for the member.
+     */
+    post: operations["members_me_qr_token_create"];
     delete?: never;
     options?: never;
     head?: never;
@@ -769,6 +893,95 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
   schemas: {
+    /** @description Response serializer for attendance calendar log. */
+    AttendanceLogResponse: {
+      /** Format: uuid */
+      member_id: string;
+      member_name: string;
+      /** Format: date */
+      start_date: string;
+      /** Format: date */
+      end_date: string;
+      subscription_period: {
+        [key: string]: unknown;
+      };
+      days: components["schemas"]["DailyAttendanceItem"][];
+    };
+    /** @description Request serializer for manual attendance override by reception. */
+    AttendanceManualOverrideRequestRequest: {
+      /**
+       * Format: uuid
+       * @description UUID of the member to check in.
+       */
+      member_id: string;
+      /** @description Non-empty explanation for manual override. */
+      reason: string;
+      /**
+       * Format: uuid
+       * @description Optional branch UUID.
+       */
+      branch_id?: string | null;
+    };
+    /** @description Response serializer for manual attendance override. */
+    AttendanceManualOverrideResponse: {
+      /** @default success */
+      status: string;
+      message: string;
+      member: components["schemas"]["AttendanceScanResultMember"];
+      attendance: components["schemas"]["AttendanceRecord"];
+    };
+    /** @description Response serializer for public key export. */
+    AttendancePublicKeyResponse: {
+      /** @description PEM-encoded RSA public key for offline QR signature verification. */
+      public_key: string;
+      /** @default RS256 */
+      algorithm: string;
+    };
+    /** @description Attendance record details. */
+    AttendanceRecord: {
+      /** Format: uuid */
+      id: string;
+      /** Format: date */
+      date: string;
+      /** Format: date-time */
+      checked_in_at: string;
+      is_override: boolean;
+      override_reason?: string;
+    };
+    AttendanceScanErrorResponse: {
+      detail: string;
+      reason: string;
+      member?: components["schemas"]["AttendanceScanResultMember"];
+    };
+    /** @description Request serializer for QR attendance scan. */
+    AttendanceScanRequestRequest: {
+      /** @description Scanned QR token string (RS256 JWT). */
+      token: string;
+      /**
+       * Format: uuid
+       * @description Optional branch UUID for multi-branch check-ins.
+       */
+      branch_id?: string | null;
+    };
+    /** @description Success response serializer for QR scan. */
+    AttendanceScanResponse: {
+      /** @default success */
+      status: string;
+      message: string;
+      member: components["schemas"]["AttendanceScanResultMember"];
+      attendance: components["schemas"]["AttendanceRecord"];
+      /** @description Newly rotated token issued for the member. */
+      next_token: string;
+    };
+    /** @description Member details returned upon scan. */
+    AttendanceScanResultMember: {
+      /** Format: uuid */
+      id: string;
+      full_name: string;
+      photo_url: string;
+      status: string;
+      phone?: string;
+    };
     /** @enum {unknown} */
     BlankEnum: "";
     /**
@@ -850,6 +1063,19 @@ export interface components {
       email: string;
       password: string;
       current_password: string;
+    };
+    /** @description Daily check-in status within the calendar log. */
+    DailyAttendanceItem: {
+      /** Format: date */
+      date: string;
+      /** @description 'present', 'absent', or 'blank' */
+      status: string;
+      /** @description '✓', '✗', or empty for days outside subscription */
+      symbol: string;
+      attended: boolean;
+      /** Format: date-time */
+      checked_in_at?: string | null;
+      is_override?: boolean;
     };
     /** @description Serializer for Super Admin lead management. */
     DemoRequest: {
@@ -1078,6 +1304,27 @@ export interface components {
       readonly waiver_accepted_at: string;
       readonly latest_metrics: components["schemas"]["BodyMetrics"];
       readonly body_metrics: components["schemas"]["BodyMetrics"][];
+    };
+    MemberQrTokenErrorResponse: {
+      detail: string;
+      reason: string;
+    };
+    /** @description Response serializer for member QR token generation. */
+    MemberQrTokenResponse: {
+      /** @description Signed RS256 JWT QR token. */
+      token: string;
+      /**
+       * Format: date-time
+       * @description Timestamp when this token expires.
+       */
+      expires_at: string;
+      /**
+       * @description Token validity window in seconds.
+       * @default 90
+       */
+      valid_seconds: number;
+      /** Format: uuid */
+      member_id: string;
     };
     /** @description Payload for confirming a password reset. */
     PasswordResetConfirmRequestRequest: {
@@ -1350,6 +1597,25 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+  attendance_public_key_retrieve: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["AttendancePublicKeyResponse"];
+        };
+      };
+    };
+  };
   auth_change_password_create: {
     parameters: {
       query?: never;
@@ -1683,6 +1949,72 @@ export interface operations {
       };
     };
   };
+  gym_attendance_manual_override_create: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["AttendanceManualOverrideRequestRequest"];
+        "application/x-www-form-urlencoded": components["schemas"]["AttendanceManualOverrideRequestRequest"];
+        "multipart/form-data": components["schemas"]["AttendanceManualOverrideRequestRequest"];
+      };
+    };
+    responses: {
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["AttendanceManualOverrideResponse"];
+        };
+      };
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["AttendanceScanErrorResponse"];
+        };
+      };
+    };
+  };
+  gym_attendance_scan_create: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["AttendanceScanRequestRequest"];
+        "application/x-www-form-urlencoded": components["schemas"]["AttendanceScanRequestRequest"];
+        "multipart/form-data": components["schemas"]["AttendanceScanRequestRequest"];
+      };
+    };
+    responses: {
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["AttendanceScanResponse"];
+        };
+      };
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["AttendanceScanErrorResponse"];
+        };
+      };
+    };
+  };
   gym_checklist_retrieve: {
     parameters: {
       query?: never;
@@ -1866,6 +2198,32 @@ export interface operations {
           [name: string]: unknown;
         };
         content?: never;
+      };
+    };
+  };
+  gym_members_attendance_retrieve: {
+    parameters: {
+      query?: {
+        /** @description End date (YYYY-MM-DD). Defaults to today. */
+        end_date?: string;
+        /** @description Start date (YYYY-MM-DD). Defaults to 30 days ago. */
+        start_date?: string;
+      };
+      header?: never;
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["AttendanceLogResponse"];
+        };
       };
     };
   };
@@ -2364,6 +2722,30 @@ export interface operations {
       };
     };
   };
+  members_me_attendance_retrieve: {
+    parameters: {
+      query?: {
+        /** @description End date (YYYY-MM-DD). Defaults to today. */
+        end_date?: string;
+        /** @description Start date (YYYY-MM-DD). Defaults to 30 days ago. */
+        start_date?: string;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["AttendanceLogResponse"];
+        };
+      };
+    };
+  };
   members_me_metrics_list: {
     parameters: {
       query?: never;
@@ -2412,6 +2794,60 @@ export interface operations {
           [name: string]: unknown;
         };
         content?: never;
+      };
+    };
+  };
+  members_me_qr_token_retrieve: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["MemberQrTokenResponse"];
+        };
+      };
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["MemberQrTokenErrorResponse"];
+        };
+      };
+    };
+  };
+  members_me_qr_token_create: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["MemberQrTokenResponse"];
+        };
+      };
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["MemberQrTokenErrorResponse"];
+        };
       };
     };
   };

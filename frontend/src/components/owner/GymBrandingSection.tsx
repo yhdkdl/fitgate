@@ -3,8 +3,8 @@ import {
   getGymSettings,
   updateGymSettings,
   uploadGymLogo,
-  type GymConfig,
 } from "../../api/gyms";
+import { useAuth } from "../../context/AuthContext";
 import { Alert } from "../ui/Alert";
 import { Button } from "../ui/Button";
 import { Card } from "../ui/Card";
@@ -21,10 +21,10 @@ export const GymBrandingSection: React.FC<GymBrandingSectionProps> = ({
   gymId,
   onUpdated,
 }) => {
+  const { user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [uploadingLogo, setUploadingLogo] = useState(false);
-  const [config, setConfig] = useState<GymConfig | null>(null);
 
   const [brandColor, setBrandColor] = useState("");
   const [logoUrl, setLogoUrl] = useState("");
@@ -43,7 +43,6 @@ export const GymBrandingSection: React.FC<GymBrandingSectionProps> = ({
         setErrorMsg(null);
         const res = await getGymSettings(gymId);
         if (!isMounted) return;
-        setConfig(res);
         setBrandColor(res.brand_color || "#2563EB");
         setLogoUrl(res.logo || "");
         setShowUnavailableEquipment(Boolean(res.show_unavailable_equipment));
@@ -71,7 +70,8 @@ export const GymBrandingSection: React.FC<GymBrandingSectionProps> = ({
     const file = e.target.files?.[0];
     if (!file) return;
 
-    if (!config?.gym) {
+    const targetGymId = gymId || user?.gym_id;
+    if (!targetGymId) {
       setErrorMsg("Gym ID required to upload logo.");
       return;
     }
@@ -79,7 +79,7 @@ export const GymBrandingSection: React.FC<GymBrandingSectionProps> = ({
     try {
       setUploadingLogo(true);
       setErrorMsg(null);
-      const res = await uploadGymLogo(file, config.gym);
+      const res = await uploadGymLogo(file, targetGymId);
       setLogoUrl(res.url);
       setSuccessMsg("Gym logo uploaded successfully.");
     } catch (err: unknown) {
@@ -114,17 +114,15 @@ export const GymBrandingSection: React.FC<GymBrandingSectionProps> = ({
 
     try {
       setSaving(true);
-      const updated = await updateGymSettings(
+      await updateGymSettings(
         {
           brand_color: trimmedColor || null,
-          logo: logoUrl.trim() || null,
           show_unavailable_equipment: showUnavailableEquipment,
           member_reminder_days: reminderDays.length ? reminderDays : undefined,
         },
         gymId
       );
 
-      setConfig(updated);
       setSuccessMsg("Gym settings and branding updated successfully.");
       if (onUpdated) onUpdated();
     } catch (err: unknown) {
