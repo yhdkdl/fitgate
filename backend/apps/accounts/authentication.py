@@ -50,11 +50,29 @@ class FitGateJWTAuthentication(JWTAuthentication):
         """Authenticate request, validate user state, password timestamp, and tenant scope."""
         header = self.get_header(request)
         if header is None:
-            return None
-
-        raw_token = self.get_raw_token(header)
-        if raw_token is None:
-            return None
+            # Allow query parameter authentication for GET /api/media/member-photos/
+            # because HTML <img> tags cannot send custom Authorization headers.
+            path = getattr(request, "path", "")
+            if request.method == "GET" and path.startswith("/api/media/member-photos/"):
+                query_token = None
+                if hasattr(request, "query_params"):
+                    query_token = request.query_params.get("token")
+                if not query_token and hasattr(request, "GET"):
+                    query_token = request.GET.get("token")
+                if query_token:
+                    raw_token = (
+                        query_token.encode("utf-8")
+                        if isinstance(query_token, str)
+                        else query_token
+                    )
+                else:
+                    return None
+            else:
+                return None
+        else:
+            raw_token = self.get_raw_token(header)
+            if raw_token is None:
+                return None
 
         validated_token = self.get_validated_token(raw_token)
         user = self.get_user(validated_token)
