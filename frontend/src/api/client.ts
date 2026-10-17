@@ -15,13 +15,56 @@
 export class ApiError extends Error {
   status: number;
   data: unknown;
+  detail?: string;
+  reason?: string;
 
   constructor(status: number, message: string, data?: unknown) {
     super(message);
     this.name = "ApiError";
     this.status = status;
     this.data = data;
+    if (typeof data === "object" && data !== null) {
+      const dataObj = data as Record<string, unknown>;
+      if (typeof dataObj.detail === "string") {
+        this.detail = dataObj.detail;
+      }
+      if (typeof dataObj.reason === "string") {
+        this.reason = dataObj.reason;
+      }
+    }
   }
+}
+
+/**
+ * Safely parse a Response body stream once.
+ * Reads the body as text first to avoid double-consumption of the body stream,
+ * then parses as JSON if possible, falling back to plain text or null.
+ */
+export async function parseResponseBody(response: Response): Promise<unknown> {
+  const text = await response.text();
+  if (!text || text.trim() === "") {
+    return null;
+  }
+  try {
+    return JSON.parse(text);
+  } catch {
+    return text;
+  }
+}
+
+function extractErrorMessage(status: number, data: unknown): string {
+  if (typeof data === "object" && data !== null) {
+    const dataObj = data as Record<string, unknown>;
+    if (typeof dataObj.detail === "string" && dataObj.detail.trim() !== "") {
+      return dataObj.detail;
+    }
+    if (typeof dataObj.reason === "string" && dataObj.reason.trim() !== "") {
+      return dataObj.reason;
+    }
+  } else if (typeof data === "string" && data.trim() !== "") {
+    return data;
+  }
+  return `HTTP ${status}`;
 }
 
 const REFRESH_TOKEN_KEY = "fitgate_refresh_token";
@@ -173,39 +216,24 @@ export async function apiFetch<T>(
       });
 
       if (!retryResponse.ok) {
-        let errData: unknown;
-        try {
-          errData = await retryResponse.json();
-        } catch {
-          errData = await retryResponse.text();
-        }
-        throw new ApiError(
-          retryResponse.status,
-          `HTTP ${retryResponse.status}`,
-          errData
-        );
+        const errData = await parseResponseBody(retryResponse);
+        const message = extractErrorMessage(retryResponse.status, errData);
+        throw new ApiError(retryResponse.status, message, errData);
       }
 
       if (retryResponse.status === 204) {
         return undefined as T;
       }
-      return (await retryResponse.json()) as T;
+      const retryData = await parseResponseBody(retryResponse);
+      return retryData as T;
     } else {
       throw new ApiError(401, "Session expired. Please log in again.");
     }
   }
 
   if (!response.ok) {
-    let errData: unknown;
-    try {
-      errData = await response.json();
-    } catch {
-      errData = await response.text();
-    }
-    const message =
-      typeof errData === "object" && errData !== null && "detail" in errData
-        ? String((errData as { detail: unknown }).detail)
-        : `HTTP ${response.status}`;
+    const errData = await parseResponseBody(response);
+    const message = extractErrorMessage(response.status, errData);
     throw new ApiError(response.status, message, errData);
   }
 
@@ -213,5 +241,6 @@ export async function apiFetch<T>(
     return undefined as T;
   }
 
-  return (await response.json()) as T;
+  const data = await parseResponseBody(response);
+  return data as T;
 }
