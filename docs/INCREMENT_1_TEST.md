@@ -187,9 +187,9 @@ As documented in `docs/MANUAL_STEPS.md`, external production credentials were sy
 
 ---
 
-## Test Scenario 6: Member Registration (Self-Service & Staff-Assisted) & Body Composition
+## Test Scenario 6: Member Registration & Trainer-Only Body Measurements
 
-1. **Staff-Assisted Member Registration**:
+1. **Staff-Assisted Member Registration (No Measurement Fields)**:
    - On the Owner/Manager dashboard, scroll to **Member Management**.
    - Click **Register New Member**:
      - Full Name: `Dawit Kebede`
@@ -198,21 +198,13 @@ As documented in `docs/MANUAL_STEPS.md`, external production credentials were sy
      - Date of Birth: `1995-05-15`
      - Gender: `Male`
      - Emergency Contact: `Almaz - +251922001122`
-     - Height: `180` cm
-     - Weight: `80` kg
-     - Waist Circumference: `84` cm
-     - Neck Circumference: `38` cm
      - Check: _"I accept the health waiver and liability disclaimer"_
    - Click **Register Member**.
    - **Expected Result**:
-     - Member is created in verified state.
+     - Member is created in verified state and appears in the member list.
      - An invitation set-password link is emailed to Dawit (retrieve via `docker compose logs backend`).
-2. **View Member Details & Derived Body Composition**:
-   - In the Member table, click **View Profile** on Dawit Kebede.
-   - **Expected Result**:
-     - BMI is displayed as labeled estimate: `24.7` (Normal weight, computed as `80 / (1.80^2)`).
-     - Body Fat Percentage is displayed as labeled estimate via US Navy circumference formula: `15.3%` (computed as `495 / (1.0324 - 0.19077*log10(84-38) + 0.15456*log10(180)) - 450 = 15.3%`).
-3. **Public Self-Service Registration**:
+     - Clicking **View Profile** on Dawit Kebede shows: "Not measured yet. A trainer records measurements."
+2. **Public Self-Service Registration (No Measurement Fields)**:
    - In an incognito window, navigate to `http://boleelite.localhost:5173/register`.
    - Enter details:
      - Full Name: `Almaz Ayana`
@@ -225,6 +217,39 @@ As documented in `docs/MANUAL_STEPS.md`, external production credentials were sy
      - Check: _"I accept the health waiver and liability disclaimer"_
    - Click **Register Now**.
    - **Expected Result**: Confirmation informs the member to verify their email before logging in. Verification link is dispatched via email (inspect `docker compose logs backend`). Rate limiting prevents automated bot abuse.
+3. **Invite and Activate a Trainer**:
+   - On the Owner/Manager dashboard, scroll to **Staff Management**.
+   - Click **Invite Staff Member**:
+     - Role: Select `Trainer`
+     - Email: `trainer@boleelite.com`
+     - Full Name: `Abebe Bikila`
+     - Phone: `+251911998877`
+   - Click **Send Invitation**.
+   - Retrieve the set-password invite link from `docker compose logs backend`.
+   - In an incognito browser window, open the invitation link, set password to `TrainerPassword2026!`, and click **Activate Account**.
+4. **Trainer Records Measurements for Dawit**:
+   - Log in as `trainer@boleelite.com` at `http://boleelite.localhost:5173/login` with password `TrainerPassword2026!`.
+   - The Trainer dashboard displays the **Member Measurements** screen.
+   - In the member search box, search for `Dawit` (or `dawit@example.com` or `+251944556677`).
+   - Click `Dawit Kebede` in the search results.
+   - The screen shows "Not measured yet. A trainer records measurements." and displays the measurement entry form.
+   - In the measurement entry form, enter:
+     - Height: `180` cm
+     - Weight: `80` kg
+     - Waist Circumference: `84` cm
+     - Neck Circumference: `38` cm
+     - (Hip Circumference can be left empty for male)
+   - Click **Record Measurements**.
+   - **Expected Result**:
+     - A success confirmation appears.
+     - The new record appears immediately in the member's measurement history table with today's date and the trainer's name (`Abebe Bikila`).
+5. **View Member Profile with Labeled Body Composition Estimates**:
+   - Dawit's measurement summary and profile now display:
+     - BMI: `24.7` (labeled estimate)
+     - Estimated Body Fat: `15.3%` (labeled estimate)
+   - Log in as `dawit@example.com` at `http://boleelite.localhost:5173/login` on the Member Portal:
+     - Dawit can view his measurements and history with the labeled BMI 24.7 and body fat 15.3% estimates.
+     - No measurement entry form is shown on the member portal (members can only view their own measurements).
 
 ---
 

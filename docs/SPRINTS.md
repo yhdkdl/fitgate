@@ -163,16 +163,29 @@ Trainer specialization and photo are delivered in the Trainer and storage sprint
 
 - [x] Status: done — merged to develop (tag sprint-6-done)
 
-7. **Member registration** — self-service + staff-assisted, `Member` + `BodyMetrics`, waiver, verification, photo.
-   - Self-service and staff-assisted registration produce an identical `Member` + `BodyMetrics` structure.
+7. **Member registration** — self-service + staff-assisted, `Member`, waiver, verification, photo.
+   - Self-service and staff-assisted registration produce an identical `Member` structure (registration captures no body measurements; body measurements are recorded exclusively by Trainers in Sprint 7b).
    - A duplicate registration (same identifying field) within one gym is rejected.
    - Accepting the health waiver is required (`waiver_accepted_at` stored); registration without it is rejected.
    - A self-registered member must verify their email by single-use, expiring link before first login; staff-registered members receive a set-password link and count as verified. Public registration is rate-limited.
    - A profile photo uploads through Sprint 4b's storage layer; member self-service photo ownership is wired there, with an exact-match check against the Member record (Members read their own photo only through the exact-match check).
    - Member photo read access for Trainers must narrow to their assigned members (Sprint 17 wires assignment).
-   - Body composition: BMI is computed from the latest height and weight; an estimated body-fat percentage (US Navy circumference method) is computed only when the needed measurements are recorded. Both are labeled estimates, computed on read, and covered by unit tests.
 
 - [x] Status: done — merged to develop (tag sprint-7-done)
+
+7b. **Trainer-only body measurements** (non-GATE, built out of order by owner decision, before Increment 2)
+
+1.  Registering a member, through the public Register page and as staff, no longer asks for height, weight, waist, neck or hip. Both forms still ask for name, email, phone, date of birth, gender, emergency contact, photo and the waiver.
+2.  A Trainer can open a "Member measurements" screen, search members of their own gym by name, email or phone, and see a member's latest measurements and history.
+3.  A Trainer can record a new set of measurements (weight kg and height cm required; waist, neck and hip cm optional). It appears in the member's history with the date and the trainer's name.
+4.  After a Trainer records them, the member's profile shows BMI and estimated body fat as labeled estimates. Before that it says "Not measured yet. A trainer records measurements."
+5.  Reception sees no measurements anywhere and cannot enter any. Owner and Manager can view but not enter. A Member can view their own measurements and history but cannot enter or edit them. Super Admin sees none.
+6.  Anyone who is not a Trainer who tries to record measurements directly through the API is refused, and a Trainer cannot record for a member of another gym.
+7.  Every recording is written to the audit log with the trainer as the actor.
+8.  Until Sprint 17, any Trainer of the gym can record for any member of that gym (assignment-based narrowing comes in Sprint 17).
+9.  Measurements already saved stay.
+
+- [~] Status: in progress
 
 8. **QR check-in (GATE)** — token issuance/rotation (90 s window), scan endpoint, `Attendance`, duplicate/expired-scan handling, manual override.
    - The token is a signed JWT (asymmetric signature, private key in the environment, public key exposed so a scanner can verify offline). A tampered token is rejected; a token is valid at 89 seconds after issue and rejected at 91 — tested with a frozen clock.
@@ -293,6 +306,7 @@ Trainer specialization and photo are delivered in the Trainer and storage sprint
 20. **FitnessProfile intake** — self + staff-captured, trainer-editable.
     - The profile is editable by the member's assigned trainer (including from the plan review screen), and rejected for an unrelated trainer or another member.
     - Required fields (`goal`, `fitness_level`, `training_days_per_week`) reject submission when missing, rather than silently defaulting.
+    - Height and weight come from the latest Trainer-recorded measurements; if none exist the intake says a trainer must record them first.
 
 21. **Rules engine** — phase/intensity/equipment-filter computation (pure Python, test-heavy; implement the Strategy pattern here for swappable intensity logic).
     - Phase is derived from the elapsed proportion of the member's active plan; intensity is derived from the phase, adjusted by the recent weekly check-in trend (progressive overload).
@@ -347,7 +361,7 @@ Trainer specialization and photo are delivered in the Trainer and storage sprint
 28. **Notice board & broadcast communication.**
     - A notice reaches all members of the issuing gym (Owner/Manager can post) and is not visible to another gym's users.
 
-28a. **Badges and member progress** - Badges are awarded for a first check-in, a 30-day streak, and plan completion — each at most once per member, idempotent. - The member progress view returns body-metric history (and the Sprint 7 estimates) as chart data, scoped to that member.
+28a. **Badges and member progress** - Badges are awarded for a first check-in, a 30-day streak, and plan completion — each at most once per member, idempotent. - The member progress view returns body-metric history (and the Sprint 7b estimates) as chart data, scoped to that member.
 
 29. **CSV export** — members, payments, attendance.
     - Exported rows, headers and row count match a known seeded dataset exactly, scoped to the requesting gym.

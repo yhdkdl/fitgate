@@ -22,7 +22,7 @@
 
 ## Current
 
-- Increment 1 Test & Verification (`docs/INCREMENT_1_TEST.md`)
+- Sprint 7b: Trainer-only body measurements (non-GATE, built out of order by owner decision, before Increment 2). Note: A gym with no trainer cannot record measurements, so BMI, body fat and AI plans show 'not measured yet'. Owner decided: no fallback for now.
 
 ## Next
 
@@ -42,6 +42,7 @@
 - (c) 30-day fallback period in `Member.get_subscription_period()` when no subscription exists — to be extended/confirmed in Sprint 10.
 - (d) Owner and Manager may also use manual check-in override (SPEC §2 names Reception); accepted by owner.
 - (e) Working rules updated: plain-language non-developer acceptance criteria in SPRINTS.md, plain-language sprint reports without diffs or code, new tests written only for security/money/tenancy or silently breakable logic, and clear bug-fix diagnoses.
+- (f) Body measurements recorded by Trainers only; registration captures none. A gym with no trainer cannot record measurements, so BMI, body fat and AI plans show 'not measured yet'. Owner decided: no fallback for now.
 
 Until Sprint 10, check-in requires a MemberSubscription row (create via Django shell/tests).
 
