@@ -117,31 +117,57 @@ export const RegisterScreen: React.FC = () => {
   };
 
   if (success) {
+    const isLocalhost =
+      window.location.hostname === "localhost" ||
+      window.location.hostname.endsWith(".localhost") ||
+      window.location.hostname === "127.0.0.1";
+
     return (
       <div className="min-h-screen bg-bg flex items-center justify-center p-4">
         <Card className="max-w-md w-full bg-surface border-border p-6 sm:p-8 space-y-6 text-center">
-          <div className="w-14 h-14 mx-auto rounded-full bg-success/10 text-success flex items-center justify-center border border-success/20">
+          <div className="w-14 h-14 mx-auto rounded-full bg-primary/10 text-primary flex items-center justify-center border border-primary/20">
             <span className="text-2xl">✉️</span>
           </div>
 
-          <div className="space-y-2">
-            <Badge variant="success">Verification Email Sent</Badge>
-            <h1 className="text-2xl font-bold text-text">
-              Verify Your Account
-            </h1>
+          <div className="space-y-3">
+            <Badge variant="primary">Verification Required</Badge>
+            <h1 className="text-2xl font-bold text-text">Verify Your Account</h1>
             <p className="text-sm text-text-muted">
-              We have sent a single-use verification link to{" "}
+              We sent a single-use verification link to{" "}
               <strong className="text-text">{submittedEmail}</strong>.
             </p>
-            <p className="text-xs text-text-muted">
-              Please click the link in your email within 24 hours to complete
-              your registration and activate your membership.
+            <div className="p-3 bg-surface-2/60 border border-border/80 rounded-lg text-left text-xs text-text-muted space-y-1.5">
+              <p className="font-semibold text-text">What to do next:</p>
+              <ol className="list-decimal list-inside space-y-1">
+                <li>Open the verification email sent to your inbox.</li>
+                <li>Click the verification link to activate your account.</li>
+                <li>Once verified, sign in with your email and password.</li>
+              </ol>
+            </div>
+            <p className="text-xs text-amber-400 font-medium">
+              Note: You cannot sign in until your email address is verified.
             </p>
+            {isLocalhost && (
+              <div className="p-3 bg-primary/5 border border-primary/20 rounded-lg text-left text-xs text-text-muted">
+                <span className="font-semibold text-primary block mb-1">
+                  Local Development Tip:
+                </span>
+                Transactional emails are output to the backend console. Run{" "}
+                <code className="bg-surface px-1.5 py-0.5 rounded text-text font-mono">
+                  docker compose logs backend | grep -A 5 &quot;verify-email&quot;
+                </code>{" "}
+                to copy your activation link.
+              </div>
+            )}
           </div>
 
           <div className="pt-2">
             <Link to="/login">
-              <Button size="lg" className="w-full min-h-[44px]">
+              <Button
+                variant="secondary"
+                size="lg"
+                className="w-full min-h-[44px]"
+              >
                 Proceed to Sign In
               </Button>
             </Link>
