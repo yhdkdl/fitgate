@@ -38,7 +38,7 @@ Items below are proposed but not yet confirmed by the project owner — do not t
 2. Never rewrite existing code unless there is no reasonable way to avoid it. Prefer the smallest diff that correctly implements the sprint's scope.
 3. When modifying an existing file, show and apply only the exact lines that must change.
 4. Maintain clean architecture from the start — no shortcuts that create technical debt without flagging them explicitly to the project owner first.
-5. Every sprint that adds real logic (not pure scaffolding) includes automated tests for that logic, in the same PR. Not deferred.
+5. Automated tests: keep the existing suite green. Write new tests only for security, money, and tenancy logic (permissions, tenant isolation, payments, secrets) and for logic that is easy to break silently. No test per criterion, no tests for display only.
 6. Explain what the code does and why in prose (PR description / chat response), not as inline comments explaining basics — the project owner is learning the codebase, not just accepting output.
 7. Recap the previous sprint's outcome briefly before starting a new one.
 8. Keep backend and frontend contracts mechanically aligned: regenerate the OpenAPI schema (drf-spectacular) and the generated TypeScript types whenever a serializer or endpoint changes. Do not let the frontend hand-maintain types that duplicate the backend contract.
@@ -69,7 +69,7 @@ Items below are proposed but not yet confirmed by the project owner — do not t
 ## Definition of done, per sprint
 
 - [ ] Migrations included, and apply cleanly against a fresh database
-- [ ] Tests written and passing for all new logic
+- [ ] Existing test suite green; new tests written and passing only for security, money, tenancy logic, or logic easy to break silently
 - [ ] Lint/format clean (ruff + black on the backend, eslint + prettier on the frontend)
 - [ ] OpenAPI schema and generated TS types regenerated if any endpoint or serializer changed
 - [ ] PR description written, covering what changed, why, and what was tested
@@ -78,24 +78,19 @@ Items below are proposed but not yet confirmed by the project owner — do not t
 
 ## Before reporting a sprint as ready
 
-Keep the report short. Do not paste whole files or re-paste old output. The report goes into the PR description and docs/PROGRESS.md; the chat message only at the moments listed in the Increment workflow.
+The sprint report to the owner is in plain language:
 
-1. Criteria table: each criterion in the sprint entry -> test name(s) from the collected
-   tests -> pass/fail. A criterion with no test gets one.
-2. The pytest summary line for the FULL suite, and one-line results for ruff, black and
-   `makemigrations --check` (plus eslint/prettier if the frontend changed).
-3. The diff (not whole files) of any risky file you touched: authentication, permissions,
-   tenancy/managers, payments, secrets/settings. Add the code of any test that proves a
-   security property.
-4. Settings audit, one line: any `default=` on env reads, "*" in ALLOWED_HOSTS or CORS,
-   hardcoded hosts/domains/keys. "None" or explain.
-5. File list, one line per file. No duplicate files, nothing outside the sprint's scope.
-6. Deviations and uncertainties, stated explicitly even if "none".
-7. Never mark the sprint complete; the owner does that after merging.
-   When the owner says a sprint is "strict" (security, money, tenancy), also include, for
-   each new write/access path, every other path that reaches the same data (bulk operations,
-   generators, admin, serializers, management commands, all_objects) and whether it is
-   covered, plus the full code of the risky files.
+1. Criteria list: each acceptance criterion from docs/SPRINTS.md with Met / Not met / Could not verify and one short reason each. No test names in criteria.
+2. What changed: one line per file.
+3. What could go wrong: plain-language assessment of risks or failure modes.
+
+No test names or counts, no diffs, no pasted logs or code.
+
+Rules for reviews and fixes:
+
+- GATE sprints and strict sprints (security, money, tenancy) still stop for the owner's review. Non-gate sprints do not.
+- For bug fixes: find the cause, fix it, and say what the problem was in plain words.
+- Every sprint in `docs/SPRINTS.md` is described as a plain list of "what we can do after this sprint" (acceptance criteria), written for a non-developer. No test names in criteria. Rewrite other increments when reaching their preflight.
 
 ## Common commands
 

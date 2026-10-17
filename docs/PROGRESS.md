@@ -41,6 +41,7 @@
 - (b) Stand-in `MemberSubscription` model in `apps.memberships` (migration 0002) introduced in Sprint 8 to track active/expired/frozen/suspended subscription states during check-in — to be extended/confirmed in Sprint 9 / Sprint 10, never recreated.
 - (c) 30-day fallback period in `Member.get_subscription_period()` when no subscription exists — to be extended/confirmed in Sprint 10.
 - (d) Owner and Manager may also use manual check-in override (SPEC §2 names Reception); accepted by owner.
+- (e) Working rules updated: plain-language non-developer acceptance criteria in SPRINTS.md, plain-language sprint reports without diffs or code, new tests written only for security/money/tenancy or silently breakable logic, and clear bug-fix diagnoses.
 
 Until Sprint 10, check-in requires a MemberSubscription row (create via Django shell/tests).
 
