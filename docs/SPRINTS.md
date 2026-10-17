@@ -213,46 +213,51 @@ Trainer specialization and photo are delivered in the Trainer and storage sprint
 - Sprint 11 (a Chapa TEST merchant account per gym, keys entered in that gym's settings screen not in .env, plus a tunnel such as ngrok so Chapa can reach the local webhook; fallback: signed mocked webhooks)
 
 10. **Membership plans & subscription lifecycle** — `MembershipPlan` CRUD, `MemberSubscription` state machine.
-    - _Note (Sprint 8 Gate decision):_ Extend the existing `MemberSubscription` model in `apps.memberships` (migration `0002`) with new migrations; never recreate it. Establish ONE documented source of truth for member status across `Member` and `MemberSubscription`.
-    - A plan's duration is a number plus a unit (days or months). End dates are correct for both, including month-end cases (31 January + 1 month).
-    - Creating a subscription against an inactive plan is rejected. Deactivating a plan hides it from new members but leaves existing subscriptions untouched. Editing a plan's price never changes recorded payments.
-    - Saving a trainer-inclusive plan in a gym with no trainers succeeds but returns a clear warning.
-    - Every disallowed state transition is tested and rejected (e.g. `expired → active` without a new payment). Allowed transitions include `expired → pending` on a new payment, and `active/frozen → suspended` by Owner or Manager only, lifted only by Owner or Manager.
-    - A gym's plans are not visible or usable from another gym's context.
-    - The public entry page (Sprint 4c) lists the gym's active plans with prices, without authentication, and never lists another gym's plans.
+    - Gym staff can create, view, edit, and deactivate membership plans with durations specified in days or months.
+    - End dates are accurately calculated for month durations, including month-end days (such as January 31 + 1 month).
+    - New subscriptions can only be created for active plans; deactivating a plan hides it from new signups while leaving existing subscriptions intact.
+    - Updating a plan's price does not alter past payments or active subscriptions.
+    - Creating a plan that includes personal training warns staff if the gym currently has no trainers.
+    - Member subscription status moves strictly according to business rules (for example, expired subscriptions cannot become active without payment, and only gym owners or managers can suspend or unsuspend a member).
+    - Plans belong strictly to their gym and are never visible or usable by another gym.
+    - Visitors on the public gym website can view all active plans with their prices without needing to log in.
 
 11. **Chapa payment integration (one account per gym) (GATE)** — credentials, checkout, webhook verification, idempotency.
-    - Each gym stores its own Chapa secret key and webhook secret in a separate payment-config record. They are encrypted at rest (the raw database value is not the plaintext; decrypting needs the environment key), never returned by any API (the response shows a masked value only), and never written to logs — each tested. A missing encryption key fails fast. `GymConfig.chapa_merchant_id` is removed by migration.
-    - Only Owner can set or replace credentials (never Super Admin); Manager and all others get 403. Payment credentials must be Owner-only (never Super Admin), encrypted, and never returned.
-    - A verify-connection action tests the keys with a harmless authenticated call (mocked in tests) and records the result. "Pay Now" is refused for a gym with no verified configuration, and the member is offered cash.
-    - The webhook path includes the gym id. It looks up that gym's secret, verifies the signature, then re-verifies the transaction with Chapa and compares the amount with what was expected; a mismatch is not activated and is flagged. A webhook for gym A signed with gym B's secret is rejected.
-    - A redelivered webhook (same event twice) does not double-credit the subscription or create a duplicate `Payment` — the core test for this sprint. An invalid signature is rejected.
-    - A successful payment activates or extends the related `MemberSubscription`; a failed or abandoned one does not and notifies the member, who can retry or pay cash.
-    - A payment still `pending` after the review window (default 30 minutes, a setting) is flagged for manual review by the scheduled command from Sprint 14.
-    - A gym in test mode (the demo gym) holds Chapa test keys; the stored mode is visible to Super Admin.
-    - Chapa is rejected as the method for `gym_subscription` payments.
+    - Gym owners can enter and update their gym's Chapa payment credentials securely in their gym settings, with keys stored encrypted and masked from view.
+    - Only the gym owner can view or edit payment credentials; other staff and platform administrators cannot access them.
+    - Gym owners can test their Chapa connection to verify their keys before enabling online member checkout.
+    - Members can pay for their subscription online with Chapa if the gym has verified credentials; otherwise, the system offers cash payment.
+    - When Chapa confirms a payment, the member's subscription is immediately activated or extended without creating duplicates if payment confirmations are repeated.
+    - If an online payment fails or is abandoned, the member is notified and given options to retry or pay cash.
+    - Online payments left unfinished beyond 30 minutes are flagged for staff follow-up.
+    - Platform administrators can view whether a gym is running in test mode or live mode.
+    - Chapa cannot be used to pay platform gym subscription fees.
 
 12. **Manual cash payment, payment history, and the registration-to-payment flow**
-    - A cash `Payment` cannot be created with `confirmed_by` null. `bank_transfer` is rejected for member payments.
-    - A digital receipt is generated and retrievable, matching the recorded amount and plan.
-    - A member sees their own payment history (method, amount, date, reference); Owner/Manager can list payments filtered by date, method and status, with a revenue total that counts confirmed payments only.
-    - End to end: a new member registers on the gym's subdomain, picks an active plan, and either pays online (gym with verified Chapa) or leaves the subscription `pending` until Reception confirms cash — then it activates and a QR token is issued. Both paths are tested.
+    - Reception staff can record and confirm cash payments from members and issue an official digital receipt.
+    - Direct bank transfer is not available for member payments, and cash payments must always record which staff member confirmed them.
+    - Members can view their complete payment history with dates, amounts, and receipt references.
+    - Gym owners and managers can review payments filtered by date, payment method, and status, and see confirmed revenue totals.
+    - A new member can register on the gym site, pick a plan, and either pay online immediately or have reception confirm cash at the desk before receiving their active QR check-in pass.
 
 13. **Freeze workflow** — Growth/Pro gated, tracked against `freeze_days_allowed`.
-    - A member submits a freeze request (days and reason) stored as a `FreezeRequest`; Owner/Manager approve or reject (a rejection stores a reason).
-    - A request on a gym with `freeze_days_allowed = 0` is rejected at the API level; a request exceeding the remaining allowance is rejected.
-    - Approval freezes the subscription, deactivates the QR token, and extends `end_date` by the frozen duration; reactivation at the end date is performed by Sprint 14's command.
+    - Members can submit a freeze request specifying their duration and reason, provided their gym allows freezes and they have days remaining.
+    - Freeze requests on gyms with zero allowed freeze days, or requests exceeding the remaining allowance, are blocked with a clear message.
+    - Gym owners and managers can review, approve, or reject freeze requests (with an explanation for rejections).
+    - Approving a freeze pauses the member's QR pass and extends their membership end date by the frozen days.
 
-14. **Scheduled jobs** — one idempotent management command (e.g. `run_scheduled_jobs`) run by a **cPanel Cron Job** in production (not Celery Beat — see `AGENT.md`); runnable manually or on a Compose schedule in local dev.
-    - Member subscriptions: only those past `end_date` become `expired`; others are untouched. An expired member is rejected at check-in (ties to Sprint 8). QR tokens deactivate at expiry. Frozen subscriptions reactivate at the end of the freeze.
-    - Member renewal reminders go to the member and to Reception on each day listed in the gym's `member_reminder_days` (default 7 and 2), once per subscription per threshold.
-    - Gym subscriptions: the Owner is reminded at each day in `subscription_reminder_days` (default 14 and 7) before `subscription_expires_at`. After expiry, the gym keeps working during `payment_grace_days` (default 7). When the grace period ends unpaid, `lapse_flagged_at` is set and Super Admin is notified; the command never suspends a gym by itself.
-    - Payments pending beyond the review window are flagged for manual review.
-    - Running the command twice in a row creates no duplicate reminders, flags or notifications — cron can double-fire, so idempotency lives in the command.
+14. **Scheduled jobs** — automated daily maintenance tasks.
+    - Subscriptions past their end date automatically expire, deactivating check-in passes, and frozen memberships automatically reactivate when the freeze ends.
+    - Members and reception staff receive renewal reminder notices before a membership expires according to gym reminder settings.
+    - Gym owners receive reminder notices before their gym platform subscription expires, and gyms continue operating during the payment grace period.
+    - If a gym's grace period ends unpaid, the platform administrator is alerted without abruptly shutting off gym access mid-day.
+    - Unconfirmed payments lingering past the review window are flagged for staff review.
+    - Running the maintenance job multiple times in a row never produces duplicate notifications, flags, or updates.
 
-15. **Notification center** — `Notification` model, in-app read/unread.
-    - A notification created for one gym/member is not visible to another gym's recipient. Platform-level notifications (`gym_id` null) are visible only to Super Admin.
-    - Notifications list unread first, then in chronological order; marking one read is idempotent and persists.
+15. **Notification center** — in-app notifications.
+    - Members and staff can view their own in-app notifications, organized with unread notices first.
+    - Notifications are strictly separated so gym members and staff only see messages for their gym, while platform alerts go exclusively to Super Admin.
+    - Users can mark notifications as read, and the read status remains saved when returning.
 
 - [ ] All sprints in this increment complete
 
