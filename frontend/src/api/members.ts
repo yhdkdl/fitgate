@@ -136,10 +136,12 @@ export async function verifyMemberEmail(
 export async function listGymMembers(params?: {
   search?: string;
   status?: string;
+  limit?: number;
 }): Promise<Member[]> {
   const query = new URLSearchParams();
   if (params?.search) query.set("search", params.search);
   if (params?.status) query.set("status", params.status);
+  if (params?.limit) query.set("limit", String(params.limit));
 
   const url = `/api/gym/members/${query.toString() ? `?${query.toString()}` : ""}`;
   const res = await fetch(url, {

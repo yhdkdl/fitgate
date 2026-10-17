@@ -2,10 +2,15 @@ import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import * as attendanceApi from "../api/attendance";
+import { listGymMembers } from "../api/members";
 import { MemberQrCard } from "../components/attendance/MemberQrCard";
 import { AttendanceScannerSection } from "../components/attendance/AttendanceScannerSection";
 import { AttendanceLogCard } from "../components/attendance/AttendanceLogCard";
 import { checkQrCooldown } from "../components/attendance/qrCooldown";
+
+vi.mock("../api/members", () => ({
+  listGymMembers: vi.fn(),
+}));
 
 vi.mock("../api/attendance", () => ({
   getMemberQrToken: vi.fn(),
@@ -216,6 +221,16 @@ describe("Sprint 8: QR Check-in & Attendance Components", () => {
         },
       });
 
+      vi.mocked(listGymMembers).mockResolvedValue([
+        {
+          id: "3cd1c4f9-704d-4d1e-af75-76e8fa2ba5de",
+          full_name: "Abebe Bikila",
+          email: "abebe@example.com",
+          phone: "+251911223344",
+          status: "active",
+        } as unknown as Member,
+      ]);
+
       render(<AttendanceScannerSection userRole="reception" />);
 
       // Open override modal
@@ -228,15 +243,20 @@ describe("Sprint 8: QR Check-in & Attendance Components", () => {
         screen.getByText("Manual Attendance Override")
       ).toBeInTheDocument();
 
-      // Enter member ID and reason
-      const memberInput = screen.getByPlaceholderText(
-        "e.g. 3cd1c4f9-704d-4d1e-af75-76e8fa2ba5de"
+      // Search for member, pick from results, and enter reason
+      const searchInput = screen.getByPlaceholderText(
+        "Search member by name, email, or phone..."
       );
+      await user.type(searchInput, "Abebe");
+
+      const memberOption = await screen.findByRole("button", {
+        name: /abebe bikila/i,
+      });
+      await user.click(memberOption);
+
       const reasonInput = screen.getByPlaceholderText(
         "Explain why manual override was needed (e.g. phone died, camera broken)..."
       );
-
-      await user.type(memberInput, "3cd1c4f9-704d-4d1e-af75-76e8fa2ba5de");
       await user.type(reasonInput, "Member phone battery died at gate");
 
       const confirmBtn = screen.getByRole("button", {

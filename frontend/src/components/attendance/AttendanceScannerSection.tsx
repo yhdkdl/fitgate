@@ -19,6 +19,7 @@ import {
   type ScanResultResponse,
   type ManualOverrideResultResponse,
 } from "../../api/attendance";
+import { listGymMembers, type Member } from "../../api/members";
 import { getAccessToken } from "../../api/client";
 import { Card } from "../ui/Card";
 import { Button } from "../ui/Button";
@@ -58,6 +59,63 @@ export const AttendanceScannerSection: React.FC<
     detail: string;
     reason: string;
   } | null>(null);
+
+  // Manual Override member search state
+  const [overrideSearch, setOverrideSearch] = useState("");
+  const [overrideSearchResults, setOverrideSearchResults] = useState<Member[]>(
+    []
+  );
+  const [isSearchingMembers, setIsSearchingMembers] = useState(false);
+  const [selectedOverrideMember, setSelectedOverrideMember] =
+    useState<Member | null>(null);
+
+  // Search gym members when staff types name, email, or phone (max 10 results)
+  React.useEffect(() => {
+    if (!showOverrideModal) return;
+    const query = overrideSearch.trim();
+    if (!query) {
+      setOverrideSearchResults([]);
+      return;
+    }
+
+    let isCurrent = true;
+    const timer = setTimeout(async () => {
+      setIsSearchingMembers(true);
+      try {
+        const results = await listGymMembers({ search: query, limit: 10 });
+        if (isCurrent) {
+          setOverrideSearchResults(results.slice(0, 10));
+        }
+      } catch {
+        if (isCurrent) {
+          setOverrideSearchResults([]);
+        }
+      } finally {
+        if (isCurrent) {
+          setIsSearchingMembers(false);
+        }
+      }
+    }, 200);
+
+    return () => {
+      isCurrent = false;
+      clearTimeout(timer);
+    };
+  }, [overrideSearch, showOverrideModal]);
+
+  const handleSelectMember = (member: Member) => {
+    setSelectedOverrideMember(member);
+    setOverrideMemberId(member.id);
+    setOverrideSearch("");
+    setOverrideSearchResults([]);
+  };
+
+  const handleClearSelectedMember = () => {
+    setSelectedOverrideMember(null);
+    setOverrideMemberId("");
+    setOverrideSearch("");
+    setOverrideSearchResults([]);
+  };
 
   // Attendance history modal state
   const [selectedMemberForHistory, setSelectedMemberForHistory] = useState<{
@@ -133,6 +191,9 @@ export const AttendanceScannerSection: React.FC<
       setShowOverrideModal(false);
       setOverrideReason("");
       setOverrideMemberId("");
+      setSelectedOverrideMember(null);
+      setOverrideSearch("");
+      setOverrideSearchResults([]);
     } catch (err: unknown) {
       const errorObj = err as {
         data?: { detail?: string; reason?: string };
@@ -477,16 +538,101 @@ export const AttendanceScannerSection: React.FC<
             <form onSubmit={handleOverrideSubmit} className="space-y-4">
               <div>
                 <label className="block text-xs font-semibold text-text-muted mb-1">
-                  Member UUID
+                  Member
                 </label>
-                <Input
-                  type="text"
-                  placeholder="e.g. 3cd1c4f9-704d-4d1e-af75-76e8fa2ba5de"
-                  value={overrideMemberId}
-                  onChange={(e) => setOverrideMemberId(e.target.value)}
-                  className="font-mono text-xs min-h-[44px]"
-                  required
-                />
+                {selectedOverrideMember ? (
+                  <div className="p-3 bg-surface-2 border border-primary/30 rounded-input flex items-center justify-between gap-3">
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className="font-bold text-sm text-text truncate">
+                          {selectedOverrideMember.full_name}
+                        </span>
+                        <Badge variant="primary">
+                          {selectedOverrideMember.status.toUpperCase()}
+                        </Badge>
+                      </div>
+                      <p className="text-xs text-text-muted truncate mt-0.5">
+                        {selectedOverrideMember.email}
+                        {selectedOverrideMember.phone &&
+                          ` • ${selectedOverrideMember.phone}`}
+                      </p>
+                    </div>
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      size="sm"
+                      onClick={handleClearSelectedMember}
+                      className="min-h-[36px] text-xs shrink-0"
+                    >
+                      Change
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    <div className="relative">
+                      <Input
+                        type="text"
+                        placeholder="Search member by name, email, or phone..."
+                        value={overrideSearch}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setOverrideSearch(val);
+                          // Also allow direct paste of member UUID
+                          if (
+                            val.trim().length === 36 &&
+                            val.trim().includes("-")
+                          ) {
+                            setOverrideMemberId(val.trim());
+                          }
+                        }}
+                        className="text-xs min-h-[44px] pr-8"
+                        autoFocus
+                      />
+                      {isSearchingMembers && (
+                        <div className="absolute right-3 top-3.5 pointer-events-none">
+                          <Spinner size="sm" />
+                        </div>
+                      )}
+                    </div>
+
+                    {overrideSearchResults.length > 0 && (
+                      <div className="max-h-48 overflow-y-auto bg-surface-2 border border-border rounded-input divide-y divide-border/60 shadow-lg">
+                        {overrideSearchResults.map((m) => (
+                          <button
+                            key={m.id}
+                            type="button"
+                            onClick={() => handleSelectMember(m)}
+                            className="w-full text-left p-2.5 hover:bg-surface transition-colors flex items-center justify-between gap-2 min-h-[44px]"
+                          >
+                            <div className="min-w-0">
+                              <p className="font-semibold text-xs text-text truncate">
+                                {m.full_name}
+                              </p>
+                              <p className="text-[11px] text-text-muted truncate">
+                                {m.email} {m.phone && `• ${m.phone}`}
+                              </p>
+                            </div>
+                            <Badge
+                              variant={
+                                m.status === "active" ? "primary" : "secondary"
+                              }
+                            >
+                              {m.status.toUpperCase()}
+                            </Badge>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+
+                    {overrideSearch.trim() &&
+                      !isSearchingMembers &&
+                      overrideSearchResults.length === 0 && (
+                        <p className="text-xs text-text-muted italic px-1">
+                          No members found matching &quot;{overrideSearch}&quot;.
+                        </p>
+                      )}
+                  </div>
+                )}
               </div>
 
               <div>
