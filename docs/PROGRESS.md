@@ -19,12 +19,13 @@
 - Sprint 7b: Trainer-only body measurements (`fa06902`, tag sprint-7b-done)
 - Sprint 8: QR check-in (GATE) (`da91b1546b18e3e0e147934771fce5467b3e0204`)
 - Sprint 8b: Camera QR scanner (`fdc63bc`, tag sprint-8b-done)
+- Sprint 8c: Entrance scanner page and live check-in list (`7d2120c`, tag sprint-8c-done)
 - Sprint 9: Audit log foundation (`b29da5c6a93606f1bff87cb1e96d7b716473bfe1`, PR #11)
 - Sprint 9a: Audit log viewer
 
 ## Current
 
-- Sprint 8c: Entrance scanner page and live check-in list (builds on Sprint 8b).
+- Ready for Increment 2 preflight (Sprint 10).
 
 ## Next
 

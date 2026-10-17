@@ -234,7 +234,7 @@ Trainer specialization and photo are delivered in the Trainer and storage sprint
 14. Trainers, Members and other gyms cannot see this list.
 15. Repeated scans by the same member on the same day send staff ONE notification, not many.
 
-- [~] Status: in progress
+- [x] Status: done — merged to develop (`7d2120c`, tag sprint-8c-done)
 
 9. **Audit log foundation** — `AuditLog` model + logging utility wired into 1–8; database triggers for immutability (BEFORE UPDATE, DELETE, TRUNCATE raise exception).
 
