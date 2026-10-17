@@ -19,11 +19,11 @@ export function getTenantFromHostname(hostname?: string): string | null {
   }
 
   // Check optional configured domain in env
-  const configuredDomain =
-    (typeof import.meta !== "undefined" &&
-      import.meta.env &&
-      import.meta.env.VITE_DOMAIN) ||
-    "";
+  const metaEnv =
+    typeof import.meta !== "undefined"
+      ? (import.meta as unknown as { env?: Record<string, string> }).env
+      : undefined;
+  const configuredDomain = metaEnv?.VITE_DOMAIN || "";
   const cleanConfigured = configuredDomain.trim().toLowerCase();
 
   if (cleanConfigured) {
@@ -103,14 +103,16 @@ export function validateSubdomain(rawSubdomain: string): {
   if (!clean) {
     return {
       valid: false,
-      error: "Please enter a valid gym subdomain (letters, numbers, and hyphens only).",
+      error:
+        "Please enter a valid gym subdomain (letters, numbers, and hyphens only).",
     };
   }
 
   if (!SUBDOMAIN_REGEX.test(clean)) {
     return {
       valid: false,
-      error: "Please enter a valid gym subdomain (letters, numbers, and hyphens only).",
+      error:
+        "Please enter a valid gym subdomain (letters, numbers, and hyphens only).",
     };
   }
 

@@ -1,23 +1,38 @@
 import React, { useEffect, useRef, useState } from "react";
 import jsQR from "jsqr";
-import { Camera, X, Clock, AlertCircle } from "lucide-react";
+import { Camera, X, Clock, AlertCircle, RefreshCw } from "lucide-react";
 import { Button } from "../ui/Button";
+import { checkQrCooldown, PAUSE_DURATION_MS } from "./qrCooldown";
 
-import { checkQrCooldown } from "./qrCooldown";
-
-interface CameraQrScannerProps {
+export interface CameraQrScannerProps {
   onScan: (code: string) => void;
-  onClose: () => void;
+  onClose?: () => void;
   isProcessing?: boolean;
+  variant?: "inline" | "fullscreen";
+  onManualToggle?: () => void;
+  disabled?: boolean;
 }
+
+const FACING_STORAGE_KEY = "fitgate_camera_facing";
 
 export const CameraQrScanner: React.FC<CameraQrScannerProps> = ({
   onScan,
   onClose,
   isProcessing = false,
+  variant = "inline",
+  onManualToggle,
+  disabled = false,
 }) => {
   const [error, setError] = useState<string | null>(null);
   const [isPaused, setIsPaused] = useState(false);
+  const [facingMode, setFacingMode] = useState<"environment" | "user">(() => {
+    try {
+      const saved = localStorage.getItem(FACING_STORAGE_KEY);
+      return saved === "user" ? "user" : "environment";
+    } catch {
+      return "environment";
+    }
+  });
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -29,11 +44,17 @@ export const CameraQrScanner: React.FC<CameraQrScannerProps> = ({
   const isProcessingRef = useRef<boolean>(isProcessing);
   isProcessingRef.current = isProcessing;
 
+  const wakeLockSentinelRef = useRef<{ release: () => Promise<void> } | null>(
+    null
+  );
+
   const onScanRef = useRef(onScan);
   onScanRef.current = onScan;
 
   const onCloseRef = useRef(onClose);
   onCloseRef.current = onClose;
+
+  const handleQrDetectedRef = useRef<(code: string) => boolean>(() => false);
 
   const stopCamera = () => {
     if (animationFrameRef.current) {
@@ -59,7 +80,52 @@ export const CameraQrScanner: React.FC<CameraQrScannerProps> = ({
     }
   };
 
+  const requestWakeLock = async () => {
+    if (
+      typeof navigator !== "undefined" &&
+      "wakeLock" in navigator &&
+      document.visibilityState === "visible"
+    ) {
+      try {
+        const navWithWakeLock = navigator as unknown as {
+          wakeLock: {
+            request: (
+              type: "screen"
+            ) => Promise<{ release: () => Promise<void> }>;
+          };
+        };
+        wakeLockSentinelRef.current =
+          await navWithWakeLock.wakeLock.request("screen");
+      } catch {
+        // Screen Wake Lock rejected or not supported on this platform
+      }
+    }
+  };
+
+  const releaseWakeLock = async () => {
+    if (wakeLockSentinelRef.current) {
+      try {
+        await wakeLockSentinelRef.current.release();
+      } catch {
+        // ignore release errors
+      }
+      wakeLockSentinelRef.current = null;
+    }
+  };
+
+  const toggleFacingMode = () => {
+    const nextMode = facingMode === "environment" ? "user" : "environment";
+    setFacingMode(nextMode);
+    try {
+      localStorage.setItem(FACING_STORAGE_KEY, nextMode);
+    } catch {
+      // ignore storage errors
+    }
+  };
+
   const handleQrDetected = (codeData: string) => {
+    if (disabled) return false;
+
     const now = Date.now();
     const canScan = checkQrCooldown(
       now,
@@ -88,11 +154,12 @@ export const CameraQrScanner: React.FC<CameraQrScannerProps> = ({
 
     return true;
   };
+  handleQrDetectedRef.current = handleQrDetected;
 
   useEffect(() => {
     let mounted = true;
 
-    // Check secure context (HTTPS or localhost)
+    // Check secure context (HTTPS, localhost, *.localhost, 127.0.0.1)
     const hostname = window.location.hostname;
     const isLocalhost =
       hostname === "localhost" ||
@@ -105,14 +172,14 @@ export const CameraQrScanner: React.FC<CameraQrScannerProps> = ({
 
     if (!isSecure) {
       setError(
-        "Camera scanning requires a secure connection (HTTPS or localhost). Please use the paste field below."
+        "Camera scanning requires a secure connection (HTTPS or localhost). Please use the manual code field."
       );
       return;
     }
 
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
       setError(
-        "Camera access is not supported by your browser. Please use the paste field below."
+        "No camera found on this device. Please use the manual code field."
       );
       return;
     }
@@ -120,8 +187,10 @@ export const CameraQrScanner: React.FC<CameraQrScannerProps> = ({
     const startCamera = async () => {
       try {
         setError(null);
+        stopCamera();
+
         const stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: { ideal: "environment" } },
+          video: { facingMode: { ideal: facingMode } },
         });
 
         if (!mounted) {
@@ -138,6 +207,9 @@ export const CameraQrScanner: React.FC<CameraQrScannerProps> = ({
           videoRef.current.setAttribute("muted", "true");
           await videoRef.current.play().catch(() => {});
         }
+
+        // Request Screen Wake Lock while scanning
+        await requestWakeLock();
 
         const scanFrame = () => {
           if (!mounted) return;
@@ -182,7 +254,7 @@ export const CameraQrScanner: React.FC<CameraQrScannerProps> = ({
               );
 
               if (code && code.data && code.data.trim()) {
-                handleQrDetected(code.data.trim());
+                handleQrDetectedRef.current(code.data.trim());
               }
             }
           }
@@ -206,7 +278,7 @@ export const CameraQrScanner: React.FC<CameraQrScannerProps> = ({
           errObj.name === "DevicesNotFoundError"
         ) {
           setError(
-            "No camera found on this device. Please use the paste field below."
+            "No camera found on this device. Please use the manual code field."
           );
         } else if (
           errObj.name === "NotReadableError" ||
@@ -217,7 +289,7 @@ export const CameraQrScanner: React.FC<CameraQrScannerProps> = ({
           );
         } else {
           setError(
-            `Unable to access camera: ${errObj.message || "Unknown error"}. Please use the paste field below.`
+            `Unable to access camera: ${errObj.message || "Unknown error"}. Please use the manual code field.`
           );
         }
       }
@@ -225,11 +297,18 @@ export const CameraQrScanner: React.FC<CameraQrScannerProps> = ({
 
     startCamera();
 
-    // Criterion 7: Stop when browser tab is hidden
+    // Turn camera and wake lock off when tab hidden
     const handleVisibilityChange = () => {
       if (document.visibilityState === "hidden") {
         stopCamera();
-        onCloseRef.current();
+        releaseWakeLock();
+        if (variant === "inline" && onCloseRef.current) {
+          onCloseRef.current();
+        }
+      } else if (document.visibilityState === "visible") {
+        if (variant === "fullscreen" && mounted) {
+          startCamera();
+        }
       }
     };
     document.addEventListener("visibilitychange", handleVisibilityChange);
@@ -238,46 +317,106 @@ export const CameraQrScanner: React.FC<CameraQrScannerProps> = ({
       mounted = false;
       document.removeEventListener("visibilitychange", handleVisibilityChange);
       stopCamera();
+      releaseWakeLock();
     };
-  }, []);
+  }, [facingMode, variant]);
+
+  const isFullscreen = variant === "fullscreen";
 
   return (
     <div
-      className="w-full max-w-md mx-auto bg-surface border border-border rounded-xl p-4 shadow-md space-y-3"
+      className={
+        isFullscreen
+          ? "w-full h-full flex flex-col justify-between relative bg-black select-none"
+          : "w-full max-w-md mx-auto bg-surface border border-border rounded-xl p-4 shadow-md space-y-3"
+      }
       role="region"
       aria-label="Camera QR Scanner"
     >
-      <div className="flex items-center justify-between pb-2 border-b border-border">
+      {/* Controls Bar */}
+      <div
+        className={
+          isFullscreen
+            ? "absolute top-4 inset-x-4 z-20 flex items-center justify-between pointer-events-auto"
+            : "flex items-center justify-between pb-2 border-b border-border"
+        }
+      >
         <div className="flex items-center gap-2">
-          <Camera className="w-5 h-5 text-primary" />
-          <h3 className="font-bold text-sm text-text">Camera Scanner</h3>
+          {!isFullscreen && <Camera className="w-5 h-5 text-primary" />}
+          {!isFullscreen && (
+            <h3 className="font-bold text-sm text-text">Camera Scanner</h3>
+          )}
         </div>
-        <Button
-          type="button"
-          variant="secondary"
-          size="sm"
-          onClick={() => {
-            stopCamera();
-            onClose();
-          }}
-          className="min-h-[44px] min-w-[44px] px-3 flex items-center gap-1.5 text-xs focus:ring-2 focus:ring-primary focus:outline-none"
-          aria-label="Close camera scanner"
-        >
-          <X className="w-4 h-4" />
-          Close Camera
-        </Button>
+
+        <div className="flex items-center gap-2">
+          {/* Camera front/back switch button */}
+          <Button
+            type="button"
+            variant="secondary"
+            size="sm"
+            onClick={toggleFacingMode}
+            className="min-h-[44px] min-w-[44px] px-3 flex items-center gap-1.5 text-xs focus:ring-2 focus:ring-primary focus:outline-none bg-surface/80 backdrop-blur-sm border border-border"
+            aria-label="Switch camera front/back"
+            title={`Switch camera (currently ${facingMode === "environment" ? "back" : "front"})`}
+          >
+            <RefreshCw className="w-4 h-4 text-primary" />
+            <span className="hidden sm:inline">
+              {facingMode === "environment" ? "Back Camera" : "Front Camera"}
+            </span>
+          </Button>
+
+          {onClose && (
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              onClick={() => {
+                stopCamera();
+                onClose();
+              }}
+              className="min-h-[44px] min-w-[44px] px-3 flex items-center gap-1.5 text-xs focus:ring-2 focus:ring-primary focus:outline-none bg-surface/80 backdrop-blur-sm border border-border"
+              aria-label="Close camera scanner"
+            >
+              <X className="w-4 h-4" />
+              <span>{isFullscreen ? "Exit Scanner" : "Close Camera"}</span>
+            </Button>
+          )}
+        </div>
       </div>
 
+      {/* Main Viewport */}
       {error ? (
-        <div className="p-4 rounded-lg bg-rose-500/10 border border-rose-500/30 text-left space-y-2">
-          <div className="flex items-center gap-2 text-rose-400 font-semibold text-xs">
-            <AlertCircle className="w-4 h-4 text-rose-400 shrink-0" />
+        <div
+          className={
+            isFullscreen
+              ? "flex-1 flex flex-col items-center justify-center p-6 text-center max-w-md mx-auto space-y-4"
+              : "p-4 rounded-lg bg-rose-500/10 border border-rose-500/30 text-left space-y-2"
+          }
+        >
+          <div className="flex items-center gap-2 text-rose-400 font-semibold text-sm">
+            <AlertCircle className="w-5 h-5 text-rose-400 shrink-0" />
             <span>Camera Unavailable</span>
           </div>
-          <p className="text-xs text-text-muted">{error}</p>
+          <p className="text-sm text-text-muted">{error}</p>
+          {onManualToggle && (
+            <Button
+              type="button"
+              variant="primary"
+              onClick={onManualToggle}
+              className="min-h-[44px] px-4 text-xs font-semibold mt-2"
+            >
+              Enter Code Manually
+            </Button>
+          )}
         </div>
       ) : (
-        <div className="relative aspect-square sm:aspect-video w-full bg-black rounded-lg overflow-hidden flex items-center justify-center border border-border/50">
+        <div
+          className={
+            isFullscreen
+              ? "relative flex-1 w-full h-full bg-black overflow-hidden flex items-center justify-center"
+              : "relative aspect-square sm:aspect-video w-full bg-black rounded-lg overflow-hidden flex items-center justify-center border border-border/50"
+          }
+        >
           <video
             ref={videoRef}
             playsInline
@@ -287,36 +426,71 @@ export const CameraQrScanner: React.FC<CameraQrScannerProps> = ({
             aria-label="Live camera preview"
           />
 
-          {/* Viewfinder Overlay */}
+          {/* Viewfinder Target Overlay */}
           <div className="absolute inset-0 pointer-events-none flex items-center justify-center">
-            <div className="w-56 h-56 sm:w-64 sm:h-64 border-2 border-primary/70 rounded-lg relative">
-              <div className="absolute -top-1 -left-1 w-4 h-4 border-t-2 border-l-2 border-primary" />
-              <div className="absolute -top-1 -right-1 w-4 h-4 border-t-2 border-r-2 border-primary" />
-              <div className="absolute -bottom-1 -left-1 w-4 h-4 border-b-2 border-l-2 border-primary" />
-              <div className="absolute -bottom-1 -right-1 w-4 h-4 border-b-2 border-r-2 border-primary" />
+            <div
+              className={
+                isFullscreen
+                  ? "w-64 h-64 sm:w-80 sm:h-80 md:w-96 md:h-96 border-2 border-primary/70 rounded-2xl relative shadow-2xl"
+                  : "w-56 h-56 sm:w-64 sm:h-64 border-2 border-primary/70 rounded-lg relative"
+              }
+            >
+              <div className="absolute -top-1 -left-1 w-6 h-6 border-t-4 border-l-4 border-primary rounded-tl-lg" />
+              <div className="absolute -top-1 -right-1 w-6 h-6 border-t-4 border-r-4 border-primary rounded-tr-lg" />
+              <div className="absolute -bottom-1 -left-1 w-6 h-6 border-b-4 border-l-4 border-primary rounded-bl-lg" />
+              <div className="absolute -bottom-1 -right-1 w-6 h-6 border-b-4 border-r-4 border-primary rounded-br-lg" />
             </div>
           </div>
 
           {/* Paused (3s Cooldown) Badge */}
           {isPaused && (
-            <div className="absolute top-3 left-3 bg-slate-900/90 text-amber-300 border border-amber-400/50 px-3 py-1.5 rounded-full text-xs font-semibold flex items-center gap-1.5 shadow-md">
+            <div
+              className="absolute top-16 left-4 bg-slate-900/90 text-amber-300 border border-amber-400/50 px-3 py-1.5 rounded-full text-xs font-semibold flex items-center gap-1.5 shadow-md animate-pulse"
+              role="status"
+              aria-live="polite"
+            >
               <Clock className="w-3.5 h-3.5" />
               <span>Paused (3s cooldown)</span>
             </div>
           )}
 
           {isProcessing && !isPaused && (
-            <div className="absolute bottom-3 inset-x-3 text-center bg-slate-900/90 text-primary border border-primary/40 px-3 py-1 rounded-md text-xs font-semibold">
+            <div
+              className="absolute bottom-16 inset-x-4 max-w-xs mx-auto text-center bg-slate-900/90 text-primary border border-primary/40 px-4 py-2 rounded-lg text-sm font-semibold shadow-lg"
+              role="status"
+              aria-live="polite"
+            >
               Verifying scan...
             </div>
           )}
         </div>
       )}
 
-      <p className="text-xs text-text-muted text-center">
-        Point camera at a member's QR code. Once read, scanner pauses 3s before
-        next read.
-      </p>
+      {/* Footer / Instructions */}
+      <div
+        className={
+          isFullscreen
+            ? "absolute bottom-4 inset-x-4 z-20 flex flex-col items-center gap-2 pointer-events-auto"
+            : "text-center space-y-1.5"
+        }
+      >
+        {!isFullscreen && (
+          <p className="text-xs text-text-muted">
+            Point camera at a member's QR code. Once read, scanner pauses 3s
+            before next read.
+          </p>
+        )}
+
+        {onManualToggle && (
+          <button
+            type="button"
+            onClick={onManualToggle}
+            className="min-h-[44px] min-w-[44px] px-3 py-2 text-xs font-medium text-text-muted hover:text-primary underline flex items-center justify-center transition-colors focus:ring-2 focus:ring-primary focus:outline-none rounded"
+          >
+            Enter code manually
+          </button>
+        )}
+      </div>
     </div>
   );
 };

@@ -1128,6 +1128,7 @@ class TestScanEndpointAndDuplicateHandling:
                 "/api/gym/attendance/manual-override/",
                 {"member_id": str(active_member.id), "reason": "reason"},
             ),
+            ("get", "/api/gym/attendance/today/", {}),
             ("get", f"/api/gym/members/{active_member.id}/attendance/", {}),
             ("get", "/api/members/me/attendance/", {}),
         ]
@@ -1139,3 +1140,216 @@ class TestScanEndpointAndDuplicateHandling:
             assert (
                 resp.status_code == 401
             ), f"Expected 401 for anonymous access to {path}, got {resp.status_code}"
+
+
+class TestTodayCheckinsAndDuplicateNotificationMerging:
+    """Tests for GET /api/gym/attendance/today/ and merged duplicate notifications (Sprint 8c)."""
+
+    def test_today_checkins_permissions_and_tenancy(
+        self,
+        api_client,
+        gym_tenant,
+        other_gym_tenant,
+        owner_user,
+        manager_user,
+        reception_user,
+        trainer_user,
+        member_user,
+        super_admin_user,
+        active_member,
+    ):
+        """Owner, Manager, Reception allowed; Trainer, Member, Super Admin, and cross-gym staff denied."""
+        # Create today's attendance for active_member in gym_tenant
+        today = timezone.localdate()
+        att1 = Attendance.all_objects.create(
+            gym=gym_tenant,
+            member=active_member,
+            date=today,
+            checked_in_at=timezone.now(),
+            is_override=False,
+        )
+
+        # 1. Allowed roles: Owner, Manager, Reception -> 200
+        for staff in [owner_user, manager_user, reception_user]:
+            client = APIClient()
+            client.force_authenticate(user=staff)
+            client.defaults["HTTP_HOST"] = f"{gym_tenant.subdomain}.localhost"
+
+            resp = client.get("/api/gym/attendance/today/")
+            assert resp.status_code == 200
+            assert resp.data["total_count"] == 1
+            assert len(resp.data["results"]) == 1
+            entry = resp.data["results"][0]
+            assert entry["id"] == str(att1.id)
+            assert entry["member_id"] == str(active_member.id)
+            assert entry["member_name"] == active_member.full_name
+            assert entry["is_override"] is False
+
+        # 2. Denied roles: Trainer, Member, Super Admin -> 403
+        for denied_user in [trainer_user, member_user, super_admin_user]:
+            client = APIClient()
+            client.force_authenticate(user=denied_user)
+            client.defaults["HTTP_HOST"] = f"{gym_tenant.subdomain}.localhost"
+
+            resp = client.get("/api/gym/attendance/today/")
+            assert resp.status_code == 403
+
+        # 3. User with must_change_password=True -> 403
+        must_change_user = User.objects.create_user(
+            email="reception-mustchange@bolehub.com",
+            password="Password123!",
+            gym=gym_tenant,
+            role=User.ROLE_RECEPTION,
+            must_change_password=True,
+        )
+        client = APIClient()
+        client.force_authenticate(user=must_change_user)
+        client.defaults["HTTP_HOST"] = f"{gym_tenant.subdomain}.localhost"
+        assert client.get("/api/gym/attendance/today/").status_code == 403
+
+        # 4. Cross-gym isolation: Staff from other_gym_tenant on gym_tenant host -> 403
+        other_staff = User.objects.create_user(
+            email="owner@kazanchis.com",
+            password="OwnerPassword123!",
+            gym=other_gym_tenant,
+            role=User.ROLE_OWNER,
+            must_change_password=False,
+        )
+        client_other = APIClient()
+        client_other.force_authenticate(user=other_staff)
+        client_other.defaults["HTTP_HOST"] = f"{gym_tenant.subdomain}.localhost"
+        assert client_other.get("/api/gym/attendance/today/").status_code == 403
+
+        # 5. On their own host, other gym sees only their check-ins (0 for today)
+        client_other.defaults["HTTP_HOST"] = f"{other_gym_tenant.subdomain}.localhost"
+        resp_own = client_other.get("/api/gym/attendance/today/")
+        assert resp_own.status_code == 200
+        assert resp_own.data["total_count"] == 0
+        assert len(resp_own.data["results"]) == 0
+
+    def test_today_checkins_ordering_and_since_filtering(
+        self,
+        gym_tenant,
+        reception_user,
+    ):
+        """Returns newest first (max 50) and filters by optional 'since' timestamp."""
+        today = timezone.localdate()
+        base_time = timezone.now() - timedelta(hours=2)
+
+        # Create 3 members with attendances at different times
+        members = []
+        for i in range(3):
+            u = User.objects.create_user(
+                email=f"member{i}@bolehub.com",
+                password="Password123!",
+                gym=gym_tenant,
+                role=User.ROLE_MEMBER,
+            )
+            m = Member.all_objects.create(
+                gym=gym_tenant,
+                user=u,
+                full_name=f"Member {i}",
+                phone=f"+25191100000{i}",
+                waiver_accepted_at=timezone.now(),
+            )
+            members.append(m)
+
+        att0 = Attendance.all_objects.create(
+            gym=gym_tenant,
+            member=members[0],
+            date=today,
+            checked_in_at=base_time,
+            is_override=False,
+        )
+        att1 = Attendance.all_objects.create(
+            gym=gym_tenant,
+            member=members[1],
+            date=today,
+            checked_in_at=base_time + timedelta(minutes=30),
+            is_override=True,
+            override_reason="Forgotten phone",
+            recorded_by=reception_user,
+        )
+        att2 = Attendance.all_objects.create(
+            gym=gym_tenant,
+            member=members[2],
+            date=today,
+            checked_in_at=base_time + timedelta(minutes=60),
+            is_override=False,
+        )
+
+        client = APIClient()
+        client.force_authenticate(user=reception_user)
+        client.defaults["HTTP_HOST"] = f"{gym_tenant.subdomain}.localhost"
+
+        # Check full list (ordered newest first: att2, att1, att0)
+        resp = client.get("/api/gym/attendance/today/")
+        assert resp.status_code == 200
+        assert resp.data["total_count"] == 3
+        results = resp.data["results"]
+        assert len(results) == 3
+        assert results[0]["id"] == str(att2.id)
+        assert results[1]["id"] == str(att1.id)
+        assert results[1]["is_override"] is True
+        assert results[1]["override_reason"] == "Forgotten phone"
+        assert results[1]["recorded_by_name"] == reception_user.full_name
+        assert results[2]["id"] == str(att0.id)
+
+        # Filter with since timestamp (after att1 -> only att2)
+        since_time = (att1.checked_in_at + timedelta(seconds=1)).isoformat()
+        resp_since = client.get(f"/api/gym/attendance/today/?since={since_time}")
+        assert resp_since.status_code == 200
+        assert resp_since.data["total_count"] == 3  # total count remains today's total
+        assert len(resp_since.data["results"]) == 1
+        assert resp_since.data["results"][0]["id"] == str(att2.id)
+
+    def test_repeated_duplicate_scans_merge_staff_notifications(
+        self,
+        gym_tenant,
+        reception_user,
+        owner_user,
+        manager_user,
+        active_member,
+    ):
+        """Repeated duplicate scans on the same day send staff ONE notification set, not many."""
+        today = timezone.localdate()
+        MemberSubscription.all_objects.create(
+            gym=gym_tenant,
+            member=active_member,
+            status=MemberSubscription.STATUS_ACTIVE,
+            start_date=today - timedelta(days=5),
+            end_date=today + timedelta(days=25),
+        )
+
+        client = APIClient()
+        client.force_authenticate(user=reception_user)
+        client.defaults["HTTP_HOST"] = f"{gym_tenant.subdomain}.localhost"
+
+        # 1. First scan succeeds
+        t1, _ = issue_member_qr_token(active_member)
+        r1 = client.post("/api/gym/attendance/scan/", {"token": t1}, format="json")
+        assert r1.status_code == 200
+        t2 = r1.data["next_token"]
+
+        Notification.all_objects.filter(gym=gym_tenant).delete()
+
+        # 2. Second scan same day -> 400 already_checked_in, creates 1 notification per staff
+        r2 = client.post("/api/gym/attendance/scan/", {"token": t2}, format="json")
+        assert r2.status_code == 400
+        assert r2.data["reason"] == "already_checked_in"
+
+        initial_count = Notification.all_objects.filter(
+            gym=gym_tenant, type="duplicate_checkin_alert"
+        ).count()
+        assert initial_count >= 3
+
+        # 3. Third scan same day -> 400 already_checked_in, does NOT create duplicate notifications
+        t3, _ = issue_member_qr_token(active_member)
+        r3 = client.post("/api/gym/attendance/scan/", {"token": t3}, format="json")
+        assert r3.status_code == 400
+        assert r3.data["reason"] == "already_checked_in"
+
+        after_count = Notification.all_objects.filter(
+            gym=gym_tenant, type="duplicate_checkin_alert"
+        ).count()
+        assert after_count == initial_count  # Merged! No new notifications added.

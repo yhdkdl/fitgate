@@ -146,3 +146,29 @@ export async function getAttendanceLog(params?: {
     `/api/members/me/attendance/${queryString}`
   );
 }
+
+export interface TodayCheckinItem {
+  id: string;
+  member_id: string;
+  member_name: string;
+  member_photo_url: string | null;
+  checked_in_at: string;
+  is_override: boolean;
+  override_reason: string;
+  recorded_by_name: string | null;
+}
+
+export interface TodayCheckinsResponse {
+  total_count: number;
+  results: TodayCheckinItem[];
+}
+
+/**
+ * Fetch live today's check-ins list and count for staff dashboard.
+ */
+export async function getTodayCheckins(
+  since?: string
+): Promise<TodayCheckinsResponse> {
+  const query = since ? `?since=${encodeURIComponent(since)}` : "";
+  return apiFetch<TodayCheckinsResponse>(`/api/gym/attendance/today/${query}`);
+}

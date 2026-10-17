@@ -14,6 +14,7 @@ import { GymEntryScreen } from "./screens/GymEntryScreen";
 import { LandingScreen } from "./screens/LandingScreen";
 import { RegisterScreen } from "./screens/RegisterScreen";
 import { VerifyEmailScreen } from "./screens/VerifyEmailScreen";
+import { EntranceScannerScreen } from "./screens/EntranceScannerScreen";
 import { getTenantFromHostname } from "./utils/tenant";
 
 const RootRoute: React.FC = () => {
@@ -112,6 +113,20 @@ export const App: React.FC = () => {
               <DashboardScreen />
             </ProtectedRoute>
           }
+        />
+
+        {/* Dedicated Entrance Scanner tablet view */}
+        <Route
+          path="/attendance/scanner"
+          element={
+            <ProtectedRoute allowedRoles={["owner", "manager", "reception"]}>
+              <EntranceScannerScreen />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/scanner"
+          element={<Navigate to="/attendance/scanner" replace />}
         />
 
         {/* Default fallback */}

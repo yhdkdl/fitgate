@@ -9,21 +9,13 @@ import {
   CreditCard,
   Dumbbell,
   ExternalLink,
-  Layers,
   QrCode,
-  ShieldCheck,
   Sparkles,
   Users,
   X,
 } from "lucide-react";
-import {
-  PLATFORM_PRICING_TIERS,
-  formatPriceETB,
-} from "../config/platformPricing";
-import {
-  buildTenantUrl,
-  validateSubdomain,
-} from "../utils/tenant";
+import { PLATFORM_PRICING_TIERS } from "../config/platformPricing";
+import { buildTenantUrl, validateSubdomain } from "../utils/tenant";
 
 export const LandingScreen: React.FC = () => {
   const [gymSubdomain, setGymSubdomain] = useState("");
@@ -191,21 +183,27 @@ export const LandingScreen: React.FC = () => {
                 <div className="text-sm font-semibold text-text">
                   QR Check-In
                 </div>
-                <div className="text-xs text-text-muted">Instant validation</div>
+                <div className="text-xs text-text-muted">
+                  Instant validation
+                </div>
               </div>
               <div className="bg-surface border border-border rounded-card p-4">
                 <Users className="w-6 h-6 text-primary mx-auto mb-2" />
                 <div className="text-sm font-semibold text-text">
                   Trainer Tools
                 </div>
-                <div className="text-xs text-text-muted">Body metrics & logs</div>
+                <div className="text-xs text-text-muted">
+                  Body metrics & logs
+                </div>
               </div>
               <div className="bg-surface border border-border rounded-card p-4">
                 <CreditCard className="w-6 h-6 text-primary mx-auto mb-2" />
                 <div className="text-sm font-semibold text-text">
                   Chapa & Cash
                 </div>
-                <div className="text-xs text-text-muted">Telebirr & CBE Birr</div>
+                <div className="text-xs text-text-muted">
+                  Telebirr & CBE Birr
+                </div>
               </div>
               <div className="bg-surface border border-border rounded-card p-4">
                 <Building2 className="w-6 h-6 text-primary mx-auto mb-2" />
@@ -219,16 +217,18 @@ export const LandingScreen: React.FC = () => {
         </section>
 
         {/* Features Section */}
-        <section id="features" className="py-16 sm:py-24 border-b border-border/40">
+        <section
+          id="features"
+          className="py-16 sm:py-24 border-b border-border/40"
+        >
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="text-center max-w-2xl mx-auto mb-14">
               <h2 className="text-2xl sm:text-4xl font-bold tracking-tight text-text mb-3">
                 Everything You Need to Run Your Gym
               </h2>
               <p className="text-text-muted text-base">
-                FitGate brings your entire facility onto a unified, secure
-                cloud platform designed specifically for Ethiopian fitness
-                operations.
+                FitGate brings your entire facility onto a unified, secure cloud
+                platform designed specifically for Ethiopian fitness operations.
               </p>
             </div>
 
@@ -243,8 +243,8 @@ export const LandingScreen: React.FC = () => {
                 </h3>
                 <p className="text-sm text-text-muted leading-relaxed">
                   Easily create customized membership plans, register new
-                  members at the front desk or self-service, monitor expirations,
-                  and handle membership freeze requests smoothly.
+                  members at the front desk or self-service, monitor
+                  expirations, and handle membership freeze requests smoothly.
                 </p>
               </div>
 
@@ -337,8 +337,8 @@ export const LandingScreen: React.FC = () => {
                 How It Works
               </h2>
               <p className="text-text-muted text-base">
-                Getting started with FitGate is simple, guided, and requires zero
-                hardware installation or software maintenance.
+                Getting started with FitGate is simple, guided, and requires
+                zero hardware installation or software maintenance.
               </p>
             </div>
 
@@ -353,8 +353,8 @@ export const LandingScreen: React.FC = () => {
                 </h3>
                 <p className="text-sm text-text-muted leading-relaxed">
                   Submit your gym name, location, and contact information. Our
-                  team will walk you through the platform and help you select the
-                  right tier for your gym.
+                  team will walk you through the platform and help you select
+                  the right tier for your gym.
                 </p>
               </div>
 
@@ -367,9 +367,10 @@ export const LandingScreen: React.FC = () => {
                   Setup After Payment
                 </h3>
                 <p className="text-sm text-text-muted leading-relaxed">
-                  Upon bank transfer payment confirmation, Super Admin provisions
-                  your isolated tenant database, sets up your branding and
-                  branches, and issues your owner access credentials.
+                  Upon bank transfer payment confirmation, Super Admin
+                  provisions your isolated tenant database, sets up your
+                  branding and branches, and issues your owner access
+                  credentials.
                 </p>
               </div>
 
@@ -386,8 +387,8 @@ export const LandingScreen: React.FC = () => {
                   <code className="text-xs bg-surface-2 px-1 py-0.5 rounded text-text">
                     yourgym.fitgate.tebebtech.com
                   </code>
-                  ). Members and staff sign in right away from any phone, tablet,
-                  or PC.
+                  ). Members and staff sign in right away from any phone,
+                  tablet, or PC.
                 </p>
               </div>
             </div>
@@ -395,7 +396,10 @@ export const LandingScreen: React.FC = () => {
         </section>
 
         {/* Pricing Section */}
-        <section id="pricing" className="py-16 sm:py-24 border-b border-border/40">
+        <section
+          id="pricing"
+          className="py-16 sm:py-24 border-b border-border/40"
+        >
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="text-center max-w-2xl mx-auto mb-14">
               <h2 className="text-2xl sm:text-4xl font-bold tracking-tight text-text mb-3">
