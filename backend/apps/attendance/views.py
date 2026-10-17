@@ -1,5 +1,6 @@
 """API views for QR check-in, attendance recording, manual override, and attendance logs."""
 
+import logging
 import uuid
 from datetime import datetime, timedelta
 
@@ -16,7 +17,7 @@ from apps.accounts.permissions import (
     IsMember,
     RequirePasswordChanged,
 )
-from apps.attendance.crypto import get_rsa_public_key_pem
+from apps.attendance.crypto import QRTokenCryptoError, get_rsa_public_key_pem
 from apps.attendance.serializers import (
     AttendanceLogResponseSerializer,
     AttendanceManualOverrideRequestSerializer,
@@ -54,6 +55,8 @@ QrTokenErrorResponseSerializer = inline_serializer(
     },
 )
 
+logger = logging.getLogger(__name__)
+
 
 class AttendancePublicKeyView(APIView):
     """
@@ -71,7 +74,17 @@ class AttendancePublicKeyView(APIView):
         responses={200: AttendancePublicKeyResponseSerializer},
     )
     def get(self, request):
-        public_key = get_rsa_public_key_pem()
+        try:
+            public_key = get_rsa_public_key_pem()
+        except QRTokenCryptoError as e:
+            logger.error("QR public key crypto error: %s", e)
+            return Response(
+                {
+                    "detail": "QR verification public key is not configured.",
+                    "reason": "crypto_error",
+                },
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
         serializer = AttendancePublicKeyResponseSerializer(
             {"public_key": public_key, "algorithm": "RS256"}
         )
@@ -125,6 +138,15 @@ class MemberQrTokenView(APIView):
             return Response(
                 {"detail": e.message, "reason": e.reason},
                 status=status.HTTP_400_BAD_REQUEST,
+            )
+        except QRTokenCryptoError as e:
+            logger.error("QR token crypto error: %s", e)
+            return Response(
+                {
+                    "detail": "QR token service is currently unavailable.",
+                    "reason": "crypto_error",
+                },
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
     @extend_schema(
@@ -194,6 +216,15 @@ class AttendanceScanView(APIView):
                     "phone": e.member.phone,
                 }
             return Response(data, status=status.HTTP_400_BAD_REQUEST)
+        except QRTokenCryptoError as e:
+            logger.error("QR scan verification crypto error: %s", e)
+            return Response(
+                {
+                    "detail": "QR token verification service is currently unavailable.",
+                    "reason": "crypto_error",
+                },
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
 
 
 class AttendanceManualOverrideView(APIView):
