@@ -15,6 +15,7 @@
 - Sprint 5: RBAC framework (GATE) (`6e07935`)
 - Sprint 6: Staff provisioning (`4d957da`)
 - Sprint 7: Member registration (`c7c948cb4114442c53947884cc191c865f05116a`)
+- Sprint 7b: Trainer-only body measurements (`fa06902`, tag sprint-7b-done)
 - Sprint 8: QR check-in (GATE) (`da91b1546b18e3e0e147934771fce5467b3e0204`)
 - Sprint 8b: Camera QR scanner (`fdc63bc`, tag sprint-8b-done)
 - Sprint 9: Audit log foundation (`b29da5c6a93606f1bff87cb1e96d7b716473bfe1`, PR #11)
@@ -22,7 +23,7 @@
 
 ## Current
 
-- Sprint 7b: Trainer-only body measurements (non-GATE, built out of order by owner decision, before Increment 2). Note: A gym with no trainer cannot record measurements, so BMI, body fat and AI plans show 'not measured yet'. Owner decided: no fallback for now.
+- None (Sprint 7b complete; awaiting owner instruction for Increment 2 preflight)
 
 ## Next
 

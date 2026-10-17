@@ -185,7 +185,7 @@ Trainer specialization and photo are delivered in the Trainer and storage sprint
 8.  Until Sprint 17, any Trainer of the gym can record for any member of that gym (assignment-based narrowing comes in Sprint 17).
 9.  Measurements already saved stay.
 
-- [~] Status: in progress
+- [x] Status: done — merged to develop (`fa06902`, tag sprint-7b-done)
 
 8. **QR check-in (GATE)** — token issuance/rotation (90 s window), scan endpoint, `Attendance`, duplicate/expired-scan handling, manual override.
    - The token is a signed JWT (asymmetric signature, private key in the environment, public key exposed so a scanner can verify offline). A tampered token is rejected; a token is valid at 89 seconds after issue and rejected at 91 — tested with a frozen clock.
