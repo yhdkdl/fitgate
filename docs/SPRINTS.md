@@ -187,7 +187,7 @@ Trainer specialization and photo are delivered in the Trainer and storage sprint
 
 8b. **Camera QR scanner** — browser-based camera scan for reception, owner and manager. - A receptionist (or Owner or Manager) can tap "Scan with camera" on the scanner screen and see a live camera view. - Holding a member's QR code in front of the camera checks them in: the same result card appears (name, photo, status, green pass), exactly as when the code is pasted. - A rejected scan (expired, frozen, suspended, duplicate, replayed code) shows the same clear message as the paste field. - Holding the code in view does not scan it again and again: after one read the camera pauses reading for about 3 seconds, so staff are not spammed with duplicate notifications. - The paste field still works as before. - If camera permission is denied, no camera exists, the camera is busy, or the page is not secure (not HTTPS and not localhost), the screen says so in plain words and the paste field stays usable. - The camera turns off when the scanner is closed, when staff leave the screen, or when the browser tab is hidden. - It works at 320px width, with 44px buttons and a visible focus ring, and the result never relies on color alone (docs/DESIGN.md). - No camera image or video ever leaves the device (decoding happens in the browser).
 
-    - [ ] Status: in progress
+    - [x] Status: done — merged to develop (`fdc63bc`, tag sprint-8b-done)
 
 9. **Audit log foundation** — `AuditLog` model + logging utility wired into 1–8; database triggers for immutability (BEFORE UPDATE, DELETE, TRUNCATE raise exception).
 
