@@ -33,6 +33,9 @@ export interface BodyMetrics {
   height_cm?: number | string | null;
   measurements?: Record<string, unknown>;
   recorded_at?: string;
+  recorded_by?: string | null;
+  trainer_name?: string;
+  recorded_by_name?: string;
   estimated_bmi?: number | null;
   estimated_body_fat_percentage?: number | null;
   bmi_label?: string;
@@ -66,9 +69,7 @@ export interface PublicMemberRegistrationPayload {
   gender?: string;
   emergency_contact?: string;
   referral_source?: string;
-  weight_kg?: number | null;
-  height_cm?: number | null;
-  measurements?: Record<string, unknown>;
+  photo_url?: string;
 }
 
 export interface StaffMemberRegistrationPayload {
@@ -80,9 +81,7 @@ export interface StaffMemberRegistrationPayload {
   gender?: string;
   emergency_contact?: string;
   referral_source?: string;
-  weight_kg?: number | null;
-  height_cm?: number | null;
-  measurements?: Record<string, unknown>;
+  photo_url?: string;
 }
 
 export interface MemberRegistrationResponse {
@@ -188,13 +187,31 @@ export async function getGymMemberDetail(memberId: string): Promise<Member> {
 }
 
 /**
- * Record body metrics for a member by staff.
+ * Get body metrics history for a gym member (Trainer, Owner, Manager).
+ */
+export async function getMemberMetrics(
+  memberId: string
+): Promise<BodyMetrics[]> {
+  const res = await fetch(`/api/gym/members/${memberId}/metrics/`, {
+    headers: {
+      ...getAuthHeader(),
+    },
+  });
+
+  return handleResponse<BodyMetrics[]>(res, "Failed to load member metrics.");
+}
+
+/**
+ * Record body metrics for a member by a Trainer.
  */
 export async function recordMemberMetrics(
   memberId: string,
   payload: {
-    weight_kg?: number | null;
-    height_cm?: number | null;
+    weight_kg: number;
+    height_cm: number;
+    waist_cm?: number | null;
+    neck_cm?: number | null;
+    hip_cm?: number | null;
     measurements?: Record<string, unknown>;
   }
 ): Promise<BodyMetrics> {

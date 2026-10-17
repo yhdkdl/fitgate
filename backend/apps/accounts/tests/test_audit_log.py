@@ -148,6 +148,21 @@ def gym_reception(db, gym_tenant):
 
 
 @pytest.fixture
+def gym_trainer(db, gym_tenant):
+    user = User.objects.create_user(
+        email="trainer_audit@example.com",
+        password="TrainerPassword123!",
+        role=User.ROLE_TRAINER,
+        gym=gym_tenant,
+        full_name="Gym Trainer",
+        is_active=True,
+        must_change_password=False,
+        email_verified_at=timezone.now(),
+    )
+    return user
+
+
+@pytest.fixture
 def member_with_active_sub(db, gym_tenant):
     user = User.objects.create_user(
         email="member_audit@example.com",
@@ -878,10 +893,10 @@ class TestActionAuditLogging:
         assert entry.affected_record_id == str(member_with_active_sub.id)
 
     def test_audit_member_metrics_recorded(
-        self, api_client, gym_reception, gym_tenant, member_with_active_sub
+        self, api_client, gym_trainer, gym_tenant, member_with_active_sub
     ):
         """GymMemberRecordMetricsView.post produces exactly 1 row."""
-        client = auth_client(api_client, gym_reception)
+        client = auth_client(api_client, gym_trainer)
         count_before = AuditLog.all_objects.count()
         resp = client.post(
             f"/api/gym/members/{member_with_active_sub.id}/metrics/",
@@ -898,7 +913,7 @@ class TestActionAuditLogging:
 
         entry = AuditLog.all_objects.latest("timestamp")
         assert entry.action_type == "member_metrics_recorded"
-        assert entry.actor_id == gym_reception.id
+        assert entry.actor_id == gym_trainer.id
         assert entry.affected_record_type == "BodyMetrics"
 
     def test_audit_member_self_profile_updated(

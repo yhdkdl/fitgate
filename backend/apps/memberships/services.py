@@ -17,7 +17,7 @@ from apps.accounts.notifications import (
     send_member_invite_email,
     send_member_verification_email,
 )
-from apps.memberships.models import BodyMetrics, Member
+from apps.memberships.models import Member
 from apps.tenants.models import GymTenant
 
 logger = logging.getLogger(__name__)
@@ -141,22 +141,6 @@ def register_member_self_service(
             waiver_accepted_at=timezone.now(),
         )
 
-        # Initial BodyMetrics
-        body_metrics_data = data.get("body_metrics") or {}
-        weight_kg = body_metrics_data.get("weight_kg") or data.get("weight_kg")
-        height_cm = body_metrics_data.get("height_cm") or data.get("height_cm")
-        measurements = (
-            body_metrics_data.get("measurements") or data.get("measurements") or {}
-        )
-        BodyMetrics.objects.create(
-            gym=gym,
-            member=member,
-            weight_kg=weight_kg,
-            height_cm=height_cm,
-            measurements=measurements,
-            recorded_at=timezone.now(),
-        )
-
         raw_token = secrets.token_urlsafe(32)
         token_hash = hashlib.sha256(raw_token.encode("utf-8")).hexdigest()
         expires_at = timezone.now() + timedelta(hours=24)
@@ -250,22 +234,6 @@ def register_member_staff_assisted(
             photo_url=validated["photo_url"],
             status=Member.STATUS_ACTIVE,
             waiver_accepted_at=timezone.now(),
-        )
-
-        # Initial BodyMetrics
-        body_metrics_data = data.get("body_metrics") or {}
-        weight_kg = body_metrics_data.get("weight_kg") or data.get("weight_kg")
-        height_cm = body_metrics_data.get("height_cm") or data.get("height_cm")
-        measurements = (
-            body_metrics_data.get("measurements") or data.get("measurements") or {}
-        )
-        BodyMetrics.objects.create(
-            gym=gym,
-            member=member,
-            weight_kg=weight_kg,
-            height_cm=height_cm,
-            measurements=measurements,
-            recorded_at=timezone.now(),
         )
 
         raw_token = secrets.token_urlsafe(32)

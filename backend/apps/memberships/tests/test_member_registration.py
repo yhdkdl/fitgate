@@ -175,14 +175,8 @@ class TestMemberRegistrationSelfServiceAndStaffParity:
         assert user.email_verified_at is None  # Unverified initially
         assert user.check_password("SecurePassword123!")
 
-        # BodyMetrics structure
-        metrics = BodyMetrics.all_objects.filter(member=member).first()
-        assert metrics is not None
-        assert float(metrics.weight_kg) == 72.5
-        assert float(metrics.height_cm) == 178.0
-        assert metrics.measurements == {"neck_cm": 39.0, "waist_cm": 82.0}
-        assert metrics.estimated_bmi is not None
-        assert metrics.estimated_body_fat_percentage is not None
+        # BodyMetrics are not created on registration (Sprint 7b trainer-only measurements)
+        assert BodyMetrics.all_objects.filter(member=member).count() == 0
 
         # AuthToken verification link created
         token_obj = AuthToken.objects.filter(
@@ -233,18 +227,8 @@ class TestMemberRegistrationSelfServiceAndStaffParity:
         assert user.email_verified_at is not None  # Staff-registered counts as verified
         assert not user.has_usable_password()
 
-        # BodyMetrics structure matches
-        metrics = BodyMetrics.all_objects.filter(member=member).first()
-        assert metrics is not None
-        assert float(metrics.weight_kg) == 58.0
-        assert float(metrics.height_cm) == 165.0
-        assert metrics.measurements == {
-            "neck_cm": 32.0,
-            "waist_cm": 68.0,
-            "hip_cm": 92.0,
-        }
-        assert metrics.estimated_bmi is not None
-        assert metrics.estimated_body_fat_percentage is not None
+        # BodyMetrics are not created on registration (Sprint 7b trainer-only measurements)
+        assert BodyMetrics.all_objects.filter(member=member).count() == 0
 
         # AuthToken invite link created
         token_obj = AuthToken.objects.filter(
@@ -709,7 +693,7 @@ class TestBodyCompositionCalculationsOnRead:
     """Tests for dynamic BMI and US Navy body-fat estimates returned via API."""
 
     def test_member_detail_and_self_endpoints_include_labeled_estimates(
-        self, api_client, gym_tenant, reception_user
+        self, api_client, gym_tenant, reception_user, owner_user, trainer_user
     ):
         from apps.memberships.services import register_member_self_service
 
@@ -722,31 +706,57 @@ class TestBodyCompositionCalculationsOnRead:
                 "password": "Password123!",
                 "waiver_accepted": True,
                 "gender": "male",
-                "weight_kg": 80.0,
-                "height_cm": 180.0,
-                "measurements": {"neck_cm": 40.0, "waist_cm": 86.0},
             },
         )
         member.user.email_verified_at = timezone.now()
         member.user.save()
 
-        # 1. Staff reads member detail
-        sc = auth_client(api_client, reception_user, gym_tenant.subdomain)
-        detail_resp = sc.get(f"/api/gym/members/{member.id}/")
-        assert detail_resp.status_code == 200
-        latest = detail_resp.data["latest_metrics"]
+        # Before trainer records: member profile shows no measurements yet
+        mc = auth_client(api_client, member.user, gym_tenant.subdomain)
+        me_before = mc.get("/api/members/me/")
+        assert me_before.status_code == 200
+        assert me_before.data["latest_metrics"] is None
+
+        # Trainer records measurements
+        tc = auth_client(api_client, trainer_user, gym_tenant.subdomain)
+        rec_resp = tc.post(
+            f"/api/gym/members/{member.id}/metrics/",
+            {
+                "weight_kg": 80.0,
+                "height_cm": 180.0,
+                "waist_cm": 86.0,
+                "neck_cm": 40.0,
+            },
+            format="json",
+        )
+        assert rec_resp.status_code == 201
+
+        # 1. Reception sees NO measurements anywhere (Sprint 7b criterion 5)
+        rc = auth_client(api_client, reception_user, gym_tenant.subdomain)
+        reception_resp = rc.get(f"/api/gym/members/{member.id}/")
+        assert reception_resp.status_code == 200
+        assert reception_resp.data["latest_metrics"] is None
+        assert reception_resp.data["body_metrics"] == []
+
+        # 2. Owner can view measurements
+        oc = auth_client(api_client, owner_user, gym_tenant.subdomain)
+        owner_resp = oc.get(f"/api/gym/members/{member.id}/")
+        assert owner_resp.status_code == 200
+        latest = owner_resp.data["latest_metrics"]
         assert latest is not None
         assert latest["estimated_bmi"] == 24.7
         assert latest["bmi_label"] == "estimate"
         assert latest["estimated_body_fat_percentage"] is not None
         assert latest["body_fat_label"] == "estimate"
+        assert latest["trainer_name"] == trainer_user.full_name
 
-        # 2. Member reads own profile
+        # 3. Member reads own profile
         mc = auth_client(api_client, member.user, gym_tenant.subdomain)
         me_resp = mc.get("/api/members/me/")
         assert me_resp.status_code == 200
         assert me_resp.data["latest_metrics"]["estimated_bmi"] == 24.7
         assert me_resp.data["latest_metrics"]["bmi_label"] == "estimate"
+        assert me_resp.data["latest_metrics"]["trainer_name"] == trainer_user.full_name
 
 
 @pytest.mark.django_db

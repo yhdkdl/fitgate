@@ -146,6 +146,13 @@ class BodyMetrics(TenantAwareModel):
         blank=True,
     )
     measurements = models.JSONField(default=dict, blank=True)
+    recorded_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="recorded_body_metrics",
+    )
     recorded_at = models.DateTimeField(default=timezone.now)
 
     class Meta:

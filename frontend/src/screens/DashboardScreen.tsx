@@ -13,6 +13,7 @@ import { GymBrandingSection } from "../components/owner/GymBrandingSection";
 import { StaffManagementSection } from "../components/owner/StaffManagementSection";
 import { MemberManagementSection } from "../components/dashboard/MemberManagementSection";
 import { MemberSelfSection } from "../components/dashboard/MemberSelfSection";
+import { TrainerMeasurementsSection } from "../components/trainer/TrainerMeasurementsSection";
 import { AuditLogSection } from "../components/dashboard/AuditLogSection";
 import { AttendanceScannerSection } from "../components/attendance/AttendanceScannerSection";
 import { useAuth } from "../context/AuthContext";
@@ -263,7 +264,7 @@ export const DashboardScreen: React.FC = () => {
           {/* Trainer Hub */}
           {user?.role === "trainer" && (
             <div className="space-y-6">
-              <MemberManagementSection userRole={user?.role} />
+              <TrainerMeasurementsSection />
             </div>
           )}
 

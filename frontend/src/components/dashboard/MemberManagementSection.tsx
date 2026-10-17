@@ -2,7 +2,6 @@ import React, { useCallback, useEffect, useState } from "react";
 import {
   getGymMemberDetail,
   listGymMembers,
-  recordMemberMetrics,
   registerMemberStaffAssisted,
   type Member,
   type StaffMemberRegistrationPayload,
@@ -46,21 +45,9 @@ export const MemberManagementSection: React.FC<Props> = ({
   const [emergencyContact, setEmergencyContact] = useState("");
   const [referralSource, setReferralSource] = useState("");
   const [waiverAccepted, setWaiverAccepted] = useState(false);
-  const [weightKg, setWeightKg] = useState("");
-  const [heightCm, setHeightCm] = useState("");
-  const [neckCm, setNeckCm] = useState("");
-  const [waistCm, setWaistCm] = useState("");
-  const [hipCm, setHipCm] = useState("");
 
   // Member detail modal
   const [selectedMember, setSelectedMember] = useState<Member | null>(null);
-  const [newWeight, setNewWeight] = useState("");
-  const [newHeight, setNewHeight] = useState("");
-  const [newNeck, setNewNeck] = useState("");
-  const [newWaist, setNewWaist] = useState("");
-  const [newHip, setNewHip] = useState("");
-  const [metricsSubmitting, setMetricsSubmitting] = useState(false);
-  const [metricsError, setMetricsError] = useState<string | null>(null);
 
   const canRegister =
     userRole === "owner" || userRole === "manager" || userRole === "reception";
@@ -108,17 +95,6 @@ export const MemberManagementSection: React.FC<Props> = ({
         referral_source: referralSource.trim(),
       };
 
-      if (weightKg) payload.weight_kg = parseFloat(weightKg);
-      if (heightCm) payload.height_cm = parseFloat(heightCm);
-
-      const measurements: Record<string, number> = {};
-      if (neckCm) measurements.neck_cm = parseFloat(neckCm);
-      if (waistCm) measurements.waist_cm = parseFloat(waistCm);
-      if (hipCm) measurements.hip_cm = parseFloat(hipCm);
-      if (Object.keys(measurements).length > 0) {
-        payload.measurements = measurements;
-      }
-
       await registerMemberStaffAssisted(payload);
       setRegSuccess(
         `Member ${fullName.trim()} registered successfully. Set-password invite link emailed.`
@@ -132,11 +108,6 @@ export const MemberManagementSection: React.FC<Props> = ({
       setEmergencyContact("");
       setReferralSource("");
       setWaiverAccepted(false);
-      setWeightKg("");
-      setHeightCm("");
-      setNeckCm("");
-      setWaistCm("");
-      setHipCm("");
 
       fetchMembers();
       onMemberRegistered?.();
@@ -160,43 +131,6 @@ export const MemberManagementSection: React.FC<Props> = ({
       setError(
         err instanceof Error ? err.message : "Failed to load member detail."
       );
-    }
-  };
-
-  const handleAddMetrics = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!selectedMember) return;
-    setMetricsSubmitting(true);
-    setMetricsError(null);
-    try {
-      const measurements: Record<string, number> = {};
-      if (newNeck) measurements.neck_cm = parseFloat(newNeck);
-      if (newWaist) measurements.waist_cm = parseFloat(newWaist);
-      if (newHip) measurements.hip_cm = parseFloat(newHip);
-
-      await recordMemberMetrics(selectedMember.id, {
-        weight_kg: newWeight ? parseFloat(newWeight) : null,
-        height_cm: newHeight ? parseFloat(newHeight) : null,
-        measurements:
-          Object.keys(measurements).length > 0 ? measurements : undefined,
-      });
-
-      setMetricsError(null);
-      // Refresh detail
-      const updated = await getGymMemberDetail(selectedMember.id);
-      setSelectedMember(updated);
-      setNewWeight("");
-      setNewHeight("");
-      setNewNeck("");
-      setNewWaist("");
-      setNewHip("");
-      fetchMembers();
-    } catch (err: unknown) {
-      setMetricsError(
-        err instanceof Error ? err.message : "Failed to record metrics."
-      );
-    } finally {
-      setMetricsSubmitting(false);
     }
   };
 
@@ -277,8 +211,12 @@ export const MemberManagementSection: React.FC<Props> = ({
                   <th className="px-4 py-3 font-semibold">Member</th>
                   <th className="px-4 py-3 font-semibold">Phone</th>
                   <th className="px-4 py-3 font-semibold">Status</th>
-                  <th className="px-4 py-3 font-semibold">Latest BMI</th>
-                  <th className="px-4 py-3 font-semibold">Est. Body Fat</th>
+                  {userRole !== "reception" && (
+                    <>
+                      <th className="px-4 py-3 font-semibold">Latest BMI</th>
+                      <th className="px-4 py-3 font-semibold">Est. Body Fat</th>
+                    </>
+                  )}
                   <th className="px-4 py-3 font-semibold">Actions</th>
                 </tr>
               </thead>
@@ -313,26 +251,30 @@ export const MemberManagementSection: React.FC<Props> = ({
                           {m.status}
                         </Badge>
                       </td>
-                      <td className="px-4 py-3 text-text text-xs">
-                        {bmi !== undefined && bmi !== null ? (
-                          <span>
-                            <strong className="font-semibold">{bmi}</strong>{" "}
-                            <span className="text-text-muted">(est)</span>
-                          </span>
-                        ) : (
-                          <span className="text-text-muted">—</span>
-                        )}
-                      </td>
-                      <td className="px-4 py-3 text-text text-xs">
-                        {bf !== undefined && bf !== null ? (
-                          <span>
-                            <strong className="font-semibold">{bf}%</strong>{" "}
-                            <span className="text-text-muted">(est)</span>
-                          </span>
-                        ) : (
-                          <span className="text-text-muted">—</span>
-                        )}
-                      </td>
+                      {userRole !== "reception" && (
+                        <>
+                          <td className="px-4 py-3 text-text text-xs">
+                            {bmi !== undefined && bmi !== null ? (
+                              <span>
+                                <strong className="font-semibold">{bmi}</strong>{" "}
+                                <span className="text-text-muted">(est)</span>
+                              </span>
+                            ) : (
+                              <span className="text-text-muted">—</span>
+                            )}
+                          </td>
+                          <td className="px-4 py-3 text-text text-xs">
+                            {bf !== undefined && bf !== null ? (
+                              <span>
+                                <strong className="font-semibold">{bf}%</strong>{" "}
+                                <span className="text-text-muted">(est)</span>
+                              </span>
+                            ) : (
+                              <span className="text-text-muted">—</span>
+                            )}
+                          </td>
+                        </>
+                      )}
                       <td className="px-4 py-3">
                         <Button
                           variant="secondary"
@@ -470,56 +412,6 @@ export const MemberManagementSection: React.FC<Props> = ({
                 </div>
               </div>
 
-              {/* Body metrics intake */}
-              <div className="pt-2 border-t border-border space-y-2">
-                <span className="text-xs font-semibold uppercase text-text-muted">
-                  Initial Measurements (Optional)
-                </span>
-                <div className="grid grid-cols-2 gap-3">
-                  <Input
-                    type="number"
-                    step="0.1"
-                    value={weightKg}
-                    onChange={(e) => setWeightKg(e.target.value)}
-                    placeholder="Weight (kg)"
-                    className="min-h-[44px]"
-                  />
-                  <Input
-                    type="number"
-                    step="0.1"
-                    value={heightCm}
-                    onChange={(e) => setHeightCm(e.target.value)}
-                    placeholder="Height (cm)"
-                    className="min-h-[44px]"
-                  />
-                </div>
-                <div className="grid grid-cols-3 gap-2">
-                  <Input
-                    type="number"
-                    step="0.1"
-                    value={neckCm}
-                    onChange={(e) => setNeckCm(e.target.value)}
-                    placeholder="Neck (cm)"
-                    className="min-h-[44px]"
-                  />
-                  <Input
-                    type="number"
-                    step="0.1"
-                    value={waistCm}
-                    onChange={(e) => setWaistCm(e.target.value)}
-                    placeholder="Waist (cm)"
-                    className="min-h-[44px]"
-                  />
-                  <Input
-                    type="number"
-                    step="0.1"
-                    value={hipCm}
-                    onChange={(e) => setHipCm(e.target.value)}
-                    placeholder="Hip (cm)"
-                    className="min-h-[44px]"
-                  />
-                </div>
-              </div>
 
               {/* Health waiver checkbox */}
               <div className="p-3 bg-surface-2/60 border border-border rounded-lg">
@@ -624,126 +516,82 @@ export const MemberManagementSection: React.FC<Props> = ({
               </div>
             </div>
 
-            {/* Latest Calculated Estimates */}
-            <div className="p-4 bg-primary/5 border border-primary/20 rounded-lg space-y-2">
-              <h4 className="text-xs font-bold uppercase tracking-wider text-primary">
-                Current Body Composition Estimates
-              </h4>
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-center">
-                <div className="bg-surface p-2 rounded border border-border">
-                  <span className="text-[11px] text-text-muted block">
-                    Weight
-                  </span>
-                  <span className="text-sm font-bold text-text">
-                    {selectedMember.latest_metrics?.weight_kg
-                      ? `${selectedMember.latest_metrics.weight_kg} kg`
-                      : "—"}
-                  </span>
+            {/* Latest Calculated Estimates (Owner & Manager view-only; hidden for Reception) */}
+            {userRole !== "reception" &&
+              (selectedMember.latest_metrics &&
+              (selectedMember.latest_metrics.weight_kg || selectedMember.latest_metrics.height_cm) ? (
+                <div className="p-4 bg-primary/5 border border-primary/20 rounded-lg space-y-2">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
+                    <h4 className="text-xs font-bold uppercase tracking-wider text-primary">
+                      Current Body Composition Estimates
+                    </h4>
+                    {(selectedMember.latest_metrics.trainer_name ||
+                      selectedMember.latest_metrics.recorded_by_name) && (
+                      <span className="text-[11px] text-text-muted">
+                        Recorded by Trainer:{" "}
+                        <strong className="text-text">
+                          {selectedMember.latest_metrics.trainer_name ||
+                            selectedMember.latest_metrics.recorded_by_name}
+                        </strong>
+                      </span>
+                    )}
+                  </div>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-center">
+                    <div className="bg-surface p-2 rounded border border-border">
+                      <span className="text-[11px] text-text-muted block">
+                        Weight
+                      </span>
+                      <span className="text-sm font-bold text-text">
+                        {selectedMember.latest_metrics?.weight_kg
+                          ? `${selectedMember.latest_metrics.weight_kg} kg`
+                          : "—"}
+                      </span>
+                    </div>
+                    <div className="bg-surface p-2 rounded border border-border">
+                      <span className="text-[11px] text-text-muted block">
+                        Height
+                      </span>
+                      <span className="text-sm font-bold text-text">
+                        {selectedMember.latest_metrics?.height_cm
+                          ? `${selectedMember.latest_metrics.height_cm} cm`
+                          : "—"}
+                      </span>
+                    </div>
+                    <div className="bg-surface p-2 rounded border border-border">
+                      <span className="text-[11px] text-text-muted block">
+                        Estimated BMI
+                      </span>
+                      <span className="text-sm font-bold text-primary">
+                        {selectedMember.latest_metrics?.estimated_bmi !== null &&
+                        selectedMember.latest_metrics?.estimated_bmi !== undefined
+                          ? selectedMember.latest_metrics.estimated_bmi
+                          : "—"}
+                      </span>
+                    </div>
+                    <div className="bg-surface p-2 rounded border border-border">
+                      <span className="text-[11px] text-text-muted block">
+                        Est. Body Fat %
+                      </span>
+                      <span className="text-sm font-bold text-primary">
+                        {selectedMember.latest_metrics
+                          ?.estimated_body_fat_percentage !== null &&
+                        selectedMember.latest_metrics
+                          ?.estimated_body_fat_percentage !== undefined
+                          ? `${selectedMember.latest_metrics.estimated_body_fat_percentage}%`
+                          : "—"}
+                      </span>
+                    </div>
+                  </div>
+                  <p className="text-[11px] text-text-muted text-center pt-1">
+                    * BMI and US Navy body fat percentage are calculated on read as
+                    labeled estimates.
+                  </p>
                 </div>
-                <div className="bg-surface p-2 rounded border border-border">
-                  <span className="text-[11px] text-text-muted block">
-                    Height
-                  </span>
-                  <span className="text-sm font-bold text-text">
-                    {selectedMember.latest_metrics?.height_cm
-                      ? `${selectedMember.latest_metrics.height_cm} cm`
-                      : "—"}
-                  </span>
+              ) : (
+                <div className="p-4 bg-surface-2/40 border border-border rounded-lg text-xs text-text-muted text-center">
+                  Not measured yet. A trainer records measurements.
                 </div>
-                <div className="bg-surface p-2 rounded border border-border">
-                  <span className="text-[11px] text-text-muted block">
-                    Estimated BMI
-                  </span>
-                  <span className="text-sm font-bold text-text">
-                    {selectedMember.latest_metrics?.estimated_bmi !== null &&
-                    selectedMember.latest_metrics?.estimated_bmi !== undefined
-                      ? selectedMember.latest_metrics.estimated_bmi
-                      : "—"}
-                  </span>
-                </div>
-                <div className="bg-surface p-2 rounded border border-border">
-                  <span className="text-[11px] text-text-muted block">
-                    Est. Body Fat %
-                  </span>
-                  <span className="text-sm font-bold text-text">
-                    {selectedMember.latest_metrics
-                      ?.estimated_body_fat_percentage !== null &&
-                    selectedMember.latest_metrics
-                      ?.estimated_body_fat_percentage !== undefined
-                      ? `${selectedMember.latest_metrics.estimated_body_fat_percentage}%`
-                      : "—"}
-                  </span>
-                </div>
-              </div>
-              <p className="text-[11px] text-text-muted text-center pt-1">
-                * BMI and US Navy body fat percentage are calculated on read as
-                labeled estimates.
-              </p>
-            </div>
-
-            {/* Record New Measurements */}
-            <form
-              onSubmit={handleAddMetrics}
-              className="border-t border-border pt-3 space-y-3"
-            >
-              <h4 className="text-xs font-bold text-text uppercase">
-                Record New Measurements
-              </h4>
-              {metricsError && <Alert variant="error">{metricsError}</Alert>}
-              <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
-                <Input
-                  type="number"
-                  step="0.1"
-                  placeholder="Weight (kg)"
-                  value={newWeight}
-                  onChange={(e) => setNewWeight(e.target.value)}
-                  className="min-h-[44px]"
-                />
-                <Input
-                  type="number"
-                  step="0.1"
-                  placeholder="Height (cm)"
-                  value={newHeight}
-                  onChange={(e) => setNewHeight(e.target.value)}
-                  className="min-h-[44px]"
-                />
-                <Input
-                  type="number"
-                  step="0.1"
-                  placeholder="Neck (cm)"
-                  value={newNeck}
-                  onChange={(e) => setNewNeck(e.target.value)}
-                  className="min-h-[44px]"
-                />
-                <Input
-                  type="number"
-                  step="0.1"
-                  placeholder="Waist (cm)"
-                  value={newWaist}
-                  onChange={(e) => setNewWaist(e.target.value)}
-                  className="min-h-[44px]"
-                />
-                <Input
-                  type="number"
-                  step="0.1"
-                  placeholder="Hip (cm)"
-                  value={newHip}
-                  onChange={(e) => setNewHip(e.target.value)}
-                  className="min-h-[44px]"
-                />
-              </div>
-
-              <div className="flex justify-end pt-1">
-                <Button
-                  type="submit"
-                  size="sm"
-                  disabled={metricsSubmitting}
-                  className="min-h-[44px]"
-                >
-                  {metricsSubmitting ? "Saving..." : "Record Measurements"}
-                </Button>
-              </div>
-            </form>
+              ))}
           </Card>
         </div>
       )}

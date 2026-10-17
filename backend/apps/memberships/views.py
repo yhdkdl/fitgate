@@ -4,6 +4,7 @@ from django.core.exceptions import PermissionDenied, ValidationError
 from django.db import transaction
 from django.db.models import Q
 from django.http import Http404
+from django.utils import timezone
 from drf_spectacular.utils import OpenApiResponse, extend_schema
 from rest_framework import status
 from rest_framework.permissions import AllowAny, IsAuthenticated
@@ -163,7 +164,8 @@ class GymMemberListCreateView(APIView):
                 pass
 
         return Response(
-            MemberSerializer(queryset, many=True).data, status=status.HTTP_200_OK
+            MemberSerializer(queryset, many=True, context={"request": request}).data,
+            status=status.HTTP_200_OK,
         )
 
     @extend_schema(
@@ -202,7 +204,7 @@ class GymMemberListCreateView(APIView):
         return Response(
             {
                 "detail": "Member registered successfully. Invitation email sent.",
-                "member": MemberSerializer(member).data,
+                "member": MemberSerializer(member, context={"request": request}).data,
             },
             status=status.HTTP_201_CREATED,
         )
@@ -235,7 +237,10 @@ class GymMemberDetailView(APIView):
     )
     def get(self, request, pk, *args, **kwargs):
         member = self.get_object(pk, request.tenant)
-        return Response(MemberDetailSerializer(member).data, status=status.HTTP_200_OK)
+        return Response(
+            MemberDetailSerializer(member, context={"request": request}).data,
+            status=status.HTTP_200_OK,
+        )
 
     @extend_schema(
         summary="Update member profile",
@@ -280,43 +285,104 @@ class GymMemberDetailView(APIView):
                 metadata={"status": member.status, "full_name": member.full_name},
             )
 
-        return Response(MemberDetailSerializer(member).data, status=status.HTTP_200_OK)
+        return Response(
+            MemberDetailSerializer(member, context={"request": request}).data,
+            status=status.HTTP_200_OK,
+        )
 
 
 class GymMemberRecordMetricsView(APIView):
     """
-    Staff endpoint for recording new body composition measurements for a member.
+    Endpoint for viewing and recording body composition measurements for a member.
+    - GET: Trainer, Owner, Manager of current gym (Reception, Member, Super Admin refused).
+    - POST: Trainer ONLY of current gym (fail-closed: Owner, Manager, Reception, Member, Super Admin refused).
     """
 
-    permission_classes = [IsAuthenticated, RequirePasswordChanged, IsGymStaff]
+    permission_classes = [IsAuthenticated, RequirePasswordChanged]
+
+    def _get_member_or_check_tenant(self, pk, tenant):
+        if not tenant:
+            raise PermissionDenied("Gym tenant context required.")
+        try:
+            member = Member.all_objects.select_related("gym").get(pk=pk)
+        except Member.DoesNotExist:
+            raise Http404("Member not found.")
+
+        if member.gym_id != tenant.id:
+            raise PermissionDenied(
+                "Cannot record or view measurements for a member of another gym."
+            )
+        return member
+
+    @extend_schema(
+        summary="List member body metrics",
+        description="Retrieves body metrics history for a member. Allowed for Trainer, Owner, Manager.",
+        responses={
+            200: BodyMetricsSerializer(many=True),
+            403: OpenApiResponse(description="Forbidden"),
+            404: OpenApiResponse(description="Member not found"),
+        },
+    )
+    def get(self, request, pk, *args, **kwargs):
+        role = getattr(request.user, "role", None)
+        if role not in (User.ROLE_TRAINER, User.ROLE_OWNER, User.ROLE_MANAGER):
+            raise PermissionDenied(
+                "Only Trainers, Owners, and Managers can view member measurements."
+            )
+
+        if getattr(request.user, "gym_id", None) != getattr(request.tenant, "id", None):
+            raise PermissionDenied("Gym tenant context mismatch.")
+
+        member = self._get_member_or_check_tenant(pk, request.tenant)
+        metrics = member.body_metrics.all().order_by("-recorded_at")
+        return Response(
+            BodyMetricsSerializer(
+                metrics, many=True, context={"request": request}
+            ).data,
+            status=status.HTTP_200_OK,
+        )
 
     @extend_schema(
         summary="Record member body metrics",
-        description="Records new weight, height, and circumferences for a member.",
+        description="Records new measurements for a member. Allowed for Trainer ONLY.",
         request=RecordBodyMetricsSerializer,
         responses={
             201: BodyMetricsSerializer,
             400: OpenApiResponse(description="Validation error"),
+            403: OpenApiResponse(description="Forbidden - Trainer only"),
             404: OpenApiResponse(description="Member not found"),
         },
     )
     def post(self, request, pk, *args, **kwargs):
-        try:
-            member = Member.objects.get(pk=pk, gym=request.tenant)
-        except Member.DoesNotExist:
-            raise Http404("Member not found.")
+        role = getattr(request.user, "role", None)
+        if role != User.ROLE_TRAINER:
+            raise PermissionDenied("Only Trainers can record member body measurements.")
+
+        if getattr(request.user, "gym_id", None) != getattr(request.tenant, "id", None):
+            raise PermissionDenied("Gym tenant context mismatch.")
+
+        member = self._get_member_or_check_tenant(pk, request.tenant)
 
         serializer = RecordBodyMetricsSerializer(data=request.data)
         if not serializer.is_valid():
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
+        validated = serializer.validated_data
+        measurements = dict(validated.get("measurements") or {})
+        for field in ("waist_cm", "neck_cm", "hip_cm"):
+            val = validated.get(field)
+            if val is not None:
+                measurements[field] = float(val)
+
         with transaction.atomic():
             metrics = BodyMetrics.objects.create(
                 gym=request.tenant,
                 member=member,
-                weight_kg=serializer.validated_data.get("weight_kg"),
-                height_cm=serializer.validated_data.get("height_cm"),
-                measurements=serializer.validated_data.get("measurements") or {},
+                weight_kg=validated["weight_kg"],
+                height_cm=validated["height_cm"],
+                measurements=measurements,
+                recorded_by=request.user,
+                recorded_at=timezone.now(),
             )
             record_audit_log(
                 action_type="member_metrics_recorded",
@@ -326,12 +392,16 @@ class GymMemberRecordMetricsView(APIView):
                 gym=request.tenant,
                 metadata={
                     "member_id": str(member.id),
-                    "weight_kg": str(metrics.weight_kg) if metrics.weight_kg else None,
+                    "weight_kg": str(metrics.weight_kg),
+                    "height_cm": str(metrics.height_cm),
+                    "trainer_id": str(request.user.id),
+                    "trainer_name": request.user.full_name,
                 },
             )
 
         return Response(
-            BodyMetricsSerializer(metrics).data, status=status.HTTP_201_CREATED
+            BodyMetricsSerializer(metrics, context={"request": request}).data,
+            status=status.HTTP_201_CREATED,
         )
 
 
@@ -352,7 +422,10 @@ class MemberSelfProfileView(APIView):
         if member is None:
             raise Http404("Member profile not found.")
 
-        return Response(MemberDetailSerializer(member).data, status=status.HTTP_200_OK)
+        return Response(
+            MemberDetailSerializer(member, context={"request": request}).data,
+            status=status.HTTP_200_OK,
+        )
 
     @extend_schema(
         summary="Update own member contact info",
@@ -368,7 +441,7 @@ class MemberSelfProfileView(APIView):
         if member is None:
             raise Http404("Member profile not found.")
 
-        # Members can update phone and emergency contact
+        # Members can update phone and emergency contact only
         allowed_fields = {"phone", "emergency_contact"}
         filtered_data = {k: v for k, v in request.data.items() if k in allowed_fields}
 
@@ -391,12 +464,16 @@ class MemberSelfProfileView(APIView):
                 metadata={"phone": member.phone},
             )
 
-        return Response(MemberDetailSerializer(member).data, status=status.HTTP_200_OK)
+        return Response(
+            MemberDetailSerializer(member, context={"request": request}).data,
+            status=status.HTTP_200_OK,
+        )
 
 
 class MemberSelfMetricsView(APIView):
     """
-    Member self-service endpoint to list own metrics and record new measurements.
+    Member self-service endpoint to list own metrics.
+    Members cannot enter or edit measurements.
     """
 
     permission_classes = [IsAuthenticated, RequirePasswordChanged, IsMember]
@@ -413,47 +490,18 @@ class MemberSelfMetricsView(APIView):
 
         metrics = member.body_metrics.all().order_by("-recorded_at")
         return Response(
-            BodyMetricsSerializer(metrics, many=True).data, status=status.HTTP_200_OK
+            BodyMetricsSerializer(
+                metrics, many=True, context={"request": request}
+            ).data,
+            status=status.HTTP_200_OK,
         )
 
     @extend_schema(
         summary="Record own body metrics",
-        description="Records new measurements for the logged-in member.",
-        request=RecordBodyMetricsSerializer,
-        responses={
-            201: BodyMetricsSerializer,
-            400: OpenApiResponse(description="Validation error"),
-        },
+        description="Refused - members cannot enter or edit measurements.",
+        responses={403: OpenApiResponse(description="Forbidden")},
     )
     def post(self, request, *args, **kwargs):
-        member = getattr(request.user, "member_profile", None)
-        if member is None:
-            raise Http404("Member profile not found.")
-
-        serializer = RecordBodyMetricsSerializer(data=request.data)
-        if not serializer.is_valid():
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-        with transaction.atomic():
-            metrics = BodyMetrics.objects.create(
-                gym=request.tenant,
-                member=member,
-                weight_kg=serializer.validated_data.get("weight_kg"),
-                height_cm=serializer.validated_data.get("height_cm"),
-                measurements=serializer.validated_data.get("measurements") or {},
-            )
-            record_audit_log(
-                action_type="member_metrics_recorded",
-                affected_record_type="BodyMetrics",
-                affected_record_id=str(metrics.id),
-                actor=request.user,
-                gym=request.tenant,
-                metadata={
-                    "member_id": str(member.id),
-                    "weight_kg": str(metrics.weight_kg) if metrics.weight_kg else None,
-                },
-            )
-
-        return Response(
-            BodyMetricsSerializer(metrics).data, status=status.HTTP_201_CREATED
+        raise PermissionDenied(
+            "Members cannot enter or edit measurements. A trainer records measurements."
         )
