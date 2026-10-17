@@ -161,7 +161,7 @@ Trainer specialization and photo are delivered in the Trainer and storage sprint
 8. On a gym's own address the root page still shows that gym's entry page (unchanged).
 9. The page has a proper title and description for search engines.
 
-- [~] Status: in progress
+- [x] Status: done — merged to develop (commit fa095ed, tag sprint-4d-done)
 
 5. **RBAC framework (GATE)** — permission classes + Owner/Manager permission matrix enforcement.
    - For every role in the permission matrix (SPEC §2), both an allowed action (succeeds) and a denied action (403, not 200) are covered by a test.

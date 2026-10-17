@@ -12,6 +12,7 @@
 - Sprint 4a: Demo requests (`199f1bb`, PR #13)
 - Sprint 4b: File storage layer (`3fe54b0`, PR #14)
 - Sprint 4c: Gym branding, entry page, first-run checklist (PR #15)
+- Sprint 4d: Public platform landing page (`fa095ed`, tag sprint-4d-done)
 - Sprint 5: RBAC framework (GATE) (`6e07935`)
 - Sprint 6: Staff provisioning (`4d957da`)
 - Sprint 7: Member registration (`c7c948cb4114442c53947884cc191c865f05116a`)
@@ -23,7 +24,7 @@
 
 ## Current
 
-- Sprint 4d: Public platform landing page (non-GATE, built out of order by owner decision, before Increment 2).
+- None (Sprint 4d complete; awaiting owner instruction for Increment 2 preflight)
 
 ## Next
 
