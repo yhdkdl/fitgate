@@ -19,6 +19,7 @@ import {
   type ScanResultResponse,
   type ManualOverrideResultResponse,
 } from "../../api/attendance";
+import { getAccessToken } from "../../api/client";
 import { Card } from "../ui/Card";
 import { Button } from "../ui/Button";
 import { Input } from "../ui/Input";
@@ -303,7 +304,7 @@ export const AttendanceScannerSection: React.FC<
             <div className="flex items-center gap-4">
               {activeMember.photo_url ? (
                 <img
-                  src={activeMember.photo_url}
+                  src={`${activeMember.photo_url}${activeMember.photo_url.includes("?") ? "&" : "?"}token=${encodeURIComponent(getAccessToken() || "")}`}
                   alt={activeMember.full_name}
                   className="w-16 h-16 rounded-full object-cover border-2 border-emerald-500 shadow-sm"
                 />
