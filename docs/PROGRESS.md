@@ -21,7 +21,7 @@
 
 ## Current
 
-- Increment 1 Test & Verification (`docs/INCREMENT_1_TEST.md`)
+- Sprint 8b: Camera QR scanner (`feature/sprint-8b-camera-scanner`)
 
 ## Next
 

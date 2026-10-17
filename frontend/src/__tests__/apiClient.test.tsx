@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { apiFetch, ApiError } from "../api/client";
 import { MemberQrCard } from "../components/attendance/MemberQrCard";
@@ -116,6 +116,8 @@ describe("apiFetch & ApiError handling", () => {
     expect(
       screen.getByText("Member subscription has expired.")
     ).toBeInTheDocument();
-    expect(screen.queryByText(/body stream already read/i)).not.toBeInTheDocument();
+    expect(
+      screen.queryByText(/body stream already read/i)
+    ).not.toBeInTheDocument();
   });
 });
