@@ -15,8 +15,10 @@ import { Button } from "../components/ui/Button";
 import { Card } from "../components/ui/Card";
 import { FormField } from "../components/ui/FormField";
 import { Input } from "../components/ui/Input";
+import { getTenantFromHostname } from "../utils/tenant";
 
 export const RequestDemoScreen: React.FC = () => {
+  const tenant = getTenantFromHostname();
   const [gymName, setGymName] = useState("");
   const [contactName, setContactName] = useState("");
   const [phone, setPhone] = useState("");
@@ -67,7 +69,11 @@ export const RequestDemoScreen: React.FC = () => {
           setError(err.message || "Failed to submit demo request.");
         }
       } else {
-        setError("Network error. Please check your connection and try again.");
+        setError(
+          err instanceof Error
+            ? err.message
+            : "Network error. Please check your connection and try again."
+        );
       }
     } finally {
       setLoading(false);
@@ -91,6 +97,23 @@ export const RequestDemoScreen: React.FC = () => {
             mobile payments.
           </p>
         </div>
+
+        {tenant && (
+          <div className="mb-6 p-4 rounded-xl border border-amber-500/30 bg-amber-500/10 text-xs text-amber-300 max-w-xl mx-auto">
+            <p className="font-semibold mb-1">
+              Note: You are currently on a gym subdomain ({tenant}).
+            </p>
+            <p>
+              Demo requests are managed on the platform apex domain. Please submit from{" "}
+              <a
+                href="http://localhost:5173/request-demo"
+                className="underline text-primary font-semibold"
+              >
+                http://localhost:5173/request-demo
+              </a>.
+            </p>
+          </div>
+        )}
 
         {submitted ? (
           <Card className="max-w-xl mx-auto text-center p-8 bg-surface border-border">
