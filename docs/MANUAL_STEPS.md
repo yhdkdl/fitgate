@@ -27,3 +27,5 @@ Whenever a manual action comes up later, append numbered steps here (sprint, wha
    - **Status:** Not verified against the real service.
 
 5. **Sprint 8b: camera scanning on a real phone needs HTTPS (a valid certificate). Fallback: laptop webcam on localhost, and the paste field. Status: not verified on a real device.**
+
+6. **Sprint 4d: wire fitgate.tebebtech.com: create the cPanel subdomain for the platform, set DOMAIN=fitgate.tebebtech.com in the production environment, and wait for AutoSSL to issue the certificate. Fallback: http://localhost:5173. Status: not verified against the real service.**

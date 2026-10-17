@@ -149,6 +149,20 @@ Trainer specialization and photo are delivered in the Trainer and storage sprint
 
 - [x] Status: done — merged to develop (PR #15)
 
+4d. **Public platform landing page** (non-GATE, built after Sprint 9a by owner decision)
+
+1. Opening the platform's main address (http://localhost:5173 locally; the apex in production) shows a public FitGate landing page. No login is needed.
+2. The page explains what FitGate does for a gym, using only features that are in docs/SPEC.md (membership management, QR check-in, attendance, trainer tools, AI personal training plans, payments, multi-branch).
+3. It shows the three tiers with a price per year (the placeholder prices 12,000 / 30,000 / 60,000 ETB per year) and what each tier includes, taken from the tier table in docs/SPEC.md. The prices live in ONE place in the code so changing a price is a one-line edit.
+4. A clear "Request a Demo" button takes the visitor to the existing form; submitting it shows the existing confirmation.
+5. A short "How it works" section: request a demo, we set up your gym after payment, your gym gets its own address.
+6. A "Go to my gym" box: the visitor types their gym's name (subdomain) and is taken to that gym's own address; an invalid name shows a clear message. A small "Platform sign in" link in the footer goes to the existing Super Admin login.
+7. It looks right on a phone (320px) and on a desktop, in the dark theme from docs/DESIGN.md, is readable, and works with the keyboard. It uses no external fonts, images or scripts.
+8. On a gym's own address the root page still shows that gym's entry page (unchanged).
+9. The page has a proper title and description for search engines.
+
+- [~] Status: in progress
+
 5. **RBAC framework (GATE)** — permission classes + Owner/Manager permission matrix enforcement.
    - For every role in the permission matrix (SPEC §2), both an allowed action (succeeds) and a denied action (403, not 200) are covered by a test.
    - **Entitlements vs. settings:** an Owner's attempt to change `tier`, any `has_*` flag, `freeze_days_allowed`, `payment_grace_days` or `subscription_reminder_days` is rejected (403) at the API level; the same Owner can change `brand_color`, `member_reminder_days` and their payment credentials; a Manager can change none of them. Super Admin can change the entitlements.

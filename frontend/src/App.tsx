@@ -11,6 +11,7 @@ import { ResetPasswordScreen } from "./screens/ResetPasswordScreen";
 import { SetPasswordScreen } from "./screens/SetPasswordScreen";
 import { RequestDemoScreen } from "./screens/RequestDemoScreen";
 import { GymEntryScreen } from "./screens/GymEntryScreen";
+import { LandingScreen } from "./screens/LandingScreen";
 import { RegisterScreen } from "./screens/RegisterScreen";
 import { VerifyEmailScreen } from "./screens/VerifyEmailScreen";
 import { getTenantFromHostname } from "./utils/tenant";
@@ -20,7 +21,7 @@ const RootRoute: React.FC = () => {
   if (tenant) {
     return <GymEntryScreen />;
   }
-  return <Navigate to="/dashboard" replace />;
+  return <LandingScreen />;
 };
 
 export const App: React.FC = () => {
