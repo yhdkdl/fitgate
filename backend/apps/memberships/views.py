@@ -154,6 +154,14 @@ class GymMemberListCreateView(APIView):
         if status_filter:
             queryset = queryset.filter(status=status_filter)
 
+        limit_param = request.query_params.get("limit")
+        if limit_param:
+            try:
+                limit = min(max(int(limit_param), 1), 50)
+                queryset = queryset[:limit]
+            except ValueError:
+                pass
+
         return Response(
             MemberSerializer(queryset, many=True).data, status=status.HTTP_200_OK
         )
