@@ -290,6 +290,28 @@ class TestQRTokenIssuanceAndVerification:
         ):
             get_rsa_public_key_pem()
 
+    def test_member_qr_token_endpoint_returns_500_on_unconfigured_private_key(
+        self, api_client, gym_tenant, member_user, active_member, settings
+    ):
+        """When QR_JWT_PRIVATE_KEY is unconfigured, member QR token returns clean JSON 500 crypto_error."""
+        settings.QR_JWT_PRIVATE_KEY = ""
+        client = auth_client(api_client, member_user, gym_tenant.subdomain)
+        response = client.get("/api/members/me/qr-token/")
+        assert response.status_code == 500
+        assert response.data["reason"] == "crypto_error"
+        assert "QR token service is currently unavailable" in response.data["detail"]
+
+    def test_public_key_endpoint_returns_500_on_unconfigured_public_key(
+        self, api_client, gym_tenant, settings
+    ):
+        """When QR_JWT_PUBLIC_KEY is unconfigured, public key endpoint returns clean JSON 500 crypto_error."""
+        settings.QR_JWT_PUBLIC_KEY = ""
+        api_client.defaults["HTTP_HOST"] = f"{gym_tenant.subdomain}.localhost"
+        response = api_client.get("/api/attendance/public-key/")
+        assert response.status_code == 500
+        assert response.data["reason"] == "crypto_error"
+        assert "QR verification public key is not configured" in response.data["detail"]
+
     def test_public_key_endpoint_returns_503_still_securing_on_unconfirmed_tls(
         self, api_client, db
     ):
