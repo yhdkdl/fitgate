@@ -24,7 +24,7 @@
 
 ## Current
 
-- None (Sprint 4d complete; awaiting owner instruction for Increment 2 preflight)
+- Sprint 8c: Entrance scanner page and live check-in list (builds on Sprint 8b).
 
 ## Next
 

@@ -26,6 +26,6 @@ Whenever a manual action comes up later, append numbered steps here (sprint, wha
    - **Fallback in use:** Local management command `generate_qr_dev_keys` prints generated RSA PEM keys as single-line escaped strings to stdout for manual copying into `.env` or cPanel; in-memory key pair in test fixtures. Production fails fast if unset.
    - **Status:** Not verified against the real service.
 
-5. **Sprint 8b: camera scanning on a real phone needs HTTPS (a valid certificate). Fallback: laptop webcam on localhost, and the paste field. Status: not verified on a real device.**
+5. **Sprint 8b/8c: camera scanning on a real tablet or phone needs HTTPS (a valid certificate). Fallback: laptop webcam on localhost and the manual code field. Status: not verified on a real device.**
 
 6. **Sprint 4d: wire fitgate.tebebtech.com: create the cPanel subdomain for the platform, set DOMAIN=fitgate.tebebtech.com in the production environment, and wait for AutoSSL to issue the certificate. Fallback: http://localhost:5173. Status: not verified against the real service.**
