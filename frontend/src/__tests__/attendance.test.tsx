@@ -5,6 +5,7 @@ import * as attendanceApi from "../api/attendance";
 import { MemberQrCard } from "../components/attendance/MemberQrCard";
 import { AttendanceScannerSection } from "../components/attendance/AttendanceScannerSection";
 import { AttendanceLogCard } from "../components/attendance/AttendanceLogCard";
+import { checkQrCooldown } from "../components/attendance/qrCooldown";
 
 vi.mock("../api/attendance", () => ({
   getMemberQrToken: vi.fn(),
@@ -304,6 +305,29 @@ describe("Sprint 8: QR Check-in & Attendance Components", () => {
       expect(screen.getByText("blank")).toBeInTheDocument();
       expect(screen.getByText("✗")).toBeInTheDocument();
       expect(screen.getByText("✓")).toBeInTheDocument();
+    });
+  });
+
+  describe("Sprint 8b: CameraQrScanner Cooldown (Criterion 4)", () => {
+    it("pauses reading for 3 seconds between reads to prevent notification spam", () => {
+      const t0 = 10000;
+      // First read: allowed
+      expect(checkQrCooldown(t0, 0, false, false)).toBe(true);
+
+      // Same code held in view at 1 second later: rejected
+      expect(checkQrCooldown(t0 + 1000, t0, false, false)).toBe(false);
+
+      // Continuous view at 2.999 seconds later: rejected
+      expect(checkQrCooldown(t0 + 2999, t0, false, false)).toBe(false);
+
+      // While paused state flag is active: rejected
+      expect(checkQrCooldown(t0 + 3500, t0, true, false)).toBe(false);
+
+      // While processing: rejected
+      expect(checkQrCooldown(t0 + 4000, t0, false, true)).toBe(false);
+
+      // After 3 seconds have elapsed and pause lifted: allowed
+      expect(checkQrCooldown(t0 + 3001, t0, false, false)).toBe(true);
     });
   });
 });

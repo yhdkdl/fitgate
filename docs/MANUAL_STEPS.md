@@ -25,3 +25,5 @@ Whenever a manual action comes up later, append numbered steps here (sprint, wha
    - **What to paste where:** In `.env` or cPanel environment variables, set `QR_JWT_PRIVATE_KEY` and `QR_JWT_PUBLIC_KEY` as single-line strings with literal `\n` escapes.
    - **Fallback in use:** Local management command `generate_qr_dev_keys` prints generated RSA PEM keys as single-line escaped strings to stdout for manual copying into `.env` or cPanel; in-memory key pair in test fixtures. Production fails fast if unset.
    - **Status:** Not verified against the real service.
+
+5. **Sprint 8b: camera scanning on a real phone needs HTTPS (a valid certificate). Fallback: laptop webcam on localhost, and the paste field. Status: not verified on a real device.**

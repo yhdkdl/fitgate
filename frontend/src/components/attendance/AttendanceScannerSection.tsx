@@ -11,6 +11,7 @@ import {
   Calendar,
   X,
   CheckCircle2,
+  Camera,
 } from "lucide-react";
 import {
   scanQrToken,
@@ -25,6 +26,7 @@ import { Badge } from "../ui/Badge";
 import { Alert } from "../ui/Alert";
 import { Spinner } from "../ui/Spinner";
 import { AttendanceLogCard } from "./AttendanceLogCard";
+import { CameraQrScanner } from "./CameraQrScanner";
 
 interface AttendanceScannerSectionProps {
   userRole?: string;
@@ -35,6 +37,7 @@ export const AttendanceScannerSection: React.FC<
 > = ({ userRole }) => {
   const [tokenInput, setTokenInput] = useState("");
   const [scanning, setScanning] = useState(false);
+  const [showCameraScanner, setShowCameraScanner] = useState(false);
   const [scanResult, setScanResult] = useState<ScanResultResponse | null>(null);
   const [overrideResult, setOverrideResult] =
     useState<ManualOverrideResultResponse | null>(null);
@@ -61,9 +64,8 @@ export const AttendanceScannerSection: React.FC<
     name: string;
   } | null>(null);
 
-  const handleScanSubmit = async (e?: React.FormEvent) => {
-    if (e) e.preventDefault();
-    if (!tokenInput.trim()) return;
+  const processScanToken = async (rawToken: string) => {
+    if (!rawToken.trim()) return;
 
     setScanning(true);
     setScanResult(null);
@@ -71,7 +73,7 @@ export const AttendanceScannerSection: React.FC<
     setScanError(null);
 
     try {
-      const result = await scanQrToken({ token: tokenInput.trim() });
+      const result = await scanQrToken({ token: rawToken.trim() });
       setScanResult(result);
       setTokenInput("");
     } catch (err: unknown) {
@@ -94,6 +96,16 @@ export const AttendanceScannerSection: React.FC<
     } finally {
       setScanning(false);
     }
+  };
+
+  const handleScanSubmit = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    await processScanToken(tokenInput);
+  };
+
+  const handleCameraScan = (scannedToken: string) => {
+    setTokenInput(scannedToken);
+    processScanToken(scannedToken);
   };
 
   const handleOverrideSubmit = async (e: React.FormEvent) => {
@@ -208,7 +220,20 @@ export const AttendanceScannerSection: React.FC<
             </p>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              type="button"
+              variant={showCameraScanner ? "primary" : "secondary"}
+              size="sm"
+              onClick={() => setShowCameraScanner((prev) => !prev)}
+              className="min-h-[44px] flex items-center gap-2 text-xs font-semibold focus:ring-2 focus:ring-primary focus:outline-none"
+              aria-label={
+                showCameraScanner ? "Close camera" : "Scan with camera"
+              }
+            >
+              <Camera className="w-4 h-4" />
+              {showCameraScanner ? "Close Camera" : "Scan with camera"}
+            </Button>
             <Button
               variant="secondary"
               size="sm"
@@ -223,6 +248,17 @@ export const AttendanceScannerSection: React.FC<
             </Button>
           </div>
         </div>
+
+        {/* Live Camera Scanner View */}
+        {showCameraScanner && (
+          <div className="mb-6">
+            <CameraQrScanner
+              onScan={handleCameraScan}
+              onClose={() => setShowCameraScanner(false)}
+              isProcessing={scanning}
+            />
+          </div>
+        )}
 
         {/* Scan Input Form */}
         <form onSubmit={handleScanSubmit} className="space-y-4">
