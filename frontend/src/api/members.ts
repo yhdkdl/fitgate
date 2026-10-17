@@ -1,13 +1,30 @@
-import { getAccessToken } from "./client";
+import { ApiError, getAccessToken, parseResponseBody } from "./client";
+export { ApiError } from "./client";
 
 function getAuthHeader(): Record<string, string> {
   const token = getAccessToken();
   return token ? { Authorization: `Bearer ${token}` } : {};
 }
 
-export interface ApiError extends Error {
-  status?: number;
-  data?: unknown;
+async function handleResponse<T>(
+  res: Response,
+  fallbackMessage: string
+): Promise<T> {
+  if (!res.ok) {
+    const errorData = await parseResponseBody(res);
+    const detail =
+      typeof errorData === "object" && errorData !== null && "detail" in errorData
+        ? String((errorData as { detail: unknown }).detail)
+        : typeof errorData === "string" && errorData.trim() !== ""
+          ? errorData
+          : fallbackMessage;
+    throw new ApiError(res.status, detail, errorData);
+  }
+  if (res.status === 204) {
+    return undefined as T;
+  }
+  const data = await parseResponseBody(res);
+  return data as T;
 }
 
 export interface BodyMetrics {
@@ -87,21 +104,10 @@ export async function registerMemberSelfService(
     body: JSON.stringify(payload),
   });
 
-  if (!res.ok) {
-    const errorData = (await res.json().catch(() => ({}))) as Record<
-      string,
-      unknown
-    >;
-    const err = new Error(
-      (errorData.detail as string) ||
-        "Registration failed. Please check your inputs."
-    ) as ApiError;
-    err.status = res.status;
-    err.data = errorData;
-    throw err;
-  }
-
-  return res.json();
+  return handleResponse<MemberRegistrationResponse>(
+    res,
+    "Registration failed. Please check your inputs."
+  );
 }
 
 /**
@@ -118,21 +124,10 @@ export async function verifyMemberEmail(
     body: JSON.stringify({ token }),
   });
 
-  if (!res.ok) {
-    const errorData = (await res.json().catch(() => ({}))) as Record<
-      string,
-      unknown
-    >;
-    const err = new Error(
-      (errorData.detail as string) ||
-        "Email verification failed. The link may have expired."
-    ) as ApiError;
-    err.status = res.status;
-    err.data = errorData;
-    throw err;
-  }
-
-  return res.json();
+  return handleResponse<{ detail: string }>(
+    res,
+    "Email verification failed. The link may have expired."
+  );
 }
 
 /**
@@ -153,20 +148,7 @@ export async function listGymMembers(params?: {
     },
   });
 
-  if (!res.ok) {
-    const errorData = (await res.json().catch(() => ({}))) as Record<
-      string,
-      unknown
-    >;
-    const err = new Error(
-      (errorData.detail as string) || "Failed to load members."
-    ) as ApiError;
-    err.status = res.status;
-    err.data = errorData;
-    throw err;
-  }
-
-  return res.json();
+  return handleResponse<Member[]>(res, "Failed to load members.");
 }
 
 /**
@@ -184,20 +166,10 @@ export async function registerMemberStaffAssisted(
     body: JSON.stringify(payload),
   });
 
-  if (!res.ok) {
-    const errorData = (await res.json().catch(() => ({}))) as Record<
-      string,
-      unknown
-    >;
-    const err = new Error(
-      (errorData.detail as string) || "Staff member registration failed."
-    ) as ApiError;
-    err.status = res.status;
-    err.data = errorData;
-    throw err;
-  }
-
-  return res.json();
+  return handleResponse<MemberRegistrationResponse>(
+    res,
+    "Staff member registration failed."
+  );
 }
 
 /**
@@ -210,20 +182,7 @@ export async function getGymMemberDetail(memberId: string): Promise<Member> {
     },
   });
 
-  if (!res.ok) {
-    const errorData = (await res.json().catch(() => ({}))) as Record<
-      string,
-      unknown
-    >;
-    const err = new Error(
-      (errorData.detail as string) || "Member not found."
-    ) as ApiError;
-    err.status = res.status;
-    err.data = errorData;
-    throw err;
-  }
-
-  return res.json();
+  return handleResponse<Member>(res, "Member not found.");
 }
 
 /**
@@ -246,20 +205,7 @@ export async function recordMemberMetrics(
     body: JSON.stringify(payload),
   });
 
-  if (!res.ok) {
-    const errorData = (await res.json().catch(() => ({}))) as Record<
-      string,
-      unknown
-    >;
-    const err = new Error(
-      (errorData.detail as string) || "Failed to record body metrics."
-    ) as ApiError;
-    err.status = res.status;
-    err.data = errorData;
-    throw err;
-  }
-
-  return res.json();
+  return handleResponse<BodyMetrics>(res, "Failed to record body metrics.");
 }
 
 /**
@@ -272,20 +218,7 @@ export async function getMemberProfileMe(): Promise<Member> {
     },
   });
 
-  if (!res.ok) {
-    const errorData = (await res.json().catch(() => ({}))) as Record<
-      string,
-      unknown
-    >;
-    const err = new Error(
-      (errorData.detail as string) || "Failed to load profile."
-    ) as ApiError;
-    err.status = res.status;
-    err.data = errorData;
-    throw err;
-  }
-
-  return res.json();
+  return handleResponse<Member>(res, "Failed to load profile.");
 }
 
 /**
@@ -305,20 +238,7 @@ export async function recordMemberMetricsMe(payload: {
     body: JSON.stringify(payload),
   });
 
-  if (!res.ok) {
-    const errorData = (await res.json().catch(() => ({}))) as Record<
-      string,
-      unknown
-    >;
-    const err = new Error(
-      (errorData.detail as string) || "Failed to record body metrics."
-    ) as ApiError;
-    err.status = res.status;
-    err.data = errorData;
-    throw err;
-  }
-
-  return res.json();
+  return handleResponse<BodyMetrics>(res, "Failed to record body metrics.");
 }
 
 /**
@@ -343,18 +263,8 @@ export async function uploadMemberPhoto(
     body: formData,
   });
 
-  if (!res.ok) {
-    const errorData = (await res.json().catch(() => ({}))) as Record<
-      string,
-      unknown
-    >;
-    const err = new Error(
-      (errorData.detail as string) || "Failed to upload member photo."
-    ) as ApiError;
-    err.status = res.status;
-    err.data = errorData;
-    throw err;
-  }
-
-  return res.json();
+  return handleResponse<{ file_path: string; filename: string; url: string }>(
+    res,
+    "Failed to upload member photo."
+  );
 }
