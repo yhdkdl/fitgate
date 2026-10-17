@@ -1,14 +1,8 @@
 import React, { useEffect, useState } from "react";
-import {
-  getMemberProfileMe,
-  recordMemberMetricsMe,
-  type Member,
-} from "../../api/members";
+import { getMemberProfileMe, type Member } from "../../api/members";
 import { Alert } from "../ui/Alert";
 import { Badge } from "../ui/Badge";
-import { Button } from "../ui/Button";
 import { Card } from "../ui/Card";
-import { Input } from "../ui/Input";
 import { Spinner } from "../ui/Spinner";
 import { MemberQrCard } from "../attendance/MemberQrCard";
 import { AttendanceLogCard } from "../attendance/AttendanceLogCard";
@@ -17,16 +11,6 @@ export const MemberSelfSection: React.FC = () => {
   const [profile, setProfile] = useState<Member | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-
-  // New measurements form
-  const [weightKg, setWeightKg] = useState("");
-  const [heightCm, setHeightCm] = useState("");
-  const [neckCm, setNeckCm] = useState("");
-  const [waistCm, setWaistCm] = useState("");
-  const [hipCm, setHipCm] = useState("");
-  const [submitting, setSubmitting] = useState(false);
-  const [metricsSuccess, setMetricsSuccess] = useState<string | null>(null);
-  const [metricsError, setMetricsError] = useState<string | null>(null);
 
   const fetchProfile = async () => {
     setLoading(true);
@@ -47,41 +31,6 @@ export const MemberSelfSection: React.FC = () => {
     fetchProfile();
   }, []);
 
-  const handleRecordMetrics = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setSubmitting(true);
-    setMetricsSuccess(null);
-    setMetricsError(null);
-    try {
-      const measurements: Record<string, number> = {};
-      if (neckCm) measurements.neck_cm = parseFloat(neckCm);
-      if (waistCm) measurements.waist_cm = parseFloat(waistCm);
-      if (hipCm) measurements.hip_cm = parseFloat(hipCm);
-
-      await recordMemberMetricsMe({
-        weight_kg: weightKg ? parseFloat(weightKg) : null,
-        height_cm: heightCm ? parseFloat(heightCm) : null,
-        measurements:
-          Object.keys(measurements).length > 0 ? measurements : undefined,
-      });
-
-      setMetricsSuccess("Body composition measurements recorded successfully.");
-      setMetricsError(null);
-      setWeightKg("");
-      setHeightCm("");
-      setNeckCm("");
-      setWaistCm("");
-      setHipCm("");
-      fetchProfile();
-    } catch (err: unknown) {
-      setMetricsError(
-        err instanceof Error ? err.message : "Failed to record measurements."
-      );
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
   if (loading) {
     return (
       <div className="p-8 text-center flex flex-col items-center gap-3">
@@ -100,6 +49,9 @@ export const MemberSelfSection: React.FC = () => {
   }
 
   const latest = profile.latest_metrics;
+  const hasMetrics = Boolean(
+    latest && (latest.weight_kg !== null || latest.height_cm !== null)
+  );
 
   return (
     <div className="space-y-6">
@@ -140,161 +92,134 @@ export const MemberSelfSection: React.FC = () => {
         </div>
       </div>
 
-      {/* Body Composition Summary Cards */}
-      <div className="space-y-3">
-        <div className="flex items-center justify-between">
+      {/* Body Composition Summary / Estimates */}
+      {hasMetrics ? (
+        <div className="space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
+            <div>
+              <h3 className="text-sm font-semibold uppercase tracking-wider text-text-muted">
+                Body Composition & Estimates
+              </h3>
+              <span className="text-xs text-text-muted">
+                * All calculated values (BMI and Body Fat %) are labeled estimates
+              </span>
+            </div>
+            {(latest?.trainer_name || latest?.recorded_by_name) && (
+              <span className="text-xs text-text-muted">
+                Recorded by Trainer:{" "}
+                <strong className="text-text">
+                  {latest.trainer_name || latest.recorded_by_name}
+                </strong>
+                {latest.recorded_at && (
+                  <> on {new Date(latest.recorded_at).toLocaleDateString()}</>
+                )}
+              </span>
+            )}
+          </div>
+
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+            <Card className="bg-surface border-border p-4 text-center space-y-1">
+              <span className="text-xs text-text-muted block">Weight</span>
+              <span className="text-xl font-extrabold text-text">
+                {latest?.weight_kg ? `${latest.weight_kg} kg` : "—"}
+              </span>
+            </Card>
+
+            <Card className="bg-surface border-border p-4 text-center space-y-1">
+              <span className="text-xs text-text-muted block">Height</span>
+              <span className="text-xl font-extrabold text-text">
+                {latest?.height_cm ? `${latest.height_cm} cm` : "—"}
+              </span>
+            </Card>
+
+            <Card className="bg-surface border-border p-4 text-center space-y-1">
+              <span className="text-xs text-text-muted block">BMI (Est)</span>
+              <span className="text-xl font-extrabold text-primary">
+                {latest?.estimated_bmi !== null &&
+                latest?.estimated_bmi !== undefined
+                  ? latest.estimated_bmi
+                  : "—"}
+              </span>
+              <span className="text-[10px] text-text-muted block">Estimate</span>
+            </Card>
+
+            <Card className="bg-surface border-border p-4 text-center space-y-1">
+              <span className="text-xs text-text-muted block">
+                Body Fat (Est)
+              </span>
+              <span className="text-xl font-extrabold text-primary">
+                {latest?.estimated_body_fat_percentage !== null &&
+                latest?.estimated_body_fat_percentage !== undefined
+                  ? `${latest.estimated_body_fat_percentage}%`
+                  : "—"}
+              </span>
+              <span className="text-[10px] text-text-muted block">
+                US Navy Method
+              </span>
+            </Card>
+          </div>
+
+          {/* Measurements History */}
+          {profile.body_metrics && profile.body_metrics.length > 0 && (
+            <Card className="bg-surface border-border p-4 space-y-3">
+              <h4 className="text-xs font-bold uppercase tracking-wider text-text-muted">
+                Measurement History
+              </h4>
+              <div className="overflow-x-auto">
+                <table className="w-full text-xs text-left">
+                  <thead className="border-b border-border text-text-muted">
+                    <tr>
+                      <th className="py-2 px-3">Date</th>
+                      <th className="py-2 px-3">Trainer</th>
+                      <th className="py-2 px-3">Weight</th>
+                      <th className="py-2 px-3">Height</th>
+                      <th className="py-2 px-3">BMI (Est)</th>
+                      <th className="py-2 px-3">Body Fat (Est)</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-border/60">
+                    {profile.body_metrics.map((m) => (
+                      <tr key={m.id || m.recorded_at} className="hover:bg-surface-2/40">
+                        <td className="py-2 px-3 text-text">
+                          {m.recorded_at
+                            ? new Date(m.recorded_at).toLocaleDateString()
+                            : "—"}
+                        </td>
+                        <td className="py-2 px-3 font-medium text-text">
+                          {m.trainer_name || m.recorded_by_name || "Trainer"}
+                        </td>
+                        <td className="py-2 px-3 text-text">
+                          {m.weight_kg ? `${m.weight_kg} kg` : "—"}
+                        </td>
+                        <td className="py-2 px-3 text-text">
+                          {m.height_cm ? `${m.height_cm} cm` : "—"}
+                        </td>
+                        <td className="py-2 px-3 font-semibold text-primary">
+                          {m.estimated_bmi ?? "—"}
+                        </td>
+                        <td className="py-2 px-3 font-semibold text-primary">
+                          {m.estimated_body_fat_percentage
+                            ? `${m.estimated_body_fat_percentage}%`
+                            : "—"}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </Card>
+          )}
+        </div>
+      ) : (
+        <Card className="bg-surface border-border p-6 text-center space-y-2">
           <h3 className="text-sm font-semibold uppercase tracking-wider text-text-muted">
             Body Composition & Estimates
           </h3>
-          <span className="text-xs text-text-muted">
-            * All calculated values are labeled estimates
-          </span>
-        </div>
-
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-          <Card className="bg-surface border-border p-4 text-center space-y-1">
-            <span className="text-xs text-text-muted block">Weight</span>
-            <span className="text-xl font-extrabold text-text">
-              {latest?.weight_kg ? `${latest.weight_kg} kg` : "—"}
-            </span>
-          </Card>
-
-          <Card className="bg-surface border-border p-4 text-center space-y-1">
-            <span className="text-xs text-text-muted block">Height</span>
-            <span className="text-xl font-extrabold text-text">
-              {latest?.height_cm ? `${latest.height_cm} cm` : "—"}
-            </span>
-          </Card>
-
-          <Card className="bg-surface border-border p-4 text-center space-y-1">
-            <span className="text-xs text-text-muted block">BMI (Est)</span>
-            <span className="text-xl font-extrabold text-primary">
-              {latest?.estimated_bmi !== null &&
-              latest?.estimated_bmi !== undefined
-                ? latest.estimated_bmi
-                : "—"}
-            </span>
-            <span className="text-[10px] text-text-muted block">Estimate</span>
-          </Card>
-
-          <Card className="bg-surface border-border p-4 text-center space-y-1">
-            <span className="text-xs text-text-muted block">
-              Body Fat (Est)
-            </span>
-            <span className="text-xl font-extrabold text-primary">
-              {latest?.estimated_body_fat_percentage !== null &&
-              latest?.estimated_body_fat_percentage !== undefined
-                ? `${latest.estimated_body_fat_percentage}%`
-                : "—"}
-            </span>
-            <span className="text-[10px] text-text-muted block">
-              US Navy Method
-            </span>
-          </Card>
-        </div>
-      </div>
-
-      {/* Record New Measurements */}
-      <Card className="bg-surface border-border p-6 space-y-4">
-        <div className="border-b border-border pb-2">
-          <h3 className="text-base font-bold text-text">
-            Log New Measurements
-          </h3>
-          <p className="text-xs text-text-muted">
-            Update your body composition to track your fitness progress over
-            time.
+          <p className="text-sm text-text-muted">
+            Not measured yet. A trainer records measurements.
           </p>
-        </div>
-
-        {metricsSuccess && <Alert variant="success">{metricsSuccess}</Alert>}
-        {metricsError && <Alert variant="error">{metricsError}</Alert>}
-
-        <form onSubmit={handleRecordMetrics} className="space-y-4">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-xs font-medium text-text mb-1">
-                Weight (kg)
-              </label>
-              <Input
-                type="number"
-                step="0.1"
-                placeholder="e.g. 74.5"
-                value={weightKg}
-                onChange={(e) => setWeightKg(e.target.value)}
-                className="min-h-[44px]"
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-text mb-1">
-                Height (cm)
-              </label>
-              <Input
-                type="number"
-                step="0.1"
-                placeholder="e.g. 180.0"
-                value={heightCm}
-                onChange={(e) => setHeightCm(e.target.value)}
-                className="min-h-[44px]"
-              />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <div>
-              <label className="block text-xs font-medium text-text mb-1">
-                Neck Circumference (cm)
-              </label>
-              <Input
-                type="number"
-                step="0.1"
-                placeholder="e.g. 39.5"
-                value={neckCm}
-                onChange={(e) => setNeckCm(e.target.value)}
-                className="min-h-[44px]"
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-text mb-1">
-                Waist Circumference (cm)
-              </label>
-              <Input
-                type="number"
-                step="0.1"
-                placeholder="e.g. 84.0"
-                value={waistCm}
-                onChange={(e) => setWaistCm(e.target.value)}
-                className="min-h-[44px]"
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-text mb-1">
-                Hip Circumference (cm)
-              </label>
-              <Input
-                type="number"
-                step="0.1"
-                placeholder="e.g. 96.0"
-                value={hipCm}
-                onChange={(e) => setHipCm(e.target.value)}
-                className="min-h-[44px]"
-              />
-            </div>
-          </div>
-
-          <div className="flex justify-end pt-2">
-            <Button
-              type="submit"
-              disabled={
-                submitting ||
-                (!weightKg && !heightCm && !neckCm && !waistCm && !hipCm)
-              }
-              className="min-h-[44px]"
-            >
-              {submitting ? "Saving..." : "Record Measurements"}
-            </Button>
-          </div>
-        </form>
-      </Card>
+        </Card>
+      )}
     </div>
   );
 };

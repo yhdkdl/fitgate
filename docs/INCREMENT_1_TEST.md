@@ -213,7 +213,7 @@ As documented in `docs/MANUAL_STEPS.md`, external production credentials were sy
      - BMI is displayed as labeled estimate: `24.7` (Normal weight, computed as `80 / (1.80^2)`).
      - Body Fat Percentage is displayed as labeled estimate via US Navy circumference formula: `15.3%` (computed as `495 / (1.0324 - 0.19077*log10(84-38) + 0.15456*log10(180)) - 450 = 15.3%`).
 3. **Public Self-Service Registration**:
-   - In an incognito window, navigate to `http://boleelite.localhost:5173/register`.
+   - In an incognito window, navigate to `http://mt-fitness.localhost:5173/register`.
    - Enter details:
      - Full Name: `Almaz Ayana`
      - Email: `almaz@example.com`

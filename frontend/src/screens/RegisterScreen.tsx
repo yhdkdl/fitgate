@@ -27,13 +27,6 @@ export const RegisterScreen: React.FC = () => {
   const [waiverAccepted, setWaiverAccepted] = useState(false);
 
   // Optional initial body metrics
-  const [showMetrics, setShowMetrics] = useState(false);
-  const [weightKg, setWeightKg] = useState("");
-  const [heightCm, setHeightCm] = useState("");
-  const [neckCm, setNeckCm] = useState("");
-  const [waistCm, setWaistCm] = useState("");
-  const [hipCm, setHipCm] = useState("");
-
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string[]>>({});
@@ -69,17 +62,6 @@ export const RegisterScreen: React.FC = () => {
         emergency_contact: emergencyContact.trim(),
         referral_source: referralSource.trim(),
       };
-
-      if (weightKg) payload.weight_kg = parseFloat(weightKg);
-      if (heightCm) payload.height_cm = parseFloat(heightCm);
-
-      const measurements: Record<string, number> = {};
-      if (neckCm) measurements.neck_cm = parseFloat(neckCm);
-      if (waistCm) measurements.waist_cm = parseFloat(waistCm);
-      if (hipCm) measurements.hip_cm = parseFloat(hipCm);
-      if (Object.keys(measurements).length > 0) {
-        payload.measurements = measurements;
-      }
 
       await registerMemberSelfService(payload);
       setSubmittedEmail(email.trim());
@@ -382,99 +364,6 @@ export const RegisterScreen: React.FC = () => {
               </div>
             </div>
 
-            {/* Optional Body Composition Section */}
-            <div className="border-t border-border pt-4">
-              <button
-                type="button"
-                onClick={() => setShowMetrics((prev) => !prev)}
-                className="text-xs font-semibold uppercase tracking-wider text-primary hover:underline flex items-center gap-1.5 py-1 min-h-[44px]"
-              >
-                <span>
-                  {showMetrics ? "▼ Hide" : "▶ Add"} Body Composition Metrics
-                  (Optional)
-                </span>
-              </button>
-
-              {showMetrics && (
-                <div className="mt-3 p-4 bg-surface-2/50 border border-border/80 rounded-lg space-y-3">
-                  <p className="text-xs text-text-muted">
-                    We use your height and weight to estimate BMI, and
-                    circumferences for the US Navy body-fat calculation.
-                  </p>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <div>
-                      <label className="block text-xs font-medium text-text mb-1">
-                        Weight (kg)
-                      </label>
-                      <Input
-                        type="number"
-                        step="0.1"
-                        value={weightKg}
-                        onChange={(e) => setWeightKg(e.target.value)}
-                        placeholder="e.g. 75.0"
-                        className="min-h-[44px]"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-medium text-text mb-1">
-                        Height (cm)
-                      </label>
-                      <Input
-                        type="number"
-                        step="0.1"
-                        value={heightCm}
-                        onChange={(e) => setHeightCm(e.target.value)}
-                        placeholder="e.g. 180.0"
-                        className="min-h-[44px]"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1">
-                    <div>
-                      <label className="block text-xs font-medium text-text mb-1">
-                        Neck (cm)
-                      </label>
-                      <Input
-                        type="number"
-                        step="0.1"
-                        value={neckCm}
-                        onChange={(e) => setNeckCm(e.target.value)}
-                        placeholder="e.g. 40.0"
-                        className="min-h-[44px]"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-medium text-text mb-1">
-                        Waist (cm)
-                      </label>
-                      <Input
-                        type="number"
-                        step="0.1"
-                        value={waistCm}
-                        onChange={(e) => setWaistCm(e.target.value)}
-                        placeholder="e.g. 85.0"
-                        className="min-h-[44px]"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-medium text-text mb-1">
-                        Hip (cm - female)
-                      </label>
-                      <Input
-                        type="number"
-                        step="0.1"
-                        value={hipCm}
-                        onChange={(e) => setHipCm(e.target.value)}
-                        placeholder="e.g. 95.0"
-                        className="min-h-[44px]"
-                      />
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
 
             {/* Mandatory Health Waiver Checkbox */}
             <div className="bg-surface-2/40 border border-border p-4 rounded-lg space-y-2">

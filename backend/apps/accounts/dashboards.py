@@ -71,8 +71,11 @@ def dashboard_config_for(user: User) -> dict:
                 {"id": "assigned_clients", "title": "Assigned Clients"},
                 {"id": "pending_plans", "title": "Pending Plan Reviews"},
                 {"id": "today_schedule", "title": "Today's Schedule"},
+                {"id": "member_measurements", "title": "Member Measurements"},
             ],
             "navigation": [
+                {"label": "Overview", "path": "/dashboard"},
+                {"label": "Member measurements", "path": "/measurements"},
                 {"label": "Clients", "path": "/clients"},
                 {"label": "Training Plans", "path": "/plans"},
                 {"label": "Availability", "path": "/availability"},

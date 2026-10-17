@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import * as membersApi from "../api/members";
 import { MemberManagementSection } from "../components/dashboard/MemberManagementSection";
 import { MemberSelfSection } from "../components/dashboard/MemberSelfSection";
+import { TrainerMeasurementsSection } from "../components/trainer/TrainerMeasurementsSection";
 import { RegisterScreen } from "../screens/RegisterScreen";
 import { VerifyEmailScreen } from "../screens/VerifyEmailScreen";
 
@@ -230,12 +231,12 @@ describe("Sprint 7: Member Registration & Body Metrics UI", () => {
       },
     ];
 
-    it("renders member directory with computed BMI and Body Fat estimates", async () => {
+    it("renders member directory with computed BMI and Body Fat estimates for owner", async () => {
       vi.spyOn(membersApi, "listGymMembers").mockResolvedValueOnce(mockMembers);
 
       render(
         <MemoryRouter>
-          <MemberManagementSection userRole="reception" />
+          <MemberManagementSection userRole="owner" />
         </MemoryRouter>
       );
 
@@ -246,7 +247,21 @@ describe("Sprint 7: Member Registration & Body Metrics UI", () => {
       expect(screen.getByText("13.5%")).toBeInTheDocument();
     });
 
-    it("opens staff registration modal and registers a member", async () => {
+    it("hides BMI and Body Fat columns from reception in member directory", async () => {
+      vi.spyOn(membersApi, "listGymMembers").mockResolvedValueOnce(mockMembers);
+
+      render(
+        <MemoryRouter>
+          <MemberManagementSection userRole="reception" />
+        </MemoryRouter>
+      );
+
+      expect(await screen.findByText("Haile Gebrselassie")).toBeInTheDocument();
+      expect(screen.queryByText("Latest BMI")).not.toBeInTheDocument();
+      expect(screen.queryByText("Est. Body Fat")).not.toBeInTheDocument();
+    });
+
+    it("opens staff registration modal and registers a member without measurement fields", async () => {
       vi.spyOn(membersApi, "listGymMembers").mockResolvedValueOnce(mockMembers);
       const mockRegister = vi
         .spyOn(membersApi, "registerMemberStaffAssisted")
@@ -285,6 +300,10 @@ describe("Sprint 7: Member Registration & Body Metrics UI", () => {
         screen.getByRole("heading", { name: /register new member/i })
       ).toBeInTheDocument();
 
+      // Ensure no weight or height inputs exist on staff registration modal
+      expect(screen.queryByPlaceholderText(/weight \(kg\)/i)).not.toBeInTheDocument();
+      expect(screen.queryByPlaceholderText(/height \(cm\)/i)).not.toBeInTheDocument();
+
       fireEvent.change(screen.getByPlaceholderText(/e\.g\. Kenenisa Bekele/i), {
         target: { value: "Derartu Tulu" },
       });
@@ -314,7 +333,7 @@ describe("Sprint 7: Member Registration & Body Metrics UI", () => {
       expect(onReg).toHaveBeenCalled();
     });
 
-    it("opens member detail view and records new measurements", async () => {
+    it("opens member detail view for owner with view-only estimates and no edit form", async () => {
       vi.spyOn(membersApi, "listGymMembers").mockResolvedValueOnce(mockMembers);
       vi.spyOn(membersApi, "getGymMemberDetail").mockResolvedValueOnce({
         ...mockMembers[0],
@@ -325,20 +344,13 @@ describe("Sprint 7: Member Registration & Body Metrics UI", () => {
           estimated_body_fat_percentage: 13.5,
           bmi_label: "estimate",
           body_fat_label: "estimate",
+          trainer_name: "Coach Sileshi",
         },
       });
 
-      const mockRecord = vi
-        .spyOn(membersApi, "recordMemberMetrics")
-        .mockResolvedValueOnce({
-          weight_kg: 67.5,
-          height_cm: 165.0,
-          estimated_bmi: 24.8,
-        });
-
       render(
         <MemoryRouter>
-          <MemberManagementSection userRole="reception" />
+          <MemberManagementSection userRole="owner" />
         </MemoryRouter>
       );
 
@@ -352,27 +364,135 @@ describe("Sprint 7: Member Registration & Body Metrics UI", () => {
           name: /current body composition estimates/i,
         })
       ).toBeInTheDocument();
+      expect(screen.getByText(/Coach Sileshi/i)).toBeInTheDocument();
 
-      // Submit new weight measurement
-      fireEvent.change(screen.getByPlaceholderText(/weight \(kg\)/i), {
-        target: { value: "67.5" },
+      // Owner cannot record or edit measurements
+      expect(
+        screen.queryByRole("button", { name: /record measurements/i })
+      ).not.toBeInTheDocument();
+    });
+
+    it("does not display body composition estimates in detail view for reception", async () => {
+      vi.spyOn(membersApi, "listGymMembers").mockResolvedValueOnce(mockMembers);
+      vi.spyOn(membersApi, "getGymMemberDetail").mockResolvedValueOnce({
+        ...mockMembers[0],
+        latest_metrics: null,
       });
-      fireEvent.click(
-        screen.getByRole("button", { name: /record measurements/i })
+
+      render(
+        <MemoryRouter>
+          <MemberManagementSection userRole="reception" />
+        </MemoryRouter>
       );
 
+      await screen.findByText("Haile Gebrselassie");
+
+      // Open detail modal
+      fireEvent.click(screen.getByRole("button", { name: /view details/i }));
+
+      expect(
+        screen.queryByRole("heading", {
+          name: /current body composition estimates/i,
+        })
+      ).not.toBeInTheDocument();
+      expect(
+        screen.queryByText(/not measured yet/i)
+      ).not.toBeInTheDocument();
+    });
+  });
+
+  describe("TrainerMeasurementsSection", () => {
+    const mockTrainerMembers: membersApi.Member[] = [
+      {
+        id: "mem-dawit",
+        email: "dawit@example.com",
+        full_name: "Dawit Wolde",
+        phone: "+251911445566",
+        status: "active",
+        joined_at: new Date().toISOString(),
+        waiver_accepted_at: new Date().toISOString(),
+      },
+    ];
+
+    it("allows trainer to search member, view status, and record new measurements", async () => {
+      vi.spyOn(membersApi, "listGymMembers").mockResolvedValue(mockTrainerMembers);
+      vi.spyOn(membersApi, "getMemberMetrics")
+        .mockResolvedValueOnce([]) // Initially not measured
+        .mockResolvedValueOnce([
+          {
+            id: "metric-1",
+            weight_kg: 80.0,
+            height_cm: 180.0,
+            measurements: { waist_cm: 84.0, neck_cm: 38.0 },
+            recorded_at: new Date().toISOString(),
+            trainer_name: "Trainer Solomon",
+            estimated_bmi: 24.7,
+            estimated_body_fat_percentage: 15.3,
+            bmi_label: "estimate",
+            body_fat_label: "estimate",
+          },
+        ]);
+
+      const mockRecord = vi
+        .spyOn(membersApi, "recordMemberMetrics")
+        .mockResolvedValueOnce({
+          weight_kg: 80.0,
+          height_cm: 180.0,
+          estimated_bmi: 24.7,
+          estimated_body_fat_percentage: 15.3,
+        });
+
+      render(
+        <MemoryRouter>
+          <TrainerMeasurementsSection />
+        </MemoryRouter>
+      );
+
+      // Select member
+      expect(await screen.findByText("Dawit Wolde")).toBeInTheDocument();
+      fireEvent.click(screen.getByText("Dawit Wolde"));
+
+      // Shows not measured yet
+      expect(
+        await screen.findByText("Not measured yet. A trainer records measurements.")
+      ).toBeInTheDocument();
+
+      // Fill in measurements
+      fireEvent.change(screen.getByPlaceholderText(/e\.g\. 75\.0/i), {
+        target: { value: "80.0" },
+      });
+      fireEvent.change(screen.getByPlaceholderText(/e\.g\. 180\.0/i), {
+        target: { value: "180.0" },
+      });
+      fireEvent.change(screen.getByPlaceholderText(/e\.g\. 84\.0/i), {
+        target: { value: "84.0" },
+      });
+      fireEvent.change(screen.getByPlaceholderText(/e\.g\. 38\.0/i), {
+        target: { value: "38.0" },
+      });
+
+      // Submit recording
+      fireEvent.click(screen.getByRole("button", { name: /record measurements/i }));
+
       await waitFor(() => {
-        expect(mockRecord).toHaveBeenCalledWith("mem-1", {
-          weight_kg: 67.5,
-          height_cm: null,
-          measurements: undefined,
+        expect(mockRecord).toHaveBeenCalledWith("mem-dawit", {
+          weight_kg: 80.0,
+          height_cm: 180.0,
+          waist_cm: 84.0,
+          neck_cm: 38.0,
+          hip_cm: undefined,
+          measurements: { waist_cm: 84.0, neck_cm: 38.0 },
         });
       });
+
+      expect(
+        await screen.findByText(/body measurements successfully recorded/i)
+      ).toBeInTheDocument();
     });
   });
 
   describe("MemberSelfSection", () => {
-    it("displays member profile with labeled BMI and body fat estimates", async () => {
+    it("displays member profile with labeled BMI and body fat estimates and no edit form", async () => {
       vi.spyOn(membersApi, "getMemberProfileMe").mockResolvedValueOnce({
         id: "mem-me",
         email: "self@example.com",
@@ -388,6 +508,7 @@ describe("Sprint 7: Member Registration & Body Metrics UI", () => {
           estimated_body_fat_percentage: 14.5,
           bmi_label: "estimate",
           body_fat_label: "estimate",
+          trainer_name: "Coach Solomon",
         },
       });
 
@@ -404,6 +525,41 @@ describe("Sprint 7: Member Registration & Body Metrics UI", () => {
       expect(screen.getByText("180 cm")).toBeInTheDocument();
       expect(screen.getByText("23.1")).toBeInTheDocument();
       expect(screen.getByText("14.5%")).toBeInTheDocument();
+      expect(screen.getByText(/Coach Solomon/i)).toBeInTheDocument();
+
+      // Member cannot edit or enter measurements
+      expect(
+        screen.queryByRole("button", { name: /record measurements/i })
+      ).not.toBeInTheDocument();
+      expect(
+        screen.queryByPlaceholderText(/weight \(kg\)/i)
+      ).not.toBeInTheDocument();
+    });
+
+    it("displays 'Not measured yet. A trainer records measurements.' when member has no metrics", async () => {
+      vi.spyOn(membersApi, "getMemberProfileMe").mockResolvedValueOnce({
+        id: "mem-me",
+        email: "self@example.com",
+        full_name: "New Member",
+        phone: "+251933333333",
+        status: "active",
+        joined_at: new Date().toISOString(),
+        waiver_accepted_at: new Date().toISOString(),
+        latest_metrics: null,
+      });
+
+      render(
+        <MemoryRouter>
+          <MemberSelfSection />
+        </MemoryRouter>
+      );
+
+      expect(
+        await screen.findByText("Not measured yet. A trainer records measurements.")
+      ).toBeInTheDocument();
+      expect(
+        screen.queryByRole("button", { name: /record measurements/i })
+      ).not.toBeInTheDocument();
     });
   });
 });

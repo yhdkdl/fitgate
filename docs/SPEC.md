@@ -14,12 +14,12 @@ FitGate is a multi-tenant gym management platform for the Ethiopian market (deve
 
 ## 2. Actors / Roles and Account Provisioning
 
-- **Super Admin** — platform-level, not tied to a gym (`gym_id` is null). Creates gyms, records subscription payments, suspends/reinstates gyms, sets tiers and feature flags, enables/disables roles per gym, handles demo requests, views platform-wide analytics, posts platform notices.
-- **Owner** — one per gym tenant, created by Super Admin when the gym is created. Full control of their gym's operations and settings (not its entitlements).
-- **Manager** — staff role, scoped permission subset of Owner (see the matrix below).
-- **Trainer** — manages assigned members, reviews/approves AI-generated training plans, publishes availability, messages clients.
-- **Reception** — front-desk role: check-in assistance (including manual override), manual cash payment recording, member registration assistance.
-- **Member** — end user of a specific gym; registers, checks in via QR, views their subscription/plan, messages their trainer.
+- **Super Admin** — platform-level, not tied to a gym (`gym_id` is null). Creates gyms, records subscription payments, suspends/reinstates gyms, sets tiers and feature flags, enables/disables roles per gym, handles demo requests, views platform-wide analytics, posts platform notices. Sees no member body measurements.
+- **Owner** — one per gym tenant, created by Super Admin when the gym is created. Full control of their gym's operations and settings (not its entitlements). Can view member measurements and history, but cannot enter or edit them.
+- **Manager** — staff role, scoped permission subset of Owner (see the matrix below). Can view member measurements and history, but cannot enter or edit them.
+- **Trainer** — records body measurements for gym members, manages assigned members, reviews/approves AI-generated training plans, publishes availability, messages clients.
+- **Reception** — front-desk role: check-in assistance (including manual override), manual cash payment recording, member registration assistance. Sees no measurements anywhere and cannot enter any.
+- **Member** — end user of a specific gym; registers (without entering measurements), checks in via QR, views their subscription/plan, views their own trainer-recorded measurements and history (cannot enter or edit), messages their trainer.
 
 **Provisioning chain** (no single open signup for every role):
 
@@ -121,8 +121,8 @@ Grouped as in the source document's §3.2.1.
 
 **Member management**
 
-- Reception/Manager register members capturing full name, date of birth, phone, gender, emergency contact, optional referral source, profile photo, body metrics, and acceptance of the health waiver (required). Members can also self-register through the gym's subdomain, then choose a plan and pay.
-- Members update body metrics over time with full history. A progress view charts the history. **Body composition estimation:** BMI is computed from the latest height and weight; an estimated body-fat percentage (US Navy circumference method) is shown when the needed measurements exist. Both are labeled estimates.
+- Reception/Manager register members capturing full name, date of birth, phone, gender, emergency contact, optional referral source, profile photo, and acceptance of the health waiver (required); registration captures no body measurements. Members can also self-register through the gym's subdomain, then choose a plan and pay.
+- Body measurements (weight, height, waist, neck, hip, and any other body measurement) are taken and recorded ONLY by Trainers, because they have the professional ability to measure accurately. Reception, Owner, Manager, Super Admin, and Members never enter measurements. Members and gym owners/managers can view measurement history, but cannot enter or edit measurements. **Body composition estimation:** After a Trainer records them, the member's profile shows BMI and estimated body fat (US Navy circumference method) as labeled estimates. Before that, it displays "Not measured yet. A trainer records measurements."
 - Member status: active, expired, frozen, suspended. Referral source data appears in owner analytics.
 
 **Membership plans**
@@ -152,6 +152,7 @@ Grouped as in the source document's §3.2.1.
 **Trainer management**
 
 - Trainer profile: name, specialization, configurable maximum client capacity.
+- **Member body measurements:** Trainers record body measurements (weight kg and height cm required; waist, neck and hip cm optional) for gym members. Every recording is audit-logged with the trainer as actor. Until Sprint 17, any trainer of the gym can record for any member of that gym.
 - Automatic assignment on trainer-inclusive activation: lowest current client count among trainers below capacity; ties go to the least recently assigned. If all trainers are at capacity, nothing is assigned and Owner/Manager are notified.
 - Owner/Manager can reassign at any time (audit-logged; manual reassignment may exceed capacity after explicit confirmation). The trainer and the member are notified of a new or changed assignment. A trainer's client list shows only their assigned members.
 - Trainers set and update weekly availability.
@@ -238,7 +239,7 @@ Each entry: goal — key business rule(s).
 
 **Members & attendance**
 
-- Register member (FG-UC-01) — self-registration vs staff-assisted share the same `Member` + `BodyMetrics` creation; waiver required; both end in plan selection and payment; QR issued on activation.
+- Register member (FG-UC-01) — self-registration vs staff-assisted share the same `Member` creation (no body measurements captured during registration); waiver required; both end in plan selection and payment; QR issued on activation.
 - QR check-in (FG-UC-02) — token validated for expiry, gym and status; duplicate and expired scans denied with staff notified; frozen/suspended shown distinctly; manual override for Reception.
 
 **Membership & payment**
@@ -252,6 +253,7 @@ Each entry: goal — key business rule(s).
 
 **Trainer module**
 
+- Record body measurements — Trainer records height, weight, waist, neck, hip for gym members; audit-logged.
 - Assign trainer (FG-UC-05) — automatic (load-balance + least-recently-assigned) or manual; capacity-exhausted notifies Owner/Manager.
 - Trainer availability; trainer↔member messaging.
 
@@ -408,5 +410,6 @@ All tables carry `id` (uuid, PK) unless noted. Every gym-scoped table carries `g
 | Multi-branch management                                                                                                                                                                               | Added (Pro tier)                                                                                        | Owner decision; not in the source                                                                                              |
 | `has_multi_branch`, `payment_grace_days`, reminder/branding fields, `Branch`, `DemoRequest`, `FreezeRequest`, `Message`, `TrainerAvailability`, `Announcement`, `Expense`, `MemberBadge`, `AuthToken` | Added                                                                                                   | Required by the features above or by source requirements the source's data model omits                                         |
 | Manual check-in override Reception only (§2)                                                                                                                                                          | Owner and Manager may also use manual check-in override (SPEC §2 names Reception); accepted by owner    | Operational flexibility; accepted by owner                                                                                     |
+| Registration captures body metrics; member updates metrics (§3.2.1)                                                                                                                                   | Body measurements recorded by Trainers only; registration captures none. Owner decision                 | Trainers have professional competence to measure accurately; reception/owners/members do not enter measurements.               |
 
 - Name and phone for every role live on User so profile editing is one code path; the Member table does not duplicate full_name/phone (the Member sprint reads them from User); Trainer specialization and the profile photo are delivered in the sprints that create the Trainer model and the Cloudinary storage layer.

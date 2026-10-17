@@ -104,6 +104,15 @@ export const App: React.FC = () => {
           }
         />
 
+        <Route
+          path="/measurements/*"
+          element={
+            <ProtectedRoute allowedRoles={["trainer"]}>
+              <DashboardScreen />
+            </ProtectedRoute>
+          }
+        />
+
         {/* Default fallback */}
         <Route path="*" element={<Navigate to="/dashboard" replace />} />
       </Routes>
