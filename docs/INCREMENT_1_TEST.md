@@ -60,6 +60,34 @@ As documented in `docs/MANUAL_STEPS.md`, external production credentials were sy
 
 ---
 
+## Test Scenario 0: The Public Platform Landing Page (Apex)
+
+1. Open your browser and navigate to the platform apex: `http://localhost:5173` (no login required).
+2. **Expected Result**: The public FitGate landing page displays in dark theme:
+   - **Header**: Shows FitGate logo, navigation links ("Features", "Pricing", "How It Works", "Find My Gym"), and a prominent **Request a Demo** button.
+   - **Hero Section**: Introduces FitGate with core features: membership management, automated QR check-in, attendance tracking, professional trainer tools, AI personal training workout plans, payment processing, and multi-branch gym networks.
+   - **Tier Pricing Section**: Displays the three subscription tiers with transparent yearly pricing:
+     - **Starter**: `12,000 ETB / year` (Single branch, 1 manager, 1 reception, 2 trainers, 300 active members, QR check-in, manual cash payments).
+     - **Growth**: `30,000 ETB / year` (Up to 3 branches, 3 managers, unlimited trainers & reception, 1,000 members per branch, Chapa online payments, member freeze requests, custom branding).
+     - **Enterprise**: `60,000 ETB / year` (Unlimited branches, staff & members, cross-branch roaming, AI personal training plan intake, priority security audit & reporting).
+   - **How It Works Section**:
+     1. _Request a Demo_: Submit gym details and requirements.
+     2. _We Set Up Your Gym_: Platform provisions your dedicated tenant environment after payment confirmation.
+     3. _Your Gym Gets Its Own Address_: Staff and members access your unique branded address with zero installation.
+   - **"Go to My Gym" Box**: Allows members and staff to enter their gym's subdomain.
+3. Test the **"Go to My Gym"** box:
+   - Type an invalid subdomain (e.g. spaces or symbols like `my gym!`) and click **Go to Gym**.
+   - **Expected Result**: A clear message appears: _"Please enter a valid gym subdomain (letters, numbers, and hyphens only)."_
+   - Type a valid gym subdomain, e.g. `bolehub`, and click **Go to Gym**.
+   - **Expected Result**: Browser redirects to `http://bolehub.localhost:5173/` showing FitGate Bole Hub's public entry page.
+4. Return to `http://localhost:5173` and click **Request a Demo**:
+   - **Expected Result**: Navigates to `/request-demo`. Fill in the form and submit. The confirmation card displays thanking the applicant.
+5. Resize browser to phone width (320px):
+   - **Expected Result**: Layout adapts responsively into a single-column layout, text remains legible without horizontal scroll, buttons and inputs maintain 44px touch targets, and keyboard Tab navigation cycles through all interactive controls.
+6. Footer contains a small **Platform sign in** link that directs to `/login` for Super Admin access.
+
+---
+
 ## Test Scenario 1: Super Admin Authentication & Forced Password Change (Apex)
 
 1. Open your browser and navigate to `http://localhost:5173/login`.

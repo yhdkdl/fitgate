@@ -23,7 +23,7 @@
 
 ## Current
 
-- None (Sprint 7b complete; awaiting owner instruction for Increment 2 preflight)
+- Sprint 4d: Public platform landing page (non-GATE, built out of order by owner decision, before Increment 2).
 
 ## Next
 
