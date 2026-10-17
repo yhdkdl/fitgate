@@ -71,8 +71,19 @@ def notify_staff_duplicate_scan(
     """
     Notify gym staff (Owner, Manager, Reception) of duplicate check-in attempt.
 
-    Creates in-app Notification records for active staff members.
+    Merges repeated attempts: if staff have already been notified for this member today,
+    does not create additional notifications.
     """
+    prefix = f"Duplicate check-in attempted today ({checkin_date}) by member {member.full_name}"
+    already_notified = Notification.objects.filter(
+        gym=gym,
+        type="duplicate_checkin_alert",
+        created_at__date=checkin_date,
+        message__startswith=prefix,
+    ).exists()
+    if already_notified:
+        return
+
     staff_users = User.objects.filter(
         gym=gym,
         is_active=True,

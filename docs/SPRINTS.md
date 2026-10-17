@@ -216,6 +216,26 @@ Trainer specialization and photo are delivered in the Trainer and storage sprint
 
     - [x] Status: done — merged to develop (`fdc63bc`, tag sprint-8b-done)
 
+8c. **Entrance scanner page and live check-in list** (builds on Sprint 8b)
+
+1. Reception, Owner and Manager can open "Entrance scanner" from their dashboard. It opens a full-screen page for a tablet with only the camera view and one line of instructions (gym name and logo on top).
+2. A member holds the QR code on their phone up to the tablet's camera and is checked in without staff touching anything.
+3. On success a large green screen shows the member's name, photo and check-in time for about 3 seconds, then returns to scanning.
+4. When a member cannot enter, a large red or amber screen says why in plain words with an icon and what to do: membership expired, frozen, suspended, already checked in today (amber), code expired (refresh your pass), code already used (refresh your pass).
+5. The tablet screen never shows phone number, email or any other personal data beyond name and photo.
+6. A code held in view is not read again and again (the 3-second pause from Sprint 8b).
+7. The camera can be switched front/back and the choice is remembered on that device. A small "Enter code manually" link keeps the paste field. Clear messages for camera permission denied, no camera, camera in use, and page not secure (not HTTPS and not localhost).
+8. The screen stays awake while scanning (use the Screen Wake Lock when the browser has it). The camera turns off when staff leave the page or the tab is hidden.
+9. If the staff session expires, the page says "Staff must sign in again" instead of failing silently. Otherwise it keeps working all day (the normal session refresh keeps running).
+10. It works at 320px and at tablet sizes, with large text, 44px buttons, and no meaning carried by color alone (text and icon on every result), per docs/DESIGN.md.
+11. No camera image or video leaves the device.
+12. Reception, Owner and Manager see a "Today's check-ins" list on their dashboard: each entry shows photo, name, time and whether it was a scan or a manual override, newest first, with today's count.
+13. When someone scans at the entrance tablet, their entry appears on that list within about 5 seconds without refreshing the page (the page checks for new entries about every 5 seconds; no websockets, because the hosting has no permanent worker process).
+14. Trainers, Members and other gyms cannot see this list.
+15. Repeated scans by the same member on the same day send staff ONE notification, not many.
+
+- [~] Status: in progress
+
 9. **Audit log foundation** — `AuditLog` model + logging utility wired into 1–8; database triggers for immutability (BEFORE UPDATE, DELETE, TRUNCATE raise exception).
 
 - _Note (Sprint 8 Gate decision):_ extend the existing AuditLog model with a NEW migration (never edit 0005) that adds the triggers; do NOT create a second model or recreate the table.
@@ -479,6 +499,8 @@ _Not in the original source document — added by direct decision with the proje
 
 ## Known follow-ups (not scheduled)
 
+- Dedicated scanner device account instead of a staff login on the entrance tablet.
+- Rejected scans are shown only on the tablet, not on the reception list.
 - User.bulk_create skips email normalization (no current caller; any future bulk user import must normalize emails).
 - The tenant check in the JWT authentication reads token claims, not the database user.
 - Dead code in accounts/tokens.py (claims set on a throwaway access_token object).

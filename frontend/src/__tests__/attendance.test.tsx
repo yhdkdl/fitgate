@@ -2,7 +2,7 @@ import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import * as attendanceApi from "../api/attendance";
-import { listGymMembers } from "../api/members";
+import { listGymMembers, type Member } from "../api/members";
 import { MemberQrCard } from "../components/attendance/MemberQrCard";
 import { AttendanceScannerSection } from "../components/attendance/AttendanceScannerSection";
 import { AttendanceLogCard } from "../components/attendance/AttendanceLogCard";
@@ -18,6 +18,7 @@ vi.mock("../api/attendance", () => ({
   manualAttendanceOverride: vi.fn(),
   getAttendanceLog: vi.fn(),
   getAttendancePublicKey: vi.fn(),
+  getTodayCheckins: vi.fn().mockResolvedValue({ total_count: 0, results: [] }),
 }));
 
 describe("Sprint 8: QR Check-in & Attendance Components", () => {

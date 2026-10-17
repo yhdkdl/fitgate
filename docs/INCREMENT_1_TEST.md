@@ -264,60 +264,53 @@ As documented in `docs/MANUAL_STEPS.md`, external production credentials were sy
 docker compose exec backend python manage.py shell -c "from apps.memberships.models import Member, MemberSubscription; from django.utils import timezone; from datetime import timedelta; member = Member.all_objects.get(user__email='dawit@example.com'); MemberSubscription.all_objects.create(gym=member.gym, member=member, status='active', start_date=timezone.localdate(), end_date=timezone.localdate()+timedelta(days=30))"
 ```
 
-1. **Member QR Pass Issuance & Copying Code**:
+1. **Member QR Pass Issuance**:
    - Activate Dawit's account using the email link from backend logs, setting password to `MemberPassword2026!`.
    - Log in as Dawit at `http://boleelite.localhost:5173/login`.
    - The member dashboard displays the **Check-in QR Pass** card.
-   - **On-Screen Display**:
-     - High-contrast QR code is rendered with member title `Check-in QR Pass` and badge `ACTIVE`.
-     - Live countdown timer displays `Valid for 90s` and dynamically ticks down.
-     - Action buttons: **Refresh** and **Copy code** (both conforming to 44px min touch target).
-   - Click the **Copy code** button. The button briefly transitions to `Copied!` with a green checkmark and copies the asymmetric RS256 token string directly to your clipboard for easy terminal entry.
+   - High-contrast QR code is rendered with member title `Check-in QR Pass`, `ACTIVE` badge, live countdown timer `Valid for 90s`, and **Copy code** button.
 
-2. **Reception / Scanner Terminal Check-in**:
-   - Log in as Reception (`reception@boleelite.com`) or Owner at `http://boleelite.localhost:5173/dashboard`.
-   - Scroll to the **Front Desk Attendance Scanner** section.
-   - Paste the copied QR token into the input box labeled `Scan QR token or paste token JWT...`.
-   - Click **Verify & Check In** (or press Enter).
-   - **On-Screen Display (Success Card)**:
-     - An emerald-green confirmation banner appears (`border-emerald-500/30 bg-emerald-500/10`).
-     - Member avatar/photo displays with full name **Dawit Kebede** and badge `ACTIVE`.
-     - Check-in details: `Checked in at HH:MM:SS • YYYY-MM-DD` alongside green `UserCheck` icon.
-     - A **View History** button is available to inspect the member's attendance calendar.
-     - Database verification: Exactly one `Attendance` row and one `AuditLog` row (`attendance_qr_scan`) created.
+2. **Open Entrance Scanner on Laptop / Tablet**:
+   - In a first browser window, log in as Reception (`reception@boleelite.com`) or Owner at `http://boleelite.localhost:5173/dashboard`.
+   - Click the **Entrance scanner** button in the top navigation or attendance section.
+   - It opens the dedicated full-screen entrance scanner page (`/attendance/scanner`):
+     - Displays gym name and logo at the top with a single instruction line: _"Hold your QR code up to the camera"_.
+     - Camera view starts automatically with front/back camera switch control.
+     - Screen wake lock activates to prevent the tablet from sleeping.
 
-3. **Re-scan of Same Token (Token Replay Prevention)**:
-   - Immediately paste the identical QR token into the scanner input and click **Verify & Check In**.
-   - **On-Screen Display (Error Card)**:
-     - A rose-red rejection banner appears (`border-rose-500/30 bg-rose-500/10`).
-     - Header: `Check-in Rejected (token_consumed)`
-     - Detail message: `This QR token has already been used.`
-     - Rejection indicator: `Token already used. Single-use enforcement active.`
-     - No new attendance record or audit log is created.
+3. **Hands-Free Member QR Check-in**:
+   - Hold Dawit's QR code (from phone or a second screen) in front of the webcam.
+   - **On-Screen Display (Tablet Green Screen)**:
+     - The camera instantly recognizes the QR code.
+     - A large, prominent green screen appears displaying:
+       - Green checkmark icon
+       - Member photo and full name: **Dawit Kebede**
+       - Confirmation text: _"Check-in successful"_ with the exact time.
+     - The green confirmation stays for about 3 seconds, then automatically returns to the live camera view ready for the next member.
+     - Holding the code in view does not scan it repeatedly (enforced 3-second pause).
 
-4. **Scan with Refreshed Token (Duplicate Same-Day Check-in Prevention)**:
-   - On Dawit's member pass, click **Refresh** to generate a new token, then click **Copy code**.
-   - In the scanner terminal, paste the new token and click **Verify & Check In**.
-   - **On-Screen Display (Error Card)**:
-     - A rose-red rejection banner appears with Dawit's `ACTIVE` badge.
-     - Header: `Check-in Rejected (already_checked_in)`
-     - Detail message: `Member Dawit Kebede has already checked in today.`
-     - Warning banner: `Duplicate check-in detected today. Staff have been notified.`
-     - An **Open Manual Override** shortcut button appears.
+4. **Duplicate Scan Handling on Tablet**:
+   - Show Dawit's QR code to the camera a second time on the same day.
+   - **On-Screen Display (Tablet Amber Screen)**:
+     - A large amber warning screen appears displaying:
+       - Warning alert icon
+       - Dawit's name and photo
+       - Plain message: _"Already checked in today"_
+       - Advice: _"You have already checked in for today. Speak with reception if you need assistance."_
+     - Stays for about 3 seconds, then returns to scanning.
+     - Staff receive only ONE notification for duplicate attempts today, not repeated spam.
 
-5. **Manual Check-in Override on Same Member (Refused on Duplicate)**:
-   - In the scanner section, click **Manual Override** (or **Open Manual Override**).
-   - A modal opens titled `Manual Attendance Override`.
-   - In **Member UUID**, enter Dawit's ID.
-   - In **Override Reason (Required)**, enter: _"Forgot phone at home."_
-   - Click **Confirm Override**.
-   - **On-Screen Display (Modal Alert)**:
-     - Inside the modal, an alert banner appears:
-       - Header: `Override Denied (already_checked_in)`
-       - Detail: `Member Dawit Kebede has already checked in today.`
-     - The modal remains open, preventing duplicate override. Click **Cancel** to close.
+5. **Live "Today's Check-ins" List on Staff Dashboard**:
+   - In a second browser window, open the Reception dashboard at `http://boleelite.localhost:5173/dashboard`.
+   - Under **Today's Check-ins**, observe:
+     - Today's total count badge (e.g. `1 Check-in today`).
+     - Dawit's entry appears at the top of the list within about 5 seconds without refreshing the page.
+     - Shows Dawit's photo, name, timestamp, and a `QR Scan` badge.
 
-6. **Manual Check-in Override on Different Member with Active Subscription**:
+6. **Fallback: Manual Code Entry & Manual Override**:
+   - On the entrance scanner tablet or reception dashboard, click **Enter code manually** (or use the paste field).
+   - Pasting a valid code checks the member in immediately with the same result.
+   - For members without a phone, click **Manual Override**, select the member, enter a required reason (e.g., _"Phone broken"_), and click **Confirm Override**. The check-in appears on the live list with an `Override` badge.
    - Provision a subscription for `Almaz Ayana` via Django shell:
      ```bash
      docker compose exec backend python manage.py shell -c "from apps.memberships.models import Member, MemberSubscription; from django.utils import timezone; from datetime import timedelta; member = Member.all_objects.get(user__email='almaz@example.com'); MemberSubscription.all_objects.create(gym=member.gym, member=member, status='active', start_date=timezone.localdate(), end_date=timezone.localdate()+timedelta(days=30))"

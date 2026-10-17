@@ -12,6 +12,7 @@ import {
   X,
   CheckCircle2,
   Camera,
+  Maximize2,
 } from "lucide-react";
 import {
   scanQrToken,
@@ -29,6 +30,7 @@ import { Alert } from "../ui/Alert";
 import { Spinner } from "../ui/Spinner";
 import { AttendanceLogCard } from "./AttendanceLogCard";
 import { CameraQrScanner } from "./CameraQrScanner";
+import { TodayCheckinsList } from "./TodayCheckinsList";
 
 interface AttendanceScannerSectionProps {
   userRole?: string;
@@ -38,6 +40,7 @@ export const AttendanceScannerSection: React.FC<
   AttendanceScannerSectionProps
 > = ({ userRole }) => {
   const [tokenInput, setTokenInput] = useState("");
+  const [todayRefreshKey, setTodayRefreshKey] = useState(0);
   const [scanning, setScanning] = useState(false);
   const [showCameraScanner, setShowCameraScanner] = useState(false);
   const [scanResult, setScanResult] = useState<ScanResultResponse | null>(null);
@@ -135,6 +138,7 @@ export const AttendanceScannerSection: React.FC<
       const result = await scanQrToken({ token: rawToken.trim() });
       setScanResult(result);
       setTokenInput("");
+      setTodayRefreshKey((k) => k + 1);
     } catch (err: unknown) {
       const errorObj = err as {
         data?: {
@@ -186,6 +190,7 @@ export const AttendanceScannerSection: React.FC<
         reason: overrideReason.trim(),
       });
       setOverrideResult(result);
+      setTodayRefreshKey((k) => k + 1);
       setScanResult(null);
       setScanError(null);
       setShowOverrideModal(false);
@@ -283,6 +288,14 @@ export const AttendanceScannerSection: React.FC<
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
+            <a
+              href="/attendance/scanner"
+              className="inline-flex items-center justify-center min-h-[44px] px-3 py-1.5 rounded-input border border-border bg-surface-2 text-text hover:bg-border/60 gap-2 text-xs font-semibold focus:ring-2 focus:ring-primary focus:outline-none transition-colors"
+              aria-label="Open Entrance Scanner tablet page"
+            >
+              <Maximize2 className="w-4 h-4 text-primary" />
+              Entrance Scanner
+            </a>
             <Button
               type="button"
               variant={showCameraScanner ? "primary" : "secondary"}
@@ -475,6 +488,9 @@ export const AttendanceScannerSection: React.FC<
         )}
       </Card>
 
+      {/* Live Today's Check-ins List (Criteria 12-14) */}
+      <TodayCheckinsList refreshTrigger={todayRefreshKey} />
+
       {/* Selected Member Attendance History Modal / Section */}
       {selectedMemberForHistory && (
         <div className="space-y-4">
@@ -628,7 +644,8 @@ export const AttendanceScannerSection: React.FC<
                       !isSearchingMembers &&
                       overrideSearchResults.length === 0 && (
                         <p className="text-xs text-text-muted italic px-1">
-                          No members found matching &quot;{overrideSearch}&quot;.
+                          No members found matching &quot;{overrideSearch}
+                          &quot;.
                         </p>
                       )}
                   </div>

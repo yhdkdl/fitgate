@@ -128,3 +128,25 @@ class AttendanceLogResponseSerializer(serializers.Serializer):
     end_date = serializers.DateField()
     subscription_period = serializers.DictField()
     days = DailyAttendanceItemSerializer(many=True)
+
+
+class AttendanceTodayItemSerializer(serializers.Serializer):
+    """Entry in Today's Check-ins list."""
+
+    id = serializers.UUIDField()
+    member_id = serializers.UUIDField()
+    member_name = serializers.CharField()
+    member_photo_url = serializers.CharField(allow_blank=True)
+    checked_in_at = serializers.DateTimeField()
+    is_override = serializers.BooleanField()
+    override_reason = serializers.CharField(allow_blank=True, required=False)
+    recorded_by_name = serializers.CharField(allow_null=True, required=False)
+
+
+class AttendanceTodayListResponseSerializer(serializers.Serializer):
+    """Response serializer for live Today's Check-ins list."""
+
+    total_count = serializers.IntegerField(
+        help_text="Total number of members checked in today."
+    )
+    results = AttendanceTodayItemSerializer(many=True)

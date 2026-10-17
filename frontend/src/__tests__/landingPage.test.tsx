@@ -1,14 +1,10 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from "vitest";
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { LandingScreen } from "../screens/LandingScreen";
 import { App } from "../App";
 import * as tenantUtils from "../utils/tenant";
-import {
-  PLATFORM_PRICING_TIERS,
-  formatPriceETB,
-} from "../config/platformPricing";
 
 describe("Sprint 4d: Public Platform Landing Page", () => {
   const originalLocation = window.location;
@@ -19,18 +15,25 @@ describe("Sprint 4d: Public Platform Landing Page", () => {
     vi.restoreAllMocks();
 
     // Mock window.location
-    delete (window as unknown as { location: unknown }).location;
-    window.location = {
-      ...originalLocation,
-      hostname: "localhost",
-      port: "5173",
-      protocol: "http:",
-      assign: vi.fn(),
-    } as unknown as Location;
+    Object.defineProperty(window, "location", {
+      value: {
+        ...originalLocation,
+        hostname: "localhost",
+        port: "5173",
+        protocol: "http:",
+        assign: vi.fn(),
+      },
+      writable: true,
+      configurable: true,
+    });
   });
 
   afterEach(() => {
-    window.location = originalLocation;
+    Object.defineProperty(window, "location", {
+      value: originalLocation,
+      writable: true,
+      configurable: true,
+    });
   });
 
   describe("Subdomain and URL Utility Functions", () => {
@@ -46,7 +49,9 @@ describe("Sprint 4d: Public Platform Landing Page", () => {
       expect(tenantUtils.validateSubdomain("Bole Hub").valid).toBe(false);
       expect(tenantUtils.validateSubdomain("gym!").valid).toBe(false);
       expect(tenantUtils.validateSubdomain("-leadinghyphen").valid).toBe(false);
-      expect(tenantUtils.validateSubdomain("trailinghyphen-").valid).toBe(false);
+      expect(tenantUtils.validateSubdomain("trailinghyphen-").valid).toBe(
+        false
+      );
 
       // Reserved subdomains
       expect(tenantUtils.validateSubdomain("api").valid).toBe(false);
@@ -136,9 +141,7 @@ describe("Sprint 4d: Public Platform Landing Page", () => {
       ).toHaveAttribute("href", "#find-gym");
 
       // Document title and SEO description
-      expect(document.title).toBe(
-        "FitGate — All-in-One Gym Operating System"
-      );
+      expect(document.title).toBe("FitGate — All-in-One Gym Operating System");
       const meta = document.querySelector('meta[name="description"]');
       expect(meta?.getAttribute("content")).toContain(
         "all-in-one gym management operating system"
@@ -247,9 +250,7 @@ describe("Sprint 4d: Public Platform Landing Page", () => {
       await user.type(input, "my invalid gym!");
       await user.click(submitButton);
 
-      expect(
-        await screen.findByRole("alert")
-      ).toHaveTextContent(
+      expect(await screen.findByRole("alert")).toHaveTextContent(
         "Please enter a valid gym subdomain (letters, numbers, and hyphens only)."
       );
       expect(window.location.assign).not.toHaveBeenCalled();

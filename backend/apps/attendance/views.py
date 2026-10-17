@@ -5,6 +5,7 @@ import uuid
 from datetime import datetime, timedelta
 
 from django.utils import timezone
+from django.utils.dateparse import parse_datetime
 from drf_spectacular.utils import OpenApiParameter, extend_schema, inline_serializer
 from rest_framework import serializers, status
 from rest_framework.exceptions import NotFound, PermissionDenied
@@ -18,6 +19,7 @@ from apps.accounts.permissions import (
     RequirePasswordChanged,
 )
 from apps.attendance.crypto import QRTokenCryptoError, get_rsa_public_key_pem
+from apps.attendance.models import Attendance
 from apps.attendance.serializers import (
     AttendanceLogResponseSerializer,
     AttendanceManualOverrideRequestSerializer,
@@ -26,6 +28,7 @@ from apps.attendance.serializers import (
     AttendanceScanRequestSerializer,
     AttendanceScanResponseSerializer,
     AttendanceScanResultMemberSerializer,
+    AttendanceTodayListResponseSerializer,
     MemberQrTokenResponseSerializer,
 )
 from apps.attendance.services import (
@@ -401,3 +404,81 @@ class MemberSelfAttendanceLogView(APIView):
         start_date, end_date = _parse_date_range(request)
         log_data = get_member_attendance_log(member, start_date, end_date)
         return Response(log_data, status=status.HTTP_200_OK)
+
+
+class AttendanceTodayListView(APIView):
+    """
+    Live 'Today's Check-ins' list for staff dashboard.
+
+    Returns the newest check-in entries for today (max 50) and the total count.
+    Supports optional ?since=<iso-datetime> query parameter.
+    Available strictly to Owner, Manager, and Reception on the active tenant.
+    """
+
+    permission_classes = [IsAuthenticated, RequirePasswordChanged, CanManageAttendance]
+
+    @extend_schema(
+        summary="List Today's Check-ins",
+        description="Returns today's attendance check-in list ordered newest first (max 50) and total count. Supports optional 'since' parameter.",
+        parameters=[
+            OpenApiParameter(
+                name="since",
+                type=str,
+                location=OpenApiParameter.QUERY,
+                required=False,
+                description="Optional ISO timestamp to filter check-ins newer than this time.",
+            ),
+        ],
+        responses={200: AttendanceTodayListResponseSerializer},
+    )
+    def get(self, request):
+        tenant = getattr(request, "tenant", None)
+        if not tenant:
+            raise PermissionDenied("Gym tenant context required.")
+
+        today = timezone.localdate()
+        qs = Attendance.objects.filter(gym=tenant, date=today).select_related(
+            "member", "recorded_by"
+        )
+
+        since_param = request.query_params.get("since")
+        if since_param:
+            try:
+                clean_since = since_param.strip().replace(" ", "+")
+                since_dt = parse_datetime(clean_since)
+                if since_dt is None:
+                    since_dt = datetime.fromisoformat(
+                        clean_since.replace("Z", "+00:00")
+                    )
+                if since_dt:
+                    if timezone.is_naive(since_dt):
+                        since_dt = timezone.make_aware(since_dt)
+                    qs = qs.filter(checked_in_at__gt=since_dt)
+            except (ValueError, TypeError):
+                pass
+
+        total_count = Attendance.objects.filter(gym=tenant, date=today).count()
+        attendances = list(qs.order_by("-checked_in_at")[:50])
+
+        results = [
+            {
+                "id": att.id,
+                "member_id": att.member.id,
+                "member_name": att.member.full_name,
+                "member_photo_url": format_member_photo_url(
+                    tenant.id, att.member.photo_url
+                ),
+                "checked_in_at": att.checked_in_at,
+                "is_override": att.is_override,
+                "override_reason": att.override_reason or "",
+                "recorded_by_name": (
+                    att.recorded_by.full_name if att.recorded_by else None
+                ),
+            }
+            for att in attendances
+        ]
+
+        serializer = AttendanceTodayListResponseSerializer(
+            {"total_count": total_count, "results": results}
+        )
+        return Response(serializer.data, status=status.HTTP_200_OK)

@@ -135,9 +135,10 @@ Grouped as in the source document's §3.2.1.
 **QR check-in and attendance**
 
 - A unique, time-expiring QR token for each active member, regenerated on each valid use. The token is a **signed JWT with a 90-second window**, signed asymmetrically so a scanner can verify it offline from the public key alone. Known limitation: device clock skew can cause false rejections.
-- Browser-based scanner for reception, no dedicated hardware. Validation checks token expiry, `gym_id` match and active membership. On success, show the member's photo, name and status, and record the attendance.
-- A second scan for the same member on the same day is denied and staff are notified. Frozen or suspended members are denied with a distinct status message.
-- **Manual override** by Reception when the QR flow can't be used: requires an active subscription and a reason, and is audit-logged.
+- **Dedicated entrance scanner page** for a tablet/device at the gym entrance: full-screen, showing only camera view, gym name and logo, and a single instruction line. Members hold their phone's QR code up to the camera and are checked in hands-free. On success, a large green screen shows the member's name, photo and check-in time for about 3 seconds, then returns to scanning. On failure, a large red/amber screen explains the refusal plainly with an icon and guidance. The tablet displays no private details beyond name and photo. Screen stays awake while scanning; camera turns off when leaving the page or hiding the tab.
+- **Live "Today's check-ins" list** on the staff dashboard (Owner, Manager, Reception): shows today's attendance count, and for each entry shows photo, name, time and whether it was a scan or manual override, ordered newest first and polling for new entries every ~5 seconds. Blocked for Trainers, Members, and other gyms.
+- A second scan for the same member on the same day is denied with an amber alert and staff are notified; repeated duplicate scans on the same day merge to send staff only ONE notification. Frozen or suspended members are denied with distinct status messages.
+- **Manual override** by Reception, Owner, or Manager when the QR flow cannot be used: requires an active subscription and a reason, and is audit-logged.
 - **Offline grace mode:** check-ins keep working during outages (§6).
 - Attendance rows exist only for check-ins; the daily attendance log shows ✓/✗ per day, derived from check-ins and the subscription period.
 

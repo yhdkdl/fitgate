@@ -1,6 +1,13 @@
 import React, { useEffect, useState, useRef } from "react";
 import QRCode from "qrcode";
-import { RefreshCw, Clock, QrCode, AlertCircle, Copy, Check } from "lucide-react";
+import {
+  RefreshCw,
+  Clock,
+  QrCode,
+  AlertCircle,
+  Copy,
+  Check,
+} from "lucide-react";
 import {
   getMemberQrToken,
   type MemberQrTokenResponse,

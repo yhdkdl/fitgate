@@ -41,6 +41,7 @@ def dashboard_config_for(user: User) -> dict:
             ],
             "navigation": [
                 {"label": "Overview", "path": "/dashboard"},
+                {"label": "Entrance scanner", "path": "/attendance/scanner"},
                 {"label": "Members", "path": "/members"},
                 {"label": "Staff", "path": "/staff"},
                 {"label": "Plans", "path": "/plans"},
@@ -58,6 +59,7 @@ def dashboard_config_for(user: User) -> dict:
             ],
             "navigation": [
                 {"label": "Overview", "path": "/dashboard"},
+                {"label": "Entrance scanner", "path": "/attendance/scanner"},
                 {"label": "Members", "path": "/members"},
                 {"label": "Staff", "path": "/staff"},
                 {"label": "Plans", "path": "/plans"},
@@ -91,6 +93,8 @@ def dashboard_config_for(user: User) -> dict:
                 {"id": "recent_cash_payments", "title": "Recent Payments"},
             ],
             "navigation": [
+                {"label": "Overview", "path": "/dashboard"},
+                {"label": "Entrance scanner", "path": "/attendance/scanner"},
                 {"label": "Check-in", "path": "/checkin"},
                 {"label": "Register Member", "path": "/members/register"},
                 {"label": "Payments", "path": "/payments"},
