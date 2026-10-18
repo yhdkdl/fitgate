@@ -40,11 +40,15 @@ from apps.accounts.tokens import get_tokens_for_user
 from apps.attendance.crypto import (
     InvalidTokenError,
     QRTokenCryptoError,
+    compact_id_to_uuid,
     generate_rsa_keypair,
+    get_ed25519_private_key_pem,
+    get_ed25519_public_key_pem,
     get_rsa_private_key_pem,
     get_rsa_public_key_pem,
     hash_token,
     sign_qr_payload,
+    uuid_to_compact_id,
     verify_qr_jwt,
 )
 from apps.attendance.models import Attendance, QRToken
@@ -224,7 +228,7 @@ class TestQRTokenIssuanceAndVerification:
         assert response.status_code == 200
         assert "public_key" in response.data
         assert "BEGIN PUBLIC KEY" in response.data["public_key"]
-        assert response.data["algorithm"] == "RS256"
+        assert response.data["algorithm"] == "EdDSA"
 
     def test_single_line_escaped_key_signs_and_verifies(self, settings):
         """Single-line escaped RSA keys (with literal \\n escapes) sign and verify correctly."""
@@ -342,17 +346,19 @@ class TestQRTokenIssuanceAndVerification:
         assert data["member_id"] == str(active_member.id)
 
         # Verify offline with public key
-        public_key = get_rsa_public_key_pem()
+        public_key = get_ed25519_public_key_pem()
         decoded = jwt.decode(
             data["token"],
             public_key,
-            algorithms=["RS256"],
+            algorithms=["EdDSA"],
             options={"require": ["exp"]},
             leeway=0,
         )
-        assert decoded["sub"] == str(active_member.id)
-        assert decoded["gym_id"] == str(gym_tenant.id)
-        assert decoded["type"] == "qr_checkin"
+        assert compact_id_to_uuid(decoded["m"]) == active_member.id
+        assert compact_id_to_uuid(decoded["g"]) == gym_tenant.id
+        unverified_header = jwt.get_unverified_header(data["token"])
+        assert unverified_header["typ"] == "fg-qr"
+        assert unverified_header["alg"] == "EdDSA"
 
     def test_member_me_qr_token_endpoint_no_subscription_returns_400_expired(
         self, api_client, gym_tenant, member_user, active_member
@@ -442,19 +448,17 @@ class TestQRTokenIssuanceAndVerification:
     def test_validly_signed_token_without_exp_claim_rejected(
         self, api_client, gym_tenant, reception_user, active_member
     ):
-        """A validly signed RS256 token without exp claim is rejected (options={'require': ['exp']})."""
-        now = timezone.now()
+        """A validly signed EdDSA token without exp claim is rejected (options={'require': ['exp']})."""
         payload_no_exp = {
-            "sub": str(active_member.id),
-            "member_id": str(active_member.id),
-            "gym_id": str(gym_tenant.id),
-            "jti": str(uuid.uuid4()),
-            "iat": int(now.timestamp()),
-            "type": "qr_checkin",
+            "m": uuid_to_compact_id(active_member.id),
+            "g": uuid_to_compact_id(gym_tenant.id),
+            "j": "randtok1",
             # NOTE: "exp" claim is intentionally omitted
         }
-        priv_pem = get_rsa_private_key_pem()
-        token_no_exp = jwt.encode(payload_no_exp, priv_pem, algorithm="RS256")
+        priv_pem = get_ed25519_private_key_pem()
+        token_no_exp = jwt.encode(
+            payload_no_exp, priv_pem, algorithm="EdDSA", headers={"typ": "fg-qr"}
+        )
 
         # 1. Direct crypto verify raises InvalidTokenError
         with pytest.raises(InvalidTokenError):
@@ -465,6 +469,61 @@ class TestQRTokenIssuanceAndVerification:
         response = client.post(
             "/api/gym/attendance/scan/",
             {"token": token_no_exp},
+            format="json",
+        )
+        assert response.status_code == 400
+        assert response.data["reason"] == "invalid_token"
+
+    @pytest.mark.parametrize("other_alg", ["RS256", "HS256", "none"])
+    def test_tokens_signed_with_other_algorithm_rejected(
+        self, api_client, gym_tenant, reception_user, active_member, other_alg
+    ):
+        """Tokens signed with another algorithm (RS256, HS256, none) are rejected."""
+        from cryptography.hazmat.primitives import serialization
+        from cryptography.hazmat.primitives.asymmetric import rsa
+
+        now = timezone.now()
+        payload = {
+            "m": uuid_to_compact_id(active_member.id),
+            "g": uuid_to_compact_id(gym_tenant.id),
+            "j": "otheralg",
+            "exp": int((now + timedelta(seconds=90)).timestamp()),
+        }
+
+        if other_alg == "RS256":
+            rsa_key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+            rsa_pem = rsa_key.private_bytes(
+                encoding=serialization.Encoding.PEM,
+                format=serialization.PrivateFormat.PKCS8,
+                encryption_algorithm=serialization.NoEncryption(),
+            ).decode("utf-8")
+            token = jwt.encode(
+                payload, rsa_pem, algorithm="RS256", headers={"typ": "fg-qr"}
+            )
+        elif other_alg == "HS256":
+            token = jwt.encode(
+                payload,
+                "a-secure-32-byte-secret-key-12345",
+                algorithm="HS256",
+                headers={"typ": "fg-qr"},
+            )
+        else:  # "none"
+            token = jwt.encode(
+                payload,
+                key="",
+                algorithm="none",
+                headers={"typ": "fg-qr"},
+            )
+
+        # 1. Direct crypto verify raises InvalidTokenError
+        with pytest.raises(InvalidTokenError):
+            verify_qr_jwt(token)
+
+        # 2. Scan endpoint rejects with 400 invalid_token
+        client = auth_client(api_client, reception_user, gym_tenant.subdomain)
+        response = client.post(
+            "/api/gym/attendance/scan/",
+            {"token": token},
             format="json",
         )
         assert response.status_code == 400
@@ -615,8 +674,10 @@ class TestScanEndpointAndDuplicateHandling:
             "exp": int((now + timedelta(seconds=90)).timestamp()),
             "type": "qr_checkin",
         }
-        priv_pem = get_rsa_private_key_pem()
-        token_str = jwt.encode(payload, priv_pem, algorithm="RS256")
+        priv_pem = get_ed25519_private_key_pem()
+        token_str = jwt.encode(
+            payload, priv_pem, algorithm="EdDSA", headers={"typ": "fg-qr"}
+        )
         token_hex = hash_token(token_str)
 
         QRToken.all_objects.create(
@@ -670,8 +731,10 @@ class TestScanEndpointAndDuplicateHandling:
             "exp": int((now + timedelta(seconds=90)).timestamp()),
             "type": "qr_checkin",
         }
-        priv_pem = get_rsa_private_key_pem()
-        token_str = jwt.encode(payload, priv_pem, algorithm="RS256")
+        priv_pem = get_ed25519_private_key_pem()
+        token_str = jwt.encode(
+            payload, priv_pem, algorithm="EdDSA", headers={"typ": "fg-qr"}
+        )
         token_hex = hash_token(token_str)
 
         qr_row = QRToken.all_objects.create(
@@ -717,8 +780,10 @@ class TestScanEndpointAndDuplicateHandling:
             "exp": int((now + timedelta(seconds=90)).timestamp()),
             "type": "qr_checkin",
         }
-        priv_pem = get_rsa_private_key_pem()
-        token_str = jwt.encode(payload, priv_pem, algorithm="RS256")
+        priv_pem = get_ed25519_private_key_pem()
+        token_str = jwt.encode(
+            payload, priv_pem, algorithm="EdDSA", headers={"typ": "fg-qr"}
+        )
         token_hex = hash_token(token_str)
 
         qr_token = QRToken.all_objects.create(
@@ -791,8 +856,10 @@ class TestScanEndpointAndDuplicateHandling:
             "exp": int((now + timedelta(seconds=90)).timestamp()),
             "type": "qr_checkin",
         }
-        priv_pem = get_rsa_private_key_pem()
-        token_str = jwt.encode(payload, priv_pem, algorithm="RS256")
+        priv_pem = get_ed25519_private_key_pem()
+        token_str = jwt.encode(
+            payload, priv_pem, algorithm="EdDSA", headers={"typ": "fg-qr"}
+        )
         token_hex = hash_token(token_str)
 
         # Deactivated token (is_active=False)
@@ -840,8 +907,10 @@ class TestScanEndpointAndDuplicateHandling:
             "exp": int((now + timedelta(seconds=90)).timestamp()),
             "type": "qr_checkin",
         }
-        priv_pem = get_rsa_private_key_pem()
-        token_str = jwt.encode(payload, priv_pem, algorithm="RS256")
+        priv_pem = get_ed25519_private_key_pem()
+        token_str = jwt.encode(
+            payload, priv_pem, algorithm="EdDSA", headers={"typ": "fg-qr"}
+        )
         token_hex = hash_token(token_str)
 
         QRToken.all_objects.create(

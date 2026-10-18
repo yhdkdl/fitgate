@@ -258,7 +258,7 @@ As documented in `docs/MANUAL_STEPS.md`, external production credentials were sy
 
 ## Test Scenario 7: QR Check-in, Scanner Validation & Manual Override
 
-> **Note on Membership Subscriptions**: QR check-in tokens and scan validation fail closed: members without an active `MemberSubscription` cannot issue a QR pass (`/api/members/me/qr-token/` returns HTTP 400 with `reason: "expired"`). Membership plans and subscription billing are formally wired in Sprint 10. For Increment 1 end-to-end testing, provision an active subscription for test members via Django shell:
+> **Note on Membership Subscriptions & QR Keys**: QR check-in tokens and scan validation fail closed: members without an active `MemberSubscription` cannot issue a QR pass (`/api/members/me/qr-token/` returns HTTP 400 with `reason: "expired"`). If you see a key error, run `docker compose exec backend python manage.py generate_qr_dev_keys`, paste the two lines into `.env`, run `docker compose restart backend`. Membership plans and subscription billing are formally wired in Sprint 10. For Increment 1 end-to-end testing, provision an active subscription for test members via Django shell:
 
 ```bash
 docker compose exec backend python manage.py shell -c "from apps.memberships.models import Member, MemberSubscription; from django.utils import timezone; from datetime import timedelta; member = Member.all_objects.get(user__email='dawit@example.com'); MemberSubscription.all_objects.create(gym=member.gym, member=member, status='active', start_date=timezone.localdate(), end_date=timezone.localdate()+timedelta(days=30))"
@@ -268,7 +268,7 @@ docker compose exec backend python manage.py shell -c "from apps.memberships.mod
    - Activate Dawit's account using the email link from backend logs, setting password to `MemberPassword2026!`.
    - Log in as Dawit at `http://boleelite.localhost:5173/login`.
    - The member dashboard displays the **Check-in QR Pass** card.
-   - High-contrast QR code is rendered with member title `Check-in QR Pass`, `ACTIVE` badge, live countdown timer `Valid for 90s`, and **Copy code** button.
+   - High-contrast QR code is rendered with member title `Check-in QR Pass`, `ACTIVE` badge, live countdown timer `Valid for 90s`, **Enlarge** button, and **Copy code** button. Click **Enlarge** to view the pass full screen on a plain white background with the countdown active.
 
 2. **Open Entrance Scanner on Laptop / Tablet**:
    - In a first browser window, log in as Reception (`reception@boleelite.com`) or Owner at `http://boleelite.localhost:5173/dashboard`.

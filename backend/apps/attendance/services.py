@@ -1,4 +1,5 @@
 import os
+import secrets
 import uuid
 from datetime import date, timedelta
 from typing import Optional, Tuple
@@ -12,8 +13,10 @@ from apps.accounts.services import record_audit_log
 from apps.attendance.crypto import (
     InvalidTokenError,
     TokenExpiredError,
+    compact_id_to_uuid,
     hash_token,
     sign_qr_payload,
+    uuid_to_compact_id,
     verify_qr_jwt,
 )
 from apps.attendance.models import Attendance, QRToken
@@ -164,16 +167,13 @@ def issue_member_qr_token(
 
     now = timezone.now()
     expires_at = now + timedelta(seconds=valid_seconds)
-    token_id = str(uuid.uuid4())
+    token_id = secrets.token_urlsafe(8)
 
     payload = {
-        "sub": str(member.id),
-        "member_id": str(member.id),
-        "gym_id": str(member.gym_id),
-        "jti": token_id,
-        "iat": int(now.timestamp()),
+        "m": uuid_to_compact_id(member.id),
+        "g": uuid_to_compact_id(member.gym_id),
+        "j": token_id,
         "exp": int(expires_at.timestamp()),
-        "type": "qr_checkin",
     }
 
     token_str = sign_qr_payload(payload)
@@ -232,20 +232,37 @@ def verify_and_process_scan(
         ) from e
 
     # 2. Check token claims
-    if payload.get("type") != "qr_checkin":
+    if "type" in payload and payload.get("type") != "qr_checkin":
         raise ScanValidationError(reason="invalid_token", message="Invalid token type.")
 
-    token_gym_id = payload.get("gym_id")
-    if str(token_gym_id) != str(gym.id):
+    raw_gym = payload.get("g") or payload.get("gym_id")
+    if not raw_gym:
+        raise ScanValidationError(
+            reason="invalid_token", message="QR token missing gym identity."
+        )
+    try:
+        token_gym_uuid = compact_id_to_uuid(raw_gym)
+    except Exception:
+        raise ScanValidationError(
+            reason="invalid_token", message="QR token has invalid gym identity."
+        )
+
+    if token_gym_uuid != gym.id:
         raise ScanValidationError(
             reason="gym_mismatch",
             message="QR token belongs to a different gym tenant.",
         )
 
-    member_id = payload.get("member_id") or payload.get("sub")
-    if not member_id:
+    raw_member = payload.get("m") or payload.get("member_id") or payload.get("sub")
+    if not raw_member:
         raise ScanValidationError(
             reason="invalid_token", message="QR token missing member identity."
+        )
+    try:
+        member_id = compact_id_to_uuid(raw_member)
+    except Exception:
+        raise ScanValidationError(
+            reason="invalid_token", message="QR token has invalid member identity."
         )
 
     # 3. Lookup member

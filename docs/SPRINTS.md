@@ -209,6 +209,7 @@ Trainer specialization and photo are delivered in the Trainer and storage sprint
    - **Manual override** by Reception: requires an active subscription and a reason, produces exactly one `Attendance` row and an audit entry, and is refused for expired, frozen or suspended members.
    - `Attendance` rows exist only for actual check-ins. An attendance-log endpoint returns ✓/✗ per day for a date range, derived from check-ins and the subscription period (days outside the period are blank).
    - Performance: scan validation plus attendance recording completes in under 2 seconds against a seeded dataset of 10,000 members.
+   - _Note:_ changed from RS256 to EdDSA so the QR is small enough for webcams and tablets.
 
 - [x] Status: done — merged to develop (tag sprint-8-done)
 

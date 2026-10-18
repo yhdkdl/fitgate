@@ -7,15 +7,15 @@ class AttendancePublicKeyResponseSerializer(serializers.Serializer):
     """Response serializer for public key export."""
 
     public_key = serializers.CharField(
-        help_text="PEM-encoded RSA public key for offline QR signature verification."
+        help_text="PEM-encoded Ed25519 public key for offline QR signature verification."
     )
-    algorithm = serializers.CharField(default="RS256")
+    algorithm = serializers.CharField(default="EdDSA")
 
 
 class MemberQrTokenResponseSerializer(serializers.Serializer):
     """Response serializer for member QR token generation."""
 
-    token = serializers.CharField(help_text="Signed RS256 JWT QR token.")
+    token = serializers.CharField(help_text="Signed EdDSA JWT QR token.")
     expires_at = serializers.DateTimeField(
         help_text="Timestamp when this token expires."
     )
@@ -30,7 +30,7 @@ class AttendanceScanRequestSerializer(serializers.Serializer):
 
     token = serializers.CharField(
         required=True,
-        help_text="Scanned QR token string (RS256 JWT).",
+        help_text="Scanned QR token string (EdDSA JWT).",
     )
     branch_id = serializers.UUIDField(
         required=False,
