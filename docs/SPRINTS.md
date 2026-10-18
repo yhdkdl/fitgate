@@ -184,6 +184,7 @@ Trainer specialization and photo are delivered in the Trainer and storage sprint
    - A self-registered member must verify their email by single-use, expiring link before first login; staff-registered members receive a set-password link and count as verified. Public registration is rate-limited.
    - A profile photo uploads through Sprint 4b's storage layer; member self-service photo ownership is wired there, with an exact-match check against the Member record (Members read their own photo only through the exact-match check).
    - Member photo read access for Trainers must narrow to their assigned members (Sprint 17 wires assignment).
+   - **Profile photo policy (owner decision):** Staff-assisted registration provides an optional profile photo picker with preview (JPEG, PNG, WebP up to 2 MB). Public self-service registration accepts NO file uploads to protect against storage abuse; members add or change their own photo from their profile screen after signing in. Owner, Manager and Reception can upload or change a member's photo from the member detail modal/profile; Trainers and staff of other gyms cannot. Photos remain private and load exclusively through the authenticated, permission-checked backend route (`/api/media/member-photos/{gym_id}/{filename}/`).
 
 - [x] Status: done — merged to develop (tag sprint-7-done)
 
