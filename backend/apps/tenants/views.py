@@ -495,16 +495,21 @@ class ServeMemberPhotoView(APIView):
             if not member or not member.photo_url:
                 raise PermissionDenied("Members may only view their own photo.")
             # Exact-match check against member's stored photo
-            stored_filename = os.path.basename(member.photo_url)
+            stored_filename = os.path.basename(member.photo_url.rstrip("/"))
             if filename != stored_filename:
                 raise PermissionDenied("Members may only view their own photo.")
 
         elif role == User.ROLE_TRAINER:
             # Member photo read access for Trainers must narrow to their assigned members (Sprint 17 wires assignment)
+            from django.db.models import Q
+
             from apps.memberships.models import Member
 
             member = Member.objects.filter(
-                gym=request.tenant, photo_url__endswith=filename
+                Q(photo_url__endswith=f"/{filename}/")
+                | Q(photo_url__endswith=f"/{filename}")
+                | Q(photo_url=filename),
+                gym=request.tenant,
             ).first()
             if not member:
                 return Response(
@@ -595,19 +600,41 @@ class UploadMemberPhotoView(APIView):
             raise PermissionDenied("You cannot upload member photos for another gym.")
 
         role = getattr(request.user, "role", None)
+        if role == User.ROLE_TRAINER:
+            raise PermissionDenied("Trainers cannot upload or change member photos.")
+
         if role == User.ROLE_MEMBER:
             member = getattr(request.user, "member_profile", None)
             if not member:
                 raise PermissionDenied("Only registered members may upload a photo.")
+            member_id = request.data.get("member_id") or request.query_params.get(
+                "member_id"
+            )
+            if member_id and str(member_id) != str(member.id):
+                raise PermissionDenied("Members cannot change another member's photo.")
         elif role not in (
             User.ROLE_OWNER,
             User.ROLE_MANAGER,
-            User.ROLE_TRAINER,
             User.ROLE_RECEPTION,
         ):
             raise PermissionDenied(
                 "Only gym staff or members may upload member photos."
             )
+        else:
+            member_id = request.data.get("member_id") or request.query_params.get(
+                "member_id"
+            )
+            if member_id:
+                from apps.memberships.models import Member
+
+                if (
+                    Member.all_objects.filter(id=member_id)
+                    .exclude(gym=request.tenant)
+                    .exists()
+                ):
+                    raise PermissionDenied(
+                        "You cannot upload or change photos for members of another gym."
+                    )
 
         uploaded_file = request.FILES.get("photo") or request.FILES.get("file")
         if not uploaded_file:
@@ -626,12 +653,15 @@ class UploadMemberPhotoView(APIView):
             )
             return Response({"detail": msg}, status=status.HTTP_400_BAD_REQUEST)
 
+        filename = os.path.basename(relative_path)
+        url = f"/api/media/member-photos/{gym_id}/{filename}/"
+
         target_member = None
         with transaction.atomic():
             if role == User.ROLE_MEMBER:
                 target_member = getattr(request.user, "member_profile", None)
                 if target_member:
-                    target_member.photo_url = relative_path
+                    target_member.photo_url = url
                     target_member.save(update_fields=["photo_url"])
             else:
                 member_id = request.data.get("member_id") or request.query_params.get(
@@ -643,9 +673,10 @@ class UploadMemberPhotoView(APIView):
                     target_member = Member.objects.filter(
                         gym=request.tenant, id=member_id
                     ).first()
-                    if target_member:
-                        target_member.photo_url = relative_path
-                        target_member.save(update_fields=["photo_url"])
+                    if not target_member:
+                        raise Http404("Member not found.")
+                    target_member.photo_url = url
+                    target_member.save(update_fields=["photo_url"])
 
             record_audit_log(
                 action_type="member_photo_uploaded",
@@ -655,11 +686,8 @@ class UploadMemberPhotoView(APIView):
                 ),
                 actor=request.user,
                 gym=request.tenant,
-                metadata={"filename": os.path.basename(relative_path)},
+                metadata={"filename": filename},
             )
-
-        filename = os.path.basename(relative_path)
-        url = f"/api/media/member-photos/{gym_id}/{filename}/"
 
         return Response(
             {

@@ -1,6 +1,12 @@
 import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { getProfile } from "../api/auth";
+import { getAccessToken } from "../api/client";
+import {
+  getMemberProfileMe,
+  uploadMemberPhoto,
+  type Member,
+} from "../api/members";
 import { Alert } from "../components/ui/Alert";
 import { Badge } from "../components/ui/Badge";
 import { Button } from "../components/ui/Button";
@@ -8,6 +14,7 @@ import { Card } from "../components/ui/Card";
 import { FormField } from "../components/ui/FormField";
 import { Input } from "../components/ui/Input";
 import { PasswordChecklist } from "../components/ui/PasswordChecklist";
+import { Spinner } from "../components/ui/Spinner";
 import { useAuth } from "../context/AuthContext";
 import {
   checkPasswordRequirements,
@@ -25,8 +32,16 @@ export const ProfileScreen: React.FC = () => {
   const [phone, setPhone] = useState(user?.phone || "");
   const [profileSuccess, setProfileSuccess] = useState<string | null>(null);
   const [profileError, setProfileError] = useState<string | null>(null);
-  const [profileFieldErrors, setProfileFieldErrors] = useState<Record<string, string>>({});
+  const [profileFieldErrors, setProfileFieldErrors] = useState<
+    Record<string, string>
+  >({});
   const [isSavingProfile, setIsSavingProfile] = useState(false);
+
+  // Member photo fields
+  const [memberData, setMemberData] = useState<Member | null>(null);
+  const [photoLoading, setPhotoLoading] = useState(false);
+  const [photoError, setPhotoError] = useState<string | null>(null);
+  const [photoSuccess, setPhotoSuccess] = useState<string | null>(null);
 
   // Password fields
   const [currentPassword, setCurrentPassword] = useState("");
@@ -34,7 +49,9 @@ export const ProfileScreen: React.FC = () => {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [passwordSuccess, setPasswordSuccess] = useState<string | null>(null);
   const [passwordError, setPasswordError] = useState<string | null>(null);
-  const [passwordFieldErrors, setPasswordFieldErrors] = useState<Record<string, string>>({});
+  const [passwordFieldErrors, setPasswordFieldErrors] = useState<
+    Record<string, string>
+  >({});
   const [isSavingPassword, setIsSavingPassword] = useState(false);
 
   useEffect(() => {
@@ -48,7 +65,52 @@ export const ProfileScreen: React.FC = () => {
       }
     }
     loadFresh();
-  }, []);
+
+    if (user?.role === "member") {
+      getMemberProfileMe()
+        .then((m) => setMemberData(m))
+        .catch(() => {});
+    }
+  }, [user?.role]);
+
+  const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    const gymId = user?.gym_id;
+    if (!file || !gymId) return;
+
+    setPhotoError(null);
+    setPhotoSuccess(null);
+
+    const allowedTypes = ["image/jpeg", "image/png", "image/webp"];
+    const ext = file.name.split(".").pop()?.toLowerCase();
+    const isAllowedExt =
+      ext === "jpg" || ext === "jpeg" || ext === "png" || ext === "webp";
+
+    if (!allowedTypes.includes(file.type.toLowerCase()) && !isAllowedExt) {
+      setPhotoError(
+        "Unsupported image format. Only JPEG, PNG, and WebP are allowed."
+      );
+      return;
+    }
+
+    if (file.size > 2 * 1024 * 1024) {
+      setPhotoError("Photo file size exceeds maximum allowed 2 MB limit.");
+      return;
+    }
+
+    try {
+      setPhotoLoading(true);
+      const res = await uploadMemberPhoto(file, gymId);
+      setMemberData((prev) => (prev ? { ...prev, photo_url: res.url } : null));
+      setPhotoSuccess("Profile photo updated successfully.");
+    } catch (err: unknown) {
+      setPhotoError(
+        err instanceof Error ? err.message : "Failed to upload photo."
+      );
+    } finally {
+      setPhotoLoading(false);
+    }
+  };
 
   const handleProfileSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -175,6 +237,83 @@ export const ProfileScreen: React.FC = () => {
 
       <main className="max-w-4xl mx-auto p-4 sm:p-6 space-y-6">
         <h1 className="text-2xl font-bold text-text">Account Settings</h1>
+
+        {/* Member Profile Photo Card (Criterion 11, 13, 14) */}
+        {user?.role === "member" && (
+          <Card className="bg-surface border-border">
+            <h2 className="text-lg font-semibold mb-2 text-text">
+              Profile Photo
+            </h2>
+            <p className="text-xs text-text-muted mb-4">
+              Your photo is used for member identification at reception and entrance scanner check-in.
+            </p>
+
+            {photoSuccess && (
+              <Alert variant="success" className="mb-4 text-sm" role="status">
+                {photoSuccess}
+              </Alert>
+            )}
+            {photoError && (
+              <Alert variant="danger" className="mb-4 text-sm" role="alert">
+                {photoError}
+              </Alert>
+            )}
+
+            {!memberData?.photo_url && (
+              <div className="p-4 mb-4 rounded-lg bg-primary/10 border border-primary/20 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                <div>
+                  <h4 className="text-sm font-semibold text-text">
+                    Add Your Profile Photo
+                  </h4>
+                  <p className="text-xs text-text-muted mt-0.5">
+                    You haven&apos;t added a profile photo yet. Upload a clear photo so reception and entrance staff can identify you at check-in.
+                  </p>
+                </div>
+              </div>
+            )}
+
+            <div className="flex flex-col sm:flex-row items-center gap-6">
+              <div className="relative">
+                {memberData?.photo_url ? (
+                  <img
+                    src={`${memberData.photo_url}${
+                      memberData.photo_url.includes("?") ? "&" : "?"
+                    }token=${encodeURIComponent(getAccessToken() || "")}`}
+                    alt="Your profile"
+                    className="w-24 h-24 rounded-full object-cover border-4 border-primary shadow-md"
+                  />
+                ) : (
+                  <div className="w-24 h-24 rounded-full bg-surface-2 border-2 border-dashed border-border flex items-center justify-center text-text-muted text-2xl font-bold">
+                    {(user?.full_name || user?.email || "M").charAt(0).toUpperCase()}
+                  </div>
+                )}
+              </div>
+
+              <div className="space-y-2 text-center sm:text-left">
+                <label className="inline-flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground text-xs font-semibold rounded-btn cursor-pointer hover:opacity-90 min-h-[44px]">
+                  {photoLoading ? (
+                    <>
+                      <Spinner size="sm" />
+                      <span>Uploading...</span>
+                    </>
+                  ) : (
+                    <span>{memberData?.photo_url ? "Change Photo" : "Upload Photo"}</span>
+                  )}
+                  <input
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp"
+                    disabled={photoLoading}
+                    onChange={handlePhotoUpload}
+                    className="hidden"
+                  />
+                </label>
+                <p className="text-[11px] text-text-muted">
+                  JPEG, PNG or WebP, up to 2 MB. Photos are kept private and served securely.
+                </p>
+              </div>
+            </div>
+          </Card>
+        )}
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {/* Profile details card */}
