@@ -10,8 +10,17 @@ import { Alert } from "../ui/Alert";
 import { Badge } from "../ui/Badge";
 import { Button } from "../ui/Button";
 import { Card } from "../ui/Card";
+import { FormField } from "../ui/FormField";
 import { Input } from "../ui/Input";
 import { Spinner } from "../ui/Spinner";
+import {
+  focusFirstInvalidField,
+  validateHeight,
+  validateHip,
+  validateNeck,
+  validateWaist,
+  validateWeight,
+} from "../../utils/validators";
 
 export const TrainerMeasurementsSection: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState("");
@@ -34,6 +43,7 @@ export const TrainerMeasurementsSection: React.FC = () => {
   const [submitting, setSubmitting] = useState(false);
   const [formSuccess, setFormSuccess] = useState<string | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 
   const fetchMembers = useCallback(async (query: string) => {
     setSearching(true);
@@ -68,6 +78,7 @@ export const TrainerMeasurementsSection: React.FC = () => {
     setMetricsError(null);
     setFormSuccess(null);
     setFormError(null);
+    setFieldErrors({});
     setWeightKg("");
     setHeightCm("");
     setWaistCm("");
@@ -91,15 +102,39 @@ export const TrainerMeasurementsSection: React.FC = () => {
   const handleRecordSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedMember) return;
+    setFormError(null);
+    setFormSuccess(null);
+    setFieldErrors({});
 
-    if (!weightKg || !heightCm) {
-      setFormError("Weight (kg) and Height (cm) are required.");
+    const errors: Record<string, string> = {};
+    const wErr = validateWeight(weightKg);
+    if (wErr) errors["metric-weight"] = wErr;
+
+    const hErr = validateHeight(heightCm);
+    if (hErr) errors["metric-height"] = hErr;
+
+    if (waistCm.trim()) {
+      const wstErr = validateWaist(waistCm);
+      if (wstErr) errors["metric-waist"] = wstErr;
+    }
+
+    if (neckCm.trim()) {
+      const nckErr = validateNeck(neckCm);
+      if (nckErr) errors["metric-neck"] = nckErr;
+    }
+
+    if (hipCm.trim()) {
+      const hpErr = validateHip(hipCm);
+      if (hpErr) errors["metric-hip"] = hpErr;
+    }
+
+    if (Object.keys(errors).length > 0) {
+      setFieldErrors(errors);
+      focusFirstInvalidField(errors);
       return;
     }
 
     setSubmitting(true);
-    setFormError(null);
-    setFormSuccess(null);
 
     try {
       const measurements: Record<string, number> = {};
@@ -125,6 +160,7 @@ export const TrainerMeasurementsSection: React.FC = () => {
       setWaistCm("");
       setNeckCm("");
       setHipCm("");
+      setFieldErrors({});
 
       // Refresh metrics history
       const updated = await getMemberMetrics(selectedMember.id);
@@ -166,6 +202,7 @@ export const TrainerMeasurementsSection: React.FC = () => {
               <Input
                 type="text"
                 placeholder="Search by name, email, or phone..."
+                maxLength={100}
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="min-h-[44px] flex-1 text-sm"
@@ -373,84 +410,109 @@ export const TrainerMeasurementsSection: React.FC = () => {
                 {formSuccess && <Alert variant="success">{formSuccess}</Alert>}
                 {formError && <Alert variant="error">{formError}</Alert>}
 
-                <form onSubmit={handleRecordSubmit} className="space-y-4">
+                <form onSubmit={handleRecordSubmit} className="space-y-4" noValidate>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <div>
-                      <label className="block text-xs font-medium text-text mb-1">
-                        Weight (kg) <span className="text-danger">*</span>
-                      </label>
+                    <FormField
+                      label="Weight (kg)"
+                      htmlFor="metric-weight"
+                      required
+                      error={fieldErrors["metric-weight"]}
+                    >
                       <Input
+                        id="metric-weight"
                         type="number"
                         step="0.1"
+                        inputMode="decimal"
                         required
                         placeholder="e.g. 75.0"
                         value={weightKg}
                         onChange={(e) => setWeightKg(e.target.value)}
+                        error={fieldErrors["metric-weight"]}
                         className="min-h-[44px]"
                       />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-medium text-text mb-1">
-                        Height (cm) <span className="text-danger">*</span>
-                      </label>
+                    </FormField>
+
+                    <FormField
+                      label="Height (cm)"
+                      htmlFor="metric-height"
+                      required
+                      error={fieldErrors["metric-height"]}
+                    >
                       <Input
+                        id="metric-height"
                         type="number"
                         step="0.1"
+                        inputMode="decimal"
                         required
                         placeholder="e.g. 180.0"
                         value={heightCm}
                         onChange={(e) => setHeightCm(e.target.value)}
+                        error={fieldErrors["metric-height"]}
                         className="min-h-[44px]"
                       />
-                    </div>
+                    </FormField>
                   </div>
 
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                    <div>
-                      <label className="block text-xs font-medium text-text mb-1">
-                        Waist (cm) <span className="text-text-muted">(opt)</span>
-                      </label>
+                    <FormField
+                      label="Waist (cm)"
+                      htmlFor="metric-waist"
+                      error={fieldErrors["metric-waist"]}
+                    >
                       <Input
+                        id="metric-waist"
                         type="number"
                         step="0.1"
+                        inputMode="decimal"
                         placeholder="e.g. 84.0"
                         value={waistCm}
                         onChange={(e) => setWaistCm(e.target.value)}
+                        error={fieldErrors["metric-waist"]}
                         className="min-h-[44px]"
                       />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-medium text-text mb-1">
-                        Neck (cm) <span className="text-text-muted">(opt)</span>
-                      </label>
+                    </FormField>
+
+                    <FormField
+                      label="Neck (cm)"
+                      htmlFor="metric-neck"
+                      error={fieldErrors["metric-neck"]}
+                    >
                       <Input
+                        id="metric-neck"
                         type="number"
                         step="0.1"
+                        inputMode="decimal"
                         placeholder="e.g. 38.0"
                         value={neckCm}
                         onChange={(e) => setNeckCm(e.target.value)}
+                        error={fieldErrors["metric-neck"]}
                         className="min-h-[44px]"
                       />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-medium text-text mb-1">
-                        Hip (cm) <span className="text-text-muted">(opt)</span>
-                      </label>
+                    </FormField>
+
+                    <FormField
+                      label="Hip (cm)"
+                      htmlFor="metric-hip"
+                      error={fieldErrors["metric-hip"]}
+                    >
                       <Input
+                        id="metric-hip"
                         type="number"
                         step="0.1"
+                        inputMode="decimal"
                         placeholder="e.g. 96.0"
                         value={hipCm}
                         onChange={(e) => setHipCm(e.target.value)}
+                        error={fieldErrors["metric-hip"]}
                         className="min-h-[44px]"
                       />
-                    </div>
+                    </FormField>
                   </div>
 
                   <div className="flex justify-end pt-2">
                     <Button
                       type="submit"
-                      disabled={submitting || !weightKg || !heightCm}
+                      disabled={submitting}
                       className="min-h-[44px]"
                     >
                       {submitting ? "Saving..." : "Record Measurements"}

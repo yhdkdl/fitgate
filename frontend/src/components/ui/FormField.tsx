@@ -1,4 +1,6 @@
 import React from "react";
+import { AlertCircle } from "lucide-react";
+import { FormFieldContext } from "./FormFieldContext";
 
 export interface FormFieldProps {
   label: string;
@@ -27,16 +29,30 @@ export const FormField: React.FC<FormFieldProps> = ({
   const description = helperText || helpText;
 
   return (
-    <div className={`space-y-1.5 ${className}`}>
-      <label htmlFor={targetId} className="block text-sm font-medium text-text">
-        {label} {required && <span className="text-danger">*</span>}
-      </label>
-      {children}
-      {error ? (
-        <p className="text-sm text-danger">{error}</p>
-      ) : description ? (
-        <p className="text-sm text-text-muted">{description}</p>
-      ) : null}
-    </div>
+    <FormFieldContext.Provider value={{ insideFormField: true }}>
+      <div className={`space-y-1.5 ${className}`}>
+        <label htmlFor={targetId} className="block text-sm font-medium text-text">
+          {label} {required && <span className="text-danger" aria-hidden="true">*</span>}
+        </label>
+        {children}
+        {error ? (
+          <p
+            id={targetId ? `${targetId}-error` : undefined}
+            className="text-sm text-danger flex items-center gap-1.5 mt-1"
+            role="alert"
+          >
+            <AlertCircle className="w-4 h-4 shrink-0" aria-hidden="true" />
+            <span>{error}</span>
+          </p>
+        ) : description ? (
+          <p
+            id={targetId ? `${targetId}-helper` : undefined}
+            className="text-sm text-text-muted mt-1"
+          >
+            {description}
+          </p>
+        ) : null}
+      </div>
+    </FormFieldContext.Provider>
   );
 };

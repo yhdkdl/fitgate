@@ -10,8 +10,18 @@ import { Alert } from "../ui/Alert";
 import { Badge } from "../ui/Badge";
 import { Button } from "../ui/Button";
 import { Card } from "../ui/Card";
+import { FormField } from "../ui/FormField";
 import { Input } from "../ui/Input";
 import { Spinner } from "../ui/Spinner";
+import {
+  filterPhoneInput,
+  focusFirstInvalidField,
+  validateDateOfBirth,
+  validateEmail,
+  validateName,
+  validatePhone,
+  validateTextLength,
+} from "../../utils/validators";
 
 interface Props {
   userRole?: string;
@@ -35,6 +45,7 @@ export const MemberManagementSection: React.FC<Props> = ({
   const [submitting, setSubmitting] = useState(false);
   const [regError, setRegError] = useState<string | null>(null);
   const [regSuccess, setRegSuccess] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 
   // Form fields
   const [fullName, setFullName] = useState("");
@@ -76,9 +87,41 @@ export const MemberManagementSection: React.FC<Props> = ({
     e.preventDefault();
     setRegError(null);
     setRegSuccess(null);
+    setFieldErrors({});
+
+    const errors: Record<string, string> = {};
+
+    const nameErr = validateName(fullName, "Full name", 2, 100);
+    if (nameErr) errors["reg-full-name"] = nameErr;
+
+    const emailErr = validateEmail(email, true);
+    if (emailErr) errors["reg-email"] = emailErr;
+
+    const phoneErr = validatePhone(phone, true);
+    if (phoneErr) errors["reg-phone"] = phoneErr;
+
+    if (dateOfBirth) {
+      const dobErr = validateDateOfBirth(dateOfBirth);
+      if (dobErr) errors["reg-dob"] = dobErr;
+    }
+
+    if (emergencyContact.trim()) {
+      const ecErr = validateTextLength(emergencyContact, "Emergency contact", 2, 100);
+      if (ecErr) errors["reg-emergency"] = ecErr;
+    }
+
+    if (referralSource.trim()) {
+      const refErr = validateTextLength(referralSource, "Referral source", 2, 100);
+      if (refErr) errors["reg-referral"] = refErr;
+    }
 
     if (!waiverAccepted) {
-      setRegError("Health waiver acceptance is required to register a member.");
+      errors["reg-waiver"] = "Health waiver acceptance is required to register a member.";
+    }
+
+    if (Object.keys(errors).length > 0) {
+      setFieldErrors(errors);
+      focusFirstInvalidField(errors);
       return;
     }
 
@@ -86,7 +129,7 @@ export const MemberManagementSection: React.FC<Props> = ({
     try {
       const payload: StaffMemberRegistrationPayload = {
         full_name: fullName.trim(),
-        email: email.trim(),
+        email: email.trim().toLowerCase(),
         phone: phone.trim(),
         waiver_accepted: waiverAccepted,
         date_of_birth: dateOfBirth || null,
@@ -108,10 +151,23 @@ export const MemberManagementSection: React.FC<Props> = ({
       setEmergencyContact("");
       setReferralSource("");
       setWaiverAccepted(false);
+      setFieldErrors({});
 
       fetchMembers();
       onMemberRegistered?.();
     } catch (err: unknown) {
+      const errData = (err as { data?: Record<string, unknown> })?.data;
+      if (errData && typeof errData === "object") {
+        const serverFieldErrors: Record<string, string> = {};
+        if ("full_name" in errData) serverFieldErrors["reg-full-name"] = Array.isArray(errData.full_name) ? errData.full_name.join(" ") : String(errData.full_name);
+        if ("email" in errData) serverFieldErrors["reg-email"] = Array.isArray(errData.email) ? errData.email.join(" ") : String(errData.email);
+        if ("phone" in errData) serverFieldErrors["reg-phone"] = Array.isArray(errData.phone) ? errData.phone.join(" ") : String(errData.phone);
+        if ("date_of_birth" in errData) serverFieldErrors["reg-dob"] = Array.isArray(errData.date_of_birth) ? errData.date_of_birth.join(" ") : String(errData.date_of_birth);
+        if (Object.keys(serverFieldErrors).length > 0) {
+          setFieldErrors(serverFieldErrors);
+          focusFirstInvalidField(serverFieldErrors);
+        }
+      }
       setRegError(
         err instanceof Error
           ? err.message
@@ -171,6 +227,7 @@ export const MemberManagementSection: React.FC<Props> = ({
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search by name, phone, or email..."
+            maxLength={100}
             className="min-h-[44px]"
           />
         </div>
@@ -314,66 +371,85 @@ export const MemberManagementSection: React.FC<Props> = ({
             {regError && <Alert variant="danger">{regError}</Alert>}
             {regSuccess && <Alert variant="success">{regSuccess}</Alert>}
 
-            <form onSubmit={handleRegisterSubmit} className="space-y-3">
-              <div>
-                <label className="block text-xs font-medium text-text mb-1">
-                  Full Name <span className="text-danger">*</span>
-                </label>
+            <form onSubmit={handleRegisterSubmit} className="space-y-3" noValidate>
+              <FormField
+                label="Full Name"
+                htmlFor="reg-full-name"
+                required
+                error={fieldErrors["reg-full-name"]}
+              >
                 <Input
+                  id="reg-full-name"
                   required
+                  maxLength={100}
                   value={fullName}
                   onChange={(e) => setFullName(e.target.value)}
                   placeholder="e.g. Kenenisa Bekele"
+                  error={fieldErrors["reg-full-name"]}
                   className="min-h-[44px]"
                 />
-              </div>
+              </FormField>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-medium text-text mb-1">
-                    Email Address <span className="text-danger">*</span>
-                  </label>
+                <FormField
+                  label="Email Address"
+                  htmlFor="reg-email"
+                  required
+                  error={fieldErrors["reg-email"]}
+                >
                   <Input
+                    id="reg-email"
                     type="email"
                     required
+                    maxLength={254}
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     placeholder="email@example.com"
+                    error={fieldErrors["reg-email"]}
                     className="min-h-[44px]"
                   />
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-text mb-1">
-                    Phone <span className="text-danger">*</span>
-                  </label>
+                </FormField>
+
+                <FormField
+                  label="Phone"
+                  htmlFor="reg-phone"
+                  required
+                  error={fieldErrors["reg-phone"]}
+                >
                   <Input
+                    id="reg-phone"
                     type="tel"
+                    inputMode="tel"
                     required
+                    maxLength={20}
                     value={phone}
-                    onChange={(e) => setPhone(e.target.value)}
+                    onChange={(e) => setPhone(filterPhoneInput(e.target.value))}
                     placeholder="+251911223344"
+                    error={fieldErrors["reg-phone"]}
                     className="min-h-[44px]"
                   />
-                </div>
+                </FormField>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-medium text-text mb-1">
-                    Date of Birth
-                  </label>
+                <FormField
+                  label="Date of Birth"
+                  htmlFor="reg-dob"
+                  error={fieldErrors["reg-dob"]}
+                >
                   <Input
+                    id="reg-dob"
                     type="date"
                     value={dateOfBirth}
                     onChange={(e) => setDateOfBirth(e.target.value)}
+                    error={fieldErrors["reg-dob"]}
                     className="min-h-[44px]"
                   />
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-text mb-1">
-                    Gender
-                  </label>
+                </FormField>
+
+                <FormField label="Gender" htmlFor="reg-gender">
                   <select
+                    id="reg-gender"
                     value={gender}
                     onChange={(e) => setGender(e.target.value)}
                     className="w-full bg-surface-2 border border-border text-text rounded-input px-3 py-2 text-sm min-h-[44px]"
@@ -384,40 +460,49 @@ export const MemberManagementSection: React.FC<Props> = ({
                     <option value="other">Other</option>
                     <option value="prefer_not_to_say">Prefer not to say</option>
                   </select>
-                </div>
+                </FormField>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-medium text-text mb-1">
-                    Emergency Contact
-                  </label>
+                <FormField
+                  label="Emergency Contact"
+                  htmlFor="reg-emergency"
+                  error={fieldErrors["reg-emergency"]}
+                >
                   <Input
+                    id="reg-emergency"
+                    maxLength={100}
                     value={emergencyContact}
                     onChange={(e) => setEmergencyContact(e.target.value)}
                     placeholder="Name and Phone"
+                    error={fieldErrors["reg-emergency"]}
                     className="min-h-[44px]"
                   />
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-text mb-1">
-                    Referral Source
-                  </label>
+                </FormField>
+
+                <FormField
+                  label="Referral Source"
+                  htmlFor="reg-referral"
+                  error={fieldErrors["reg-referral"]}
+                >
                   <Input
+                    id="reg-referral"
+                    maxLength={100}
                     value={referralSource}
                     onChange={(e) => setReferralSource(e.target.value)}
                     placeholder="Walk-in, friend, etc."
+                    error={fieldErrors["reg-referral"]}
                     className="min-h-[44px]"
                   />
-                </div>
+                </FormField>
               </div>
-
 
               {/* Health waiver checkbox */}
               <div className="p-3 bg-surface-2/60 border border-border rounded-lg">
                 <label className="flex items-start gap-2 cursor-pointer select-none">
                   <input
                     type="checkbox"
+                    id="reg-waiver"
                     required
                     checked={waiverAccepted}
                     onChange={(e) => setWaiverAccepted(e.target.checked)}
@@ -429,6 +514,11 @@ export const MemberManagementSection: React.FC<Props> = ({
                     <span className="text-danger">*</span>
                   </span>
                 </label>
+                {fieldErrors["reg-waiver"] && (
+                  <p className="text-xs text-danger mt-1" role="alert">
+                    {fieldErrors["reg-waiver"]}
+                  </p>
+                )}
               </div>
 
               <div className="flex justify-end gap-3 pt-3">

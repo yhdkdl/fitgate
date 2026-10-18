@@ -6,6 +6,11 @@ import { Button } from "../components/ui/Button";
 import { Card } from "../components/ui/Card";
 import { FormField } from "../components/ui/FormField";
 import { Input } from "../components/ui/Input";
+import { PasswordChecklist } from "../components/ui/PasswordChecklist";
+import {
+  checkPasswordRequirements,
+  focusFirstInvalidField,
+} from "../utils/validators";
 
 export const ResetPasswordScreen: React.FC = () => {
   // Read token from URL on mount and remove it immediately from address bar
@@ -19,6 +24,10 @@ export const ResetPasswordScreen: React.FC = () => {
 
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [fieldErrors, setFieldErrors] = useState<{
+    newPassword?: string;
+    confirmPassword?: string;
+  }>({});
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isSuccess, setIsSuccess] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -44,16 +53,30 @@ export const ResetPasswordScreen: React.FC = () => {
       return;
     }
 
-    if (newPassword.length < 10) {
-      setErrorMessage("New password must be at least 10 characters long.");
+    const errors: { newPassword?: string; confirmPassword?: string } = {};
+    const reqs = checkPasswordRequirements(newPassword, confirmPassword);
+    if (!reqs.allValid) {
+      if (!reqs.minLength) {
+        errors.newPassword = "New password must be at least 10 characters long.";
+      } else if (!reqs.notNumeric) {
+        errors.newPassword = "Password cannot be only digits.";
+      } else if (!reqs.notCommon) {
+        errors.newPassword = "Password is too common; choose a stronger one.";
+      } else if (!reqs.matchesConfirm) {
+        errors.confirmPassword = "Passwords do not match.";
+      }
+    }
+
+    if (Object.keys(errors).length > 0) {
+      setFieldErrors(errors);
+      focusFirstInvalidField([
+        errors.newPassword ? "reset-new-password" : "",
+        errors.confirmPassword ? "reset-confirm-password" : "",
+      ].filter(Boolean));
       return;
     }
 
-    if (newPassword !== confirmPassword) {
-      setErrorMessage("Passwords do not match.");
-      return;
-    }
-
+    setFieldErrors({});
     setIsSubmitting(true);
     try {
       await confirmPasswordReset({
@@ -118,15 +141,22 @@ export const ResetPasswordScreen: React.FC = () => {
                 label="New password"
                 htmlFor="reset-new-password"
                 required
-                helperText="Minimum 10 characters"
+                error={fieldErrors.newPassword}
               >
                 <Input
                   id="reset-new-password"
                   type="password"
                   autoComplete="new-password"
+                  placeholder="At least 10 characters"
                   value={newPassword}
-                  onChange={(e) => setNewPassword(e.target.value)}
+                  onChange={(e) => {
+                    setNewPassword(e.target.value);
+                    if (fieldErrors.newPassword) {
+                      setFieldErrors((prev) => ({ ...prev, newPassword: undefined }));
+                    }
+                  }}
                   required
+                  error={fieldErrors.newPassword}
                   disabled={isSubmitting || !token}
                 />
               </FormField>
@@ -135,24 +165,37 @@ export const ResetPasswordScreen: React.FC = () => {
                 label="Confirm new password"
                 htmlFor="reset-confirm-password"
                 required
+                error={fieldErrors.confirmPassword}
               >
                 <Input
                   id="reset-confirm-password"
                   type="password"
                   autoComplete="new-password"
+                  placeholder="Re-enter your password"
                   value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  onChange={(e) => {
+                    setConfirmPassword(e.target.value);
+                    if (fieldErrors.confirmPassword) {
+                      setFieldErrors((prev) => ({ ...prev, confirmPassword: undefined }));
+                    }
+                  }}
                   required
+                  error={fieldErrors.confirmPassword}
                   disabled={isSubmitting || !token}
                 />
               </FormField>
+
+              <PasswordChecklist
+                password={newPassword}
+                confirmPassword={confirmPassword}
+              />
 
               <Button
                 type="submit"
                 variant="primary"
                 className="w-full"
                 isLoading={isSubmitting}
-                disabled={!token}
+                disabled={!token || isSubmitting}
               >
                 Reset Password
               </Button>

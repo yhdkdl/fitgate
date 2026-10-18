@@ -9,9 +9,21 @@ import { Alert } from "../components/ui/Alert";
 import { Badge } from "../components/ui/Badge";
 import { Button } from "../components/ui/Button";
 import { Card } from "../components/ui/Card";
+import { FormField } from "../components/ui/FormField";
 import { Input } from "../components/ui/Input";
+import { PasswordChecklist } from "../components/ui/PasswordChecklist";
 import { Spinner } from "../components/ui/Spinner";
 import { getTenantFromHostname } from "../utils/tenant";
+import {
+  checkPasswordRequirements,
+  filterPhoneInput,
+  focusFirstInvalidField,
+  validateDateOfBirth,
+  validateEmail,
+  validateName,
+  validatePhone,
+  validateTextLength,
+} from "../utils/validators";
 
 export const RegisterScreen: React.FC = () => {
   const tenant = getTenantFromHostname();
@@ -26,10 +38,9 @@ export const RegisterScreen: React.FC = () => {
   const [referralSource, setReferralSource] = useState("");
   const [waiverAccepted, setWaiverAccepted] = useState(false);
 
-  // Optional initial body metrics
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [fieldErrors, setFieldErrors] = useState<Record<string, string[]>>({});
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [success, setSuccess] = useState(false);
   const [submittedEmail, setSubmittedEmail] = useState("");
 
@@ -38,13 +49,46 @@ export const RegisterScreen: React.FC = () => {
     setError(null);
     setFieldErrors({});
 
-    if (!waiverAccepted) {
-      setError("You must accept the health and safety waiver to register.");
-      return;
+    const errors: Record<string, string> = {};
+
+    const nameErr = validateName(fullName, "Full name", 2, 100);
+    if (nameErr) errors.full_name = nameErr;
+
+    const emailErr = validateEmail(email, true);
+    if (emailErr) errors.email = emailErr;
+
+    const phoneErr = validatePhone(phone, true);
+    if (phoneErr) errors.phone = phoneErr;
+
+    const pwdReqs = checkPasswordRequirements(password);
+    if (!pwdReqs.isValid) {
+      if (!pwdReqs.hasMinLength) errors.password = "Password must be at least 10 characters long.";
+      else if (!pwdReqs.hasNoCommon) errors.password = "Password is too common.";
+      else if (!pwdReqs.hasNotOnlyDigits) errors.password = "Password cannot be entirely numeric.";
     }
 
-    if (password.length < 10) {
-      setError("Password must be at least 10 characters long.");
+    if (dateOfBirth) {
+      const dobErr = validateDateOfBirth(dateOfBirth);
+      if (dobErr) errors.date_of_birth = dobErr;
+    }
+
+    if (emergencyContact.trim()) {
+      const ecErr = validateTextLength(emergencyContact, "Emergency contact", 2, 100);
+      if (ecErr) errors.emergency_contact = ecErr;
+    }
+
+    if (referralSource.trim()) {
+      const refErr = validateTextLength(referralSource, "Referral source", 2, 100);
+      if (refErr) errors.referral_source = refErr;
+    }
+
+    if (!waiverAccepted) {
+      errors.waiver_accepted = "You must accept the health and safety waiver to register.";
+    }
+
+    if (Object.keys(errors).length > 0) {
+      setFieldErrors(errors);
+      focusFirstInvalidField(errors);
       return;
     }
 
@@ -53,7 +97,7 @@ export const RegisterScreen: React.FC = () => {
     try {
       const payload: PublicMemberRegistrationPayload = {
         full_name: fullName.trim(),
-        email: email.trim(),
+        email: email.trim().toLowerCase(),
         phone: phone.trim(),
         password,
         waiver_accepted: waiverAccepted,
@@ -64,7 +108,7 @@ export const RegisterScreen: React.FC = () => {
       };
 
       await registerMemberSelfService(payload);
-      setSubmittedEmail(email.trim());
+      setSubmittedEmail(email.trim().toLowerCase());
       setSuccess(true);
     } catch (err: unknown) {
       const apiErr = err as ApiError;
@@ -74,15 +118,12 @@ export const RegisterScreen: React.FC = () => {
         );
       } else if (apiErr.data && typeof apiErr.data === "object") {
         const dataObj = apiErr.data as Record<string, unknown>;
-        const formattedErrors: Record<string, string[]> = {};
+        const formattedErrors: Record<string, string> = {};
         for (const [key, val] of Object.entries(dataObj)) {
-          if (Array.isArray(val)) {
-            formattedErrors[key] = val.map(String);
-          } else if (typeof val === "string") {
-            formattedErrors[key] = [val];
-          }
+          formattedErrors[key] = Array.isArray(val) ? val.join(" ") : String(val);
         }
         setFieldErrors(formattedErrors);
+        focusFirstInvalidField(formattedErrors);
         if (typeof dataObj.detail === "string") {
           setError(dataObj.detail);
         } else if (Array.isArray(dataObj.waiver_accepted)) {
@@ -189,127 +230,112 @@ export const RegisterScreen: React.FC = () => {
             </Alert>
           )}
 
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="space-y-1">
-              <label
-                htmlFor="full_name"
-                className="block text-sm font-medium text-text"
-              >
-                Full Name <span className="text-danger">*</span>
-              </label>
+          <form onSubmit={handleSubmit} className="space-y-4" noValidate>
+            <FormField
+              label="Full Name"
+              htmlFor="full_name"
+              required
+              error={fieldErrors.full_name}
+            >
               <Input
                 id="full_name"
                 name="full_name"
                 type="text"
                 required
+                maxLength={100}
                 value={fullName}
                 onChange={(e) => setFullName(e.target.value)}
                 placeholder="e.g. Abebe Bikila"
+                error={fieldErrors.full_name}
                 className="min-h-[44px]"
               />
-              {fieldErrors.full_name && (
-                <p className="text-xs text-danger">
-                  {fieldErrors.full_name[0]}
-                </p>
-              )}
-            </div>
+            </FormField>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="space-y-1">
-                <label
-                  htmlFor="email"
-                  className="block text-sm font-medium text-text"
-                >
-                  Email Address <span className="text-danger">*</span>
-                </label>
+              <FormField
+                label="Email Address"
+                htmlFor="email"
+                required
+                error={fieldErrors.email}
+              >
                 <Input
                   id="email"
                   name="email"
                   type="email"
                   required
+                  maxLength={254}
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="name@example.com"
+                  error={fieldErrors.email}
                   className="min-h-[44px]"
                 />
-                {fieldErrors.email && (
-                  <p className="text-xs text-danger">{fieldErrors.email[0]}</p>
-                )}
-              </div>
+              </FormField>
 
-              <div className="space-y-1">
-                <label
-                  htmlFor="phone"
-                  className="block text-sm font-medium text-text"
-                >
-                  Phone Number <span className="text-danger">*</span>
-                </label>
+              <FormField
+                label="Phone Number"
+                htmlFor="phone"
+                required
+                error={fieldErrors.phone}
+              >
                 <Input
                   id="phone"
                   name="phone"
                   type="tel"
+                  inputMode="tel"
                   required
+                  maxLength={20}
                   value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
+                  onChange={(e) => setPhone(filterPhoneInput(e.target.value))}
                   placeholder="+251911223344"
+                  error={fieldErrors.phone}
                   className="min-h-[44px]"
                 />
-                {fieldErrors.phone && (
-                  <p className="text-xs text-danger">{fieldErrors.phone[0]}</p>
-                )}
-              </div>
+              </FormField>
             </div>
 
-            <div className="space-y-1">
-              <label
+            <div className="space-y-4">
+              <FormField
+                label="Password"
                 htmlFor="password"
-                className="block text-sm font-medium text-text"
-              >
-                Password <span className="text-danger">*</span>
-              </label>
-              <Input
-                id="password"
-                name="password"
-                type="password"
                 required
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="At least 10 characters"
-                className="min-h-[44px]"
-              />
-              <span className="text-xs text-text-muted">
-                Minimum 10 characters with numbers and letters.
-              </span>
-              {fieldErrors.password && (
-                <p className="text-xs text-danger">{fieldErrors.password[0]}</p>
-              )}
+                error={fieldErrors.password}
+              >
+                <Input
+                  id="password"
+                  name="password"
+                  type="password"
+                  required
+                  maxLength={128}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="At least 10 characters"
+                  error={fieldErrors.password}
+                  className="min-h-[44px]"
+                />
+              </FormField>
+
+              <PasswordChecklist password={password} />
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="space-y-1">
-                <label
-                  htmlFor="date_of_birth"
-                  className="block text-sm font-medium text-text"
-                >
-                  Date of Birth
-                </label>
+              <FormField
+                label="Date of Birth"
+                htmlFor="date_of_birth"
+                error={fieldErrors.date_of_birth}
+              >
                 <Input
                   id="date_of_birth"
                   name="date_of_birth"
                   type="date"
                   value={dateOfBirth}
                   onChange={(e) => setDateOfBirth(e.target.value)}
+                  error={fieldErrors.date_of_birth}
                   className="min-h-[44px]"
                 />
-              </div>
+              </FormField>
 
-              <div className="space-y-1">
-                <label
-                  htmlFor="gender"
-                  className="block text-sm font-medium text-text"
-                >
-                  Gender
-                </label>
+              <FormField label="Gender" htmlFor="gender">
                 <select
                   id="gender"
                   name="gender"
@@ -323,47 +349,46 @@ export const RegisterScreen: React.FC = () => {
                   <option value="other">Other</option>
                   <option value="prefer_not_to_say">Prefer not to say</option>
                 </select>
-              </div>
+              </FormField>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="space-y-1">
-                <label
-                  htmlFor="emergency_contact"
-                  className="block text-sm font-medium text-text"
-                >
-                  Emergency Contact
-                </label>
+              <FormField
+                label="Emergency Contact"
+                htmlFor="emergency_contact"
+                error={fieldErrors.emergency_contact}
+              >
                 <Input
                   id="emergency_contact"
                   name="emergency_contact"
                   type="text"
+                  maxLength={100}
                   value={emergencyContact}
                   onChange={(e) => setEmergencyContact(e.target.value)}
                   placeholder="Name and phone"
+                  error={fieldErrors.emergency_contact}
                   className="min-h-[44px]"
                 />
-              </div>
+              </FormField>
 
-              <div className="space-y-1">
-                <label
-                  htmlFor="referral_source"
-                  className="block text-sm font-medium text-text"
-                >
-                  Referral Source
-                </label>
+              <FormField
+                label="Referral Source"
+                htmlFor="referral_source"
+                error={fieldErrors.referral_source}
+              >
                 <Input
                   id="referral_source"
                   name="referral_source"
                   type="text"
+                  maxLength={100}
                   value={referralSource}
                   onChange={(e) => setReferralSource(e.target.value)}
                   placeholder="Friend, Social media, etc."
+                  error={fieldErrors.referral_source}
                   className="min-h-[44px]"
                 />
-              </div>
+              </FormField>
             </div>
-
 
             {/* Mandatory Health Waiver Checkbox */}
             <div className="bg-surface-2/40 border border-border p-4 rounded-lg space-y-2">
@@ -387,6 +412,11 @@ export const RegisterScreen: React.FC = () => {
                   requirements. <span className="text-danger font-bold">*</span>
                 </span>
               </label>
+              {fieldErrors.waiver_accepted && (
+                <p className="text-xs text-danger mt-1" role="alert">
+                  {fieldErrors.waiver_accepted}
+                </p>
+              )}
             </div>
 
             <Button

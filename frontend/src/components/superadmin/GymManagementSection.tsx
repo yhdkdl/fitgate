@@ -13,6 +13,16 @@ import { Button } from "../ui/Button";
 import { Card } from "../ui/Card";
 import { FormField } from "../ui/FormField";
 import { Input } from "../ui/Input";
+import {
+  filterPhoneInput,
+  focusFirstInvalidField,
+  validateEmail,
+  validateName,
+  validatePaymentAmount,
+  validatePhone,
+  validateSubdomain,
+  validateTextLength,
+} from "../../utils/validators";
 
 const TIER_PRICES: Record<string, string> = {
   starter: "12000.00",
@@ -45,6 +55,7 @@ export const GymManagementSection: React.FC<GymManagementSectionProps> = ({
     null
   );
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 
   // Form states
   const [demoRequestId, setDemoRequestId] = useState<string | null>(null);
@@ -69,7 +80,7 @@ export const GymManagementSection: React.FC<GymManagementSectionProps> = ({
         setContactName(prefillData.contact_name);
         setOwnerName(prefillData.contact_name);
       }
-      if (prefillData.contact_phone) setContactPhone(prefillData.contact_phone);
+      if (prefillData.contact_phone) setContactPhone(filterPhoneInput(prefillData.contact_phone));
       if (prefillData.contact_email) {
         setContactEmail(prefillData.contact_email);
         setOwnerEmail(prefillData.contact_email);
@@ -120,21 +131,70 @@ export const GymManagementSection: React.FC<GymManagementSectionProps> = ({
   const handleCreateGym = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMessage(null);
+    setFieldErrors({});
+
+    const errors: Record<string, string> = {};
+    const nameErr = validateName(name, "Gym name", 2, 100);
+    if (nameErr) errors.name = nameErr;
+
+    const subErr = validateSubdomain(subdomain);
+    if (subErr) errors.subdomain = subErr;
+
+    if (location.trim()) {
+      const locErr = validateTextLength(location, "Location", 0, 100);
+      if (locErr) errors.location = locErr;
+    }
+
+    if (contactName.trim()) {
+      const cNameErr = validateName(contactName, "Contact name", 2, 100);
+      if (cNameErr) errors.contact_name = cNameErr;
+    }
+
+    if (contactPhone.trim()) {
+      const cPhoneErr = validatePhone(contactPhone, false);
+      if (cPhoneErr) errors.contact_phone = cPhoneErr;
+    }
+
+    if (contactEmail.trim()) {
+      const cEmailErr = validateEmail(contactEmail, false);
+      if (cEmailErr) errors.contact_email = cEmailErr;
+    }
+
+    if (ownerName.trim()) {
+      const oNameErr = validateName(ownerName, "Owner name", 2, 100);
+      if (oNameErr) errors.owner_name = oNameErr;
+    }
+
+    const oEmailErr = validateEmail(ownerEmail, true);
+    if (oEmailErr) errors.owner_email = oEmailErr;
+
+    const payErr = validatePaymentAmount(paymentAmount);
+    if (payErr) errors.payment_amount = payErr;
+
+    const refErr = validateTextLength(paymentReference, "Bank reference", 3, 100);
+    if (refErr) errors.payment_reference = refErr;
+
+    if (Object.keys(errors).length > 0) {
+      setFieldErrors(errors);
+      focusFirstInvalidField(errors);
+      return;
+    }
+
     setIsSubmitting(true);
 
     try {
       const resp = await createGym({
-        name,
-        subdomain,
+        name: name.trim(),
+        subdomain: subdomain.trim().toLowerCase(),
         tier,
-        location,
-        contact_name: contactName,
-        contact_phone: contactPhone,
-        contact_email: contactEmail,
-        owner_name: ownerName,
-        owner_email: ownerEmail,
-        payment_amount: paymentAmount,
-        payment_reference: paymentReference,
+        location: location.trim(),
+        contact_name: contactName.trim(),
+        contact_phone: contactPhone.trim(),
+        contact_email: contactEmail.trim().toLowerCase(),
+        owner_name: ownerName.trim(),
+        owner_email: ownerEmail.trim().toLowerCase(),
+        payment_amount: paymentAmount.trim(),
+        payment_reference: paymentReference.trim(),
         payment_method: "bank_transfer",
         demo_request_id: demoRequestId || null,
       });
@@ -153,16 +213,23 @@ export const GymManagementSection: React.FC<GymManagementSectionProps> = ({
       setOwnerName("");
       setOwnerEmail("");
       setPaymentReference("");
+      setFieldErrors({});
       fetchGyms();
     } catch (err: unknown) {
       const errorObj = err as {
         response?: { data?: Record<string, string[] | string> };
       };
       if (errorObj.response?.data) {
-        const messages = Object.entries(errorObj.response.data)
-          .map(([k, v]) => `${k}: ${Array.isArray(v) ? v.join(" ") : v}`)
-          .join(" | ");
-        setErrorMessage(messages);
+        const serverFieldErrors: Record<string, string> = {};
+        const generalMessages: string[] = [];
+        Object.entries(errorObj.response.data).forEach(([k, v]) => {
+          const msg = Array.isArray(v) ? v.join(" ") : String(v);
+          serverFieldErrors[k] = msg;
+          generalMessages.push(`${k}: ${msg}`);
+        });
+        setFieldErrors(serverFieldErrors);
+        setErrorMessage(generalMessages.join(" | "));
+        focusFirstInvalidField(serverFieldErrors);
       } else {
         setErrorMessage("Failed to create gym tenant. Please verify inputs.");
       }
@@ -344,26 +411,40 @@ export const GymManagementSection: React.FC<GymManagementSectionProps> = ({
               </Alert>
             )}
 
-            <form onSubmit={handleCreateGym} className="space-y-4 mt-4">
+            <form onSubmit={handleCreateGym} className="space-y-4 mt-4" noValidate>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <FormField label="Gym Name" htmlFor="gym-name" required>
+                <FormField
+                  label="Gym Name"
+                  htmlFor="gym-name"
+                  required
+                  error={fieldErrors.name}
+                >
                   <Input
                     id="gym-name"
                     value={name}
                     onChange={(e) => setName(e.target.value)}
                     placeholder="e.g. Bole Power Fitness"
+                    maxLength={100}
+                    error={fieldErrors.name}
                     required
                   />
                 </FormField>
 
                 <div className="flex flex-col justify-end">
-                  <FormField label="Subdomain" htmlFor="gym-subdomain" required>
+                  <FormField
+                    label="Subdomain"
+                    htmlFor="gym-subdomain"
+                    required
+                    error={fieldErrors.subdomain}
+                  >
                     <div className="flex gap-2">
                       <Input
                         id="gym-subdomain"
                         value={subdomain}
                         onChange={(e) => setSubdomain(e.target.value)}
                         placeholder="bole-power"
+                        maxLength={63}
+                        error={fieldErrors.subdomain}
                         required
                       />
                       <Button
@@ -398,32 +479,53 @@ export const GymManagementSection: React.FC<GymManagementSectionProps> = ({
                   </select>
                 </FormField>
 
-                <FormField label="Location" htmlFor="gym-location">
+                <FormField
+                  label="Location"
+                  htmlFor="gym-location"
+                  error={fieldErrors.location}
+                >
                   <Input
                     id="gym-location"
                     value={location}
                     onChange={(e) => setLocation(e.target.value)}
                     placeholder="e.g. Bole Atlas"
+                    maxLength={100}
+                    error={fieldErrors.location}
                   />
                 </FormField>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <FormField label="Contact Name" htmlFor="gym-contact-name">
+                <FormField
+                  label="Contact Name"
+                  htmlFor="gym-contact-name"
+                  error={fieldErrors.contact_name}
+                >
                   <Input
                     id="gym-contact-name"
                     value={contactName}
                     onChange={(e) => setContactName(e.target.value)}
                     placeholder="Contact person"
+                    maxLength={100}
+                    error={fieldErrors.contact_name}
                   />
                 </FormField>
 
-                <FormField label="Contact Phone" htmlFor="gym-contact-phone">
+                <FormField
+                  label="Contact Phone"
+                  htmlFor="gym-contact-phone"
+                  error={fieldErrors.contact_phone}
+                >
                   <Input
                     id="gym-contact-phone"
                     value={contactPhone}
-                    onChange={(e) => setContactPhone(e.target.value)}
+                    onChange={(e) =>
+                      setContactPhone(filterPhoneInput(e.target.value))
+                    }
                     placeholder="+251911..."
+                    inputMode="tel"
+                    maxLength={20}
+                    error={fieldErrors.contact_phone}
                   />
                 </FormField>
               </div>
@@ -433,12 +535,18 @@ export const GymManagementSection: React.FC<GymManagementSectionProps> = ({
                   Owner Account Details
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <FormField label="Owner Name" htmlFor="gym-owner-name">
+                  <FormField
+                    label="Owner Name"
+                    htmlFor="gym-owner-name"
+                    error={fieldErrors.owner_name}
+                  >
                     <Input
                       id="gym-owner-name"
                       value={ownerName}
                       onChange={(e) => setOwnerName(e.target.value)}
                       placeholder="Full Name"
+                      maxLength={100}
+                      error={fieldErrors.owner_name}
                     />
                   </FormField>
 
@@ -446,6 +554,7 @@ export const GymManagementSection: React.FC<GymManagementSectionProps> = ({
                     label="Owner Email"
                     htmlFor="gym-owner-email"
                     required
+                    error={fieldErrors.owner_email}
                   >
                     <Input
                       id="gym-owner-email"
@@ -453,6 +562,8 @@ export const GymManagementSection: React.FC<GymManagementSectionProps> = ({
                       value={ownerEmail}
                       onChange={(e) => setOwnerEmail(e.target.value)}
                       placeholder="owner@example.com"
+                      maxLength={254}
+                      error={fieldErrors.owner_email}
                       required
                     />
                   </FormField>
@@ -468,13 +579,17 @@ export const GymManagementSection: React.FC<GymManagementSectionProps> = ({
                     label="Amount (ETB)"
                     htmlFor="gym-payment-amount"
                     required
+                    error={fieldErrors.payment_amount}
                   >
                     <Input
                       id="gym-payment-amount"
                       type="number"
                       step="0.01"
+                      min="1"
+                      inputMode="decimal"
                       value={paymentAmount}
                       onChange={(e) => setPaymentAmount(e.target.value)}
+                      error={fieldErrors.payment_amount}
                       required
                     />
                   </FormField>
@@ -483,12 +598,15 @@ export const GymManagementSection: React.FC<GymManagementSectionProps> = ({
                     label="Bank Reference"
                     htmlFor="gym-payment-ref"
                     required
+                    error={fieldErrors.payment_reference}
                   >
                     <Input
                       id="gym-payment-ref"
                       value={paymentReference}
                       onChange={(e) => setPaymentReference(e.target.value)}
                       placeholder="e.g. CBE-TX-998811"
+                      maxLength={100}
+                      error={fieldErrors.payment_reference}
                       required
                     />
                   </FormField>
@@ -508,6 +626,7 @@ export const GymManagementSection: React.FC<GymManagementSectionProps> = ({
                   type="submit"
                   variant="primary"
                   isLoading={isSubmitting}
+                  disabled={isSubmitting}
                 >
                   Provision Gym
                 </Button>

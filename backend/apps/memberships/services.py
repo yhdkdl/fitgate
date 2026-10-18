@@ -17,6 +17,12 @@ from apps.accounts.notifications import (
     send_member_invite_email,
     send_member_verification_email,
 )
+from apps.core.validators import (
+    validate_and_normalize_phone,
+    validate_date_of_birth,
+    validate_email_address,
+    validate_name,
+)
 from apps.memberships.models import Member
 from apps.tenants.models import GymTenant
 
@@ -30,31 +36,52 @@ def validate_registration_payload(
 ) -> Dict[str, Any]:
     """
     Validate registration input for both self-service and staff-assisted workflows.
-    Ensures identical Member + BodyMetrics validation and duplicate rejection.
+    Ensures identical Member validation and duplicate rejection.
     """
     errors: Dict[str, list[str]] = {}
 
-    full_name = str(data.get("full_name") or "").strip()
-    if not full_name:
-        errors["full_name"] = ["Full name is required."]
+    full_name_raw = data.get("full_name")
+    try:
+        full_name = validate_name(full_name_raw or "", "Full name")
+    except ValidationError as e:
+        errors["full_name"] = list(e.messages)
+        full_name = str(full_name_raw or "").strip()
 
     raw_email = data.get("email")
     if not raw_email or not isinstance(raw_email, str):
         errors["email"] = ["Email address is required."]
+        normalized_email = ""
     else:
-        normalized_email = raw_email.strip().lower()
-        if User.all_objects.filter(email=normalized_email).exists():
-            errors["email"] = ["A user with this email address already exists."]
+        try:
+            normalized_email = validate_email_address(raw_email)
+            if User.all_objects.filter(email=normalized_email).exists():
+                errors["email"] = ["A user with this email address already exists."]
+        except ValidationError as e:
+            errors["email"] = list(e.messages)
+            normalized_email = raw_email.strip().lower()
 
-    phone = str(data.get("phone") or "").strip()
-    if not phone:
+    raw_phone = data.get("phone")
+    if not raw_phone:
         errors["phone"] = ["Phone number is required."]
+        normalized_phone = ""
     else:
-        # Check duplicate phone within this gym tenant
-        if Member.all_objects.filter(gym=gym, phone=phone).exists():
-            errors["phone"] = [
-                "A member with this phone number already exists in this gym."
-            ]
+        try:
+            normalized_phone = validate_and_normalize_phone(str(raw_phone))
+            if Member.all_objects.filter(gym=gym, phone=normalized_phone).exists():
+                errors["phone"] = [
+                    "A member with this phone number already exists in this gym."
+                ]
+        except ValidationError as e:
+            errors["phone"] = list(e.messages)
+            normalized_phone = str(raw_phone).strip()
+
+    raw_dob = data.get("date_of_birth")
+    validated_dob = raw_dob
+    if raw_dob:
+        try:
+            validated_dob = validate_date_of_birth(raw_dob)
+        except ValidationError as e:
+            errors["date_of_birth"] = list(e.messages)
 
     waiver_accepted = data.get("waiver_accepted")
     if (
@@ -72,7 +99,7 @@ def validate_registration_payload(
             errors["password"] = ["Password is required for self-registration."]
         else:
             dummy_user = User(
-                email=raw_email.strip().lower() if raw_email else "member@fitgate.org",
+                email=normalized_email if normalized_email else "member@fitgate.org",
                 full_name=full_name,
                 role=User.ROLE_MEMBER,
                 gym=gym,
@@ -87,9 +114,9 @@ def validate_registration_payload(
 
     return {
         "full_name": full_name,
-        "email": raw_email.strip().lower(),
-        "phone": phone,
-        "date_of_birth": data.get("date_of_birth"),
+        "email": normalized_email,
+        "phone": normalized_phone,
+        "date_of_birth": validated_dob,
         "gender": data.get("gender") or "",
         "emergency_contact": str(data.get("emergency_contact") or "").strip(),
         "referral_source": str(data.get("referral_source") or "").strip(),

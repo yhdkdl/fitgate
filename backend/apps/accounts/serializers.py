@@ -1,10 +1,13 @@
 """Serializers for authentication and user endpoints."""
 
-import re
-
 from rest_framework import serializers
 
 from apps.accounts.models import AuditLog, User
+from apps.core.validators import (
+    validate_and_normalize_phone,
+    validate_email_address,
+    validate_name,
+)
 
 PRIVILEGED_FIELDS = (
     "role",
@@ -67,7 +70,7 @@ class UserProfileUpdateSerializer(serializers.ModelSerializer):
     full_name = serializers.CharField(
         max_length=150, required=False, allow_blank=True, trim_whitespace=False
     )
-    phone = serializers.CharField(max_length=20, required=False, allow_blank=True)
+    phone = serializers.CharField(max_length=50, required=False, allow_blank=True)
 
     class Meta:
         model = User
@@ -82,27 +85,14 @@ class UserProfileUpdateSerializer(serializers.ModelSerializer):
         return super().to_internal_value(data)
 
     def validate_full_name(self, value):
-        if value is not None and value != "" and not value.strip():
-            raise serializers.ValidationError("Full name cannot be whitespace-only.")
-        return value.strip() if value else ""
+        if value:
+            return validate_name(value, "Full name")
+        return ""
 
     def validate_phone(self, value):
-        if not value:
-            return ""
-        if len(value) < 7 or len(value) > 20:
-            raise serializers.ValidationError(
-                "Phone number must be between 7 and 20 characters."
-            )
-        check_val = value[1:] if value.startswith("+") else value
-        if not re.match(r"^[0-9 -]+$", check_val):
-            raise serializers.ValidationError(
-                "Phone number can only contain digits, spaces, hyphens, and an optional leading '+'."
-            )
-        if not any(c.isdigit() for c in check_val):
-            raise serializers.ValidationError(
-                "Phone number must contain at least one digit."
-            )
-        return value
+        if value:
+            return validate_and_normalize_phone(value)
+        return ""
 
 
 class ChangePasswordRequestSerializer(serializers.Serializer):
@@ -161,6 +151,9 @@ class CreateSuperAdminRequestSerializer(serializers.Serializer):
     password = serializers.CharField(required=True, write_only=True)
     current_password = serializers.CharField(required=True, write_only=True)
 
+    def validate_email(self, value):
+        return validate_email_address(value)
+
 
 class SuperAdminResponseSerializer(serializers.ModelSerializer):
     """Response for created Super Admin."""
@@ -181,6 +174,9 @@ class PasswordResetRequestSerializer(serializers.Serializer):
     """Payload for requesting a password reset email."""
 
     email = serializers.EmailField(required=True)
+
+    def validate_email(self, value):
+        return validate_email_address(value)
 
 
 class PasswordResetResponseSerializer(serializers.Serializer):
@@ -252,31 +248,21 @@ class InviteStaffRequestSerializer(serializers.Serializer):
         max_length=150, required=False, allow_blank=True, default=""
     )
     phone = serializers.CharField(
-        max_length=20, required=False, allow_blank=True, default=""
+        max_length=50, required=False, allow_blank=True, default=""
     )
 
+    def validate_email(self, value):
+        return validate_email_address(value)
+
     def validate_full_name(self, value):
-        if value is not None and value != "" and not value.strip():
-            raise serializers.ValidationError("Full name cannot be whitespace-only.")
-        return value.strip() if value else ""
+        if value:
+            return validate_name(value, "Full name")
+        return ""
 
     def validate_phone(self, value):
-        if not value:
-            return ""
-        if len(value) < 7 or len(value) > 20:
-            raise serializers.ValidationError(
-                "Phone number must be between 7 and 20 characters."
-            )
-        check_val = value[1:] if value.startswith("+") else value
-        if not re.match(r"^[0-9 -]+$", check_val):
-            raise serializers.ValidationError(
-                "Phone number can only contain digits, spaces, hyphens, and an optional leading '+'."
-            )
-        if not any(c.isdigit() for c in check_val):
-            raise serializers.ValidationError(
-                "Phone number must contain at least one digit."
-            )
-        return value
+        if value:
+            return validate_and_normalize_phone(value)
+        return ""
 
 
 class InviteStaffResponseSerializer(serializers.Serializer):

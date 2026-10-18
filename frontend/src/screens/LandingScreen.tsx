@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import {
+  AlertCircle,
   ArrowRight,
   Bot,
   Building2,
@@ -530,12 +531,15 @@ export const LandingScreen: React.FC = () => {
                     <input
                       id="gym-subdomain-input"
                       type="text"
+                      maxLength={63}
                       value={gymSubdomain}
                       onChange={(e) => {
                         setGymSubdomain(e.target.value);
                         if (gymError) setGymError(null);
                       }}
                       placeholder="e.g. bolehub"
+                      aria-invalid={!!gymError}
+                      aria-describedby={gymError ? "gym-subdomain-error" : undefined}
                       className="block w-full min-w-0 flex-1 border-0 bg-transparent py-2.5 px-3 text-text placeholder-text-muted/60 text-sm focus:ring-0 focus:outline-none min-h-[44px]"
                       aria-label="Gym Subdomain"
                     />
@@ -547,10 +551,12 @@ export const LandingScreen: React.FC = () => {
 
                 {gymError && (
                   <div
+                    id="gym-subdomain-error"
                     role="alert"
-                    className="p-3 text-sm rounded-lg bg-danger/10 border border-danger/30 text-danger"
+                    className="p-3 text-sm rounded-lg bg-danger/10 border border-danger/30 text-danger flex items-center gap-2"
                   >
-                    {gymError}
+                    <AlertCircle className="w-4 h-4 shrink-0" />
+                    <span>{gymError}</span>
                   </div>
                 )}
 

@@ -5,12 +5,22 @@ import { Button } from "../components/ui/Button";
 import { Card } from "../components/ui/Card";
 import { FormField } from "../components/ui/FormField";
 import { Input } from "../components/ui/Input";
+import { PasswordChecklist } from "../components/ui/PasswordChecklist";
 import { useAuth } from "../context/AuthContext";
+import {
+  checkPasswordRequirements,
+  focusFirstInvalidField,
+} from "../utils/validators";
 
 export const ForcedChangePasswordScreen: React.FC = () => {
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [fieldErrors, setFieldErrors] = useState<{
+    currentPassword?: string;
+    newPassword?: string;
+    confirmPassword?: string;
+  }>({});
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -21,21 +31,44 @@ export const ForcedChangePasswordScreen: React.FC = () => {
     e.preventDefault();
     setErrorMessage(null);
 
-    if (newPassword.length < 10) {
-      setErrorMessage("New password must be at least 10 characters long.");
+    const errors: {
+      currentPassword?: string;
+      newPassword?: string;
+      confirmPassword?: string;
+    } = {};
+
+    if (!currentPassword) {
+      errors.currentPassword = "Current password is required.";
+    }
+
+    const reqs = checkPasswordRequirements(newPassword, confirmPassword);
+    if (!reqs.allValid) {
+      if (!reqs.minLength) {
+        errors.newPassword = "New password must be at least 10 characters long.";
+      } else if (!reqs.notNumeric) {
+        errors.newPassword = "New password cannot be only digits.";
+      } else if (!reqs.notCommon) {
+        errors.newPassword = "New password is too common; choose a stronger one.";
+      } else if (!reqs.matchesConfirm) {
+        errors.confirmPassword = "New passwords do not match.";
+      }
+    }
+
+    if (newPassword && currentPassword && newPassword === currentPassword) {
+      errors.newPassword = "New password must be different from current password.";
+    }
+
+    if (Object.keys(errors).length > 0) {
+      setFieldErrors(errors);
+      focusFirstInvalidField([
+        errors.currentPassword ? "forced-current-password" : "",
+        errors.newPassword ? "forced-new-password" : "",
+        errors.confirmPassword ? "forced-confirm-password" : "",
+      ].filter(Boolean));
       return;
     }
 
-    if (newPassword !== confirmPassword) {
-      setErrorMessage("New passwords do not match.");
-      return;
-    }
-
-    if (newPassword === currentPassword) {
-      setErrorMessage("New password must be different from current password.");
-      return;
-    }
-
+    setFieldErrors({});
     setIsSubmitting(true);
     try {
       await changeUserPassword({
@@ -81,14 +114,21 @@ export const ForcedChangePasswordScreen: React.FC = () => {
               label="Current password"
               htmlFor="forced-current-password"
               required
+              error={fieldErrors.currentPassword}
             >
               <Input
                 id="forced-current-password"
                 type="password"
                 autoComplete="current-password"
                 value={currentPassword}
-                onChange={(e) => setCurrentPassword(e.target.value)}
+                onChange={(e) => {
+                  setCurrentPassword(e.target.value);
+                  if (fieldErrors.currentPassword) {
+                    setFieldErrors((prev) => ({ ...prev, currentPassword: undefined }));
+                  }
+                }}
                 required
+                error={fieldErrors.currentPassword}
                 disabled={isSubmitting}
               />
             </FormField>
@@ -97,15 +137,21 @@ export const ForcedChangePasswordScreen: React.FC = () => {
               label="New password"
               htmlFor="forced-new-password"
               required
-              helperText="Minimum 10 characters"
+              error={fieldErrors.newPassword}
             >
               <Input
                 id="forced-new-password"
                 type="password"
                 autoComplete="new-password"
                 value={newPassword}
-                onChange={(e) => setNewPassword(e.target.value)}
+                onChange={(e) => {
+                  setNewPassword(e.target.value);
+                  if (fieldErrors.newPassword) {
+                    setFieldErrors((prev) => ({ ...prev, newPassword: undefined }));
+                  }
+                }}
                 required
+                error={fieldErrors.newPassword}
                 disabled={isSubmitting}
               />
             </FormField>
@@ -114,28 +160,42 @@ export const ForcedChangePasswordScreen: React.FC = () => {
               label="Confirm new password"
               htmlFor="forced-confirm-password"
               required
+              error={fieldErrors.confirmPassword}
             >
               <Input
                 id="forced-confirm-password"
                 type="password"
                 autoComplete="new-password"
                 value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
+                onChange={(e) => {
+                  setConfirmPassword(e.target.value);
+                  if (fieldErrors.confirmPassword) {
+                    setFieldErrors((prev) => ({ ...prev, confirmPassword: undefined }));
+                  }
+                }}
                 required
+                error={fieldErrors.confirmPassword}
                 disabled={isSubmitting}
               />
             </FormField>
+
+            <PasswordChecklist
+              password={newPassword}
+              confirmPassword={confirmPassword}
+            />
 
             <Button
               type="submit"
               variant="primary"
               className="w-full"
               isLoading={isSubmitting}
+              disabled={isSubmitting}
             >
               Update Password and Continue
             </Button>
           </form>
         </Card>
+
       </div>
     </div>
   );

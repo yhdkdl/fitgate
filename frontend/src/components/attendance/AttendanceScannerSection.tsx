@@ -27,10 +27,16 @@ import { Button } from "../ui/Button";
 import { Input } from "../ui/Input";
 import { Badge } from "../ui/Badge";
 import { Alert } from "../ui/Alert";
+import { FormField } from "../ui/FormField";
 import { Spinner } from "../ui/Spinner";
 import { AttendanceLogCard } from "./AttendanceLogCard";
 import { CameraQrScanner } from "./CameraQrScanner";
 import { TodayCheckinsList } from "./TodayCheckinsList";
+
+import {
+  focusFirstInvalidField,
+  validateTextLength,
+} from "../../utils/validators";
 
 interface AttendanceScannerSectionProps {
   userRole?: string;
@@ -58,6 +64,7 @@ export const AttendanceScannerSection: React.FC<
   const [overrideMemberId, setOverrideMemberId] = useState("");
   const [overrideReason, setOverrideReason] = useState("");
   const [overrideSubmitting, setOverrideSubmitting] = useState(false);
+  const [overrideFieldErrors, setOverrideFieldErrors] = useState<Record<string, string>>({});
   const [overrideError, setOverrideError] = useState<{
     detail: string;
     reason: string;
@@ -173,16 +180,26 @@ export const AttendanceScannerSection: React.FC<
 
   const handleOverrideSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!overrideMemberId.trim() || !overrideReason.trim()) {
-      setOverrideError({
-        detail: "Member ID and a non-empty reason are required.",
-        reason: "validation_error",
-      });
+    setOverrideError(null);
+    setOverrideFieldErrors({});
+
+    const errors: Record<string, string> = {};
+    if (!overrideMemberId.trim()) {
+      errors["override-search"] = "Please select a member for manual override.";
+    }
+
+    const reasonErr = validateTextLength(overrideReason, "Override reason", 5, 500);
+    if (reasonErr) {
+      errors["override-reason"] = reasonErr;
+    }
+
+    if (Object.keys(errors).length > 0) {
+      setOverrideFieldErrors(errors);
+      focusFirstInvalidField(errors);
       return;
     }
 
     setOverrideSubmitting(true);
-    setOverrideError(null);
 
     try {
       const result = await manualAttendanceOverride({
@@ -199,6 +216,7 @@ export const AttendanceScannerSection: React.FC<
       setSelectedOverrideMember(null);
       setOverrideSearch("");
       setOverrideSearchResults([]);
+      setOverrideFieldErrors({});
     } catch (err: unknown) {
       const errorObj = err as {
         data?: { detail?: string; reason?: string };
@@ -344,6 +362,7 @@ export const AttendanceScannerSection: React.FC<
                 placeholder="Scan QR token or paste token JWT..."
                 value={tokenInput}
                 onChange={(e) => setTokenInput(e.target.value)}
+                maxLength={2048}
                 disabled={scanning}
                 className="font-mono text-xs pr-10 min-h-[44px]"
                 autoFocus
@@ -551,11 +570,13 @@ export const AttendanceScannerSection: React.FC<
               </Alert>
             )}
 
-            <form onSubmit={handleOverrideSubmit} className="space-y-4">
-              <div>
-                <label className="block text-xs font-semibold text-text-muted mb-1">
-                  Member
-                </label>
+            <form onSubmit={handleOverrideSubmit} className="space-y-4" noValidate>
+              <FormField
+                label="Member"
+                htmlFor="override-search"
+                required
+                error={overrideFieldErrors["override-search"]}
+              >
                 {selectedOverrideMember ? (
                   <div className="p-3 bg-surface-2 border border-primary/30 rounded-input flex items-center justify-between gap-3">
                     <div className="min-w-0">
@@ -587,8 +608,10 @@ export const AttendanceScannerSection: React.FC<
                   <div className="space-y-2">
                     <div className="relative">
                       <Input
+                        id="override-search"
                         type="text"
                         placeholder="Search member by name, email, or phone..."
+                        maxLength={100}
                         value={overrideSearch}
                         onChange={(e) => {
                           const val = e.target.value;
@@ -650,20 +673,24 @@ export const AttendanceScannerSection: React.FC<
                       )}
                   </div>
                 )}
-              </div>
+              </FormField>
 
-              <div>
-                <label className="block text-xs font-semibold text-text-muted mb-1">
-                  Override Reason (Required)
-                </label>
+              <FormField
+                label="Override Reason (5 to 500 characters)"
+                htmlFor="override-reason"
+                required
+                error={overrideFieldErrors["override-reason"]}
+              >
                 <textarea
+                  id="override-reason"
                   placeholder="Explain why manual override was needed (e.g. phone died, camera broken)..."
+                  maxLength={500}
                   value={overrideReason}
                   onChange={(e) => setOverrideReason(e.target.value)}
                   className="w-full bg-surface-2 border border-border rounded-input p-3 text-xs text-text focus:outline-none focus:ring-1 focus:ring-primary min-h-[80px]"
                   required
                 />
-              </div>
+              </FormField>
 
               <div className="flex gap-3 pt-2">
                 <Button

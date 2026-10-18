@@ -2,6 +2,8 @@
 
 from rest_framework import serializers
 
+from apps.core.validators import validate_text_length
+
 
 class AttendancePublicKeyResponseSerializer(serializers.Serializer):
     """Response serializer for public key export."""
@@ -30,6 +32,7 @@ class AttendanceScanRequestSerializer(serializers.Serializer):
 
     token = serializers.CharField(
         required=True,
+        max_length=2048,
         help_text="Scanned QR token string (EdDSA JWT).",
     )
     branch_id = serializers.UUIDField(
@@ -37,6 +40,9 @@ class AttendanceScanRequestSerializer(serializers.Serializer):
         allow_null=True,
         help_text="Optional branch UUID for multi-branch check-ins.",
     )
+
+    def validate_token(self, value: str) -> str:
+        return validate_text_length(value, 1, 2048, "Token")
 
 
 class AttendanceScanResultMemberSerializer(serializers.Serializer):
@@ -80,9 +86,9 @@ class AttendanceManualOverrideRequestSerializer(serializers.Serializer):
     )
     reason = serializers.CharField(
         required=True,
-        min_length=1,
+        min_length=5,
         max_length=500,
-        help_text="Non-empty explanation for manual override.",
+        help_text="Explanation for manual override (5 to 500 characters).",
     )
     branch_id = serializers.UUIDField(
         required=False,
@@ -91,10 +97,7 @@ class AttendanceManualOverrideRequestSerializer(serializers.Serializer):
     )
 
     def validate_reason(self, value: str) -> str:
-        clean = value.strip()
-        if not clean:
-            raise serializers.ValidationError("Reason cannot be blank.")
-        return clean
+        return validate_text_length(value, 5, 500, "Reason")
 
 
 class AttendanceManualOverrideResponseSerializer(serializers.Serializer):

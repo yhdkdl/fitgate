@@ -11,6 +11,14 @@ import {
   type AuditLogFilters,
 } from "../../api/audit";
 
+import { FormField } from "../ui/FormField";
+import { Input } from "../ui/Input";
+import {
+  focusFirstInvalidField,
+  validateDateRange,
+  validateTextLength,
+} from "../../utils/validators";
+
 interface AuditLogSectionProps {
   userRole?: string;
   isPlatform?: boolean;
@@ -39,6 +47,7 @@ export const AuditLogSection: React.FC<AuditLogSectionProps> = ({
   const [totalCount, setTotalCount] = useState<number>(0);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [filterErrors, setFilterErrors] = useState<Record<string, string>>({});
 
   // Filters state
   const [search, setSearch] = useState<string>("");
@@ -51,6 +60,23 @@ export const AuditLogSection: React.FC<AuditLogSectionProps> = ({
   const pageSize = 15;
 
   const loadLogs = useCallback(async () => {
+    // Validate filters
+    const errors: Record<string, string> = {};
+    if (search.trim()) {
+      const sErr = validateTextLength(search, "Search query", 0, 100);
+      if (sErr) errors["audit-search"] = sErr;
+    }
+    const dErr = validateDateRange(dateFrom, dateTo);
+    if (dErr) errors["audit-date-from"] = dErr;
+
+    if (Object.keys(errors).length > 0) {
+      setFilterErrors(errors);
+      focusFirstInvalidField(errors);
+      setIsLoading(false);
+      return;
+    }
+    setFilterErrors({});
+
     setIsLoading(true);
     setErrorMessage(null);
 
@@ -97,6 +123,7 @@ export const AuditLogSection: React.FC<AuditLogSectionProps> = ({
     setActionType("");
     setDateFrom("");
     setDateTo("");
+    setFilterErrors({});
     setCurrentPage(1);
   };
 
@@ -177,25 +204,28 @@ export const AuditLogSection: React.FC<AuditLogSectionProps> = ({
       <form
         onSubmit={handleApplyFilter}
         className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 p-4 bg-surface-2/40 border border-border rounded-input"
+        noValidate
       >
-        <div className="space-y-1">
-          <label className="text-xs font-semibold text-text-muted">
-            Search
-          </label>
-          <input
+        <FormField
+          label="Search"
+          htmlFor="audit-search"
+          error={filterErrors["audit-search"]}
+        >
+          <Input
+            id="audit-search"
             type="text"
             placeholder="Actor, record ID, or query..."
+            maxLength={100}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="w-full bg-surface border border-border rounded-input px-3 py-2 text-sm text-text focus:outline-none focus:border-primary min-h-[44px]"
+            error={filterErrors["audit-search"]}
+            className="w-full min-h-[44px]"
           />
-        </div>
+        </FormField>
 
-        <div className="space-y-1">
-          <label className="text-xs font-semibold text-text-muted">
-            Action Type
-          </label>
+        <FormField label="Action Type" htmlFor="audit-action-type">
           <select
+            id="audit-action-type"
             value={actionType}
             onChange={(e) => {
               setActionType(e.target.value);
@@ -209,46 +239,48 @@ export const AuditLogSection: React.FC<AuditLogSectionProps> = ({
               </option>
             ))}
           </select>
-        </div>
+        </FormField>
 
-        <div className="space-y-1">
-          <label className="text-xs font-semibold text-text-muted">
-            Date From
-          </label>
-          <input
+        <FormField
+          label="Date From"
+          htmlFor="audit-date-from"
+          error={filterErrors["audit-date-from"]}
+        >
+          <Input
+            id="audit-date-from"
             type="date"
             value={dateFrom}
             onChange={(e) => {
               setDateFrom(e.target.value);
               setCurrentPage(1);
             }}
-            className="w-full bg-surface border border-border rounded-input px-3 py-2 text-sm text-text focus:outline-none focus:border-primary min-h-[44px]"
+            error={filterErrors["audit-date-from"]}
+            className="w-full min-h-[44px]"
           />
-        </div>
+        </FormField>
 
-        <div className="space-y-1">
-          <label className="text-xs font-semibold text-text-muted">
-            Date To
-          </label>
-          <input
+        <FormField label="Date To" htmlFor="audit-date-to">
+          <Input
+            id="audit-date-to"
             type="date"
             value={dateTo}
             onChange={(e) => {
               setDateTo(e.target.value);
               setCurrentPage(1);
             }}
-            className="w-full bg-surface border border-border rounded-input px-3 py-2 text-sm text-text focus:outline-none focus:border-primary min-h-[44px]"
+            className="w-full min-h-[44px]"
           />
-        </div>
+        </FormField>
 
         <div className="flex items-end gap-2 pt-1">
           <Button
             type="submit"
             variant="primary"
             size="md"
+            disabled={isLoading}
             className="flex-1 min-h-[44px]"
           >
-            Filter
+            {isLoading ? "Filtering..." : "Filter"}
           </Button>
           <Button
             type="button"

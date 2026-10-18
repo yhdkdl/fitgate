@@ -3,6 +3,18 @@
 from rest_framework import serializers
 
 from apps.accounts.models import User
+from apps.core.validators import (
+    validate_and_normalize_phone,
+    validate_date_of_birth,
+    validate_email_address,
+    validate_height,
+    validate_hip,
+    validate_name,
+    validate_neck,
+    validate_text_length,
+    validate_waist,
+    validate_weight,
+)
 from apps.memberships.models import BodyMetrics, Member
 
 
@@ -172,7 +184,7 @@ class PublicMemberRegistrationSerializer(serializers.Serializer):
 
     full_name = serializers.CharField(max_length=150, required=True)
     email = serializers.EmailField(max_length=255, required=True)
-    phone = serializers.CharField(max_length=20, required=True)
+    phone = serializers.CharField(max_length=50, required=True)
     password = serializers.CharField(
         max_length=128,
         write_only=True,
@@ -201,6 +213,25 @@ class PublicMemberRegistrationSerializer(serializers.Serializer):
         allow_blank=True,
     )
 
+    def validate_full_name(self, value):
+        return validate_name(value, "Full name")
+
+    def validate_email(self, value):
+        return validate_email_address(value)
+
+    def validate_phone(self, value):
+        return validate_and_normalize_phone(value)
+
+    def validate_date_of_birth(self, value):
+        if value:
+            return validate_date_of_birth(value)
+        return value
+
+    def validate_emergency_contact(self, value):
+        if value:
+            return validate_text_length(value, 2, 255, "Emergency contact")
+        return ""
+
 
 class StaffMemberRegistrationSerializer(serializers.Serializer):
     """
@@ -211,7 +242,7 @@ class StaffMemberRegistrationSerializer(serializers.Serializer):
 
     full_name = serializers.CharField(max_length=150, required=True)
     email = serializers.EmailField(max_length=255, required=True)
-    phone = serializers.CharField(max_length=20, required=True)
+    phone = serializers.CharField(max_length=50, required=True)
     waiver_accepted = serializers.BooleanField(required=True)
     date_of_birth = serializers.DateField(required=False, allow_null=True)
     gender = serializers.ChoiceField(
@@ -235,6 +266,25 @@ class StaffMemberRegistrationSerializer(serializers.Serializer):
         allow_blank=True,
     )
 
+    def validate_full_name(self, value):
+        return validate_name(value, "Full name")
+
+    def validate_email(self, value):
+        return validate_email_address(value)
+
+    def validate_phone(self, value):
+        return validate_and_normalize_phone(value)
+
+    def validate_date_of_birth(self, value):
+        if value:
+            return validate_date_of_birth(value)
+        return value
+
+    def validate_emergency_contact(self, value):
+        if value:
+            return validate_text_length(value, 2, 255, "Emergency contact")
+        return ""
+
 
 class VerifyEmailRequestSerializer(serializers.Serializer):
     """Serializer for email verification request."""
@@ -257,6 +307,26 @@ class MemberUpdateSerializer(serializers.ModelSerializer):
             "photo_url",
             "status",
         ]
+
+    def validate_full_name(self, value):
+        if value:
+            return validate_name(value, "Full name")
+        return ""
+
+    def validate_phone(self, value):
+        if value:
+            return validate_and_normalize_phone(value)
+        return ""
+
+    def validate_date_of_birth(self, value):
+        if value:
+            return validate_date_of_birth(value)
+        return value
+
+    def validate_emergency_contact(self, value):
+        if value:
+            return validate_text_length(value, 2, 255, "Emergency contact")
+        return ""
 
 
 class RecordBodyMetricsSerializer(serializers.Serializer):
@@ -297,3 +367,18 @@ class RecordBodyMetricsSerializer(serializers.Serializer):
         required=False,
         allow_null=True,
     )
+
+    def validate_weight_kg(self, value):
+        return validate_weight(value)
+
+    def validate_height_cm(self, value):
+        return validate_height(value)
+
+    def validate_waist_cm(self, value):
+        return validate_waist(value)
+
+    def validate_neck_cm(self, value):
+        return validate_neck(value)
+
+    def validate_hip_cm(self, value):
+        return validate_hip(value)

@@ -16,6 +16,13 @@ import { Card } from "../ui/Card";
 import { FormField } from "../ui/FormField";
 import { Input } from "../ui/Input";
 import { Spinner } from "../ui/Spinner";
+import {
+  filterPhoneInput,
+  focusFirstInvalidField,
+  validateEmail,
+  validateName,
+  validatePhone,
+} from "../../utils/validators";
 
 interface StaffManagementSectionProps {
   onStaffUpdated?: () => void;
@@ -44,6 +51,7 @@ export const StaffManagementSection: React.FC<StaffManagementSectionProps> = ({
     phone: "",
   });
   const [inviteError, setInviteError] = useState<string | null>(null);
+  const [inviteFieldErrors, setInviteFieldErrors] = useState<Record<string, string>>({});
 
   // Deactivate confirmation state
   const [deactivatingId, setDeactivatingId] = useState<string | null>(null);
@@ -72,16 +80,32 @@ export const StaffManagementSection: React.FC<StaffManagementSectionProps> = ({
   const handleInviteSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setInviteError(null);
+    setInviteFieldErrors({});
 
-    if (!inviteForm.email.trim()) {
-      setInviteError("Email is required.");
+    const errors: Record<string, string> = {};
+    const emailErr = validateEmail(inviteForm.email, true);
+    if (emailErr) errors["staff-email"] = emailErr;
+
+    if (inviteForm.full_name?.trim()) {
+      const nameErr = validateName(inviteForm.full_name, "Full name", 2, 100);
+      if (nameErr) errors["staff-name"] = nameErr;
+    }
+
+    if (inviteForm.phone?.trim()) {
+      const phoneErr = validatePhone(inviteForm.phone, false);
+      if (phoneErr) errors["staff-phone"] = phoneErr;
+    }
+
+    if (Object.keys(errors).length > 0) {
+      setInviteFieldErrors(errors);
+      focusFirstInvalidField(errors);
       return;
     }
 
     try {
       setInviteSubmitting(true);
       const res = await inviteStaff({
-        email: inviteForm.email.trim(),
+        email: inviteForm.email.trim().toLowerCase(),
         role: inviteForm.role,
         full_name: inviteForm.full_name?.trim() || undefined,
         phone: inviteForm.phone?.trim() || undefined,
@@ -97,14 +121,30 @@ export const StaffManagementSection: React.FC<StaffManagementSectionProps> = ({
         full_name: "",
         phone: "",
       });
+      setInviteFieldErrors({});
       await fetchStaff();
       onStaffUpdated?.();
     } catch (err: unknown) {
       const data = (err as { data?: Record<string, unknown> })?.data;
       if (data && typeof data === "object") {
-        if ("email" in data && Array.isArray(data.email)) {
-          setInviteError(data.email.join(" "));
-        } else if ("detail" in data && typeof data.detail === "string") {
+        const serverFieldErrors: Record<string, string> = {};
+        if ("email" in data) {
+          const val = data.email;
+          serverFieldErrors["staff-email"] = Array.isArray(val) ? val.join(" ") : String(val);
+        }
+        if ("full_name" in data) {
+          const val = data.full_name;
+          serverFieldErrors["staff-name"] = Array.isArray(val) ? val.join(" ") : String(val);
+        }
+        if ("phone" in data) {
+          const val = data.phone;
+          serverFieldErrors["staff-phone"] = Array.isArray(val) ? val.join(" ") : String(val);
+        }
+        if (Object.keys(serverFieldErrors).length > 0) {
+          setInviteFieldErrors(serverFieldErrors);
+          focusFirstInvalidField(serverFieldErrors);
+        }
+        if ("detail" in data && typeof data.detail === "string") {
           setInviteError(data.detail);
         } else {
           setInviteError(
@@ -461,13 +501,19 @@ export const StaffManagementSection: React.FC<StaffManagementSectionProps> = ({
               </Alert>
             )}
 
-            <form onSubmit={handleInviteSubmit} className="space-y-4">
-              <FormField label="Email Address *" htmlFor="staff-email">
+            <form onSubmit={handleInviteSubmit} className="space-y-4" noValidate>
+              <FormField
+                label="Email Address"
+                htmlFor="staff-email"
+                required
+                error={inviteFieldErrors["staff-email"]}
+              >
                 <Input
                   id="staff-email"
                   type="email"
                   required
                   placeholder="staff@example.com"
+                  maxLength={254}
                   value={inviteForm.email}
                   onChange={(e) =>
                     setInviteForm((prev) => ({
@@ -475,11 +521,12 @@ export const StaffManagementSection: React.FC<StaffManagementSectionProps> = ({
                       email: e.target.value,
                     }))
                   }
+                  error={inviteFieldErrors["staff-email"]}
                   disabled={inviteSubmitting}
                 />
               </FormField>
 
-              <FormField label="Staff Role *" htmlFor="staff-role">
+              <FormField label="Staff Role" htmlFor="staff-role" required>
                 <select
                   id="staff-role"
                   value={inviteForm.role}
@@ -498,11 +545,16 @@ export const StaffManagementSection: React.FC<StaffManagementSectionProps> = ({
                 </select>
               </FormField>
 
-              <FormField label="Full Name" htmlFor="staff-name">
+              <FormField
+                label="Full Name"
+                htmlFor="staff-name"
+                error={inviteFieldErrors["staff-name"]}
+              >
                 <Input
                   id="staff-name"
                   type="text"
                   placeholder="e.g. Abebe Bikila"
+                  maxLength={100}
                   value={inviteForm.full_name}
                   onChange={(e) =>
                     setInviteForm((prev) => ({
@@ -510,22 +562,30 @@ export const StaffManagementSection: React.FC<StaffManagementSectionProps> = ({
                       full_name: e.target.value,
                     }))
                   }
+                  error={inviteFieldErrors["staff-name"]}
                   disabled={inviteSubmitting}
                 />
               </FormField>
 
-              <FormField label="Phone Number" htmlFor="staff-phone">
+              <FormField
+                label="Phone Number"
+                htmlFor="staff-phone"
+                error={inviteFieldErrors["staff-phone"]}
+              >
                 <Input
                   id="staff-phone"
                   type="tel"
+                  inputMode="tel"
                   placeholder="e.g. +251 91 123 4567"
+                  maxLength={20}
                   value={inviteForm.phone}
                   onChange={(e) =>
                     setInviteForm((prev) => ({
                       ...prev,
-                      phone: e.target.value,
+                      phone: filterPhoneInput(e.target.value),
                     }))
                   }
+                  error={inviteFieldErrors["staff-phone"]}
                   disabled={inviteSubmitting}
                 />
               </FormField>
