@@ -70,6 +70,7 @@ Items below are proposed but not yet confirmed by the project owner — do not t
 
 - [ ] Migrations included, and apply cleanly against a fresh database
 - [ ] Existing test suite green; new tests written and passing only for security, money, tenancy logic, or logic easy to break silently
+- [ ] Every form field has frontend and backend validation using the shared rules
 - [ ] Lint/format clean (ruff + black on the backend, eslint + prettier on the frontend)
 - [ ] OpenAPI schema and generated TS types regenerated if any endpoint or serializer changed
 - [ ] PR description written, covering what changed, why, and what was tested

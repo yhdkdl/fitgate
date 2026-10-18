@@ -1,4 +1,6 @@
-import React from "react";
+import React, { useContext } from "react";
+import { AlertCircle } from "lucide-react";
+import { FormFieldContext } from "./FormFieldContext";
 
 export interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {
   error?: string;
@@ -7,6 +9,8 @@ export interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> 
 
 export const Input = React.forwardRef<HTMLInputElement, InputProps>(
   ({ error, helperText, className = "", id, ...props }, ref) => {
+    const { insideFormField } = useContext(FormFieldContext);
+
     return (
       <div className="w-full">
         <input
@@ -27,14 +31,16 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(
           }
           {...props}
         />
-        {error ? (
+        {!insideFormField && error ? (
           <p
             id={id ? `${id}-error` : undefined}
-            className="mt-1.5 text-sm text-danger"
+            className="mt-1.5 text-sm text-danger flex items-center gap-1.5"
+            role="alert"
           >
-            {error}
+            <AlertCircle className="w-4 h-4 shrink-0" aria-hidden="true" />
+            <span>{error}</span>
           </p>
-        ) : helperText ? (
+        ) : !insideFormField && helperText ? (
           <p
             id={id ? `${id}-helper` : undefined}
             className="mt-1.5 text-sm text-text-muted"
@@ -46,5 +52,6 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(
     );
   }
 );
+
 
 Input.displayName = "Input";

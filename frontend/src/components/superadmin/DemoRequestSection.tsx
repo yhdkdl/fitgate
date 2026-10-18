@@ -43,6 +43,7 @@ export const DemoRequestSection: React.FC<DemoRequestSectionProps> = ({
   const [leadNotes, setLeadNotes] = useState<string>("");
   const [savingLead, setSavingLead] = useState(false);
   const [modalError, setModalError] = useState<string | null>(null);
+  const [notesError, setNotesError] = useState<string | null>(null);
   const [converting, setConverting] = useState(false);
 
   const fetchRequests = useCallback(async () => {
@@ -67,21 +68,30 @@ export const DemoRequestSection: React.FC<DemoRequestSectionProps> = ({
     setLeadStatus(lead.status as DemoRequestStatus);
     setLeadNotes(lead.notes || "");
     setModalError(null);
+    setNotesError(null);
   };
 
   const handleCloseLead = () => {
     setSelectedLead(null);
     setModalError(null);
+    setNotesError(null);
   };
 
   const handleSaveLead = async () => {
     if (!selectedLead) return;
-    setSavingLead(true);
     setModalError(null);
+    setNotesError(null);
+
+    if (leadNotes.length > 1000) {
+      setNotesError("Notes must not exceed 1000 characters.");
+      return;
+    }
+
+    setSavingLead(true);
     try {
       const updated = await updateDemoRequest(selectedLead.id, {
         status: leadStatus,
-        notes: leadNotes,
+        notes: leadNotes.trim(),
       });
       setSelectedLead(updated);
       setRequests((prev) =>
@@ -371,10 +381,12 @@ export const DemoRequestSection: React.FC<DemoRequestSectionProps> = ({
               <FormField
                 label="Internal Notes & Follow-up Log"
                 htmlFor="lead-notes"
+                error={notesError || undefined}
               >
                 <textarea
                   id="lead-notes"
                   rows={4}
+                  maxLength={1000}
                   value={leadNotes}
                   onChange={(e) => setLeadNotes(e.target.value)}
                   placeholder="e.g. Called owner on Monday, requested pricing details for 2 branches..."

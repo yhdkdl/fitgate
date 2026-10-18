@@ -6,9 +6,11 @@ import { Button } from "../components/ui/Button";
 import { Card } from "../components/ui/Card";
 import { FormField } from "../components/ui/FormField";
 import { Input } from "../components/ui/Input";
+import { focusFirstInvalidField, validateEmail } from "../utils/validators";
 
 export const ForgotPasswordScreen: React.FC = () => {
   const [email, setEmail] = useState("");
+  const [emailError, setEmailError] = useState<string | undefined>();
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -16,10 +18,19 @@ export const ForgotPasswordScreen: React.FC = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMessage(null);
+
+    const emailErr = validateEmail(email);
+    if (emailErr) {
+      setEmailError(emailErr);
+      focusFirstInvalidField(["forgot-email"]);
+      return;
+    }
+
+    setEmailError(undefined);
     setIsSubmitting(true);
 
     try {
-      await requestPasswordReset({ email });
+      await requestPasswordReset({ email: email.trim().toLowerCase() });
       setIsSubmitted(true);
     } catch {
       // Uniform generic response regardless of whether account exists or fails
@@ -28,6 +39,7 @@ export const ForgotPasswordScreen: React.FC = () => {
       setIsSubmitting(false);
     }
   };
+
 
   return (
     <div className="min-h-screen bg-bg flex flex-col justify-center items-center p-4">
@@ -63,15 +75,24 @@ export const ForgotPasswordScreen: React.FC = () => {
                 </Alert>
               )}
 
-              <FormField label="Email address" htmlFor="forgot-email" required>
+              <FormField
+                label="Email address"
+                htmlFor="forgot-email"
+                required
+                error={emailError}
+              >
                 <Input
                   id="forgot-email"
                   type="email"
                   autoComplete="email"
                   placeholder="name@example.com"
                   value={email}
-                  onChange={(e) => setEmail(e.target.value)}
+                  onChange={(e) => {
+                    setEmail(e.target.value);
+                    if (emailError) setEmailError(undefined);
+                  }}
                   required
+                  error={emailError}
                   disabled={isSubmitting}
                 />
               </FormField>
@@ -81,9 +102,11 @@ export const ForgotPasswordScreen: React.FC = () => {
                 variant="primary"
                 className="w-full"
                 isLoading={isSubmitting}
+                disabled={isSubmitting}
               >
                 Send Reset Link
               </Button>
+
 
               <div className="text-center pt-2">
                 <Link

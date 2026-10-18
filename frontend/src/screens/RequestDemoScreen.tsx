@@ -17,6 +17,24 @@ import { FormField } from "../components/ui/FormField";
 import { Input } from "../components/ui/Input";
 import { getTenantFromHostname } from "../utils/tenant";
 
+import {
+  focusFirstInvalidField,
+  normalizePhone,
+  validateEmail,
+  validateName,
+  validatePhone,
+  validateTextLength,
+} from "../utils/validators";
+
+interface DemoFieldErrors {
+  gymName?: string;
+  contactName?: string;
+  phone?: string;
+  email?: string;
+  message?: string;
+  city?: string;
+}
+
 export const RequestDemoScreen: React.FC = () => {
   const tenant = getTenantFromHostname();
   const [gymName, setGymName] = useState("");
@@ -27,6 +45,8 @@ export const RequestDemoScreen: React.FC = () => {
   const [message, setMessage] = useState("");
   const [honeypot, setHoneypot] = useState("");
 
+  const [fieldErrors, setFieldErrors] = useState<DemoFieldErrors>({});
+
   const [loading, setLoading] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -35,19 +55,64 @@ export const RequestDemoScreen: React.FC = () => {
     e.preventDefault();
     setError(null);
 
+    const errors: {
+      gymName?: string;
+      contactName?: string;
+      phone?: string;
+      email?: string;
+      message?: string;
+      city?: string;
+    } = {};
+
     if (!gymName.trim() || !contactName.trim() || !phone.trim()) {
       setError("Please fill in gym name, your name, and phone number.");
+    }
+
+    const gymNameErr = validateName(gymName, "Gym name", true);
+    if (gymNameErr) errors.gymName = gymNameErr;
+
+    const contactNameErr = validateName(contactName, "Contact name", true);
+    if (contactNameErr) errors.contactName = contactNameErr;
+
+    const phoneErr = validatePhone(phone, true);
+    if (phoneErr) errors.phone = phoneErr;
+
+    if (email.trim()) {
+      const emailErr = validateEmail(email, false);
+      if (emailErr) errors.email = emailErr;
+    }
+
+    if (message.trim()) {
+      const msgErr = validateTextLength(message, 0, 1000, "Message");
+      if (msgErr) errors.message = msgErr;
+    }
+
+    if (city.trim() && city.trim().length > 100) {
+      errors.city = "City cannot exceed 100 characters.";
+    }
+
+    if (Object.keys(errors).length > 0) {
+      setFieldErrors(errors);
+      focusFirstInvalidField([
+        errors.gymName ? "demo-gym-name" : "",
+        errors.contactName ? "demo-contact-name" : "",
+        errors.phone ? "demo-phone" : "",
+        errors.city ? "demo-city" : "",
+        errors.email ? "demo-email" : "",
+        errors.message ? "demo-message" : "",
+      ].filter(Boolean));
       return;
     }
 
+    setFieldErrors({});
     setLoading(true);
     try {
       await submitPublicDemoRequest({
         gym_name: gymName.trim(),
         contact_name: contactName.trim(),
-        phone: phone.trim(),
+        phone: normalizePhone(phone),
         city: city.trim(),
-        email: email.trim(),
+        email: email.trim().toLowerCase(),
         message: message.trim(),
         website: honeypot.trim(),
       });
@@ -61,10 +126,22 @@ export const RequestDemoScreen: React.FC = () => {
         } else if (
           err.status === 400 &&
           typeof err.data === "object" &&
-          err.data !== null &&
-          "detail" in err.data
+          err.data !== null
         ) {
-          setError(String((err.data as { detail: string }).detail));
+          const data = err.data as Record<string, unknown>;
+          if ("detail" in data) {
+            setError(String(data.detail));
+          } else {
+            // Map server field errors to form fields
+            const newFieldErrors: DemoFieldErrors = {};
+            if (data.gym_name) newFieldErrors.gymName = Array.isArray(data.gym_name) ? String(data.gym_name[0]) : String(data.gym_name);
+            if (data.contact_name) newFieldErrors.contactName = Array.isArray(data.contact_name) ? String(data.contact_name[0]) : String(data.contact_name);
+            if (data.phone) newFieldErrors.phone = Array.isArray(data.phone) ? String(data.phone[0]) : String(data.phone);
+            if (data.email) newFieldErrors.email = Array.isArray(data.email) ? String(data.email[0]) : String(data.email);
+            if (data.message) newFieldErrors.message = Array.isArray(data.message) ? String(data.message[0]) : String(data.message);
+            setFieldErrors(newFieldErrors);
+            setError("Please correct the errors indicated below.");
+          }
         } else {
           setError(err.message || "Failed to submit demo request.");
         }
@@ -79,6 +156,7 @@ export const RequestDemoScreen: React.FC = () => {
       setLoading(false);
     }
   };
+
 
   return (
     <div className="min-h-screen bg-bg text-text py-12 px-4 sm:px-6 lg:px-8 flex flex-col justify-center items-center">
@@ -255,6 +333,7 @@ export const RequestDemoScreen: React.FC = () => {
                       label="Gym Name"
                       htmlFor="demo-gym-name"
                       required
+                      error={fieldErrors.gymName}
                     >
                       <Input
                         id="demo-gym-name"
@@ -263,6 +342,8 @@ export const RequestDemoScreen: React.FC = () => {
                         value={gymName}
                         onChange={(e) => setGymName(e.target.value)}
                         required
+                        maxLength={100}
+                        error={fieldErrors.gymName}
                       />
                     </FormField>
 
@@ -270,6 +351,7 @@ export const RequestDemoScreen: React.FC = () => {
                       label="Contact Person"
                       htmlFor="demo-contact-name"
                       required
+                      error={fieldErrors.contactName}
                     >
                       <Input
                         id="demo-contact-name"
@@ -278,6 +360,8 @@ export const RequestDemoScreen: React.FC = () => {
                         value={contactName}
                         onChange={(e) => setContactName(e.target.value)}
                         required
+                        maxLength={100}
+                        error={fieldErrors.contactName}
                       />
                     </FormField>
                   </div>
@@ -287,24 +371,34 @@ export const RequestDemoScreen: React.FC = () => {
                       label="Phone Number"
                       htmlFor="demo-phone"
                       required
+                      error={fieldErrors.phone}
                     >
                       <Input
                         id="demo-phone"
                         type="tel"
+                        inputMode="tel"
                         placeholder="e.g. +251 911 234 567"
                         value={phone}
                         onChange={(e) => setPhone(e.target.value)}
                         required
+                        maxLength={20}
+                        error={fieldErrors.phone}
                       />
                     </FormField>
 
-                    <FormField label="City / Location" htmlFor="demo-city">
+                    <FormField
+                      label="City / Location"
+                      htmlFor="demo-city"
+                      error={fieldErrors.city}
+                    >
                       <Input
                         id="demo-city"
                         type="text"
                         placeholder="e.g. Addis Ababa, Hawassa"
                         value={city}
                         onChange={(e) => setCity(e.target.value)}
+                        maxLength={100}
+                        error={fieldErrors.city}
                       />
                     </FormField>
                   </div>
@@ -312,6 +406,7 @@ export const RequestDemoScreen: React.FC = () => {
                   <FormField
                     label="Email Address (Optional)"
                     htmlFor="demo-email"
+                    error={fieldErrors.email}
                   >
                     <Input
                       id="demo-email"
@@ -319,12 +414,15 @@ export const RequestDemoScreen: React.FC = () => {
                       placeholder="e.g. owner@gym.com"
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
+                      maxLength={254}
+                      error={fieldErrors.email}
                     />
                   </FormField>
 
                   <FormField
                     label="Message or Questions (Optional)"
                     htmlFor="demo-message"
+                    error={fieldErrors.message}
                   >
                     <textarea
                       id="demo-message"
@@ -333,6 +431,7 @@ export const RequestDemoScreen: React.FC = () => {
                       placeholder="Tell us about your facility (member count, current challenges, desired features)..."
                       value={message}
                       onChange={(e) => setMessage(e.target.value)}
+                      maxLength={1000}
                     />
                   </FormField>
 

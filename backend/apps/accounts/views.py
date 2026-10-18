@@ -13,6 +13,7 @@ from django.utils.dateparse import parse_date, parse_datetime
 from drf_spectacular.utils import OpenApiParameter, OpenApiResponse, extend_schema
 from rest_framework import status
 from rest_framework.exceptions import PermissionDenied
+from rest_framework.exceptions import ValidationError as DRFValidationError
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -859,6 +860,9 @@ class StaffReactivateView(APIView):
 
 def apply_audit_log_filters(qs, params):
     """Apply common date range, action type, actor, and text search filters to an AuditLog queryset."""
+    dt_from = None
+    dt_to = None
+
     date_from_raw = params.get("date_from")
     if date_from_raw:
         date_from_str = str(date_from_raw).strip()
@@ -873,6 +877,7 @@ def apply_audit_log_filters(qs, params):
         if dt:
             if timezone.is_naive(dt):
                 dt = timezone.make_aware(dt)
+            dt_from = dt
             qs = qs.filter(timestamp__gte=dt)
 
     date_to_raw = params.get("date_to")
@@ -888,7 +893,11 @@ def apply_audit_log_filters(qs, params):
         if dt:
             if timezone.is_naive(dt):
                 dt = timezone.make_aware(dt)
+            dt_to = dt
             qs = qs.filter(timestamp__lte=dt)
+
+    if dt_from and dt_to and dt_from > dt_to:
+        raise DRFValidationError({"detail": "From date cannot be after to date."})
 
     action_type = params.get("action_type")
     if action_type:
@@ -904,12 +913,17 @@ def apply_audit_log_filters(qs, params):
 
     search = params.get("search")
     if search:
+        search_str = str(search).strip()
+        if len(search_str) > 100:
+            raise DRFValidationError(
+                {"search": ["Search query cannot exceed 100 characters."]}
+            )
         qs = qs.filter(
-            Q(actor__email__icontains=search)
-            | Q(actor__full_name__icontains=search)
-            | Q(action_type__icontains=search)
-            | Q(affected_record_type__icontains=search)
-            | Q(affected_record_id__icontains=search)
+            Q(actor__email__icontains=search_str)
+            | Q(actor__full_name__icontains=search_str)
+            | Q(action_type__icontains=search_str)
+            | Q(affected_record_type__icontains=search_str)
+            | Q(affected_record_id__icontains=search_str)
         )
 
     return qs.order_by("-timestamp")

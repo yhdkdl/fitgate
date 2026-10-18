@@ -7,10 +7,12 @@ import { FormField } from "../components/ui/FormField";
 import { Input } from "../components/ui/Input";
 import { useAuth } from "../context/AuthContext";
 import { getTenantFromHostname } from "../utils/tenant";
+import { focusFirstInvalidField, validateEmail } from "../utils/validators";
 
 export const LoginScreen: React.FC = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [fieldErrors, setFieldErrors] = useState<{ email?: string; password?: string }>({});
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -21,10 +23,29 @@ export const LoginScreen: React.FC = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMessage(null);
+
+    const errors: { email?: string; password?: string } = {};
+    const emailErr = validateEmail(email);
+    if (emailErr) {
+      errors.email = emailErr;
+    }
+    if (!password) {
+      errors.password = "Password is required.";
+    }
+
+    if (Object.keys(errors).length > 0) {
+      setFieldErrors(errors);
+      focusFirstInvalidField(
+        errors.email ? ["login-email", "login-password"] : ["login-password"]
+      );
+      return;
+    }
+
+    setFieldErrors({});
     setIsSubmitting(true);
 
     try {
-      await login({ email, password });
+      await login({ email: email.trim().toLowerCase(), password });
       navigate("/dashboard");
     } catch (err: unknown) {
       const errorObj = err as {
@@ -50,6 +71,7 @@ export const LoginScreen: React.FC = () => {
       setIsSubmitting(false);
     }
   };
+
 
   return (
     <div className="min-h-screen bg-bg flex flex-col justify-center items-center p-4">
@@ -86,31 +108,50 @@ export const LoginScreen: React.FC = () => {
           )}
 
           <form onSubmit={handleSubmit} className="space-y-4" noValidate>
-            <FormField label="Email address" htmlFor="login-email" required>
+            <FormField
+              label="Email address"
+              htmlFor="login-email"
+              required
+              error={fieldErrors.email}
+            >
               <Input
                 id="login-email"
                 type="email"
                 autoComplete="email"
                 placeholder="name@example.com"
                 value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                onChange={(e) => {
+                  setEmail(e.target.value);
+                  if (fieldErrors.email) setFieldErrors((prev) => ({ ...prev, email: undefined }));
+                }}
                 required
+                error={fieldErrors.email}
                 disabled={isSubmitting}
               />
             </FormField>
 
-            <FormField label="Password" htmlFor="login-password" required>
+            <FormField
+              label="Password"
+              htmlFor="login-password"
+              required
+              error={fieldErrors.password}
+            >
               <Input
                 id="login-password"
                 type="password"
                 autoComplete="current-password"
                 placeholder="••••••••••••"
                 value={password}
-                onChange={(e) => setPassword(e.target.value)}
+                onChange={(e) => {
+                  setPassword(e.target.value);
+                  if (fieldErrors.password) setFieldErrors((prev) => ({ ...prev, password: undefined }));
+                }}
                 required
+                error={fieldErrors.password}
                 disabled={isSubmitting}
               />
             </FormField>
+
 
             <div className="flex items-center justify-end">
               <Link

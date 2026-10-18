@@ -4,7 +4,20 @@ from rest_framework import serializers
 from rest_framework.exceptions import PermissionDenied
 
 from apps.accounts.serializers import UserSummarySerializer
-from apps.tenants.models import DemoRequest, GymConfig, GymTenant, validate_hex_color
+from apps.core.validators import (
+    validate_and_normalize_phone,
+    validate_email_address,
+    validate_name,
+    validate_payment_amount,
+    validate_text_length,
+)
+from apps.tenants.models import (
+    DemoRequest,
+    GymConfig,
+    GymTenant,
+    validate_hex_color,
+    validate_subdomain,
+)
 
 
 class GymTenantSummarySerializer(serializers.ModelSerializer):
@@ -67,7 +80,7 @@ class CreateGymRequestSerializer(serializers.Serializer):
         max_length=150, required=False, allow_blank=True, default=""
     )
     contact_phone = serializers.CharField(
-        max_length=20, required=False, allow_blank=True, default=""
+        max_length=50, required=False, allow_blank=True, default=""
     )
     contact_email = serializers.EmailField(required=False, allow_blank=True, default="")
     owner_name = serializers.CharField(
@@ -84,6 +97,42 @@ class CreateGymRequestSerializer(serializers.Serializer):
     demo_request_id = serializers.CharField(
         max_length=100, required=False, allow_null=True, allow_blank=True, default=None
     )
+
+    def validate_name(self, value):
+        return validate_name(value, "Gym name")
+
+    def validate_subdomain(self, value):
+        validate_subdomain(value)
+        return value.lower()
+
+    def validate_contact_name(self, value):
+        if value:
+            return validate_name(value, "Contact name")
+        return ""
+
+    def validate_contact_phone(self, value):
+        if value:
+            return validate_and_normalize_phone(value)
+        return ""
+
+    def validate_contact_email(self, value):
+        if value:
+            return validate_email_address(value)
+        return ""
+
+    def validate_owner_name(self, value):
+        if value:
+            return validate_name(value, "Owner name")
+        return ""
+
+    def validate_owner_email(self, value):
+        return validate_email_address(value)
+
+    def validate_payment_amount(self, value):
+        return validate_payment_amount(value)
+
+    def validate_payment_reference(self, value):
+        return validate_text_length(value, 3, 100, "Payment reference")
 
 
 class CreateGymResponseSerializer(serializers.Serializer):
@@ -122,6 +171,25 @@ class PublicDemoRequestSerializer(serializers.Serializer):
     website = serializers.CharField(
         required=False, allow_blank=True, default="", write_only=True
     )
+
+    def validate_gym_name(self, value):
+        return validate_name(value, "Gym name")
+
+    def validate_contact_name(self, value):
+        return validate_name(value, "Contact name")
+
+    def validate_phone(self, value):
+        return validate_and_normalize_phone(value)
+
+    def validate_email(self, value):
+        if value:
+            return validate_email_address(value)
+        return ""
+
+    def validate_message(self, value):
+        if value:
+            return validate_text_length(value, 0, 1000, "Message")
+        return ""
 
 
 class DemoRequestSerializer(serializers.ModelSerializer):
@@ -177,6 +245,11 @@ class DemoRequestUpdateSerializer(serializers.Serializer):
 
     status = serializers.ChoiceField(choices=DemoRequest.STATUS_CHOICES, required=False)
     notes = serializers.CharField(required=False, allow_blank=True)
+
+    def validate_notes(self, value):
+        if value:
+            return validate_text_length(value, 0, 1000, "Notes")
+        return ""
 
 
 class DemoRequestConvertResponseSerializer(serializers.Serializer):
