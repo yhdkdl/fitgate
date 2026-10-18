@@ -187,11 +187,52 @@ export const CameraQrScanner: React.FC<CameraQrScannerProps> = ({
     const startCamera = async () => {
       try {
         setError(null);
-        stopCamera();
+        let stream: MediaStream;
+        try {
+          // Ask for 1280x720 or better and continuous autofocus if supported
+          stream = await navigator.mediaDevices.getUserMedia({
+            video: {
+              facingMode: { ideal: facingMode },
+              width: { ideal: 1280, min: 640 },
+              height: { ideal: 720, min: 480 },
+              advanced: [{ focusMode: "continuous" } as MediaTrackConstraintSet],
+            },
+          });
+        } catch {
+          try {
+            // Fallback without advanced focus constraint if rejected
+            stream = await navigator.mediaDevices.getUserMedia({
+              video: {
+                facingMode: { ideal: facingMode },
+                width: { ideal: 1280, min: 640 },
+                height: { ideal: 720, min: 480 },
+              },
+            });
+          } catch {
+            // Fallback to basic facingMode constraint if resolution constraints fail
+            stream = await navigator.mediaDevices.getUserMedia({
+              video: { facingMode: { ideal: facingMode } },
+            });
+          }
+        }
 
-        const stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: { ideal: facingMode } },
-        });
+        // Apply track-level continuous focus if supported
+        const videoTrack = stream.getVideoTracks()[0];
+        if (videoTrack && typeof videoTrack.applyConstraints === "function") {
+          try {
+            const capabilities =
+              typeof videoTrack.getCapabilities === "function"
+                ? (videoTrack.getCapabilities() as unknown as { focusMode?: string[] })
+                : null;
+            if (capabilities?.focusMode?.includes("continuous")) {
+              await videoTrack.applyConstraints({
+                advanced: [{ focusMode: "continuous" } as MediaTrackConstraintSet],
+              }).catch(() => {});
+            }
+          } catch {
+            // ignore if unsupported
+          }
+        }
 
         if (!mounted) {
           stream.getTracks().forEach((track) => track.stop());

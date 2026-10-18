@@ -380,6 +380,29 @@ paths:
               schema:
                 $ref: '#/components/schemas/AttendanceScanErrorResponse'
           description: ''
+  /api/gym/attendance/today/:
+    get:
+      operationId: gym_attendance_today_retrieve
+      description: Returns today's attendance check-in list ordered newest first (max
+        50) and total count. Supports optional 'since' parameter.
+      summary: List Today's Check-ins
+      parameters:
+      - in: query
+        name: since
+        schema:
+          type: string
+        description: Optional ISO timestamp to filter check-ins newer than this time.
+      tags:
+      - gym
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AttendanceTodayListResponse'
+          description: ''
   /api/gym/audit-logs/:
     get:
       operationId: gym_audit_logs_list
@@ -623,9 +646,38 @@ paths:
                 $ref: '#/components/schemas/AttendanceLogResponse'
           description: ''
   /api/gym/members/{id}/metrics/:
+    get:
+      operationId: gym_members_metrics_list
+      description: Retrieves body metrics history for a member. Allowed for Trainer,
+        Owner, Manager.
+      summary: List member body metrics
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - gym
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/BodyMetrics'
+          description: ''
+        '403':
+          description: Forbidden
+        '404':
+          description: Member not found
     post:
       operationId: gym_members_metrics_create
-      description: Records new weight, height, and circumferences for a member.
+      description: Records new measurements for a member. Allowed for Trainer ONLY.
       summary: Record member body metrics
       parameters:
       - in: path
@@ -647,6 +699,7 @@ paths:
           multipart/form-data:
             schema:
               $ref: '#/components/schemas/RecordBodyMetricsRequest'
+        required: true
       security:
       - jwtAuth: []
       responses:
@@ -658,6 +711,8 @@ paths:
           description: ''
         '400':
           description: Validation error
+        '403':
+          description: Forbidden - Trainer only
         '404':
           description: Member not found
   /api/gym/settings/:
@@ -1059,32 +1114,15 @@ paths:
           description: ''
     post:
       operationId: members_me_metrics_create
-      description: Records new measurements for the logged-in member.
+      description: Refused - members cannot enter or edit measurements.
       summary: Record own body metrics
       tags:
       - members
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/RecordBodyMetricsRequest'
-          application/x-www-form-urlencoded:
-            schema:
-              $ref: '#/components/schemas/RecordBodyMetricsRequest'
-          multipart/form-data:
-            schema:
-              $ref: '#/components/schemas/RecordBodyMetricsRequest'
       security:
       - jwtAuth: []
       responses:
-        '201':
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/BodyMetrics'
-          description: ''
-        '400':
-          description: Validation error
+        '403':
+          description: Forbidden
   /api/members/me/qr-token/:
     get:
       operationId: members_me_qr_token_retrieve
@@ -1661,10 +1699,10 @@ components:
       properties:
         public_key:
           type: string
-          description: PEM-encoded RSA public key for offline QR signature verification.
+          description: PEM-encoded Ed25519 public key for offline QR signature verification.
         algorithm:
           type: string
-          default: RS256
+          default: EdDSA
       required:
       - public_key
     AttendanceRecord:
@@ -1708,7 +1746,7 @@ components:
         token:
           type: string
           minLength: 1
-          description: Scanned QR token string (RS256 JWT).
+          description: Scanned QR token string (EdDSA JWT).
         branch_id:
           type: string
           format: uuid
@@ -1757,6 +1795,51 @@ components:
       - id
       - photo_url
       - status
+    AttendanceTodayItem:
+      type: object
+      description: Entry in Today's Check-ins list.
+      properties:
+        id:
+          type: string
+          format: uuid
+        member_id:
+          type: string
+          format: uuid
+        member_name:
+          type: string
+        member_photo_url:
+          type: string
+        checked_in_at:
+          type: string
+          format: date-time
+        is_override:
+          type: boolean
+        override_reason:
+          type: string
+        recorded_by_name:
+          type: string
+          nullable: true
+      required:
+      - checked_in_at
+      - id
+      - is_override
+      - member_id
+      - member_name
+      - member_photo_url
+    AttendanceTodayListResponse:
+      type: object
+      description: Response serializer for live Today's Check-ins list.
+      properties:
+        total_count:
+          type: integer
+          description: Total number of members checked in today.
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/AttendanceTodayItem'
+      required:
+      - results
+      - total_count
     AuditLog:
       type: object
       description: Read-only representation of an AuditLog entry.
@@ -1835,7 +1918,8 @@ components:
       type: object
       description: |-
         Serializer for member body composition metrics.
-        Exposes BMI and US Navy body-fat estimates, explicitly labeled as estimates.
+        Exposes BMI and US Navy body-fat estimates, explicitly labeled as estimates,
+        along with recording trainer information.
       properties:
         id:
           type: string
@@ -1855,6 +1939,17 @@ components:
         recorded_at:
           type: string
           format: date-time
+          readOnly: true
+        recorded_by:
+          type: string
+          format: uuid
+          readOnly: true
+          nullable: true
+        trainer_name:
+          type: string
+          readOnly: true
+        recorded_by_name:
+          type: string
           readOnly: true
         estimated_bmi:
           type: number
@@ -1877,6 +1972,9 @@ components:
       - estimated_body_fat_percentage
       - id
       - recorded_at
+      - recorded_by
+      - recorded_by_name
+      - trainer_name
     ChangePasswordRequestRequest:
       type: object
       description: Payload for changing user password.
@@ -2622,7 +2720,7 @@ components:
       properties:
         token:
           type: string
-          description: Signed RS256 JWT QR token.
+          description: Signed EdDSA JWT QR token.
         expires_at:
           type: string
           format: date-time
@@ -2830,7 +2928,7 @@ components:
       type: object
       description: |-
         Serializer for public self-service registration on gym subdomains.
-        Requires health waiver acceptance and password.
+        Requires health waiver acceptance and password. Registration captures no body measurements.
       properties:
         full_name:
           type: string
@@ -2869,12 +2967,37 @@ components:
         photo_url:
           type: string
           maxLength: 255
+      required:
+      - email
+      - full_name
+      - password
+      - phone
+      - waiver_accepted
+    RecordBodyMetricsRequest:
+      type: object
+      description: |-
+        Serializer for recording a new body metrics entry by a Trainer.
+        Weight (kg) and height (cm) are required; waist, neck and hip are optional.
+      properties:
         weight_kg:
           type: string
           format: decimal
           pattern: ^-?\d{0,3}(?:\.\d{0,2})?$
-          nullable: true
         height_cm:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,3}(?:\.\d{0,2})?$
+        waist_cm:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,3}(?:\.\d{0,2})?$
+          nullable: true
+        neck_cm:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,3}(?:\.\d{0,2})?$
+          nullable: true
+        hip_cm:
           type: string
           format: decimal
           pattern: ^-?\d{0,3}(?:\.\d{0,2})?$
@@ -2884,29 +3007,8 @@ components:
           additionalProperties: {}
           nullable: true
       required:
-      - email
-      - full_name
-      - password
-      - phone
-      - waiver_accepted
-    RecordBodyMetricsRequest:
-      type: object
-      description: Serializer for recording a new body metrics entry.
-      properties:
-        weight_kg:
-          type: string
-          format: decimal
-          pattern: ^-?\d{0,3}(?:\.\d{0,2})?$
-          nullable: true
-        height_cm:
-          type: string
-          format: decimal
-          pattern: ^-?\d{0,3}(?:\.\d{0,2})?$
-          nullable: true
-        measurements:
-          type: object
-          additionalProperties: {}
-          nullable: true
+      - height_cm
+      - weight_kg
     SetPasswordFromInviteRequestRequest:
       type: object
       description: Payload for setting initial password from an invite token.
@@ -2994,6 +3096,7 @@ components:
       description: |-
         Serializer for staff-assisted member registration (Owner, Manager, Reception).
         Does not require a password; generates set-password invite link instead.
+        Registration captures no body measurements.
       properties:
         full_name:
           type: string
@@ -3027,20 +3130,6 @@ components:
         photo_url:
           type: string
           maxLength: 255
-        weight_kg:
-          type: string
-          format: decimal
-          pattern: ^-?\d{0,3}(?:\.\d{0,2})?$
-          nullable: true
-        height_cm:
-          type: string
-          format: decimal
-          pattern: ^-?\d{0,3}(?:\.\d{0,2})?$
-          nullable: true
-        measurements:
-          type: object
-          additionalProperties: {}
-          nullable: true
       required:
       - email
       - full_name

@@ -89,7 +89,7 @@ class AttendancePublicKeyView(APIView):
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
         serializer = AttendancePublicKeyResponseSerializer(
-            {"public_key": public_key, "algorithm": "RS256"}
+            {"public_key": public_key, "algorithm": "EdDSA"}
         )
         return Response(serializer.data, status=status.HTTP_200_OK)
 

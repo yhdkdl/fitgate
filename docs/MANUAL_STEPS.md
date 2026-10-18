@@ -21,9 +21,9 @@ Whenever a manual action comes up later, append numbered steps here (sprint, wha
    - **Status:** Not verified against the real service.
 
 4. **Sprint 8 — QR Check-in Asymmetric Signing Key Pair**
-   - **What to do:** Generate RSA / Ed25519 key pair for production QR token signing and verification.
+   - **What to do:** Generate Ed25519 key pair for production QR token signing and verification. Old RSA keys must be replaced.
    - **What to paste where:** In `.env` or cPanel environment variables, set `QR_JWT_PRIVATE_KEY` and `QR_JWT_PUBLIC_KEY` as single-line strings with literal `\n` escapes.
-   - **Fallback in use:** Local management command `generate_qr_dev_keys` prints generated RSA PEM keys as single-line escaped strings to stdout for manual copying into `.env` or cPanel; in-memory key pair in test fixtures. Production fails fast if unset.
+   - **Fallback in use:** Local management command `python manage.py generate_qr_dev_keys` prints generated Ed25519 PEM keys as single-line escaped strings to stdout for manual copying into `.env` or cPanel (regenerate with `generate_qr_dev_keys`); in-memory Ed25519 key pair in test fixtures. Production fails fast if unset or if not a valid Ed25519 key.
    - **Status:** Not verified against the real service.
 
 5. **Sprint 8b/8c: camera scanning on a real tablet or phone needs HTTPS (a valid certificate). Fallback: laptop webcam on localhost and the manual code field. Status: not verified on a real device.**
