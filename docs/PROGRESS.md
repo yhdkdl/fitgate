@@ -20,8 +20,10 @@
 - Sprint 8: QR check-in (GATE) (`da91b1546b18e3e0e147934771fce5467b3e0204`)
 - Sprint 8b: Camera QR scanner (`fdc63bc`, tag sprint-8b-done)
 - Sprint 8c: Entrance scanner page and live check-in list (`7d2120c`, tag sprint-8c-done)
-- Sprint 9: Audit log foundation (`b29da5c6a93606f1bff87cb1e96d7b716473bfe1`, PR #11)
 - Sprint 9a: Audit log viewer
+- Fix: Unified form validation across frontend and backend (`a99aaf648d4279ab161a273a62040ebed2ea2eba`, tag `fix-form-validation-done`)
+- Fix: Member profile photo upload and role enforcement (`2cc9a6802b5f82b22cfdd8f6e858f7b182654e59`, tag `fix-member-photo-upload-done`)
+- Fix: Cross-tab session synchronization (`e49b29ec95ccd55e4953526360cc3fef7ce4df23`, tag `fix-cross-tab-session-done`)
 
 ## Current
 
