@@ -29,3 +29,9 @@ Whenever a manual action comes up later, append numbered steps here (sprint, wha
 5. **Sprint 8b/8c: camera scanning on a real tablet or phone needs HTTPS (a valid certificate). Fallback: laptop webcam on localhost and the manual code field. Status: not verified on a real device.**
 
 6. **Sprint 4d: wire fitgate.tebebtech.com: create the cPanel subdomain for the platform, set DOMAIN=fitgate.tebebtech.com in the production environment, and wait for AutoSSL to issue the certificate. Fallback: http://localhost:5173. Status: not verified against the real service.**
+
+7. **Staging Spike — Real Yegara cPanel Host Feasibility Test**
+   - **What to do:** Execute the feasibility spike using the kit under `deploy/spike/` to validate hosting assumptions (Phusion Passenger, multi-level subdomains, UAPI token provisioning, AutoSSL, Cron jobs, non-SSH migrations, and PostgreSQL). See detailed click-by-click instructions in [deploy/spike/README.md](file:///d:/personal%20projects/fitgate/deploy/spike/README.md).
+   - **What to paste where:** cPanel credentials (`CPANEL_HOST`, `CPANEL_USERNAME`, `CPANEL_API_TOKEN`) in local `.env` (gitignored). Record observations in the results table in `deploy/spike/README.md`.
+   - **Fallback in use:** Mocked UAPI client and Docker Compose local dev stack.
+   - **Status:** Not yet run on the real host.
