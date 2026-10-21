@@ -35,3 +35,15 @@ If less than 90% sure how a requirement should be implemented and the doubt does
 7. **Sprint 7b — Body Measurement Recording for Gyms Without a Trainer**
    - **Question/Context:** Body measurements (weight, height, waist, neck, hip) are recorded exclusively by Trainers. What happens in gyms that currently have no trainers provisioned?
    - **Chosen Solution:** A gym with no trainer cannot record measurements, so BMI, body fat and AI plans show 'not measured yet'. Owner decided: no fallback for now.
+
+8. **Staging Hosting — PostgreSQL 13.23 Compatibility & Version Override**
+   - **Question/Context:** Yegara runs PostgreSQL 13.23, which Django 5.2 does not support; we run with a version-check override and the full suite passes on 13.
+   - **Chosen Solution & Policy:**
+     - The version-check override (`DatabaseFeatures.minimum_database_version = (13,)`) is restricted to production settings (`fitgate.settings.prod`) and opt-in local testing via `ALLOW_POSTGRES_13=1`. It is removed from `base.py`.
+     - Before every release, run the suite on a PostgreSQL 13 container:
+       ```bash
+       docker run -d --name pg13test --network fitgate_default -e POSTGRES_PASSWORD=postgres -e POSTGRES_DB=fitgate_test -e POSTGRES_USER=postgres postgres:13-alpine
+       docker compose exec -e DATABASE_URL="postgres://postgres:postgres@pg13test:5432/fitgate_test" -e ALLOW_POSTGRES_13=1 backend pytest
+       docker stop pg13test ; docker rm pg13test
+       ```
+     - Ask the host whether PostgreSQL 14+ is available; if yes, remove the override. Pin the Django patch version.

@@ -35,7 +35,7 @@ class TestProductionSettingsFailFast:
                 env.bool("CPANEL_USE_MOCK")
 
     def test_cpanel_credentials_required_when_mock_is_false(self):
-        """When CPANEL_USE_MOCK=False, CPANEL_HOST, CPANEL_USERNAME, CPANEL_API_TOKEN, CPANEL_SUBDOMAIN_DOCROOT are required."""
+        """When CPANEL_USE_MOCK=False, CPANEL_HOST, CPANEL_USERNAME, CPANEL_API_TOKEN, CPANEL_ROOT_DOMAIN, CPANEL_SUBDOMAIN_DOCROOT are required."""
         env = environ.Env()
         with patch.dict("os.environ", {"CPANEL_USE_MOCK": "False"}, clear=True):
             is_mock = env.bool("CPANEL_USE_MOCK")
@@ -44,6 +44,7 @@ class TestProductionSettingsFailFast:
                 "CPANEL_HOST",
                 "CPANEL_USERNAME",
                 "CPANEL_API_TOKEN",
+                "CPANEL_ROOT_DOMAIN",
                 "CPANEL_SUBDOMAIN_DOCROOT",
             ]:
                 with pytest.raises(ImproperlyConfigured):
@@ -278,3 +279,30 @@ class TestEmailFromHeaderSanitization:
         assert sanitize_email_display_name("   ") == "FitGate"
         assert sanitize_email_display_name(None) == "FitGate"
         assert sanitize_email_display_name("<>\"'") == "FitGate"
+
+
+class TestPassengerBootMigrations:
+    """Verify Passenger WSGI boot does not run migrations at boot by default."""
+
+    def test_passenger_boot_does_not_run_migrations_by_default(self):
+        """Loading deploy/passenger_wsgi.py must not trigger migrate command."""
+        import importlib.util
+        from pathlib import Path
+
+        candidates = [
+            Path("/deploy/passenger_wsgi.py"),
+            Path(settings.BASE_DIR).parent.parent / "deploy" / "passenger_wsgi.py",
+            Path(settings.BASE_DIR).parent / "deploy" / "passenger_wsgi.py",
+            Path(settings.BASE_DIR) / "deploy" / "passenger_wsgi.py",
+        ]
+        wsgi_path = next((p for p in candidates if p.exists()), None)
+        assert wsgi_path is not None, f"passenger_wsgi.py not found in {candidates}"
+
+        with patch("django.core.management.call_command") as mock_call:
+            spec = importlib.util.spec_from_file_location(
+                "test_passenger_wsgi", wsgi_path
+            )
+            module = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(module)
+            for call in mock_call.call_args_list:
+                assert call[0][0] != "migrate"

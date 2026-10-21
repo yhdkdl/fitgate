@@ -3,9 +3,13 @@
 from pathlib import Path
 
 from django.core.exceptions import ImproperlyConfigured
+from django.db.backends.postgresql.features import DatabaseFeatures
 
 from .base import *
 from .hosts import build_allowed_hosts
+
+# Allow PostgreSQL 13.x for Yegara cPanel production host (runs PostgreSQL 13.23)
+DatabaseFeatures.minimum_database_version = (13,)
 
 DEBUG = False
 DOCS_PUBLIC = False
@@ -55,11 +59,13 @@ if not CPANEL_USE_MOCK:
     CPANEL_HOST = env("CPANEL_HOST")
     CPANEL_USERNAME = env("CPANEL_USERNAME")
     CPANEL_API_TOKEN = env("CPANEL_API_TOKEN")
+    CPANEL_ROOT_DOMAIN = env("CPANEL_ROOT_DOMAIN")
     CPANEL_SUBDOMAIN_DOCROOT = env("CPANEL_SUBDOMAIN_DOCROOT")
 else:
     CPANEL_HOST = env.str("CPANEL_HOST", default="")
     CPANEL_USERNAME = env.str("CPANEL_USERNAME", default="")
     CPANEL_API_TOKEN = env.str("CPANEL_API_TOKEN", default="")
+    CPANEL_ROOT_DOMAIN = env.str("CPANEL_ROOT_DOMAIN", default="")
     CPANEL_SUBDOMAIN_DOCROOT = env.str("CPANEL_SUBDOMAIN_DOCROOT", default="")
 
 # Secrets & Asymmetric Encryption Keys - fails fast with NO defaults

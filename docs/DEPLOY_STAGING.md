@@ -4,32 +4,51 @@ This guide provides a step-by-step, click-by-click procedure for deploying FitGa
 
 ---
 
+## Local Development Updates After Pulling
+
+After pulling changes from git, update your local Docker development environment (without removing volumes):
+
+```bash
+docker compose build backend
+docker compose up -d
+docker compose exec backend python manage.py check
+```
+
+---
+
 ## Later Releases Update Procedure
 
 When deploying future updates after the initial setup, follow this short procedure:
 
-1. **Build release archive on your laptop**:
+1. **Pre-release PostgreSQL 13 Suite Validation (Local Laptop)**:
+   Yegara cPanel runs PostgreSQL 13.23 (local dev uses 16). Before every release, validate the full suite against a temporary PostgreSQL 13 container:
+   ```bash
+   docker run -d --name pg13test --network fitgate_default -e POSTGRES_PASSWORD=postgres -e POSTGRES_DB=fitgate_test -e POSTGRES_USER=postgres postgres:13-alpine
+   docker compose exec -e DATABASE_URL="postgres://postgres:postgres@pg13test:5432/fitgate_test" -e ALLOW_POSTGRES_13=1 backend pytest
+   docker stop pg13test ; docker rm pg13test
+   ```
+2. **Build release archive on your laptop**:
    ```powershell
    powershell -ExecutionPolicy Bypass -File .\deploy\build_release.ps1
    ```
-2. **Upload and extract**:
+3. **Upload and extract**:
    - In cPanel **File Manager**, navigate to your application root folder (`/home/<username>/fitgate`).
    - Upload the new `fitgate_release_*.zip` from your laptop's `dist/` folder.
    - Right-click the uploaded zip file and select **Extract** to overwrite existing application files.
-3. **Update dependencies (if requirements changed)**:
+4. **Update dependencies (if requirements changed)**:
    - In cPanel **Setup Python App**, find `fitgate.tebebtech.com`.
    - In the **Configuration files** section, click **Run Pip Install** next to `requirements/prod.txt`.
-4. **Run database migrations**:
+5. **Run database migrations**:
    - Open cPanel **Terminal** and run:
      ```bash
      source ~/virtualenv/fitgate/3.11/bin/activate && cd ~/fitgate/backend && python manage.py migrate
      ```
-5. **Collect static assets**:
+6. **Collect static assets**:
    - In cPanel **Terminal**, run:
      ```bash
      source ~/virtualenv/fitgate/3.11/bin/activate && cd ~/fitgate/backend && python manage.py collectstatic --noinput
      ```
-6. **Restart the application**:
+7. **Restart the application**:
    - In cPanel **Setup Python App**, click the **Restart** button (circular arrow icon) next to `fitgate.tebebtech.com`.
 
 ---
@@ -143,6 +162,7 @@ CPANEL_USE_MOCK=False
 CPANEL_HOST=localhost
 CPANEL_USERNAME=<your_cpanel_username>
 CPANEL_API_TOKEN=<your_cpanel_api_token>
+CPANEL_ROOT_DOMAIN=tebebtech.com
 CPANEL_SUBDOMAIN_DOCROOT=public_html/fitgate
 
 # Keys

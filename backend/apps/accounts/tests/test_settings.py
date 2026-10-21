@@ -12,6 +12,7 @@ PROD_BASE_ENV = {
     "CPANEL_HOST": "https://cpanel.example.com:2083",
     "CPANEL_USERNAME": "testuser",
     "CPANEL_API_TOKEN": "token123",
+    "CPANEL_ROOT_DOMAIN": "tebebtech.com",
     "CPANEL_SUBDOMAIN_DOCROOT": "public_html/fitgate",
     "TENANT_CREDENTIALS_KEY": "a" * 32,
     "EMAIL_HOST": "smtp.example.com",

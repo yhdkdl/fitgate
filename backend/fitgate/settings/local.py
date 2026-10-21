@@ -64,9 +64,16 @@ CPANEL_USE_MOCK = env.bool("CPANEL_USE_MOCK", default=True)
 CPANEL_HOST = env.str("CPANEL_HOST", default="")
 CPANEL_USERNAME = env.str("CPANEL_USERNAME", default="")
 CPANEL_API_TOKEN = env.str("CPANEL_API_TOKEN", default="")
+CPANEL_ROOT_DOMAIN = env.str("CPANEL_ROOT_DOMAIN", default="localhost")
 CPANEL_SUBDOMAIN_DOCROOT = env.str(
     "CPANEL_SUBDOMAIN_DOCROOT", default="public_html/fitgate"
 )
+
+# Optional PostgreSQL 13 override for pre-release validation runs against PG 13 containers
+if env.bool("ALLOW_POSTGRES_13", default=False):
+    from django.db.backends.postgresql.features import DatabaseFeatures
+
+    DatabaseFeatures.minimum_database_version = (13,)
 
 # Media & Logging
 MEDIA_ROOT = Path(env("MEDIA_ROOT", default=str(BASE_DIR / "media")))

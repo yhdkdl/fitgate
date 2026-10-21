@@ -20,13 +20,42 @@ class CPanelUAPIError(Exception):
     pass
 
 
-def derive_domain_hierarchy(domain: str) -> Tuple[str, str]:
+def derive_subdomain_label(subdomain: str, domain: str, root_domain: str) -> str:
     """
-    Derive (platform_label, root_domain) from DOMAIN without hardcoding.
+    Derive the cPanel subdomain label relative to root_domain without hardcoding.
+    Handles any root domain TLD (e.g., .com, .com.et, .org).
     For example:
-      'fitgate.tebebtech.com' -> ('fitgate', 'tebebtech.com')
-      'fitgate.org'           -> ('', 'fitgate.org')
+      subdomain='bole', domain='fitgate.tebebtech.com', root_domain='tebebtech.com'
+      -> 'bole.fitgate'
+      subdomain='bole', domain='fitgate.et', root_domain='fitgate.et'
+      -> 'bole'
+      subdomain='bole', domain='fitgate.com.et', root_domain='tebebtech.com.et'
+      -> 'bole.fitgate'
     """
+    clean_sub = subdomain.strip().lower()
+    clean_domain = domain.strip().lower()
+    clean_root = root_domain.strip().lower()
+
+    if not clean_root:
+        raise CPanelUAPIError("CPANEL_ROOT_DOMAIN must not be empty.")
+
+    if clean_domain == clean_root:
+        return clean_sub
+
+    suffix = f".{clean_root}"
+    if clean_domain.endswith(suffix):
+        platform_prefix = clean_domain[: -len(suffix)]
+        if clean_sub.endswith(f".{platform_prefix}"):
+            return clean_sub
+        return f"{clean_sub}.{platform_prefix}"
+
+    raise CPanelUAPIError(
+        f"Configured DOMAIN '{domain}' is not a subdomain of CPANEL_ROOT_DOMAIN '{root_domain}'."
+    )
+
+
+def derive_domain_hierarchy(domain: str) -> Tuple[str, str]:
+    """Backward-compatible helper returning (platform_label, root_domain)."""
     domain_parts = domain.strip().split(".")
     if len(domain_parts) > 2:
         platform_label = domain_parts[0]
@@ -120,12 +149,14 @@ class CPanelUAPIClient(BaseUAPIClient):
         host: Optional[str] = None,
         username: Optional[str] = None,
         api_token: Optional[str] = None,
+        root_domain: Optional[str] = None,
         docroot: Optional[str] = None,
     ):
-        self.host = host or settings.CPANEL_HOST
-        self.username = username or settings.CPANEL_USERNAME
-        self.api_token = api_token or settings.CPANEL_API_TOKEN
-        self.docroot = docroot or settings.CPANEL_SUBDOMAIN_DOCROOT
+        self.host = host or getattr(settings, "CPANEL_HOST", None)
+        self.username = username or getattr(settings, "CPANEL_USERNAME", None)
+        self.api_token = api_token or getattr(settings, "CPANEL_API_TOKEN", None)
+        self.root_domain = root_domain or getattr(settings, "CPANEL_ROOT_DOMAIN", None)
+        self.docroot = docroot or getattr(settings, "CPANEL_SUBDOMAIN_DOCROOT", None)
 
     def _call_uapi(
         self,
@@ -133,9 +164,15 @@ class CPanelUAPIClient(BaseUAPIClient):
         function: str,
         params: Optional[Dict[str, Any]] = None,
     ) -> Dict[str, Any]:
-        if not self.api_token or not self.host or not self.username or not self.docroot:
+        if (
+            not self.api_token
+            or not self.host
+            or not self.username
+            or not self.root_domain
+            or not self.docroot
+        ):
             raise CPanelUAPIError(
-                "cPanel UAPI credentials (CPANEL_HOST, CPANEL_USERNAME, CPANEL_API_TOKEN, CPANEL_SUBDOMAIN_DOCROOT) are incomplete."
+                "cPanel UAPI credentials (CPANEL_HOST, CPANEL_USERNAME, CPANEL_API_TOKEN, CPANEL_ROOT_DOMAIN, CPANEL_SUBDOMAIN_DOCROOT) are incomplete."
             )
 
         query = urllib.parse.urlencode(params or {})
@@ -168,12 +205,15 @@ class CPanelUAPIClient(BaseUAPIClient):
             ) from exc
 
     def provision_subdomain(self, subdomain: str) -> bool:
-        platform_label, root_domain = derive_domain_hierarchy(settings.DOMAIN)
-        domain_label = f"{subdomain}.{platform_label}" if platform_label else subdomain
+        domain_label = derive_subdomain_label(
+            subdomain=subdomain,
+            domain=settings.DOMAIN,
+            root_domain=self.root_domain,
+        )
 
         params = {
             "domain": domain_label,
-            "rootdomain": root_domain,
+            "rootdomain": self.root_domain,
             "dir": self.docroot,
             "disallowdot": 0,
         }
@@ -181,12 +221,17 @@ class CPanelUAPIClient(BaseUAPIClient):
         logger.info(
             "Successfully provisioned cPanel subdomain: %s under %s",
             domain_label,
-            root_domain,
+            self.root_domain,
         )
         return True
 
     def delete_subdomain(self, subdomain: str) -> bool:
-        fqdn = f"{subdomain}.{settings.DOMAIN.strip()}"
+        domain_label = derive_subdomain_label(
+            subdomain=subdomain,
+            domain=settings.DOMAIN,
+            root_domain=self.root_domain,
+        )
+        fqdn = f"{domain_label}.{self.root_domain}"
         params = {
             "domain": fqdn,
             "disallowdot": 0,

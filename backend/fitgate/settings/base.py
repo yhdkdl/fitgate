@@ -5,12 +5,8 @@ from datetime import timedelta
 from pathlib import Path
 
 import environ
-from django.db.backends.postgresql.features import DatabaseFeatures
 
 from .hosts import build_allowed_hosts
-
-# Allow PostgreSQL 13 for environments like cPanel running PostgreSQL 13.x
-DatabaseFeatures.minimum_database_version = (13,)
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
