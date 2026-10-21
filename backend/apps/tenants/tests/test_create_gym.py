@@ -470,9 +470,9 @@ class TestCreateGymSuite:
             resp = getattr(client, method)(
                 endpoint, payload, format="json", HTTP_HOST=subdomain_host
             )
-            assert (
-                resp.status_code == 503
-            ), f"{endpoint} expected 503, got {resp.status_code}"
+            assert resp.status_code == 503, (
+                f"{endpoint} expected 503, got {resp.status_code}"
+            )
             assert resp.json()["detail"] == "still_securing"
 
         # Protected endpoint with valid token on unconfirmed host -> 503

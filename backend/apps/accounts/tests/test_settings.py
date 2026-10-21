@@ -7,6 +7,23 @@ from unittest.mock import patch
 import pytest
 from django.core.exceptions import ImproperlyConfigured
 
+PROD_BASE_ENV = {
+    "CPANEL_USE_MOCK": "False",
+    "CPANEL_HOST": "https://cpanel.example.com:2083",
+    "CPANEL_USERNAME": "testuser",
+    "CPANEL_API_TOKEN": "token123",
+    "CPANEL_SUBDOMAIN_DOCROOT": "public_html/fitgate",
+    "TENANT_CREDENTIALS_KEY": "a" * 32,
+    "EMAIL_HOST": "smtp.example.com",
+    "EMAIL_PORT": "587",
+    "EMAIL_HOST_USER": "mailer",
+    "EMAIL_HOST_PASSWORD": "password",
+    "EMAIL_USE_TLS": "True",
+    "EMAIL_USE_SSL": "False",
+    "MEDIA_ROOT": "/tmp/fitgate_media",
+    "LOG_DIR": "/tmp/fitgate_logs",
+}
+
 
 class TestDefaultFromEmailSettings:
     """Ensure DEFAULT_FROM_EMAIL fails fast in production and defaults safely in local."""
@@ -24,6 +41,8 @@ class TestDefaultFromEmailSettings:
                     importlib.import_module("fitgate.settings.prod")
 
         # When DEFAULT_FROM_EMAIL is set (and QR keys present), prod settings load successfully
+        for k, v in PROD_BASE_ENV.items():
+            monkeypatch.setenv(k, v)
         monkeypatch.setenv("DEFAULT_FROM_EMAIL", "prod@fitgate.org")
         monkeypatch.setenv("QR_JWT_PRIVATE_KEY", "dummy-private-key")
         monkeypatch.setenv("QR_JWT_PUBLIC_KEY", "dummy-public-key")
@@ -37,6 +56,8 @@ class TestDefaultFromEmailSettings:
         self, monkeypatch, missing_key
     ):
         """Production settings must raise ImproperlyConfigured if either QR_JWT key is unset."""
+        for k, v in PROD_BASE_ENV.items():
+            monkeypatch.setenv(k, v)
         monkeypatch.setenv("DEFAULT_FROM_EMAIL", "prod@fitgate.org")
         monkeypatch.setenv("QR_JWT_PRIVATE_KEY", "dummy-private-key")
         monkeypatch.setenv("QR_JWT_PUBLIC_KEY", "dummy-public-key")

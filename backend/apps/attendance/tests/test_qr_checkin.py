@@ -1206,9 +1206,9 @@ class TestScanEndpointAndDuplicateHandling:
                 resp = api_client.get(path)
             else:
                 resp = api_client.post(path, payload, format="json")
-            assert (
-                resp.status_code == 401
-            ), f"Expected 401 for anonymous access to {path}, got {resp.status_code}"
+            assert resp.status_code == 401, (
+                f"Expected 401 for anonymous access to {path}, got {resp.status_code}"
+            )
 
 
 class TestTodayCheckinsAndDuplicateNotificationMerging:

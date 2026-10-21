@@ -8,7 +8,6 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
         ("accounts", "0004_notification"),
         ("tenants", "0004_gymconfig_brand_color_and_more"),

@@ -15,7 +15,6 @@ def reverse_cache_table(apps, schema_editor):
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
         ("tenants", "0004_gymconfig_brand_color_and_more"),
     ]

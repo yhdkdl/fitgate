@@ -6,7 +6,6 @@ import apps.tenants.models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
         ("tenants", "0003_demorequest"),
     ]

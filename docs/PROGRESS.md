@@ -24,6 +24,7 @@
 - Fix: Unified form validation across frontend and backend (`a99aaf648d4279ab161a273a62040ebed2ea2eba`, tag `fix-form-validation-done`)
 - Fix: Member profile photo upload and role enforcement (`2cc9a6802b5f82b22cfdd8f6e858f7b182654e59`, tag `fix-member-photo-upload-done`)
 - Fix: Cross-tab session synchronization (`e49b29ec95ccd55e4953526360cc3fef7ce4df23`, tag `fix-cross-tab-session-done`)
+- Staging deploy prep: release packaging, cPanel deployment guide, UAPI client hardening, PG 13 compatibility, security settings (tag `staging-prep-done`)
 
 ## Current
 
@@ -35,10 +36,12 @@
 
 ## Open manual steps
 
-- Sprint 4: cPanel UAPI token & subdomain provisioning (fallback: mock UAPI client; not verified against real service)
-- Sprints 4, 6, 7: Production SMTP mailbox (fallback: console email backend; not verified against real service)
-- Sprints 4b, 7: Cloudinary credentials (fallback: local filesystem storage; not verified against real service)
-- Sprint 8: QR asymmetric signing key pair (fallback: dev key generator / test fixture; not verified against real service)
+- Sprint 4: cPanel UAPI token & subdomain provisioning (to be verified at staging)
+- Sprints 4, 6, 7: Production SMTP mailbox via Brevo (to be verified at staging)
+- Sprints 4b, 7: File storage layer (skipped: local filesystem storage in /home/<user>/fitgate_media/ behind protected Django views)
+- Sprint 8: QR asymmetric signing key pair (to be verified at staging)
+- Sprint 8b/8c: Camera scanning on physical devices (to be verified at staging)
+- Sprint 4d: Apex platform address wiring (to be verified at staging)
 
 ## Deviations
 
