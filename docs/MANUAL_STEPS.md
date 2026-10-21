@@ -9,10 +9,16 @@ Whenever a manual action comes up later, append numbered steps here (sprint, wha
 The feasibility spike on the real Yegara cPanel host passed all checks:
 
 - **Python:** 3.11.17 installed at `/usr/local/bin/ea-python311`.
-- **PostgreSQL:** 13.23 (local development uses 16). Django 5.2 requires a 2-line compatibility shim in `base.py` (`DatabaseFeatures.minimum_database_version = (13,)`).
+- **PostgreSQL:** Yegara runs PostgreSQL 13.23, which Django 5.2 does not support; we run with a version-check override and the full suite passes on 13. Before every release, run the suite on a PostgreSQL 13 container (document the exact command). Ask the host whether PostgreSQL 14+ is available; if yes, remove the override. Pin the Django patch version.
+  - Test command:
+    ```bash
+    docker run -d --name pg13test --network fitgate_default -e POSTGRES_PASSWORD=postgres -e POSTGRES_DB=fitgate_test -e POSTGRES_USER=postgres postgres:13-alpine
+    docker compose exec -e DATABASE_URL="postgres://postgres:postgres@pg13test:5432/fitgate_test" -e ALLOW_POSTGRES_13=1 backend pytest
+    docker stop pg13test ; docker rm pg13test
+    ```
 - **Phusion Passenger:** ONE Passenger application serves both the apex (`fitgate.tebebtech.com`) and gym tenant subdomains (`*.fitgate.tebebtech.com`) from a single document root (`public_html/fitgate`). It receives and passes the correct `Host` header to Django.
 - **HTTPS Termination:** Terminated by the host's front-end proxy. The application receives no `X-Forwarded-Proto` header. `passenger_wsgi.py` sets `os.environ['HTTPS'] = 'on'` and injects `environ['HTTPS'] = 'on'` into the WSGI environment.
-- **SSH Access:** The cPanel user has no SSH access. Database migrations are executed via a Passenger startup trigger (`RUN_MIGRATIONS_ON_STARTUP=1` in `fitgate_env/.env`, restarted once, then set back to `0`) or via a run-once cPanel Cron job.
+- **SSH Access:** The cPanel user has no SSH access. The owner runs database migrations via cPanel Web Terminal as documented in `docs/DEPLOY_STAGING.md`. Boot-time migrations are removed from `passenger_wsgi.py`.
 - **Static Assets:** `collectstatic` cannot run on the host. Releases must be built locally (frontend build + Django collectstatic) and uploaded as a self-contained zip. WhiteNoise serves both the React single-page app and static files directly from the Passenger WSGI process.
 - **Subdomain Provisioning:** cPanel UAPI `SubDomain::addsubdomain` requires root domain `tebebtech.com` and subdomain `<gym>.fitgate` pointing to `public_html/fitgate`. Tested and verified working with API tokens.
 - **AutoSSL:** Automatically provisions Let's Encrypt SSL/TLS certificates for new subdomains within 15–30 minutes. The application's certificate safeguard holds unconfirmed subdomains in a 503 "still securing" state until confirmed.
@@ -62,12 +68,15 @@ The feasibility spike on the real Yegara cPanel host passed all checks:
 ## Email & Domain Configuration (Brevo + cPanel)
 
 - **Brevo Sender & Domain:**
-  - Sender Domain: `fitgate.tebebtech.com`
-  - Default From Email: `noreply@fitgate.tebebtech.com`
+  - Brevo domain (`fitgate.tebebtech.com`) and sender (`noreply@fitgate.tebebtech.com`) setup completed and verified in Brevo.
+  - Transactional email click tracking stays off in Brevo settings so invitation and password reset links point directly to the app without redirect rewriting.
+  - The Brevo SMTP key lives only in the host's environment file (`/home/<user>/fitgate_env/.env`).
 - **cPanel Mail Routing:**
   - `tebebtech.com`: Remote Mail Exchanger (routed to external provider).
-  - `fitgate.tebebtech.com`: Local Mail Exchanger with MX record pointing to the cPanel host.
-  - Default Address: Initially set to forward unrouted mail to owner backup mailbox for staging verification.
+  - `fitgate.tebebtech.com`: Local Mail Exchanger with an MX record pointing to the cPanel host.
+  - Subdomain default address: Currently forwards unrouted mail to an owner address for staging verification.
+  - To do after testing: Change the subdomain default address to discard-with-error to prevent forwarding abuse.
+  - To do before launch: Tighten DMARC policy from `p=none` to `p=quarantine` or `p=reject`.
 
 ---
 
