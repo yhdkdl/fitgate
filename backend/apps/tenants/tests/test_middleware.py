@@ -362,6 +362,28 @@ class TestTenantSubdomainMiddleware:
 
         from django.core.exceptions import ImproperlyConfigured
 
+        prod_env = {
+            "CPANEL_USE_MOCK": "False",
+            "CPANEL_HOST": "https://cpanel.example.com:2083",
+            "CPANEL_USERNAME": "testuser",
+            "CPANEL_API_TOKEN": "token123",
+            "CPANEL_SUBDOMAIN_DOCROOT": "public_html/fitgate",
+            "TENANT_CREDENTIALS_KEY": "a" * 32,
+            "QR_JWT_PRIVATE_KEY": "privkey",
+            "QR_JWT_PUBLIC_KEY": "pubkey",
+            "EMAIL_HOST": "smtp.example.com",
+            "EMAIL_PORT": "587",
+            "EMAIL_HOST_USER": "mailer",
+            "EMAIL_HOST_PASSWORD": "password",
+            "EMAIL_USE_TLS": "True",
+            "EMAIL_USE_SSL": "False",
+            "DEFAULT_FROM_EMAIL": "noreply@fitgate.tebebtech.com",
+            "MEDIA_ROOT": "/tmp/fitgate_media",
+            "LOG_DIR": "/tmp/fitgate_logs",
+        }
+        for k, v in prod_env.items():
+            monkeypatch.setenv(k, v)
+
         from fitgate.settings import base, local, prod
 
         for s in (base, local, prod):

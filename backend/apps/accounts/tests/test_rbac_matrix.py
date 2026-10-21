@@ -674,9 +674,9 @@ class TestOwnerSettingsAllowListAndIntrospection:
         unclassified_tenant_fields = (
             gym_tenant_fields - entitlements - system_tenant_fields
         )
-        assert (
-            not unclassified_tenant_fields
-        ), f"Found unclassified fields on GymTenant: {unclassified_tenant_fields}."
+        assert not unclassified_tenant_fields, (
+            f"Found unclassified fields on GymTenant: {unclassified_tenant_fields}."
+        )
 
 
 @pytest.mark.django_db

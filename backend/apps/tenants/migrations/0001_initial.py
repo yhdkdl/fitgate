@@ -9,7 +9,6 @@ import apps.tenants.models
 
 
 class Migration(migrations.Migration):
-
     initial = True
 
     dependencies = []

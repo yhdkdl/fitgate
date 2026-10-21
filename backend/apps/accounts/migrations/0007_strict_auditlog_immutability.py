@@ -22,7 +22,6 @@ $$ LANGUAGE plpgsql;
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
         ("accounts", "0006_auditlog_immutability_triggers"),
     ]

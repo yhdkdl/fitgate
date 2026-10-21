@@ -17,7 +17,7 @@ GATE = the agent stops after this sprint and waits for the owner's review before
 
 ## Sprint 0 — Project scaffolding
 
-Docker Compose (Django + Postgres + Redis + **pgAdmin**), Django project skeleton, Vite+React skeleton, repo/branch structure (`main`/`develop`), base settings split (local/prod), `.env.example`, pre-commit hooks (ruff/black, eslint/prettier), pytest-django wired up and runnable, drf-spectacular installed. Pinned to Python 3.11.16 and Django 5.2 LTS (see `AGENT.md`).
+Docker Compose (Django + Postgres + Redis + **pgAdmin**), Django project skeleton, Vite+React skeleton, repo/branch structure (`main`/`develop`), base settings split (local/prod), `.env.example`, pre-commit hooks (ruff/black, eslint/prettier), pytest-django wired up and runnable, drf-spectacular installed. Pinned to Python 3.11.17 and Django 5.2 LTS (see `AGENT.md`).
 
 pgAdmin is a local-development convenience only — a GUI client connected to the same live `postgres` container, not a separate data store. It must not be part of the production deployment (cPanel hosting has no Docker to run it on — see Sprint 38); keep it isolated to a dev-only Compose override or profile.
 
@@ -254,6 +254,29 @@ Trainer specialization and photo are delivered in the Trainer and storage sprint
 - [x] Status: done — merged to develop (tag sprint-9a-done)
 
 - [x] All sprints in this increment complete
+
+---
+
+## Staging deploy prep (between Increment 1 and Increment 2)
+
+Preparation for deploying the Increment 1 milestone to the real Yegara cPanel staging environment (`fitgate.tebebtech.com`).
+
+**Acceptance criteria:**
+
+1. Requirements split into `base.txt`, `prod.txt`, `dev.txt`; dev/test packages excluded from prod; exact versions pinned.
+2. Production settings fail fast on missing secrets or invalid config (no silent fallbacks to insecure defaults).
+3. Automated tests against PostgreSQL 13 pass (or compatibility shim documented and tested).
+4. Subdomain creation derives root domain and subdomain hierarchy from `DOMAIN` (no hardcoded domain names).
+5. Management commands `check_cpanel_uapi`, `send_test_email`, `generate_secret_key`, `generate_tenant_credentials_key` exist and work.
+6. `deploy/passenger_wsgi.py` loads settings, environment, and exposes application correctly.
+7. WhiteNoise serves frontend and static files; unknown non-API routes fall through to React `index.html`.
+8. Email display name sanitization prevents header injection.
+9. `deploy/build_release.sh` and `deploy/build_release.ps1` produce a self-contained release zip.
+10. `docs/DEPLOY_STAGING.md` covers every step click-by-click for cPanel.
+
+- [x] Status: done — merged to develop (tag staging-prep-done)
+
+---
 
 ## Increment 2 — Membership & payments
 
@@ -514,4 +537,4 @@ _Not in the original source document — added by direct decision with the proje
 - Parametrized tests for the Member.status path.
 - Move freezegun to a dev/test requirements file and check @types/qrcode.react is needed with qrcode.react v4.
 - Alert close button min 44px per DESIGN.md.
-- Before the staging deploy: pin exact versions and split dev/test packages (pytest, freezegun) from production requirements.txt. The Sprint 8 and Increment 1 reports gave different versions for cryptography and freezegun, and different QR libraries (qrcode vs qrcode.react), so regenerate the list from pip freeze / npm ls.
+- [x] Before the staging deploy: pin exact versions and split dev/test packages (pytest, freezegun) from production requirements.txt. The Sprint 8 and Increment 1 reports gave different versions for cryptography and freezegun, and different QR libraries (qrcode vs qrcode.react), so regenerate the list from pip freeze / npm ls. (Done in Staging deploy prep).

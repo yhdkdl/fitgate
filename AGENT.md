@@ -6,7 +6,7 @@ This file is read automatically at the start of every session in this repo. It i
 
 ## Confirmed technical stack
 
-Backend: Django + Django REST Framework. Django 5.2 LTS specifically (supported until April 2028; Django 5.1 is a non-LTS release that reached end-of-life Dec 31, 2025 — do not use it). Python 3.11.16 specifically, in both the local Docker image and anywhere else Python is invoked — this exact version is pinned (not just "3.11.x" or "latest 3.11") because it matches the ceiling Yegara's cPanel Python App Manager accepts in production; local dev running a newer Python than production can silently use syntax/stdlib features that break on deploy.
+Backend: Django + Django REST Framework. Django 5.2 LTS specifically (supported until April 2028; Django 5.1 is a non-LTS release that reached end-of-life Dec 31, 2025 — do not use it). Python 3.11.17 specifically, in both the local Docker image and anywhere else Python is invoked — this exact version is pinned (not just "3.11.x" or "latest 3.11") because it matches the ceiling Yegara's cPanel Python App Manager accepts in production; local dev running a newer Python than production can silently use syntax/stdlib features that break on deploy.
 
 - Frontend: React SPA (Vite) — React Router, TanStack Query (no Redux), Tailwind CSS (theme tokens as CSS variables, see docs/DESIGN.md), Workbox service worker for offline-first PWA
 - Database: PostgreSQL, multi-tenant via `gym_id` row-level scoping (not schema-per-tenant — see Known Conflicts in docs/SPEC.md)

@@ -63,7 +63,6 @@ DROP FUNCTION IF EXISTS prevent_auditlog_modification();
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
         ("accounts", "0005_auditlog"),
     ]

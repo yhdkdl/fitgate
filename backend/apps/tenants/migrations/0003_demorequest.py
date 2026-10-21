@@ -8,7 +8,6 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
         ("tenants", "0002_gymconfig_member_reminder_days_and_more"),
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),

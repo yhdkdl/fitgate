@@ -1,9 +1,12 @@
 """Local development settings for FitGate."""
 
+from pathlib import Path
+
 from .base import *
 from .hosts import build_allowed_hosts
 
 DEBUG = env.bool("DEBUG", default=True)
+DOCS_PUBLIC = env.bool("DOCS_PUBLIC", default=True)
 
 ALLOWED_HOSTS = build_allowed_hosts(
     DOMAIN,
@@ -45,8 +48,29 @@ CSRF_TRUSTED_ORIGINS = env.list(
 )
 
 # Email - Console backend for local development
-EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
+EMAIL_BACKEND = env.str(
+    "EMAIL_BACKEND", default="django.core.mail.backends.console.EmailBackend"
+)
 DEFAULT_FROM_EMAIL = env("DEFAULT_FROM_EMAIL", default="webmaster@localhost")
+EMAIL_HOST = env.str("EMAIL_HOST", default="localhost")
+EMAIL_PORT = env.int("EMAIL_PORT", default=25)
+EMAIL_HOST_USER = env.str("EMAIL_HOST_USER", default="")
+EMAIL_HOST_PASSWORD = env.str("EMAIL_HOST_PASSWORD", default="")
+EMAIL_USE_TLS = env.bool("EMAIL_USE_TLS", default=False)
+EMAIL_USE_SSL = env.bool("EMAIL_USE_SSL", default=False)
+
+# cPanel UAPI settings (mocked by default in dev)
+CPANEL_USE_MOCK = env.bool("CPANEL_USE_MOCK", default=True)
+CPANEL_HOST = env.str("CPANEL_HOST", default="")
+CPANEL_USERNAME = env.str("CPANEL_USERNAME", default="")
+CPANEL_API_TOKEN = env.str("CPANEL_API_TOKEN", default="")
+CPANEL_SUBDOMAIN_DOCROOT = env.str(
+    "CPANEL_SUBDOMAIN_DOCROOT", default="public_html/fitgate"
+)
+
+# Media & Logging
+MEDIA_ROOT = Path(env("MEDIA_ROOT", default=str(BASE_DIR / "media")))
+LOG_DIR = Path(env("LOG_DIR", default=str(BASE_DIR / "logs")))
 
 # QR Check-in Ed25519 Dev Keypair Fallback (if unset in local .env)
 _DEV_QR_PRIVATE_KEY = (

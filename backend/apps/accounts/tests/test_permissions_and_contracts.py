@@ -114,8 +114,11 @@ class TestPermissionsAndProjectContracts:
         all_routes = collect_routes(resolver.url_patterns)
         inventory = {}
 
-        # Run with DEBUG = False so docs views enforce DocsPermission
-        with patch.object(settings, "DEBUG", False):
+        # Run with DOCS_PUBLIC = False and DEBUG = False so docs views enforce DocsPermission
+        with (
+            patch.object(settings, "DEBUG", False),
+            patch.object(settings, "DOCS_PUBLIC", False, create=True),
+        ):
             for route_path, view_cls in all_routes:
                 module = getattr(view_cls, "__module__", "")
                 if not (module.startswith("apps.") or module.startswith("fitgate.")):
@@ -205,17 +208,17 @@ class TestPermissionsAndProjectContracts:
         """
         client = APIClient()
 
-        # 1. DEBUG = True -> public (200 OK)
-        with patch.object(settings, "DEBUG", True):
+        # 1. DOCS_PUBLIC = True -> public (200 OK)
+        with patch.object(settings, "DOCS_PUBLIC", True):
             resp_debug = client.get("/api/schema/", HTTP_HOST="localhost")
             assert resp_debug.status_code == 200
 
-        # 2. DEBUG = False, unauthenticated -> 401
-        with patch.object(settings, "DEBUG", False):
+        # 2. DOCS_PUBLIC = False, unauthenticated -> 401
+        with patch.object(settings, "DOCS_PUBLIC", False):
             resp_prod_anon = client.get("/api/schema/", HTTP_HOST="localhost")
             assert resp_prod_anon.status_code == 401
 
-        # 3. DEBUG = False, Super Admin -> 200 OK
+        # 3. DOCS_PUBLIC = False, Super Admin -> 200 OK
         admin = User.objects.create_superuser(
             email="docs.admin@fitgate.org",
             password="AdminPassword123!",
@@ -223,7 +226,7 @@ class TestPermissionsAndProjectContracts:
         tokens = get_tokens_for_user(admin)
         client.credentials(HTTP_AUTHORIZATION=f"Bearer {tokens['access']}")
 
-        with patch.object(settings, "DEBUG", False):
+        with patch.object(settings, "DOCS_PUBLIC", False):
             resp_prod_admin = client.get("/api/schema/", HTTP_HOST="localhost")
             assert resp_prod_admin.status_code == 200
 

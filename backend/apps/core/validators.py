@@ -165,7 +165,7 @@ def validate_height(value: Union[Decimal, float, int, str]) -> Decimal:
 
 
 def validate_waist(
-    value: Optional[Union[Decimal, float, int, str]]
+    value: Optional[Union[Decimal, float, int, str]],
 ) -> Optional[Decimal]:
     """Waist must be between 40.00 and 200.00 cm, max 2 decimals."""
     if value is None or value == "":
@@ -183,7 +183,7 @@ def validate_waist(
 
 
 def validate_neck(
-    value: Optional[Union[Decimal, float, int, str]]
+    value: Optional[Union[Decimal, float, int, str]],
 ) -> Optional[Decimal]:
     """Neck must be between 20.00 and 80.00 cm, max 2 decimals."""
     if value is None or value == "":
