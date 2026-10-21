@@ -24,7 +24,7 @@
 - Fix: Unified form validation across frontend and backend (`a99aaf648d4279ab161a273a62040ebed2ea2eba`, tag `fix-form-validation-done`)
 - Fix: Member profile photo upload and role enforcement (`2cc9a6802b5f82b22cfdd8f6e858f7b182654e59`, tag `fix-member-photo-upload-done`)
 - Fix: Cross-tab session synchronization (`e49b29ec95ccd55e4953526360cc3fef7ce4df23`, tag `fix-cross-tab-session-done`)
-- Staging deploy prep: release packaging, cPanel deployment guide, UAPI client hardening, PG 13 compatibility, security settings (tag `staging-prep-done`)
+- Staging deploy prep: release packaging, cPanel deployment guide, UAPI client hardening, PG 13 compatibility, security settings (`2d981a8`, tag `staging-prep-done`)
 
 ## Current
 
