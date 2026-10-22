@@ -30,8 +30,8 @@ The feasibility spike on the real Yegara cPanel host passed all checks:
 ## Active & Pending Manual Steps
 
 1. **Sprint 4 — cPanel UAPI Token & Subdomain Provisioning**
-   - **What to do:** Create an API token in cPanel (Security &rarr; Manage API Tokens) with permission for `SubDomain::addsubdomain`.
-   - **What to paste where:** In `/home/<user>/fitgate_env/.env`, set `CPANEL_API_TOKEN=<token>`, `CPANEL_HOST=127.0.0.1` (or host URL), `CPANEL_USERNAME=<cpanel_user>`, `CPANEL_USE_MOCK=False`, `CPANEL_SUBDOMAIN_DOCROOT=public_html/fitgate`.
+   - **What to do:** Create an API token in cPanel (Security &rarr; Manage API Tokens) with name `FitGate-UAPI` and an optional expiry. (cPanel API tokens take only a name and expiry and carry account access; no subdomain permission selection is offered). Use a dedicated token for the host's env file, and delete any laptop test token after staging.
+   - **What to paste where:** In `/home/<user>/fitgate_env/.env`, set `CPANEL_API_TOKEN=<token>`, `CPANEL_HOST=<real_cpanel_hostname>` (e.g., matching the server SSL certificate, no `https://` and no port), `CPANEL_USERNAME=<cpanel_user>`, `CPANEL_USE_MOCK=False`, `CPANEL_ROOT_DOMAIN=tebebtech.com`, `CPANEL_SUBDOMAIN_DOCROOT=public_html/fitgate`.
    - **Fallback in use:** Mocked UAPI client in local development and automated tests.
    - **Status:** To be verified at staging.
 
@@ -48,7 +48,7 @@ The feasibility spike on the real Yegara cPanel host passed all checks:
    - **Status:** Skipped: local storage in production.
 
 4. **Sprint 8 — QR Check-in Asymmetric Signing Key Pair**
-   - **What to do:** Generate Ed25519 key pair for production QR token signing and verification using `python manage.py generate_qr_dev_keys`.
+   - **What to do:** Generate a brand-new Ed25519 key pair on your laptop using `docker compose exec backend python manage.py generate_qr_keys`. The host's QR keys must be NEW, never the laptop's dev keys, must never be saved in a file or shared, and `generate_qr_keys` prints single-line escaped keys.
    - **What to paste where:** In `/home/<user>/fitgate_env/.env`, set `QR_JWT_PRIVATE_KEY` and `QR_JWT_PUBLIC_KEY` as single-line strings with literal `\n` escapes.
    - **Fallback in use:** Dev key generator / in-memory Ed25519 key pair in test fixtures.
    - **Status:** To be verified at staging.
@@ -69,7 +69,7 @@ The feasibility spike on the real Yegara cPanel host passed all checks:
 
 - **Brevo Sender & Domain:**
   - Brevo domain (`fitgate.tebebtech.com`) and sender (`noreply@fitgate.tebebtech.com`) setup completed and verified in Brevo.
-  - Transactional email click tracking stays off in Brevo settings so invitation and password reset links point directly to the app without redirect rewriting.
+  - Click tracking must stay off for transactional email: the owner must verify this in Brevo so invitation and password reset links point directly to the app without redirect rewriting.
   - The Brevo SMTP key lives only in the host's environment file (`/home/<user>/fitgate_env/.env`).
 - **cPanel Mail Routing:**
   - `tebebtech.com`: Remote Mail Exchanger (routed to external provider).
@@ -95,5 +95,5 @@ The feasibility spike on the real Yegara cPanel host passed all checks:
    - After confirming test email delivery via `send_test_email`, change the `fitgate.tebebtech.com` default address in cPanel from "forward" to "discard with error" to prevent mail forwarding abuse and spam backscatter.
 5. **DMARC Policy Enforcement:**
    - Before launch with real customer traffic, tighten DMARC from `p=none` to `p=quarantine` or `p=reject` after verifying SPF and DKIM alignment in the Brevo dashboard.
-6. **Disable Click Tracking:**
-   - In the Brevo dashboard under Transactional Email settings, disable link click tracking so invitation tokens and password reset links point directly to `fitgate.tebebtech.com` rather than Brevo tracking redirect URLs.
+6. **Verify Click Tracking Stays Off:**
+   - Click tracking must stay off for transactional email: the owner must verify this in Brevo (under Transactional Email settings) so invitation tokens and password reset links point directly to `fitgate.tebebtech.com` rather than Brevo tracking redirect URLs.

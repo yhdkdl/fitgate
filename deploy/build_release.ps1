@@ -98,10 +98,7 @@ $FrontendDest = Join-Path $StagingTempDir "frontend\dist"
 New-Item -ItemType Directory -Path (Split-Path -Parent $FrontendDest) | Out-Null
 Copy-Item -Path (Join-Path $FrontendDir "dist") -Destination $FrontendDest -Recurse -Force
 
-# Copy passenger_wsgi.py to release root and deploy/
-$DeployDest = Join-Path $StagingTempDir "deploy"
-New-Item -ItemType Directory -Path $DeployDest | Out-Null
-Copy-Item -Path (Join-Path $DeployDir "passenger_wsgi.py") -Destination (Join-Path $DeployDest "passenger_wsgi.py") -Force
+# Copy single passenger_wsgi.py to release root (only one startup file)
 Copy-Item -Path (Join-Path $DeployDir "passenger_wsgi.py") -Destination (Join-Path $StagingTempDir "passenger_wsgi.py") -Force
 
 # Copy production requirements

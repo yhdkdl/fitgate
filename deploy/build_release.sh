@@ -59,8 +59,7 @@ rsync -av \
 # Copy frontend dist
 cp -r "$FRONTEND_DIR/dist/"* "$TEMP_DIR/frontend/dist/"
 
-# Copy passenger_wsgi.py to deploy/ and root
-cp "$DEPLOY_DIR/passenger_wsgi.py" "$TEMP_DIR/deploy/passenger_wsgi.py"
+# Copy single passenger_wsgi.py to root (only one startup file)
 cp "$DEPLOY_DIR/passenger_wsgi.py" "$TEMP_DIR/passenger_wsgi.py"
 
 # Copy requirements
