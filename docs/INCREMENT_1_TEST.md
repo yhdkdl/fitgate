@@ -55,7 +55,7 @@ As documented in `docs/MANUAL_STEPS.md`, external production credentials were sy
    - _Status_: Pending real Cloudinary credentials.
    - _Fallback in use_: Local protected filesystem storage behind Django's unified storage interface. Member photos served via backend permission checks.
 4. **Sprint 8 — QR Check-in Asymmetric Signing Key Pair**:
-   - _Status_: Key generation management command verified (`generate_qr_dev_keys`).
+   - _Status_: Key generation management command verified (`generate_qr_keys`).
    - _Fallback in use_: Local management command prints generated RSA PEM keys as single-line escaped strings to stdout for manual copying into `.env` or cPanel; in-memory key pair in test fixtures. Production fails fast if unset.
 
 ---
@@ -258,7 +258,7 @@ As documented in `docs/MANUAL_STEPS.md`, external production credentials were sy
 
 ## Test Scenario 7: QR Check-in, Scanner Validation & Manual Override
 
-> **Note on Membership Subscriptions & QR Keys**: QR check-in tokens and scan validation fail closed: members without an active `MemberSubscription` cannot issue a QR pass (`/api/members/me/qr-token/` returns HTTP 400 with `reason: "expired"`). If you see a key error, run `docker compose exec backend python manage.py generate_qr_dev_keys`, paste the two lines into `.env`, run `docker compose restart backend`. Membership plans and subscription billing are formally wired in Sprint 10. For Increment 1 end-to-end testing, provision an active subscription for test members via Django shell:
+> **Note on Membership Subscriptions & QR Keys**: QR check-in tokens and scan validation fail closed: members without an active `MemberSubscription` cannot issue a QR pass (`/api/members/me/qr-token/` returns HTTP 400 with `reason: "expired"`). If you see a key error, run `docker compose exec backend python manage.py generate_qr_keys`, paste the two lines into `.env`, run `docker compose restart backend`. Membership plans and subscription billing are formally wired in Sprint 10. For Increment 1 end-to-end testing, provision an active subscription for test members via Django shell:
 
 ```bash
 docker compose exec backend python manage.py shell -c "from apps.memberships.models import Member, MemberSubscription; from django.utils import timezone; from datetime import timedelta; member = Member.all_objects.get(user__email='dawit@example.com'); MemberSubscription.all_objects.create(gym=member.gym, member=member, status='active', start_date=timezone.localdate(), end_date=timezone.localdate()+timedelta(days=30))"
