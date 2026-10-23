@@ -61,6 +61,7 @@ cp -r "$FRONTEND_DIR/dist/"* "$TEMP_DIR/frontend/dist/"
 
 # Copy single passenger_wsgi.py to root (only one startup file)
 cp "$DEPLOY_DIR/passenger_wsgi.py" "$TEMP_DIR/passenger_wsgi.py"
+cp "$DEPLOY_DIR/fitgate_manage.sh" "$TEMP_DIR/fitgate_manage.sh"
 
 # Copy requirements
 cp "$BACKEND_DIR/requirements/base.txt" "$TEMP_DIR/requirements/base.txt"
