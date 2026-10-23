@@ -88,14 +88,14 @@ def get_ed25519_private_key_pem() -> str:
         if not isinstance(loaded_key, ed25519.Ed25519PrivateKey):
             raise QRTokenCryptoError(
                 "Configured QR_JWT_PRIVATE_KEY is not an Ed25519 key. "
-                "Please run python manage.py generate_qr_dev_keys to generate an Ed25519 keypair."
+                "Please run python manage.py generate_qr_keys to generate an Ed25519 keypair."
             )
     except QRTokenCryptoError:
         raise
     except Exception as e:
         raise QRTokenCryptoError(
             f"Configured QR_JWT_PRIVATE_KEY is invalid or malformed: {e}. "
-            "Please run python manage.py generate_qr_dev_keys to generate an Ed25519 keypair."
+            "Please run python manage.py generate_qr_keys to generate an Ed25519 keypair."
         ) from e
 
     return pem_str
@@ -122,14 +122,14 @@ def get_ed25519_public_key_pem() -> str:
         if not isinstance(loaded_key, ed25519.Ed25519PublicKey):
             raise QRTokenCryptoError(
                 "Configured QR_JWT_PUBLIC_KEY is not an Ed25519 key. "
-                "Please run python manage.py generate_qr_dev_keys to generate an Ed25519 keypair."
+                "Please run python manage.py generate_qr_keys to generate an Ed25519 keypair."
             )
     except QRTokenCryptoError:
         raise
     except Exception as e:
         raise QRTokenCryptoError(
             f"Configured QR_JWT_PUBLIC_KEY is invalid or malformed: {e}. "
-            "Please run python manage.py generate_qr_dev_keys to generate an Ed25519 keypair."
+            "Please run python manage.py generate_qr_keys to generate an Ed25519 keypair."
         ) from e
 
     return pem_str
