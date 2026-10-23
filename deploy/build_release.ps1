@@ -101,6 +101,9 @@ Copy-Item -Path (Join-Path $FrontendDir "dist") -Destination $FrontendDest -Recu
 # Copy single passenger_wsgi.py to release root (only one startup file)
 Copy-Item -Path (Join-Path $DeployDir "passenger_wsgi.py") -Destination (Join-Path $StagingTempDir "passenger_wsgi.py") -Force
 
+# Copy fitgate_manage.sh wrapper to release root
+Copy-Item -Path (Join-Path $DeployDir "fitgate_manage.sh") -Destination (Join-Path $StagingTempDir "fitgate_manage.sh") -Force
+
 # Copy production requirements
 $ReqsDest = Join-Path $StagingTempDir "requirements"
 New-Item -ItemType Directory -Path $ReqsDest | Out-Null
