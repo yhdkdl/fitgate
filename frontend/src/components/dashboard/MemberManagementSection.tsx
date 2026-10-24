@@ -7,7 +7,7 @@ import {
   type Member,
   type StaffMemberRegistrationPayload,
 } from "../../api/members";
-import { getAccessToken } from "../../api/client";
+import { AuthenticatedImage } from "../ui/AuthenticatedImage";
 import { useOptionalAuth } from "../../context/AuthContext";
 import { Alert } from "../ui/Alert";
 import { Badge } from "../ui/Badge";
@@ -220,16 +220,27 @@ export const MemberManagementSection: React.FC<Props> = ({
     try {
       let uploadedPhotoUrl: string | undefined = undefined;
       const gymId = activeGymId;
-      if (photoFile && gymId) {
+      if (photoFile) {
+        if (!gymId) {
+          const msg = "Active gym could not be determined. Member photo was not saved.";
+          setRegError(msg);
+          setFieldErrors((prev) => ({ ...prev, "reg-photo": msg }));
+          setSubmitting(false);
+          return;
+        }
         try {
           const res = await uploadMemberPhoto(photoFile, gymId);
+          if (!res || !res.url) {
+            throw new Error("Photo upload did not return a valid file path. Photo was not saved.");
+          }
           uploadedPhotoUrl = res.url;
         } catch (uploadErr: unknown) {
-          setRegError(
+          const msg =
             uploadErr instanceof Error
               ? uploadErr.message
-              : "Failed to upload member photo. Please ensure it is a valid image under 2MB."
-          );
+              : "Failed to upload member photo. Photo was not saved. Please ensure it is a valid image under 2MB.";
+          setRegError(msg);
+          setFieldErrors((prev) => ({ ...prev, "reg-photo": msg }));
           setSubmitting(false);
           return;
         }
@@ -767,19 +778,13 @@ export const MemberManagementSection: React.FC<Props> = ({
           <Card className="max-w-xl w-full bg-surface border-border p-6 space-y-4 my-8">
             <div className="flex items-center justify-between border-b border-border pb-3">
               <div className="flex items-center gap-3">
-                {selectedMember.photo_url ? (
-                  <img
-                    src={`${selectedMember.photo_url}${
-                      selectedMember.photo_url.includes("?") ? "&" : "?"
-                    }token=${encodeURIComponent(getAccessToken() || "")}`}
-                    alt={selectedMember.full_name}
-                    className="w-14 h-14 rounded-full object-cover border-2 border-primary shrink-0"
-                  />
-                ) : (
-                  <div className="w-14 h-14 rounded-full bg-primary/20 text-primary border border-primary/40 flex items-center justify-center font-bold text-lg shrink-0">
-                    {selectedMember.full_name.charAt(0)}
-                  </div>
-                )}
+                <AuthenticatedImage
+                  src={selectedMember.photo_url}
+                  alt={selectedMember.full_name}
+                  fallbackInitials={selectedMember.full_name}
+                  className="w-14 h-14 rounded-full object-cover border-2 border-primary shrink-0"
+                  placeholderClassName="w-14 h-14 rounded-full bg-primary/20 text-primary border border-primary/40 flex items-center justify-center font-bold text-lg shrink-0"
+                />
                 <div>
                   <h3 className="text-lg font-bold text-text">
                     {selectedMember.full_name}

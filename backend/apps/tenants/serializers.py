@@ -1,5 +1,6 @@
 """Serializers for gym tenant management and Super Admin provisioning."""
 
+from django.conf import settings
 from rest_framework import serializers
 from rest_framework.exceptions import PermissionDenied
 
@@ -23,12 +24,15 @@ from apps.tenants.models import (
 class GymTenantSummarySerializer(serializers.ModelSerializer):
     """Summary of a gym tenant."""
 
+    url = serializers.SerializerMethodField()
+
     class Meta:
         model = GymTenant
         fields = [
             "id",
             "name",
             "subdomain",
+            "url",
             "status",
             "tier",
             "currency",
@@ -42,6 +46,10 @@ class GymTenantSummarySerializer(serializers.ModelSerializer):
             "updated_at",
         ]
         read_only_fields = fields
+
+    def get_url(self, obj) -> str:
+        domain = getattr(settings, "DOMAIN", "fitgate.tebebtech.com")
+        return f"https://{obj.subdomain}.{domain}/"
 
 
 class GymConfigSerializer(serializers.ModelSerializer):
@@ -142,6 +150,7 @@ class CreateGymResponseSerializer(serializers.Serializer):
     config = GymConfigSerializer()
     owner = UserSummarySerializer()
     payment_id = serializers.UUIDField()
+    gym_url = serializers.CharField(required=False)
 
 
 class ProposeSubdomainResponseSerializer(serializers.Serializer):

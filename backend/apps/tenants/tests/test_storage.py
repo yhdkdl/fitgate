@@ -334,6 +334,38 @@ class TestMediaEndpointsSuite:
         assert resp["Content-Type"] == "image/webp"
         assert "private" in resp["Cache-Control"]
 
+    def test_serve_photo_query_token_without_auth_header_refused_401(
+        self, gym_a, owner_gym_a, tmp_path, settings
+    ):
+        settings.MEDIA_ROOT = tmp_path
+        upload = make_uploaded_image("pic.png", fmt="PNG")
+        rel_path = save_member_photo(gym_a.id, upload)
+        filename = rel_path.split("/")[-1]
+
+        tokens = get_tokens_for_user(owner_gym_a)
+        valid_token = tokens["access"]
+
+        # Request with valid token in query param and NO Authorization header -> 401
+        client = APIClient()
+        url_with_query_token = (
+            f"/api/media/member-photos/{gym_a.id}/{filename}/?token={valid_token}"
+        )
+        resp_query = client.get(
+            url_with_query_token,
+            HTTP_HOST=f"{gym_a.subdomain}.localhost",
+        )
+        assert resp_query.status_code == 401
+
+        # Same request with Authorization header succeeds for the right gym's staff -> 200
+        client.credentials(HTTP_AUTHORIZATION=f"Bearer {valid_token}")
+        clean_url = f"/api/media/member-photos/{gym_a.id}/{filename}/"
+        resp_header = client.get(
+            clean_url,
+            HTTP_HOST=f"{gym_a.subdomain}.localhost",
+        )
+        assert resp_header.status_code == 200
+        assert resp_header["Content-Type"] == "image/webp"
+
     def test_serve_photo_cross_tenant_denied_with_404(
         self, gym_a, user_gym_b, tmp_path, settings
     ):
@@ -584,26 +616,3 @@ class TestMediaEndpointsSuite:
         url = f"/api/media/member-photos/{gym_a.id}/somefile.webp/"
         resp = anon_client.get(url)
         assert resp.status_code == 401
-
-    def test_query_param_token_photo_read(self, gym_a, owner_gym_a, tmp_path, settings):
-        settings.MEDIA_ROOT = tmp_path
-        upload_owner = make_uploaded_image("staff_pic.png", fmt="PNG")
-        rel_path = save_member_photo(gym_a.id, upload_owner)
-        filename = rel_path.split("/")[-1]
-
-        token = get_tokens_for_user(owner_gym_a)["access"]
-        anon_client = APIClient()
-        anon_client.defaults["HTTP_HOST"] = f"{gym_a.subdomain}.localhost"
-
-        # Valid query param token -> 200
-        url_valid = f"/api/media/member-photos/{gym_a.id}/{filename}/?token={token}"
-        resp_valid = anon_client.get(url_valid)
-        assert resp_valid.status_code == 200
-        assert resp_valid["Content-Type"] == "image/webp"
-
-        # Invalid query param token -> 401
-        url_invalid = (
-            f"/api/media/member-photos/{gym_a.id}/{filename}/?token=invalid.jwt.token"
-        )
-        resp_invalid = anon_client.get(url_invalid)
-        assert resp_invalid.status_code == 401

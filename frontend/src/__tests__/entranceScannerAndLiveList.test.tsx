@@ -57,7 +57,7 @@ describe("Sprint 8c: Entrance Scanner & Today's Check-ins List", () => {
       // Check member Dawit (QR scan)
       expect(screen.getByText("Dawit Bekele")).toBeInTheDocument();
       expect(screen.getByText("QR Scan")).toBeInTheDocument();
-      expect(screen.getByAltText("Dawit Bekele")).toBeInTheDocument();
+      expect(await screen.findByAltText("Dawit Bekele")).toBeInTheDocument();
 
       // Check member Sara (Manual Override with reason)
       expect(screen.getByText("Sara Haile")).toBeInTheDocument();

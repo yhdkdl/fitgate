@@ -173,21 +173,21 @@ class TestTenantSubdomainMiddleware:
     # -------------------------------------------------------------------------
 
     @override_settings(
-        DOMAIN="fitgate.org",
-        ALLOWED_HOSTS=["fitgate.org", ".fitgate.org"],
+        DOMAIN="fitgate.tebebtech.com",
+        ALLOWED_HOSTS=["fitgate.tebebtech.com", ".fitgate.tebebtech.com"],
     )
     def test_single_label_domain_resolution_and_apex(self, factory, gym_tenant):
         """Single-label DOMAIN handles both subdomain resolution and apex access."""
         middleware = TenantSubdomainMiddleware(lambda req: HttpResponse("OK"))
 
         # Subdomain request
-        req_sub = factory.get("/", HTTP_HOST="gymname.fitgate.org")
+        req_sub = factory.get("/", HTTP_HOST="gymname.fitgate.tebebtech.com")
         res_sub = middleware(req_sub)
         assert res_sub.status_code == 200
         assert req_sub.tenant == gym_tenant
 
         # Apex request
-        req_apex = factory.get("/", HTTP_HOST="fitgate.org")
+        req_apex = factory.get("/", HTTP_HOST="fitgate.tebebtech.com")
         res_apex = middleware(req_apex)
         assert res_apex.status_code == 200
         assert req_apex.tenant is None

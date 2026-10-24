@@ -253,6 +253,8 @@ Trainer specialization and photo are delivered in the Trainer and storage sprint
 
 - [x] Status: done — merged to develop (tag sprint-9a-done)
 
+9b. **Email safety (Brevo bounce protection)**: MUST be built before Sprint 14, which sends the first automatic emails. Details to be provided by the owner.
+
 - [x] All sprints in this increment complete
 
 ---
@@ -510,6 +512,20 @@ _Not in the original source document — added by direct decision with the proje
 - [ ] Confirm whether Redis is available. _Fallback:_ database cache and database job table.
 - [ ] Ask Chapa what a small gym needs to open a merchant account. _Fallback:_ a gym without one runs cash-only until it has one.
 - [ ] Test Cloudinary: sign-up and uploads work from your network, and an `authenticated` asset is inaccessible without a signature. _Fallback:_ host disk through the same storage interface.
+
+## Before final deployment (and before the next release to the host)
+
+1. Member QR pass stretched on desktop and wanted as its own "My QR pass" navigation item with a perfectly square QR (max about 420px) — deferred by owner decision.
+2. Request a Demo redirects to the landing page after about 5 seconds with a Back to home button and no Sign in link — deferred by owner decision.
+3. Subdomain suggestion joined letters and digits ("mtfitness") instead of hyphenated — deferred by owner decision.
+4. Build scripts: forward-slash zip paths and LF line endings (.gitattributes, build fails on CR in .sh) — deferred by owner decision.
+5. PostgreSQL socket DATABASE_URL (postgres://user:pass@/dbname?host=/var/run/postgresql) in .env.production.example and the guide (including pg_dump and .pgpass) — deferred by owner decision.
+6. Pip install in Web Terminal as the primary method — deferred by owner decision.
+7. A check_env command that compares env-file variable NAMES with .env.production.example and never prints values — deferred by owner decision.
+8. Ask cPanel to start AutoSSL right after creating a gym subdomain (uapi SSL start_autossl_check works in Web Terminal) as a best-effort step — deferred by owner decision.
+9. Brevo: confirm "Authenticated" in the dashboard and DKIM PASS with d=fitgate.tebebtech.com in Gmail's "Show original" — deferred by owner decision.
+10. "Lessons from the first deploy" section in docs/DEPLOY_STAGING.md — deferred by owner decision.
+11. The earlier small follow-ups already in Known follow-ups — deferred by owner decision.
 
 ## Deferred to a future version
 

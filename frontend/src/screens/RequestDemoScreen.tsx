@@ -276,10 +276,10 @@ export const RequestDemoScreen: React.FC = () => {
                     <div>
                       <div className="font-medium text-text">Email</div>
                       <a
-                        href="mailto:contact@fitgate.org"
+                        href="mailto:contact@fitgate.tebebtech.com"
                         className="text-text-muted hover:text-indigo-400 transition-colors"
                       >
-                        contact@fitgate.org
+                        contact@fitgate.tebebtech.com
                       </a>
                     </div>
                   </div>

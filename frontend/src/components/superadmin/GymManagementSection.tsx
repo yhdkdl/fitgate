@@ -279,7 +279,21 @@ export const GymManagementSection: React.FC<GymManagementSectionProps> = ({
           </div>
           <p className="text-sm">
             Gym: <strong>{createSuccess.gym.name}</strong> (
-            <code>{createSuccess.gym.subdomain}.fitgate.org</code>) &bull; Tier:{" "}
+            <a
+              href={
+                createSuccess.gym_url ||
+                createSuccess.gym.url ||
+                `https://${createSuccess.gym.subdomain}.${import.meta.env.VITE_DOMAIN || "fitgate.tebebtech.com"}/`
+              }
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-primary underline hover:opacity-80 font-mono font-medium"
+            >
+              {createSuccess.gym_url ||
+                createSuccess.gym.url ||
+                `https://${createSuccess.gym.subdomain}.${import.meta.env.VITE_DOMAIN || "fitgate.tebebtech.com"}/`}
+            </a>
+            ) &bull; Tier:{" "}
             <span className="uppercase">{createSuccess.gym.tier}</span>
           </p>
           <div className="mt-2 text-xs bg-surface-2 p-2.5 rounded border border-border">

@@ -19,9 +19,10 @@ import {
   type ScanResultMember,
 } from "../api/attendance";
 import { getPublicGymEntry } from "../api/gyms";
-import { getAccessToken, onAuthFailure, ApiError } from "../api/client";
+import { onAuthFailure, ApiError } from "../api/client";
 import { getTenantFromHostname } from "../utils/tenant";
 import { CameraQrScanner } from "../components/attendance/CameraQrScanner";
+import { AuthenticatedImage } from "../components/ui/AuthenticatedImage";
 import { Button } from "../components/ui/Button";
 import { Input } from "../components/ui/Input";
 
@@ -329,19 +330,13 @@ export const EntranceScannerScreen: React.FC = () => {
               </div>
 
               {/* Member Photo (No personal contact details per Criterion 5) */}
-              {successData.member.photo_url ? (
-                <img
-                  src={`${successData.member.photo_url}${
-                    successData.member.photo_url.includes("?") ? "&" : "?"
-                  }token=${encodeURIComponent(getAccessToken() || "")}`}
-                  alt={successData.member.full_name}
-                  className="w-32 h-32 sm:w-40 sm:h-40 rounded-full object-cover border-4 border-emerald-400 shadow-xl"
-                />
-              ) : (
-                <div className="w-32 h-32 sm:w-40 sm:h-40 rounded-full bg-emerald-800 text-emerald-200 border-4 border-emerald-400 flex items-center justify-center text-5xl font-black shadow-xl">
-                  {successData.member.full_name.charAt(0)}
-                </div>
-              )}
+              <AuthenticatedImage
+                src={successData.member.photo_url}
+                alt={successData.member.full_name}
+                fallbackInitials={successData.member.full_name}
+                className="w-32 h-32 sm:w-40 sm:h-40 rounded-full object-cover border-4 border-emerald-400 shadow-xl"
+                placeholderClassName="w-32 h-32 sm:w-40 sm:h-40 rounded-full bg-emerald-800 text-emerald-200 border-4 border-emerald-400 flex items-center justify-center text-5xl font-black shadow-xl"
+              />
 
               <div className="space-y-1">
                 <span className="text-xs uppercase tracking-wider text-emerald-300 font-bold">
@@ -387,13 +382,13 @@ export const EntranceScannerScreen: React.FC = () => {
               </div>
 
               {/* Optional Photo if member found */}
-              {refusalData.member?.photo_url && (
-                <img
-                  src={`${refusalData.member.photo_url}${
-                    refusalData.member.photo_url.includes("?") ? "&" : "?"
-                  }token=${encodeURIComponent(getAccessToken() || "")}`}
+              {refusalData.member && (
+                <AuthenticatedImage
+                  src={refusalData.member.photo_url}
                   alt={refusalData.member.full_name}
+                  fallbackInitials={refusalData.member.full_name}
                   className="w-24 h-24 rounded-full object-cover border-2 border-current shadow-md"
+                  placeholderClassName="w-24 h-24 rounded-full bg-black/40 border-2 border-current flex items-center justify-center text-2xl font-bold shadow-md"
                 />
               )}
 

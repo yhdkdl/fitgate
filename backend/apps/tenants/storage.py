@@ -223,7 +223,10 @@ def save_member_photo(gym_id: Any, uploaded_file) -> str:
     content_file, random_filename = validate_and_process_image(uploaded_file)
     relative_path = f"gyms/{gym_id}/member_photos/{random_filename}"
     storage = get_storage()
-    storage.save_authenticated_asset(relative_path, content_file)
+    saved_path = storage.save_authenticated_asset(relative_path, content_file)
+    if not storage.is_cloudinary:
+        if not storage.local_storage.exists(saved_path):
+            raise IOError("Photo file could not be saved to storage.")
     return relative_path
 
 

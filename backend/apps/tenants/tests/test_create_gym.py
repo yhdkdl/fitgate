@@ -5,6 +5,7 @@ from decimal import Decimal
 from unittest.mock import patch
 
 import pytest
+from django.conf import settings
 from django.core import mail
 from django.core.exceptions import ValidationError
 from django.urls import reverse
@@ -470,9 +471,9 @@ class TestCreateGymSuite:
             resp = getattr(client, method)(
                 endpoint, payload, format="json", HTTP_HOST=subdomain_host
             )
-            assert resp.status_code == 503, (
-                f"{endpoint} expected 503, got {resp.status_code}"
-            )
+            assert (
+                resp.status_code == 503
+            ), f"{endpoint} expected 503, got {resp.status_code}"
             assert resp.json()["detail"] == "still_securing"
 
         # Protected endpoint with valid token on unconfirmed host -> 503
@@ -726,6 +727,8 @@ class TestCreateGymSuite:
         assert response.status_code == 201
         data = response.json()
         assert data["gym"]["subdomain"] == "bole-apex"
+        assert data["gym"]["url"] == f"https://bole-apex.{settings.DOMAIN}/"
+        assert data["gym_url"] == f"https://bole-apex.{settings.DOMAIN}/"
         assert data["config"]["has_multi_branch"] is True
         assert data["owner"]["email"] == "haile@boleapex.com"
         assert "invite_link" not in data
