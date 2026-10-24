@@ -142,10 +142,11 @@ Before starting the real deployment, remove all temporary items created during t
 > [!NOTE]
 > **Order of Creation & Folder Fallback**:
 > If cPanel refuses to create the Python application in Step 3 because the `fitgate` folder already contains files, simply use this fallback:
+>
 > 1. In File Manager, rename `/home/<username>/fitgate` to `/home/<username>/fitgate_temp`.
 > 2. Complete Step 3 to create the Python app pointing to `fitgate`.
 > 3. Move the files from `~/fitgate_temp` back into `~/fitgate` (or delete the empty `fitgate` folder created by cPanel and rename `fitgate_temp` back to `fitgate`).
-> _(In our feasibility spike on Yegara cPanel, creating the Python application in Step 3 first and then extracting the zip archive into `~/fitgate` worked cleanly without directory conflicts)._
+>    _(In our feasibility spike on Yegara cPanel, creating the Python application in Step 3 first and then extracting the zip archive into `~/fitgate` worked cleanly without directory conflicts)._
 
 ---
 
@@ -236,6 +237,7 @@ LOG_DIR=/home/<username>/fitgate_logs
 
 > [!IMPORTANT]
 > **cPanel Hostname, Brevo SMTP Key, & API Token Requirements**:
+>
 > - **EMAIL_HOST_PASSWORD**: Use the dedicated Brevo **SMTP key** (starts with `xsmtpsib-...` generated under **Transactional** &rarr; **Email** &rarr; **SMTP & API** &rarr; **Generate a new SMTP key**), NOT your Brevo web account login password.
 > - **CPANEL_HOST**: FitGate's `uapi.py` enforces strict TLS certificate checking via `ssl.create_default_context()` with hostname verification ON. A connection to `localhost` or `127.0.0.1` on port 2083 will fail TLS verification because the cPanel SSL certificate is issued for the real server hostname. You MUST set `CPANEL_HOST` to the cPanel server's real hostname (the same hostname used during the laptop probe, without `https://` and without `:2083`). "localhost" is documented only as a fallback and will fail certificate checks.
 > - **CPANEL_API_TOKEN**: In cPanel, navigate to **Security** &rarr; **Manage API Tokens**. Click **Create API Token**, enter name `FitGate-UAPI`, set an expiration date, and generate the token. (cPanel API tokens take only a name and expiration date and carry account access; no subdomain-specific permission checkbox is presented on this screen). Use a dedicated token for the host's env file, and delete any temporary laptop probe token after staging.
@@ -290,6 +292,7 @@ bash ~/fitgate/fitgate_manage.sh shell -c "from django.conf import settings; pri
 ### 1. Configure Password File (`~/.pgpass`) & Take Pre-Migrate Backup
 
 To avoid exposing your database password in bash history, do NOT type the password in terminal `echo` commands. Instead:
+
 1. In cPanel **File Manager** (ensure **Show Hidden Files (dotfiles)** is enabled in Settings), navigate to `/home/<username>/`.
 2. Click **+ File**, name it `.pgpass`, and click **Create New File**.
 3. Right-click `.pgpass`, click **Edit**, and paste the single line:
@@ -330,6 +333,7 @@ bash ~/fitgate/fitgate_manage.sh check --deploy
 ```
 
 - **Exact Expected Output**:
+
   ```text
   System check identified some issues:
 
@@ -384,6 +388,7 @@ unset SUPERADMIN_PASSWORD SUPERADMIN_EMAIL
 ### 7. Restart the Application
 
 Before beginning the smoke test, restart the Python application to ensure that all fresh code, settings, and database connections are reloaded:
+
 - In cPanel, navigate to **Software** &rarr; **Setup Python App**.
 - Locate `fitgate.tebebtech.com` and click the **Restart** button (circular arrow icon).
 
@@ -550,3 +555,34 @@ Work through this checklist step-by-step to confirm complete staging functionali
    - Create a clean `fitgate` directory and extract your previous release zip (`fitgate_release_previous.zip`) into `/home/<username>/fitgate`.
 3. **Restart the Application**:
    - In cPanel **Setup Python App**, click the **Restart** button.
+
+---
+
+## Lessons from the first deploy
+
+Operational lessons learned from the initial deployment to Yegara cPanel staging:
+
+1. **CRLF Line Endings in Shell Scripts**:
+   - When release archives are packed on Windows machines without Git LF conversion, shell scripts (`fitgate_manage.sh`, `passenger_wsgi.py`, cron scripts) can retain Windows carriage returns (`\r\n`). When executed on Linux, bash reports `: command not found` or `/bin/bash^M: bad interpreter`.
+   - Immediate fix in Web Terminal:
+     ```bash
+     sed -i 's/\r$//' ~/fitgate/*.sh
+     ```
+2. **Unix Domain Socket DATABASE_URL**:
+   - Connecting to PostgreSQL via TCP (`localhost:5432`) on cPanel can run into local firewall restrictions or `pg_hba.conf` password/ident mismatches. Connecting over the local Unix domain socket avoids TCP latency and networking overhead:
+     ```text
+     DATABASE_URL=postgres://<username>_fitgate_user:<password>@/<username>_fitgate_prod?host=/var/run/postgresql
+     ```
+3. **Run Pip Install in Web Terminal**:
+   - The cPanel "Run Pip Install" button inside **Setup Python App** can silently hang, time out on complex dependencies, or hide compiler and wheel build diagnostics.
+   - Always run `pip install` directly within Web Terminal using the virtual environment's pip binary:
+     ```bash
+     source ~/virtualenv/fitgate/3.11/bin/activate && pip install -r ~/fitgate/requirements/prod.txt
+     ```
+4. **Brevo Domain Authentication**:
+   - Adding the required DNS DKIM and SPF records in cPanel **Zone Editor** does not automatically validate the sender domain. You must explicitly log in to the Brevo dashboard under **Senders, Domains & Dedicated IPs** &rarr; **Domains** and click the **Authenticate this domain** button. Confirm that DKIM passes and shows `d=fitgate.tebebtech.com` in email headers.
+5. **Forcing AutoSSL via UAPI Command**:
+   - Instead of waiting up to 24 hours for cPanel's automated background AutoSSL scan to issue certificates for newly created gym subdomains, force an immediate check directly from Web Terminal:
+     ```bash
+     uapi SSL start_autossl_check
+     ```

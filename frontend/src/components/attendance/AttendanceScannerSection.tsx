@@ -21,7 +21,7 @@ import {
   type ManualOverrideResultResponse,
 } from "../../api/attendance";
 import { listGymMembers, type Member } from "../../api/members";
-import { getAccessToken } from "../../api/client";
+import { AuthenticatedImage } from "../ui/AuthenticatedImage";
 import { Card } from "../ui/Card";
 import { Button } from "../ui/Button";
 import { Input } from "../ui/Input";
@@ -395,17 +395,13 @@ export const AttendanceScannerSection: React.FC<
         {activeMember && activeAttendance && (
           <div className="mt-6 p-4 rounded-xl border border-emerald-500/30 bg-emerald-500/10 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 animate-in fade-in duration-300">
             <div className="flex items-center gap-4">
-              {activeMember.photo_url ? (
-                <img
-                  src={`${activeMember.photo_url}${activeMember.photo_url.includes("?") ? "&" : "?"}token=${encodeURIComponent(getAccessToken() || "")}`}
-                  alt={activeMember.full_name}
-                  className="w-16 h-16 rounded-full object-cover border-2 border-emerald-500 shadow-sm"
-                />
-              ) : (
-                <div className="w-16 h-16 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 flex items-center justify-center font-bold text-xl">
-                  {activeMember.full_name.charAt(0)}
-                </div>
-              )}
+              <AuthenticatedImage
+                src={activeMember.photo_url}
+                alt={activeMember.full_name}
+                fallbackInitials={activeMember.full_name}
+                className="w-16 h-16 rounded-full object-cover border-2 border-emerald-500 shadow-sm"
+                placeholderClassName="w-16 h-16 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 flex items-center justify-center font-bold text-xl"
+              />
 
               <div>
                 <div className="flex items-center gap-2">

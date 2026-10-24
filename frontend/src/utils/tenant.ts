@@ -40,9 +40,7 @@ export function getTenantFromHostname(hostname?: string): string | null {
   // Platform apex domains
   if (
     host === "fitgate.tebebtech.com" ||
-    host === "www.fitgate.tebebtech.com" ||
-    host === "fitgate.org" ||
-    host === "www.fitgate.org"
+    host === "www.fitgate.tebebtech.com"
   ) {
     return null;
   }
@@ -57,13 +55,6 @@ export function getTenantFromHostname(hostname?: string): string | null {
   // Handle *.fitgate.tebebtech.com
   if (host.endsWith(".fitgate.tebebtech.com")) {
     const parts = host.slice(0, -".fitgate.tebebtech.com".length);
-    if (!parts || parts.includes(".")) return null;
-    return parts;
-  }
-
-  // Handle *.fitgate.org
-  if (host.endsWith(".fitgate.org")) {
-    const parts = host.slice(0, -".fitgate.org".length);
     if (!parts || parts.includes(".")) return null;
     return parts;
   }

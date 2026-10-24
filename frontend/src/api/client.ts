@@ -244,3 +244,56 @@ export async function apiFetch<T>(
   const data = await parseResponseBody(response);
   return data as T;
 }
+
+/**
+ * Core API request wrapper for binary blobs (protected media, documents, receipts).
+ * Automatically injects in-memory access token, intercepts 401s to refresh token, and retries.
+ */
+export async function apiFetchBlob(
+  endpoint: string,
+  options: RequestInit = {}
+): Promise<Blob> {
+  const headers = new Headers(options.headers || {});
+  const currentToken = getAccessToken();
+  if (currentToken && !headers.has("Authorization")) {
+    headers.set("Authorization", `Bearer ${currentToken}`);
+  }
+
+  const response = await fetch(endpoint, {
+    ...options,
+    headers,
+  });
+
+  if (
+    response.status === 401 &&
+    endpoint !== "/api/auth/login/" &&
+    endpoint !== "/api/auth/refresh/"
+  ) {
+    const newAccessToken = await refreshAccessToken();
+    if (newAccessToken) {
+      headers.set("Authorization", `Bearer ${newAccessToken}`);
+      const retryResponse = await fetch(endpoint, {
+        ...options,
+        headers,
+      });
+
+      if (!retryResponse.ok) {
+        const errData = await parseResponseBody(retryResponse);
+        const message = extractErrorMessage(retryResponse.status, errData);
+        throw new ApiError(retryResponse.status, message, errData);
+      }
+
+      return await retryResponse.blob();
+    } else {
+      throw new ApiError(401, "Session expired. Please log in again.");
+    }
+  }
+
+  if (!response.ok) {
+    const errData = await parseResponseBody(response);
+    const message = extractErrorMessage(response.status, errData);
+    throw new ApiError(response.status, message, errData);
+  }
+
+  return await response.blob();
+}

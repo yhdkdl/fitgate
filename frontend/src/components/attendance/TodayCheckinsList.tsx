@@ -5,7 +5,7 @@ import {
   type TodayCheckinItem,
   type TodayCheckinsResponse,
 } from "../../api/attendance";
-import { getAccessToken } from "../../api/client";
+import { AuthenticatedImage } from "../ui/AuthenticatedImage";
 import { Card } from "../ui/Card";
 import { Badge } from "../ui/Badge";
 import { Button } from "../ui/Button";
@@ -165,19 +165,13 @@ export const TodayCheckinsList: React.FC<TodayCheckinsListProps> = ({
               className="py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-surface-2/40 px-2 rounded-lg transition-colors"
             >
               <div className="flex items-center gap-3">
-                {item.member_photo_url ? (
-                  <img
-                    src={`${item.member_photo_url}${
-                      item.member_photo_url.includes("?") ? "&" : "?"
-                    }token=${encodeURIComponent(getAccessToken() || "")}`}
-                    alt={item.member_name}
-                    className="w-11 h-11 rounded-full object-cover border border-border shadow-sm shrink-0"
-                  />
-                ) : (
-                  <div className="w-11 h-11 rounded-full bg-primary/20 text-primary border border-primary/40 flex items-center justify-center font-bold text-sm shrink-0">
-                    {item.member_name.charAt(0)}
-                  </div>
-                )}
+                <AuthenticatedImage
+                  src={item.member_photo_url}
+                  alt={item.member_name}
+                  fallbackInitials={item.member_name}
+                  className="w-11 h-11 rounded-full object-cover border border-border shadow-sm shrink-0"
+                  placeholderClassName="w-11 h-11 rounded-full bg-primary/20 text-primary border border-primary/40 flex items-center justify-center font-bold text-sm shrink-0"
+                />
 
                 <div>
                   <h4 className="font-semibold text-sm text-text leading-tight">

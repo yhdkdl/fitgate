@@ -88,23 +88,14 @@ describe("Sprint 4d: Public Platform Landing Page", () => {
       );
       expect(prodUrl).toBe("https://bolehub.fitgate.tebebtech.com/");
 
-      // On alternative apex (fitgate.org)
-      const altProdUrl = tenantUtils.buildTenantUrl(
-        "bolehub",
-        "fitgate.org",
-        "https:",
-        ""
-      );
-      expect(altProdUrl).toBe("https://bolehub.fitgate.org/");
-
       // On apex with www prefix
       const wwwUrl = tenantUtils.buildTenantUrl(
         "bolehub",
-        "www.fitgate.org",
+        "www.fitgate.tebebtech.com",
         "https:",
         ""
       );
-      expect(wwwUrl).toBe("https://bolehub.fitgate.org/");
+      expect(wwwUrl).toBe("https://bolehub.fitgate.tebebtech.com/");
     });
   });
 

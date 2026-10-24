@@ -1,12 +1,12 @@
 import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { getProfile } from "../api/auth";
-import { getAccessToken } from "../api/client";
 import {
   getMemberProfileMe,
   uploadMemberPhoto,
   type Member,
 } from "../api/members";
+import { AuthenticatedImage } from "../components/ui/AuthenticatedImage";
 import { Alert } from "../components/ui/Alert";
 import { Badge } from "../components/ui/Badge";
 import { Button } from "../components/ui/Button";
@@ -274,19 +274,13 @@ export const ProfileScreen: React.FC = () => {
 
             <div className="flex flex-col sm:flex-row items-center gap-6">
               <div className="relative">
-                {memberData?.photo_url ? (
-                  <img
-                    src={`${memberData.photo_url}${
-                      memberData.photo_url.includes("?") ? "&" : "?"
-                    }token=${encodeURIComponent(getAccessToken() || "")}`}
-                    alt="Your profile"
-                    className="w-24 h-24 rounded-full object-cover border-4 border-primary shadow-md"
-                  />
-                ) : (
-                  <div className="w-24 h-24 rounded-full bg-surface-2 border-2 border-dashed border-border flex items-center justify-center text-text-muted text-2xl font-bold">
-                    {(user?.full_name || user?.email || "M").charAt(0).toUpperCase()}
-                  </div>
-                )}
+                <AuthenticatedImage
+                  src={memberData?.photo_url}
+                  alt="Your profile"
+                  fallbackInitials={user?.full_name || user?.email || "M"}
+                  className="w-24 h-24 rounded-full object-cover border-4 border-primary shadow-md"
+                  placeholderClassName="w-24 h-24 rounded-full bg-surface-2 border-2 border-dashed border-border flex items-center justify-center text-text-muted text-2xl font-bold"
+                />
               </div>
 
               <div className="space-y-2 text-center sm:text-left">

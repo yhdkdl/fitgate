@@ -99,7 +99,11 @@ def validate_registration_payload(
             errors["password"] = ["Password is required for self-registration."]
         else:
             dummy_user = User(
-                email=normalized_email if normalized_email else "member@fitgate.org",
+                email=(
+                    normalized_email
+                    if normalized_email
+                    else f"member@{getattr(settings, 'DOMAIN', 'fitgate.tebebtech.com')}"
+                ),
                 full_name=full_name,
                 role=User.ROLE_MEMBER,
                 gym=gym,

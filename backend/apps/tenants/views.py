@@ -1,5 +1,6 @@
 import os
 
+from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import IntegrityError, transaction
 from django.http import FileResponse, Http404
@@ -125,11 +126,15 @@ class CreateGymView(APIView):
                 status=status.HTTP_502_BAD_GATEWAY,
             )
 
+        domain = getattr(settings, "DOMAIN", "fitgate.tebebtech.com")
+        gym_url = f"https://{result['gym'].subdomain}.{domain}/"
+
         response_data = {
             "gym": GymTenantSummarySerializer(result["gym"]).data,
             "config": GymConfigSerializer(result["config"]).data,
             "owner": UserSummarySerializer(result["owner"]).data,
             "payment_id": str(result["payment"].id),
+            "gym_url": gym_url,
         }
         return Response(response_data, status=status.HTTP_201_CREATED)
 
@@ -652,6 +657,11 @@ class UploadMemberPhotoView(APIView):
                 else (exc.messages if hasattr(exc, "messages") else str(exc))
             )
             return Response({"detail": msg}, status=status.HTTP_400_BAD_REQUEST)
+        except Exception as exc:
+            return Response(
+                {"detail": f"Failed to save member photo: {str(exc)}"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
 
         filename = os.path.basename(relative_path)
         url = f"/api/media/member-photos/{gym_id}/{filename}/"
