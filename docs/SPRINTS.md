@@ -143,7 +143,7 @@ Trainer specialization and photo are delivered in the Trainer and storage sprint
 
 4c. **Gym branding, entry page, first-run checklist**
 
-- `GymConfig` gains optional `brand_color` (hex) and a logo reference. Both are Owner-editable settings; when empty, a default theme and the gym name are shown.
+- `GymConfig` gains optional `brand_color` (hex) and a logo reference. Both are Owner-editable settings; when empty, a default theme and the gym name are shown. Branding and entry pages operate within the gym's assigned tier (Starter or Growth; Pro is hidden until Increment 6 ships; `has_group_classes` is false across all tiers).
 - A public entry page endpoint on the gym subdomain returns the gym name, brand color, logo, phone and location. The page offers Log in and Register; the plan list is added in Sprint 10. Before the certificate is confirmed it shows the "still being secured" state.
 - A first-run checklist is shown to the Owner only: add branding, create a first plan, add a staff account, register a first member. Items tick automatically from real data (no manual flags), and the checklist can be dismissed; dismissal persists.
 
@@ -303,14 +303,14 @@ Preparation for deploying the Increment 1 milestone to the real Yegara cPanel st
       - Plans belong strictly to their gym and are never visible or usable by another gym.
       - Visitors on the public gym website can view all active plans with their prices without needing to log in.
 
-11. **Chapa payment integration (one account per gym) (GATE)** — What gym users can do after this sprint:
+11. **Chapa payment integration (one account per gym) (GATE)** — Sprint 11 builds the `Notification` record and ONE shared helper function that creates a notification (stored only, no email, scoped to the gym) so notification criteria are immediately verifiable. What gym users can do after this sprint:
     - Gym owners can enter and update their gym's Chapa payment credentials securely in their gym settings, with keys stored encrypted and masked from view.
     - Only the gym owner can view or edit payment credentials; other staff and platform administrators cannot access them.
     - Gym owners can test their Chapa connection to verify their keys before enabling online member checkout.
     - Members can pay for their subscription online with Chapa if the gym has verified credentials; otherwise, the system offers cash payment.
-    - When Chapa confirms a payment, the member's subscription is immediately activated or extended without creating duplicates if payment confirmations are repeated.
-    - If an online payment fails or is abandoned, the member is notified and given options to retry or pay cash.
-    - Online payments left unfinished beyond 30 minutes are flagged for staff follow-up.
+    - When Chapa confirms a payment, the member's subscription is immediately activated or extended without creating duplicates if payment confirmations are repeated, and a notification is recorded for the member.
+    - If an online payment fails or is abandoned, a notification is recorded for the member with options to retry or pay cash.
+    - Online payments left unfinished beyond 30 minutes are flagged, and a notification is recorded for staff follow-up.
     - Platform administrators can view whether a gym is running in test mode or live mode.
     - Chapa cannot be used to pay platform gym subscription fees.
 
@@ -325,7 +325,8 @@ Preparation for deploying the Increment 1 milestone to the real Yegara cPanel st
     - Members can submit a freeze request specifying their duration and reason, provided their gym allows freezes and they have days remaining.
     - Freeze requests on gyms with zero allowed freeze days, or requests exceeding the remaining allowance, are blocked with a clear message.
     - Gym owners and managers can review, approve, or reject freeze requests (with an explanation for rejections).
-    - Approving a freeze pauses the member's QR pass and extends their membership end date by the frozen days.
+    - Approving a freeze pauses the member's QR pass and extends their membership end date by the frozen days, and a notification is recorded for the member.
+    - Rejecting a freeze request leaves the pass active with an explanation, and a notification is recorded for the member.
 
 14. **Scheduled jobs (automated daily maintenance tasks)** — Requires Sprint 9b (email safety) to be built first, because Sprint 14 sends the first automatic emails. What gym users can do after this sprint:
     - Subscriptions past their end date automatically expire, deactivating check-in passes, and frozen memberships automatically reactivate when the freeze ends.
@@ -335,8 +336,8 @@ Preparation for deploying the Increment 1 milestone to the real Yegara cPanel st
     - Unconfirmed payments lingering past the review window are flagged for staff review.
     - Running the maintenance job multiple times in a row never produces duplicate notifications, flags, or updates.
 
-15. **Notification center (in-app notifications)** — What gym users can do after this sprint:
-    - Members and staff can view their own in-app notifications, organized with unread notices first.
+15. **Notification center (in-app screens)** — Notification records and the shared creation helper were built in Sprint 11; Sprint 15 delivers the user-facing screens and mark-as-read interaction. What gym users can do after this sprint:
+    - Members and staff can view their own in-app notifications in a dropdown or panel (bell with unread count), organized with unread notices first.
     - Notifications are strictly separated so gym members and staff only see messages for their gym, while platform alerts go exclusively to Super Admin.
     - Users can mark notifications as read, and the read status remains saved when returning.
 

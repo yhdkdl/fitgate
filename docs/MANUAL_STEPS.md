@@ -63,6 +63,12 @@ The feasibility spike on the real Yegara cPanel host passed all checks:
    - **Fallback in use:** `http://localhost:5173`.
    - **Status:** To be verified at staging.
 
+7. **Sprint 11 — Chapa Test Keys & Online Payment Verification**
+   - **What to do:** Obtain Chapa test merchant credentials (public key, secret key, webhook secret) from `chapa.et` dashboard and enter them into gym settings (`GymPaymentConfig`) on the staging host once deployed and secured with HTTPS.
+   - **What to paste where:** In gym Owner settings under Payment Settings (stored encrypted in the database using `TENANT_CREDENTIALS_KEY`).
+   - **Fallback in use:** Signed mocked webhooks and simulated checkout in automated tests and local dev.
+   - **Status:** Skipped for Increment 2 preflight per owner decision; feature marked "not verified against the real service".
+
 ---
 
 ## Email & Domain Configuration (Brevo + cPanel)
