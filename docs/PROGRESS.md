@@ -26,16 +26,15 @@
 - Fix: Cross-tab session synchronization (`e49b29ec95ccd55e4953526360cc3fef7ce4df23`, tag `fix-cross-tab-session-done`)
 - Staging deploy prep: release packaging, cPanel deployment guide, UAPI client hardening, PG 13 compatibility, security settings (`2d981a8`, tag `staging-prep-done`)
 - Fix: Private photo authentication, domain normalization, and deferred checklist (`001764e14ea58c33a1628ab19731859ba79cd31d`, tag `fix-private-photos-done`)
-- Sprint 10: Membership plans & subscription lifecycle (STRICT) — unified check-in engine (`execute_check_in`), `Attendance.method` single source of truth (`qr`, `manual_override`) enforced via DB `CheckConstraint`, `MemberSubscription` status single source of truth with protected derived `Member.status` (direct write raises `ValueError`), 5th choice `pending` for new signups, plans CRUD (days/months with accurate month-end calculation), trainer warning on inclusive plans, price change immutability, tenant isolation, public plan listing, member suspend/reactivate actions.
+- Sprint 10: Membership plans & subscription lifecycle (STRICT) — unified check-in engine (`execute_check_in`), `Attendance.method` single source of truth (`qr`, `manual_override`) enforced via DB `CheckConstraint`, `MemberSubscription` status single source of truth with protected derived `Member.status` (direct write raises `ValueError` on instance save, queryset update, and bulk_update), 5th choice `pending` for new signups, plans CRUD (days/months with accurate month-end calculation), trainer warning on inclusive plans, price change immutability, tenant isolation, public plan listing, member suspend/reactivate actions, subscriptions bound strictly to payment confirmation (no unearned staff creation) (tag `sprint-10-done`).
 
 ## Current
 
-- Sprint 10 completed and tested (100% green on backend and frontend suites). STRICT sprint report submitted; awaiting owner review to merge.
+- Sprint 11: Chapa payment integration (one account per gym) (GATE) — Notification record and shared storage helper, encrypted per-gym credentials, signed mocked webhooks, Chapa payment verification and atomic subscription extension.
 
 ## Next
 
-- Merge Sprint 10 (`feature/sprint-10-membership-plans` -> `develop`), tag `sprint-10-done`, pull develop.
-- Sprint 11: Chapa payment integration (one account per gym) (GATE) — Notification record and shared storage helper, encrypted per-gym credentials, signed mocked webhooks.
+- Sprint 12: Manual cash payment, payment history, and the registration-to-payment flow.
 
 ## Open manual steps
 
