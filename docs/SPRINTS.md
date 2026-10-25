@@ -112,8 +112,8 @@ Trainer specialization and photo are delivered in the Trainer and storage sprint
 
 - Only Super Admin can create a gym; every other role gets 403.
 - Creation goes through one service function, `create_gym(...)`; the endpoint is a thin wrapper and the tests call the function directly.
-- Inputs: gym name, location, contact name/phone/email, tier, subdomain (proposed from the name, editable, validated unique/DNS-label/not reserved), Owner name and email, and the payment record (amount, method must be `bank_transfer`, reference, verified by = the acting Super Admin). Optional `demo_request_id` links a demo request (Sprint 4a).
-- Atomically: creates the `GymTenant` as `active`, its `GymConfig` with flags set to the chosen tier's defaults, the `Payment` (`payer_type = gym_subscription`, `method = bank_transfer`, status confirmed), the Owner `User` (pre-verified, no password set), a single-use expiring set-password invite, and provisions the subdomain via cPanel's UAPI. A failure at any step (including the UAPI call) leaves nothing half-created. In local development the UAPI call is mocked, not skipped; the atomicity test still covers it.
+- Inputs: gym name, location, contact name/phone/email, tier, subdomain (proposed from the name, editable, validated unique/DNS-label/not reserved), Owner name and email, and the payment record (amount, method must be `bank_transfer`, reference, verified by = the acting Super Admin). Optional `demo_request_id` links a demo request (Sprint 4a). Create Gym tier choices offer Starter and Growth only (Pro is hidden and not selectable until multi-branch ships in Increment 6; if set in DB, Pro defaults equal Growth with `has_multi_branch=false`; `has_group_classes` is false across all tiers).
+- Atomically: creates the `GymTenant` as `active`, its `GymConfig` with flags set to the chosen tier's defaults (Starter or Growth; Pro is hidden until Increment 6; `has_group_classes` is false), the `Payment` (`payer_type = gym_subscription`, `method = bank_transfer`, status confirmed), the Owner `User` (pre-verified, no password set), a single-use expiring set-password invite, and provisions the subdomain via cPanel's UAPI. A failure at any step (including the UAPI call) leaves nothing half-created. In local development the UAPI call is mocked, not skipped; the atomicity test still covers it.
 - The welcome message contains the set-password link, never a password.
 - A `chapa` method is rejected for `gym_subscription` payments; a duplicate or reserved subdomain is rejected.
 - No code path produces a `pending` gym in this version.
@@ -153,7 +153,7 @@ Trainer specialization and photo are delivered in the Trainer and storage sprint
 
 1. Opening the platform's main address (http://localhost:5173 locally; the apex in production) shows a public FitGate landing page. No login is needed.
 2. The page explains what FitGate does for a gym, using only features that are in docs/SPEC.md (membership management, QR check-in, attendance, trainer tools, AI personal training plans, payments, multi-branch).
-3. It shows the three tiers with a price per year (the placeholder prices 12,000 / 30,000 / 60,000 ETB per year) and what each tier includes, taken from the tier table in docs/SPEC.md. The prices live in ONE place in the code so changing a price is a one-line edit.
+3. It shows Starter and Growth with a placeholder price per year (12,000 / 30,000 ETB per year) and what each tier includes, taken from the tier table in docs/SPEC.md. Pro is hidden and not offered, advertised or selectable until multi-branch ships in Increment 6, and shows no price until it ships. The prices live in ONE place in the code so changing a price is a one-line edit.
 4. A clear "Request a Demo" button takes the visitor to the existing form; submitting it shows the existing confirmation.
 5. A short "How it works" section: request a demo, we set up your gym after payment, your gym gets its own address.
 6. A "Go to my gym" box: the visitor types their gym's name (subdomain) and is taken to that gym's own address; an invalid name shows a clear message. A small "Platform sign in" link in the footer goes to the existing Super Admin login.
@@ -284,19 +284,26 @@ Preparation for deploying the Increment 1 milestone to the real Yegara cPanel st
 
 **Preflight (external items):**
 
-- Sprint 11 (a Chapa TEST merchant account per gym, keys entered in that gym's settings screen not in .env, plus a tunnel such as ngrok so Chapa can reach the local webhook; fallback: signed mocked webhooks)
+- Sprint 11: A Chapa TEST merchant account for the gym (test keys). Keys are entered by the gym Owner in that gym's settings screen (per-gym tenant credentials, encrypted at rest), not in `.env`. The staging host is online over HTTPS, so Chapa test webhooks can reach it without a tunnel once deployed to staging; until then signed mocked webhooks are used. Fallback if skipped: signed mocked webhooks plus a documented entry in `docs/MANUAL_STEPS.md`, with the feature marked "not verified against the real service".
 
-10. **Membership plans & subscription lifecycle** — `MembershipPlan` CRUD, `MemberSubscription` state machine.
-    - Gym staff can create, view, edit, and deactivate membership plans with durations specified in days or months.
-    - End dates are accurately calculated for month durations, including month-end days (such as January 31 + 1 month).
-    - New subscriptions can only be created for active plans; deactivating a plan hides it from new signups while leaving existing subscriptions intact.
-    - Updating a plan's price does not alter past payments or active subscriptions.
-    - Creating a plan that includes personal training warns staff if the gym currently has no trainers.
-    - Member subscription status moves strictly according to business rules (for example, expired subscriptions cannot become active without payment, and only gym owners or managers can suspend or unsuspend a member).
-    - Plans belong strictly to their gym and are never visible or usable by another gym.
-    - Visitors on the public gym website can view all active plans with their prices without needing to log in.
+10. **Membership plans & subscription lifecycle (STRICT)** — The agent stops and reports for the owner's review before merging, because it changes the shared check-in code and where member status comes from.
+    - All check-ins (QR scan and manual override) go through ONE internal function; the QR scan and the manual override are thin callers of it. No behaviour change for staff, and all existing QR and check-in security behaviour stays as approved at the Sprint 8 gate (existing tests stay green).
+    - Every attendance record stores how the member got in (a stored `method` field: `qr` or `manual_override`). `method` is the single source of truth. The existing `is_override` column STAYS, is written ONLY by the shared check-in function from `method`, and a database CHECK constraint makes them always agree (`is_override` is true exactly when `method` is `manual_override`). Use ordered migrations, not one combined step: add the field as optional, backfill existing rows (override rows become `manual_override`, the rest `qr`), then make it required and add the constraint. Do not make `is_override` a Python property (it could not be used in database filters). Every query or test that uses `is_override` is UPDATED to stay correct, never deleted or weakened; say in your reply how many places you updated. A later method (NFC card, wristband, fingerprint terminal) must be addable by writing a new caller of the same function, with no change to subscription, duplicate, audit-logging or notification logic (all of that lives inside the shared function).
+    - Member status: `MemberSubscription` is the single source of truth. `Member.status` stays a stored, indexed column but is derived: only ONE shared function may write it, it always computes the value from the member's subscription, and it runs in the same transaction as every subscription change (bought, renewed, frozen, unfrozen, expired, suspended). Nothing else may set `Member.status`. Add a fifth value `pending` (registered, no subscription yet) and record this SPEC change in `docs/OPEN_QUESTIONS.md` and SPEC section 2 (member status). A new member starts as `pending`. Check-in refuses pending members with its own plain message ("no active plan yet"), and check-in NEVER trusts `Member.status`: it reads the subscription and its dates directly and refuses when unclear. "Active members" counts and expiry-based lists use the subscription end date, so they stay exact between nightly sweeps. Existing members are backfilled by running the same function once. Add one test that compares stored status against computed status across a seeded set (pending, active, expired, frozen, suspended, renewed). Record the choice and the reason in `docs/OPEN_QUESTIONS.md` when Sprint 10 runs. If the agent sees a reason against this choice, it says so in OPEN_QUESTIONS and in the report; it never silently does something different.
+    - The current rule that a second check-in on the same day is refused stays. Do not add a gym setting for multiple daily check-ins in this sprint; note it as a possible later setting in the same sprint entry.
+    - Sprint 10 does NOT add any branch fields.
+    - The Sprint 10 report must say in plain words how the unchanged check-in behaviour was verified and show each member-status case.
+    - What gym users can do after this sprint:
+      - Gym staff can create, view, edit, and deactivate membership plans with durations specified in days or months.
+      - End dates are accurately calculated for month durations, including month-end days (such as January 31 + 1 month).
+      - New subscriptions can only be created for active plans; deactivating a plan hides it from new signups while leaving existing subscriptions intact.
+      - Updating a plan's price does not alter past payments or active subscriptions.
+      - Creating a plan that includes personal training warns staff if the gym currently has no trainers.
+      - Member subscription status moves strictly according to business rules (for example, expired subscriptions cannot become active without payment, and only gym owners or managers can suspend or unsuspend a member).
+      - Plans belong strictly to their gym and are never visible or usable by another gym.
+      - Visitors on the public gym website can view all active plans with their prices without needing to log in.
 
-11. **Chapa payment integration (one account per gym) (GATE)** — credentials, checkout, webhook verification, idempotency.
+11. **Chapa payment integration (one account per gym) (GATE)** — What gym users can do after this sprint:
     - Gym owners can enter and update their gym's Chapa payment credentials securely in their gym settings, with keys stored encrypted and masked from view.
     - Only the gym owner can view or edit payment credentials; other staff and platform administrators cannot access them.
     - Gym owners can test their Chapa connection to verify their keys before enabling online member checkout.
@@ -307,20 +314,20 @@ Preparation for deploying the Increment 1 milestone to the real Yegara cPanel st
     - Platform administrators can view whether a gym is running in test mode or live mode.
     - Chapa cannot be used to pay platform gym subscription fees.
 
-12. **Manual cash payment, payment history, and the registration-to-payment flow**
+12. **Manual cash payment, payment history, and the registration-to-payment flow** — What gym users can do after this sprint:
     - Reception staff can record and confirm cash payments from members and issue an official digital receipt.
     - Direct bank transfer is not available for member payments, and cash payments must always record which staff member confirmed them.
     - Members can view their complete payment history with dates, amounts, and receipt references.
     - Gym owners and managers can review payments filtered by date, payment method, and status, and see confirmed revenue totals.
     - A new member can register on the gym site, pick a plan, and either pay online immediately or have reception confirm cash at the desk before receiving their active QR check-in pass.
 
-13. **Freeze workflow** — Growth/Pro gated, tracked against `freeze_days_allowed`.
+13. **Freeze workflow (Growth/Pro gated, tracked against freeze days allowed)** — What gym users can do after this sprint:
     - Members can submit a freeze request specifying their duration and reason, provided their gym allows freezes and they have days remaining.
     - Freeze requests on gyms with zero allowed freeze days, or requests exceeding the remaining allowance, are blocked with a clear message.
     - Gym owners and managers can review, approve, or reject freeze requests (with an explanation for rejections).
     - Approving a freeze pauses the member's QR pass and extends their membership end date by the frozen days.
 
-14. **Scheduled jobs** — automated daily maintenance tasks.
+14. **Scheduled jobs (automated daily maintenance tasks)** — Requires Sprint 9b (email safety) to be built first, because Sprint 14 sends the first automatic emails. What gym users can do after this sprint:
     - Subscriptions past their end date automatically expire, deactivating check-in passes, and frozen memberships automatically reactivate when the freeze ends.
     - Members and reception staff receive renewal reminder notices before a membership expires according to gym reminder settings.
     - Gym owners receive reminder notices before their gym platform subscription expires, and gyms continue operating during the payment grace period.
@@ -328,7 +335,7 @@ Preparation for deploying the Increment 1 milestone to the real Yegara cPanel st
     - Unconfirmed payments lingering past the review window are flagged for staff review.
     - Running the maintenance job multiple times in a row never produces duplicate notifications, flags, or updates.
 
-15. **Notification center** — in-app notifications.
+15. **Notification center (in-app notifications)** — What gym users can do after this sprint:
     - Members and staff can view their own in-app notifications, organized with unread notices first.
     - Notifications are strictly separated so gym members and staff only see messages for their gym, while platform alerts go exclusively to Super Admin.
     - Users can mark notifications as read, and the read status remains saved when returning.
@@ -336,6 +343,8 @@ Preparation for deploying the Increment 1 milestone to the real Yegara cPanel st
 - [ ] All sprints in this increment complete
 
 ## Increment 3 — Trainer module (non-AI)
+
+_Increment 3 = Sprints 16 and 17 only; Sprints 18 and 19 are deferred to a future version (see docs/SPEC.md §10)._
 
 **Preflight (external items):** None
 
@@ -349,10 +358,10 @@ Preparation for deploying the Increment 1 milestone to the real Yegara cPanel st
     - Manual reassignment closes the prior `TrainerAssignment` (`ended_at`) and opens a new one; a member never has two open assignments. Manual reassignment may exceed capacity after an explicit confirmation, and is audit-logged.
     - Deactivating a trainer who has active clients is rejected unless the same action reassigns every one of them; a deactivated trainer's clients are never left silently unassigned.
 
-18. **Trainer availability schedule.**
+18. **Trainer availability schedule.** (Deferred to a future version, see docs/SPEC.md §10)
     - Availability reflects added and removed slots when queried per trainer (a trainer maintains their own weekly availability).
 
-19. **Trainer↔member messaging.**
+19. **Trainer↔member messaging.** (Deferred to a future version, see docs/SPEC.md §10)
     - One thread per member–trainer pair; a member can only message their currently assigned trainer. After reassignment the member can no longer message the previous trainer, and old messages stay readable by the two participants.
     - Each message notifies the recipient. Messages are not visible to any third party, and a deactivated trainer's history remains.
 
@@ -372,7 +381,7 @@ Preparation for deploying the Increment 1 milestone to the real Yegara cPanel st
 21. **Rules engine** — phase/intensity/equipment-filter computation (pure Python, test-heavy; implement the Strategy pattern here for swappable intensity logic).
     - Phase is derived from the elapsed proportion of the member's active plan; intensity is derived from the phase, adjusted by the recent weekly check-in trend (progressive overload).
     - Deterministic output is covered by unit tests across at minimum: a beginner/foundation case, an advanced/peak case, and a case where `equipment_prefs`/limitations measurably exclude equipment.
-    - Equipment in `out_of_service` or `under_maintenance` is never prescribed.
+    - Equipment in `out_of_service` or `under_maintenance` is never prescribed. Note: this equipment status exclusion rule is wired up when the equipment registry lands in Sprint 25 (see Sprint 25).
     - History context (prior exercises and loads) is read from the member's earlier approved plans' content; no new table.
     - The engine refuses members who are not on a trainer-inclusive plan in a gym with `has_ai_plans`.
     - Two different intensity strategies can be plugged in and produce different outputs from the same input with no change to the calling code — tested directly.
@@ -398,9 +407,11 @@ Preparation for deploying the Increment 1 milestone to the real Yegara cPanel st
 
 - [ ] All sprints in this increment complete
 
-## Increment 5 — Equipment, classes, analytics, communication
+## Increment 5 — Equipment, analytics, communication
 
-**Preflight (external items):** None
+_Increment 5 = Sprints 25, 27, 28, 29, 29a; Sprints 26 and 28a are deferred to a future version (see docs/SPEC.md §10)._
+
+**Preflight (external items):** None (Note: Sprint 28 platform Telegram bot token will be requested at Increment 5 preflight)
 
 25. **Equipment registry & maintenance** — `Equipment`, `MaintenanceLog`, low-quantity alerts, AI exclusion-filter wiring.
     - Equipment records include `purchase_date`. Reporting an issue creates a `MaintenanceLog`, transitions `Equipment.condition` to `needs_maintenance`, and notifies the Owner; reporting on an item already `under_maintenance` creates no duplicate.
@@ -409,51 +420,27 @@ Preparation for deploying the Increment 1 milestone to the real Yegara cPanel st
     - Equipment `under_maintenance` or `out_of_service` is excluded from what Sprint 21's engine may prescribe — tested at the integration point.
     - An Owner setting controls whether members see unavailable equipment (default off).
 
-26. **Group class scheduling & booking** — `ClassSession`, `ClassBooking`, capacity enforcement, Growth/Pro gated.
+26. **Group class scheduling & booking** (Deferred to a future version, see docs/SPEC.md §10) — `ClassSession`, `ClassBooking`, capacity enforcement, Growth/Pro gated.
     - Booking is accepted for the last available slot and rejected on the next attempt once `max_capacity` is reached (boundary test); booking closes automatically at capacity.
     - Booking endpoints reject a gym with `has_group_classes = false` at the API level.
     - The class's trainer marks attendance on the booking (`attended`); this creates no daily `Attendance` row.
 
-27. **Dashboards and analytics**
+27. **Dashboards and analytics** — What gym owners and managers can see after this sprint:
     - A basic dashboard endpoint is available to Owner/Manager on every tier: active members, today's check-ins, monthly revenue, and memberships expiring within seven days. It responds in under 3 seconds against a seeded dataset (1,000 members, a year of attendance).
-    - Premium analytics — peak-hours heatmap (day of week × hour), cohort retention by joining month, revenue trends (monthly and by plan), referral analytics — are Growth/Pro only; every such endpoint rejects a gym with `has_analytics = false` at the API level, and the Starter response carries an upgrade prompt.
+    - Premium analytics contains only revenue by plan in this version (peak-hours heatmap, cohort retention by joining month, and referral analytics are deferred to a future version, see docs/SPEC.md §10). Revenue by plan is available on Growth and Pro tiers only (`has_analytics = true`). Starter tier users see an upgrade prompt where the premium block would be.
     - Figures are scoped to the requesting gym only — verified against a seeded multi-tenant dataset.
 
-28. **Notice board & broadcast communication.**
+28. **Notice board & broadcast communication**
     - A notice reaches all members of the issuing gym (Owner/Manager can post) and is not visible to another gym's users.
+    - If the gym has set a Telegram channel in its settings, posting a notice also sends it to that channel; if Telegram is not configured or the send fails, the in-app notice still succeeds. It is a public noticeboard for the gym's channel, not a per-member direct message. No member Telegram IDs are collected. Note: the platform bot's token is a platform secret (host env file, requested at Increment 5's preflight); the gym Owner enters only the channel in the gym's settings and must add the platform bot to that channel as an administrator; whether the host can reach Telegram's API is untested and will be checked at that preflight.
 
-28a. **Badges and member progress** - Badges are awarded for a first check-in, a 30-day streak, and plan completion — each at most once per member, idempotent. - The member progress view returns body-metric history (and the Sprint 7b estimates) as chart data, scoped to that member.
+28a. **Badges and member progress** (Deferred to a future version, see docs/SPEC.md §10) - Badges are awarded for a first check-in, a 30-day streak, and plan completion — each at most once per member, idempotent. - The member progress view returns body-metric history (and the Sprint 7b estimates) as chart data, scoped to that member.
 
 29. **CSV export** — members, payments, attendance.
     - Exported rows, headers and row count match a known seeded dataset exactly, scoped to the requesting gym.
-    - For 7 days after a gym is suspended (Sprint 35) its Owner can still log in and export, and nothing else; after that window the export is refused.
+    - For 7 days after a gym is suspended, its Owner can still log in and export, and nothing else; after that window the export is refused. Note: this post-suspension export rule is wired up when gym suspension lands in Sprint 35 (see Sprint 35).
 
 29a. **Expenses and reports** - Owner/Manager can log expenses (amount, category, note, date) and view revenue vs. expenses for a period; revenue counts confirmed payments only. - Reports: attendance summary and revenue report, scoped to the gym.
-
-- [ ] All sprints in this increment complete
-
-## Increment 6 — Multi-branch management (Pro tier)
-
-**Preflight (external items):** None
-
-_Not in the original source document — added by direct decision with the project owner. See `docs/SPEC.md` §3 for the full design rationale. Depends on Increment 1 (tenant/staff models), Increment 2 (`MembershipPlan`), and Increment 5 (`Equipment`, `ClassSession`) all being in place, which is why this sits here rather than earlier._
-
-30. **Branch model + management** — `Branch` CRUD (Owner only), gated by `GymConfig.has_multi_branch`; frontend in-app branch switcher. One subdomain per gym regardless of branch count.
-    - Branch CRUD endpoints reject requests on a gym without `has_multi_branch` at the API level.
-    - Adding a gym's first branch doesn't break existing single-branch-gym behavior — a regression pass against Increments 1–5's tests still passes with `has_multi_branch=false`.
-
-31. **Branch-scoped staff** — nullable `branch_id` on `User` (null = all-branch, matching Owner's existing unscoped access); RBAC updated so branch-scoped staff only see their branch's operational data.
-    - A staff user with a set `branch_id` sees only that branch's data; a `null`-`branch_id` user sees all branches — both tested, including confirming Owner's access is unaffected either way.
-
-32. **Branch-aware check-in & attendance** — `branch_id` on `Attendance`; QR check-in validates the scan's branch against `MembershipPlan.all_branches_access` and the member's subscription, not just subscription status.
-    - A member whose plan has `all_branches_access=false` is rejected at a branch other than their home branch; a `true`-flag member succeeds at any branch — both tested.
-    - Recorded `Attendance.branch_id` matches the actual scan location.
-
-33. **Branch-aware equipment & classes** — `branch_id` on `Equipment` and `ClassSession`; branch-scoped maintenance alerts, class booking, and trainer assignment.
-    - Equipment/class queries for a branch-scoped staff member return only that branch's records, mirroring Sprint 31.
-
-34. **Plan-level branch access** — `MembershipPlan.all_branches_access` flag + plan management UI; lets a Pro gym sell both single-branch and all-access plans.
-    - The flag is settable only on gyms with `has_multi_branch`; it has no effect on single-branch gyms regardless of its stored value.
 
 - [ ] All sprints in this increment complete
 
@@ -465,29 +452,56 @@ _Not in the original source document — added by direct decision with the proje
 
 35. **Super Admin platform dashboard** — tenant management, renewals, lapse handling, platform reports.
     - Super-Admin-only actions are rejected for every other role, including an Owner acting on their own gym.
-    - Tenant list with tier, status, `subscription_expires_at` and lapse flags; Super Admin can change a gym's tier and flags, enable or disable roles per gym (a disabled role cannot be invited or log in), and every change is audit-logged at platform level.
+    - Tenant list with tier, status, `subscription_expires_at` and lapse flags; Super Admin can change a gym's tier and flags (the flag editor offers only tiers that exist: Starter and Growth; Pro is hidden until Increment 6 ships; `has_group_classes` is not shown or enabled), enable or disable roles per gym (a disabled role cannot be invited or log in), and every change is audit-logged at platform level.
     - **Renewal:** Super Admin records a `bank_transfer` payment (amount, reference); `subscription_expires_at` extends by one year from the later of the current expiry or today, the lapse flag clears, and a suspended gym is reactivated.
     - **Suspension:** Super Admin confirms suspension of a lapse-flagged gym (it is never automatic). A suspended gym's staff and members cannot log in, while its data stays intact and visible to Super Admin — both halves tested. Its Owner can still log in for 7 days to export (Sprint 29), after which login is refused; nothing is deleted.
     - Platform reports: tenant summary, platform revenue (confirmed `gym_subscription` payments, excluding demo gyms), subscription status overview. Platform-wide notices (an `Announcement` with null gym) appear on every Owner's dashboard.
     - Super Admin can edit a gym's `payment_grace_days` and `subscription_reminder_days`.
 
-36. **GymConfig feature-flag enforcement** — backend permission layer + frontend render gating, for every tier-gated feature above, including `has_multi_branch`.
-    - Full regression pass: every previously-built tier-gated endpoint (trainer module, AI plans, premium analytics, group classes, freeze, multi-branch) is re-verified to reject a gym missing the corresponding flag, and every entitlement edit by an Owner is re-verified to be rejected. A clean pass here is the actual proof the gating is complete.
+36. **GymConfig feature-flag enforcement** — backend permission layer + frontend render gating, for every tier-gated feature above.
+    - Full regression pass: every previously-built tier-gated endpoint (trainer module, AI plans, premium analytics [revenue by plan], freeze, and entitlement edits) is re-verified to reject a gym missing the corresponding flag, and every entitlement edit by an Owner is re-verified to be rejected. A clean pass here is the actual proof the gating is complete. Group classes are deferred. Note: multi-branch is verified at the end of Increment 6 if Increment 6 ships (Sprint 36's multi-branch regression check and Sprint 38's final-release re-check are run again after Sprint 34).
 
 37. **Offline-first PWA** — Workbox service worker, local check-in queue, sync.
-    - A check-in performed while offline is queued locally and produces exactly one `Attendance` row once connectivity returns — no duplicate on reconnect. Sync completes within 5 seconds of connectivity returning.
+    - The member dashboard offers a "Download App" button that installs the PWA on Android (it appears only when the browser reports the app can be installed, which needs the gym's valid HTTPS certificate); on iPhone the app shows short "Add to Home Screen" instructions; an installed app opens without the browser address bar.
+    - A check-in performed while offline is queued locally and produces exactly one `Attendance` row once connectivity returns — no duplicate on reconnect. Sync completes within 5 seconds of connectivity returning. Note: queued check-ins carry the branch once Increment 6 exists.
     - Where background sync is unsupported (iOS Safari), the app replays the queue itself when it detects connectivity or regains focus; this path is tested separately.
     - Offline, a scanned token is checked locally against the public key (signature and expiry); membership status is verified on sync, and a rejected queued check-in is surfaced to staff.
     - The app shell is served while offline, not a browser error page; all screens work at 320 px width without sideways scrolling. Staff keep a manual fallback register for the case where browser data is cleared offline.
 
-37a. **Demo gym** - A management command seeds a gym on the `demo` subdomain (flagged `is_demo`) with sample members, plans, attendance, trainers, equipment and classes, Growth/Pro flags on, and Chapa test keys read from the environment. - Re-running it resets only that gym's data, never any other gym's — tested with a second seeded gym. Demo gyms are excluded from platform revenue.
+37a. **Demo gym** - A management command seeds a gym on the `demo` subdomain (flagged `is_demo`) with sample members, plans, attendance, trainers, and equipment (classes removed/deferred), Growth flags on, and Chapa test keys read from the environment. Multi-branch sample data is added only if Increment 6 has shipped. Re-running it resets only that gym's data, never any other gym's — tested with a second seeded gym. Demo gyms are excluded from platform revenue.
 
-38. **Production hardening (cPanel-based)** — deploy Django via cPanel's Python App Manager (Passenger WSGI), wire the cPanel UAPI subdomain-provisioning call from Sprint 4 to the real account (not a stub), confirm PostgreSQL connection settings against cPanel's database, set up the cPanel Cron Job for Sprint 14's command, configure the cache backend (database cache unless Redis is confirmed), DB backups via whatever cPanel/Yegara provides, `DOMAIN` fully parameterized end-to-end. `.env` carries every environment-specific value: `DOMAIN`, database credentials, JWT and QR signing keys, `TENANT_CREDENTIALS_KEY`, Cloudinary credentials, Super Admin bootstrap values, demo Chapa test keys.
+38. **Production hardening (cPanel-based)** — Note in plain words that the cPanel provisioning, the AutoSSL behavior, the cron run and the DOMAIN change were already proven on the staging deploy, so this sprint is a re-check of the final release, not new work. Deploy Django via cPanel's Python App Manager (Passenger WSGI), wire the cPanel UAPI subdomain-provisioning call from Sprint 4 to the real account (not a stub), confirm PostgreSQL connection settings against cPanel's database, set up the cPanel Cron Job for Sprint 14's command, configure the cache backend (database cache unless Redis is confirmed), DB backups via whatever cPanel/Yegara provides, `DOMAIN` fully parameterized end-to-end. `.env` carries every environment-specific value: `DOMAIN`, database credentials, JWT and QR signing keys, `TENANT_CREDENTIALS_KEY`, Cloudinary credentials, Super Admin bootstrap values, demo Chapa test keys.
     - A fresh deploy to the actual Yegara Premium account succeeds end-to-end from documented steps, with every environment-specific value sourced from `.env`.
     - The cPanel UAPI call is confirmed against the real account — a real subdomain is actually provisioned when a gym is created.
     - The AutoSSL gap behaves as designed under real conditions: a freshly provisioned subdomain is reachable over HTTP, login is blocked until the certificate is confirmed valid, and the app detects the certificate becoming valid without a manual flag flip.
     - The cPanel Cron Job fires Sprint 14's command on schedule — verified against real execution.
     - Changing `DOMAIN` in `.env` and redeploying requires no other code or configuration change.
+
+- [ ] All sprints in this increment complete
+
+## Increment 6 — Multi-branch management (Pro tier)
+
+**Preflight (external items):** None
+
+_Increment 6 runs after Increment 7; go/no-go decision date: to be set by the owner. Note that it adds schema changes to gyms that already hold real data, so its migrations must be tested against a copy of staging data first. Built LAST as an optional stretch if time remains. Keeps sprint numbers 30 to 34._
+
+30. **Branch model + management** — `Branch` CRUD (Owner only), gated by `GymConfig.has_multi_branch`; frontend in-app branch switcher. One subdomain per gym regardless of branch count. Also creates the `MembershipPlan.all_branches_access` field in the database (default `false`), so it exists before Sprint 32 check-in needs it.
+    - Branch CRUD endpoints reject requests on a gym without `has_multi_branch` at the API level.
+    - Adding a gym's first branch doesn't break existing single-branch-gym behavior — a regression pass against Increments 1–5 and 7's tests still passes with `has_multi_branch=false`.
+
+31. **Branch-scoped staff (STRICT)** — The agent stops and reports for the owner's review before merging it (data from another branch must never leak; missing branch data must reject, never allow). Nullable `branch_id` on `User` (null = all-branch, matching Owner's existing unscoped access); RBAC updated so branch-scoped staff only see their branch's operational data.
+    - A staff user with a set `branch_id` sees only that branch's data; a `null`-`branch_id` user sees all branches — both tested, including confirming Owner's access is unaffected either way.
+
+32. **Branch-aware check-in & attendance** — `branch_id` on `Attendance`; QR check-in validates the scan's branch against `MembershipPlan.all_branches_access` and the member's subscription, not just subscription status. This branch check is placed inside the single shared check-in function from Sprint 10.
+    - A member whose plan has `all_branches_access=false` is rejected at a branch other than their home branch; a `true`-flag member succeeds at any branch — both tested.
+    - Recorded `Attendance.branch_id` matches the actual scan location.
+
+33. **Branch-aware equipment & trainer assignment** — `branch_id` on `Equipment`; branch-scoped maintenance alerts and trainer assignment (classes are deferred).
+    - Equipment queries for a branch-scoped staff member return only that branch's records, mirroring Sprint 31.
+
+34. **Plan-level branch access management** — Plan management UI for `MembershipPlan.all_branches_access` (created in Sprint 30); lets a Pro gym sell both single-branch and all-access plans.
+    - The flag is settable only on gyms with `has_multi_branch`; it has no effect on single-branch gyms regardless of its stored value.
+    - Note: If Increment 6 ships, Sprint 36's multi-branch regression check and Sprint 38's final-release re-check are run again after Sprint 34.
 
 - [ ] All sprints in this increment complete
 
@@ -526,6 +540,7 @@ _Not in the original source document — added by direct decision with the proje
 9. Brevo: confirm "Authenticated" in the dashboard and DKIM PASS with d=fitgate.tebebtech.com in Gmail's "Show original" — deferred by owner decision.
 10. "Lessons from the first deploy" section in docs/DEPLOY_STAGING.md — deferred by owner decision.
 11. The earlier small follow-ups already in Known follow-ups — deferred by owner decision.
+12. Tier cards on the landing page, the Create Gym tier choices, the default flags set at gym creation, and the Super Admin flag editor must offer only the tiers that exist; Pro appears only after Increment 6 ships; has_group_classes must not be shown or enabled.
 
 ## Deferred to a future version
 
@@ -537,6 +552,11 @@ _Not in the original source document — added by direct decision with the proje
 - A full public landing page per gym
 - A Starter member cap and a setup fee
 - A data deletion/archival policy for lapsed gyms
+- Trainer availability schedule (Sprint 18)
+- Trainer-to-member messaging (Sprint 19)
+- Group class scheduling and booking (Sprint 26)
+- Badges and member progress charts (Sprint 28a)
+- Premium analytics: peak-hours heatmap, cohort retention, and referral analytics (Sprint 27)
 
 ## Known follow-ups (not scheduled)
 

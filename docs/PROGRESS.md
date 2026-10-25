@@ -29,11 +29,17 @@
 
 ## Current
 
-- Ready for Increment 2 preflight (Sprint 10).
+- Increment 2 preparation: documentation updates, scope alignments, and Increment 2 preflight.
+- Scope adjustments recorded:
+  - Deferred to future versions: Sprint 18 (trainer availability schedule), Sprint 19 (trainer-to-member messaging), Sprint 26 (group class scheduling and booking), Sprint 28a (badges and member progress charts), and advanced analytics (peak-hours heatmap, cohort retention, referral analytics).
+  - Premium analytics in v1 narrowed to revenue by plan only (Growth and Pro tiers).
+  - Tiers restated: Pro hidden from landing page and gym creation until Increment 6 ships; `has_group_classes` inert across all tiers.
+  - Multi-branch ordering: Increment 6 (Sprints 30–34) runs after Increment 7 as an optional final phase; go/no-go decision date: to be set by the owner.
+  - Member status model: `pending` added for newly registered members with no active plan; `MemberSubscription` established as single source of truth.
 
 ## Next
 
-- Increment 2 — Sprint 10: Membership plans & subscription lifecycle
+- Increment 2 starts with Sprint 10: Membership plans & subscription lifecycle (STRICT sprint).
 
 ## Open manual steps
 

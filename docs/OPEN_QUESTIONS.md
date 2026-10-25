@@ -47,3 +47,30 @@ If less than 90% sure how a requirement should be implemented and the doubt does
        docker stop pg13test ; docker rm pg13test
        ```
      - Ask the host whether PostgreSQL 14+ is available; if yes, remove the override. Pin the Django patch version.
+
+9. **Domain Strategy: Demo/Staging Period and Production Transition**
+   - **Question/Context:** Which domain will be used for staging and what is required when switching to a custom production domain?
+   - **Chosen Solution & Policy:** Staying on `fitgate.tebebtech.com` for the demo/staging period. Switching to a final domain later is an operations task (update `DOMAIN` in `.env`, rebuild release package, re-provision every gym subdomain via cPanel, re-authenticate email DNS/DKIM for the new domain). No application code change is expected or allowed; nothing may hardcode the domain name. A subdomain re-provisioning management command may be added later.
+
+10. **Check-in Credential Strategy & Architectural Extensibility**
+    - **Question/Context:** What check-in credentials are supported in v1, and how will future credentials (NFC cards, biometrics) be supported without destabilizing gate logic?
+    - **Chosen Solution & Policy:** Dynamic QR tokens are the sole credential in v1. The check-in pipeline is designed to be credential-agnostic: all entrances flow through a single internal check-in function, and the attendance record stores the method (`method` field: `qr` or `manual_override`). Later credential additions will be supported in this order:
+      1. NFC card or wristband using signed cryptographic tags (NTAG 424 DNA, where each tap generates a one-time cryptographic code verified server-side, with tag secrets stored encrypted) read via Web NFC on an Android tablet.
+      2. Fingerprint terminal operating as an autonomous device that verifies biometrics locally and calls a device-authenticated backend endpoint.
+         Raw-UID RFID cards and cheap keyboard-wedge readers provide only staff-supervised desk convenience and must never be documented or marketed as secure unattended access. No credential table, device accounts, or hardware integrations are introduced in Increment 2.
+
+11. **Notice Board Telegram Channel Bridge**
+    - **Question/Context:** How does the gym communicate broadcast announcements to members without relying exclusively on in-app notifications?
+    - **Chosen Solution & Policy:** The gym can optionally configure a Telegram channel username in its settings. When staff publish an in-app notice, it is also broadcast to that channel via a platform bot. The in-app notice remains the primary source of truth; Telegram posting is best-effort (failures do not block the in-app notice). Member Telegram user IDs are not collected. WhatsApp integration is not attempted in this version due to API barriers and partial Ethiopia coverage.
+
+12. **Revenue by Plan & Scope of Premium Analytics in v1**
+    - **Question/Context:** What metrics constitute premium analytics in this version, and which tiers have access?
+    - **Chosen Solution & Policy:** Revenue by plan is categorized as a premium analytics feature, gated exclusively to Growth and Pro tiers (with an upgrade prompt displayed on Starter). In this version, the premium analytics block consists solely of revenue by plan; peak-hours heatmap, cohort retention, and referral analytics are deferred to a future version to prevent heavy aggregation overhead on shared hosting.
+
+13. **Multi-Branch Execution Order and Tier Visibility**
+    - **Question/Context:** When is multi-branch built and how is the Pro tier presented to users before multi-branch is implemented?
+    - **Chosen Solution & Policy:** Increment 6 (Multi-Branch, Sprints 30–34) is kept as an optional final increment to be executed after Increment 7, depending on remaining timeline (decision date to be set by the project owner). Until Increment 6 ships, the Pro tier is not offered, advertised, or selectable: it is hidden from the public landing page and the Create Gym form. The tier value and flags remain in the database schema (Pro defaults equal Growth, with `has_multi_branch=false` until Increment 6 lands). If multi-branch does not ship, the product deploys smoothly with two tiers and no wasted effort.
+
+14. **Member Status Single Source of Truth & 'Pending' State**
+    - **Question/Context:** Where does member status come from, how does it stay accurate, and how are new members without subscriptions represented?
+    - **Chosen Solution & Policy:** A fifth status value, `pending`, is added to represent registered members who do not yet have an active subscription. `MemberSubscription` is the single source of truth for membership standing. `Member.status` remains a stored, indexed column but is strictly derived: only one shared function updates it, computing the value directly from the member's subscription in the same transaction as every subscription change (purchase, renewal, freeze, unfreeze, expiration, suspension). Check-in never trusts static `Member.status`: it inspects the member's active subscription and dates directly, refusing pending members with a distinct plain message ("no active plan yet"). Sprint 10 will record the full implementation details and reasons when it runs.
