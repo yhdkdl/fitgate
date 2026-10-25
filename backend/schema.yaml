@@ -914,6 +914,82 @@ paths:
                 items:
                   $ref: '#/components/schemas/PublicPlan'
           description: ''
+  /api/gym/payment-config/:
+    get:
+      operationId: gym_payment_config_retrieve
+      description: Returns masked configuration state. Plaintext secrets are never
+        returned.
+      summary: Retrieve gym payment gateway configuration (masked)
+      tags:
+      - gym
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GymPaymentConfig'
+          description: ''
+    put:
+      operationId: gym_payment_config_update
+      description: |-
+        Manage payment gateway credentials for the active gym.
+        Restricted strictly to the Gym Owner of the active tenant.
+        Super Admins, Managers, Receptionists, and Members are blocked.
+      tags:
+      - gym
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GymPaymentConfig'
+          description: ''
+    patch:
+      operationId: gym_payment_config_partial_update
+      description: Encrypts keys at rest using TENANT_CREDENTIALS_KEY and records
+        an audit log.
+      summary: Update gym payment credentials
+      tags:
+      - gym
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedGymPaymentConfigUpdateRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedGymPaymentConfigUpdateRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedGymPaymentConfigUpdateRequest'
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GymPaymentConfig'
+          description: ''
+  /api/gym/payment-config/test/:
+    post:
+      operationId: gym_payment_config_test_create
+      description: Performs an external verification call against Chapa API. Sets
+        is_verified flag.
+      summary: Test Chapa payment credentials
+      tags:
+      - gym
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: Connection verified successfully
+        '400':
+          description: Connection verification failed
   /api/gym/plans/:
     get:
       operationId: gym_plans_list
@@ -1497,6 +1573,40 @@ paths:
               schema:
                 $ref: '#/components/schemas/MemberQrTokenErrorResponse'
           description: ''
+  /api/payments/checkout/chapa/:
+    post:
+      operationId: payments_checkout_chapa_create
+      description: |-
+        Initiate an online Chapa checkout session for a membership plan.
+        Requires verified gym credentials; otherwise refuses and prompts front-desk cash payment.
+      summary: Initiate online Chapa checkout session
+      tags:
+      - payments
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChapaCheckoutRequestRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/ChapaCheckoutRequestRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/ChapaCheckoutRequestRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChapaCheckoutResponse'
+          description: ''
+        '400':
+          description: Online payment disabled or invalid plan
+        '502':
+          description: Payment gateway initialization failed
   /api/platform/audit-logs/:
     get:
       operationId: platform_audit_logs_list
@@ -1853,6 +1963,30 @@ paths:
           description: Gym not found
         '403':
           description: Forbidden
+  /api/platform/gyms/{gym_id}/payment-status/:
+    get:
+      operationId: platform_gyms_payment_status_retrieve
+      description: Returns whether the gym is running in test or live mode. Never
+        exposes keys.
+      summary: View gym payment mode (Super Admin)
+      parameters:
+      - in: path
+        name: gym_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - platform
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuperAdminGymPaymentStatus'
+          description: ''
   /api/platform/gyms/propose-subdomain/:
     get:
       operationId: platform_gyms_propose_subdomain_retrieve
@@ -1972,6 +2106,25 @@ paths:
                 items:
                   $ref: '#/components/schemas/PublicPlan'
           description: ''
+  /api/webhooks/chapa/:
+    post:
+      operationId: webhooks_chapa_create
+      description: Processes Chapa webhook notifications with HMAC verification and
+        idempotency.
+      summary: Chapa payment webhook notification
+      tags:
+      - webhooks
+      security:
+      - {}
+      responses:
+        '200':
+          description: Payment confirmed or already handled
+        '400':
+          description: Invalid payload or verification failure
+        '401':
+          description: Invalid signature
+        '502':
+          description: Gateway verification failure
 components:
   schemas:
     AttendanceLogResponse:
@@ -2359,6 +2512,31 @@ components:
       - access
       - refresh
       - user
+    ChapaCheckoutRequestRequest:
+      type: object
+      description: Input serializer for initiating online subscription checkout.
+      properties:
+        plan_id:
+          type: string
+          format: uuid
+      required:
+      - plan_id
+    ChapaCheckoutResponse:
+      type: object
+      description: Output serializer for online subscription checkout session.
+      properties:
+        checkout_url:
+          type: string
+          format: uri
+        tx_ref:
+          type: string
+        payment_id:
+          type: string
+          format: uuid
+      required:
+      - checkout_url
+      - payment_id
+      - tx_ref
     ChecklistItem:
       type: object
       description: Item in first-run onboarding checklist.
@@ -2745,6 +2923,41 @@ components:
       required:
       - config
       - gym
+    GymPaymentConfig:
+      type: object
+      description: Safe read-only representation of gym payment configuration.
+      properties:
+        is_configured:
+          type: boolean
+          readOnly: true
+        is_test_mode:
+          type: boolean
+          readOnly: true
+        is_verified:
+          type: boolean
+          readOnly: true
+        verified_at:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+        masked_public_key:
+          type: string
+          readOnly: true
+        has_secret_key:
+          type: boolean
+          readOnly: true
+        has_webhook_secret:
+          type: boolean
+          readOnly: true
+      required:
+      - has_secret_key
+      - has_webhook_secret
+      - is_configured
+      - is_test_mode
+      - is_verified
+      - masked_public_key
+      - verified_at
     GymPublicEntryResponse:
       type: object
       description: Public details returned on the gym subdomain entry page.
@@ -3271,6 +3484,22 @@ components:
           $ref: '#/components/schemas/DemoRequestStatusEnum'
         notes:
           type: string
+    PatchedGymPaymentConfigUpdateRequest:
+      type: object
+      description: Input serializer for gym owner configuring Chapa credentials.
+      properties:
+        public_key:
+          type: string
+          writeOnly: true
+          maxLength: 255
+        secret_key:
+          type: string
+          writeOnly: true
+          maxLength: 255
+        webhook_secret:
+          type: string
+          writeOnly: true
+          maxLength: 255
     PatchedGymSettingsUpdateRequest:
       type: object
       description: |-
@@ -3672,6 +3901,31 @@ components:
         * `expired` - Expired
         * `frozen` - Frozen
         * `suspended` - Suspended
+    SuperAdminGymPaymentStatus:
+      type: object
+      description: Platform administration view of gym payment mode (test vs live)
+        without exposing keys.
+      properties:
+        gym_id:
+          type: string
+          format: uuid
+        gym_name:
+          type: string
+        subdomain:
+          type: string
+        is_configured:
+          type: boolean
+        is_test_mode:
+          type: boolean
+        is_verified:
+          type: boolean
+      required:
+      - gym_id
+      - gym_name
+      - is_configured
+      - is_test_mode
+      - is_verified
+      - subdomain
     SuperAdminResponse:
       type: object
       description: Response for created Super Admin.

@@ -6,6 +6,8 @@ import { Card } from "../ui/Card";
 import { Spinner } from "../ui/Spinner";
 import { MemberQrCard } from "../attendance/MemberQrCard";
 import { AttendanceLogCard } from "../attendance/AttendanceLogCard";
+import { MemberCheckoutCard } from "../member/MemberCheckoutCard";
+
 
 export const MemberSelfSection: React.FC = () => {
   const [profile, setProfile] = useState<Member | null>(null);
@@ -91,6 +93,13 @@ export const MemberSelfSection: React.FC = () => {
           <AttendanceLogCard title="My Attendance Calendar" />
         </div>
       </div>
+
+      {/* Online Plan Checkout & Renewal */}
+      <MemberCheckoutCard
+        memberStatus={profile.status}
+        onPaymentInitiated={fetchProfile}
+      />
+
 
       {/* Body Composition Summary / Estimates */}
       {hasMetrics ? (

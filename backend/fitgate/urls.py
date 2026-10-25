@@ -112,6 +112,7 @@ urlpatterns = [
     path("", include("apps.tenants.urls")),
     path("", include("apps.memberships.urls")),
     path("", include("apps.attendance.urls")),
+    path("", include("apps.payments.urls")),
     # OpenAPI Documentation
     path("api/schema/", FitGateSpectacularAPIView.as_view(), name="schema"),
     path(

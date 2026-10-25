@@ -449,10 +449,12 @@ def create_or_renew_subscription(
     plan: MembershipPlan,
     start_date: Optional[date] = None,
     actor: Optional[User] = None,
+    allow_deactivated_plan: bool = False,
 ) -> MemberSubscription:
     """
     Create or renew a member subscription for an active plan.
-    Deactivated plans are rejected for new subscriptions.
+    Deactivated plans are rejected for new checkouts, but allowed when confirming a payment
+    that was initiated before the plan was deactivated (allow_deactivated_plan=True).
     Calculates end_date via calculate_plan_end_date and calls update_member_status in the same transaction.
     """
     if plan.gym_id != member.gym_id:
@@ -460,7 +462,7 @@ def create_or_renew_subscription(
             "Cannot create or renew a subscription with a plan from another gym."
         )
 
-    if not plan.is_active:
+    if not plan.is_active and not allow_deactivated_plan:
         raise ValidationError(
             "Cannot create or renew a subscription with a deactivated plan."
         )

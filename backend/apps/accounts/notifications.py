@@ -255,25 +255,48 @@ def send_member_invite_email(user, gym, invite_link: str) -> None:
     )
 
 
+def create_notification(
+    recipient,
+    notification_type: str,
+    message: str,
+    gym=None,
+):
+    """
+    ONE shared helper function that creates an in-app notification record.
+    Stored only, no email, tenant-scoped to the gym (or platform-level if gym is None).
+    """
+    from apps.accounts.models import Notification
+
+    if gym is None and getattr(recipient, "gym", None):
+        gym = recipient.gym
+
+    return Notification.objects.create(
+        recipient=recipient,
+        type=notification_type,
+        message=message,
+        gym=gym,
+    )
+
+
 def notify_demo_request_received(demo_request) -> None:
     """
     Create a platform-level notification for all active Super Admins upon receiving a new demo request.
     """
-    from apps.accounts.models import Notification, User
+    from apps.accounts.models import User
 
     super_admins = User.all_objects.filter(
         role=User.ROLE_SUPER_ADMIN,
         is_active=True,
     )
     for admin_user in super_admins:
-        Notification.objects.create(
+        create_notification(
             recipient=admin_user,
-            gym=None,
-            type="demo_request",
+            notification_type="demo_request",
             message=(
                 f"New demo request from '{demo_request.gym_name}' "
                 f"(Contact: {demo_request.contact_name}, Phone: {demo_request.phone})"
             ),
+            gym=None,
         )
 
     logger.info(

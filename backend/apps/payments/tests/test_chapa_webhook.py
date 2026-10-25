@@ -1,0 +1,484 @@
+"""Tests for Chapa webhook safety, HMAC signature verification, idempotency, and money rules."""
+
+import hashlib
+import hmac
+import json
+from datetime import timedelta
+from decimal import Decimal
+from unittest.mock import patch
+
+import pytest
+from django.utils import timezone
+from rest_framework import status
+from rest_framework.test import APIClient
+
+from apps.accounts.models import AuditLog, Notification, User
+from apps.memberships.models import Member, MembershipPlan, MemberSubscription
+from apps.payments.chapa_client import ChapaAPIError
+from apps.payments.models import GymPaymentConfig, Payment
+from apps.payments.services import flag_unfinished_payments
+from apps.tenants.models import GymTenant
+
+
+@pytest.mark.django_db
+class TestChapaWebhookSafety:
+    """Comprehensive test suite for Chapa webhook security and money rules."""
+
+    @pytest.fixture
+    def setup_data(self):
+        gym_a = GymTenant.objects.create(
+            name="Gym Alpha", subdomain="alpha", tls_confirmed_at=timezone.now()
+        )
+        gym_b = GymTenant.objects.create(
+            name="Gym Beta", subdomain="beta", tls_confirmed_at=timezone.now()
+        )
+
+        User.objects.create_user(
+            email="owner@alpha.test",
+            password="OwnerPassword123!",
+            gym=gym_a,
+            role=User.ROLE_OWNER,
+        )
+        member_user_a = User.objects.create_user(
+            email="member@alpha.test",
+            password="MemberPassword123!",
+            gym=gym_a,
+            role=User.ROLE_MEMBER,
+        )
+        member_a = Member.objects.create(
+            gym=gym_a,
+            user=member_user_a,
+            full_name="Derartu Tulu",
+            phone="+251911000002",
+            gender="F",
+            date_of_birth=timezone.localdate() - timedelta(days=365 * 24),
+            waiver_accepted_at=timezone.now(),
+        )
+
+        plan = MembershipPlan.objects.create(
+            gym=gym_a,
+            name="Monthly Pro",
+            price_etb=Decimal("1800.00"),
+            duration_value=1,
+            duration_unit=MembershipPlan.DURATION_MONTHS,
+            is_active=True,
+        )
+
+        # Gym payment configuration with known secrets
+        config = GymPaymentConfig.all_objects.create(gym=gym_a)
+        config.public_key = "CHAPUBK_TEST-alpha123"
+        config.secret_key = "CHASECK_TEST-sec123"
+        config.webhook_secret = "whsec_alpha_key_998877"
+        config.is_verified = True
+        config.save()
+
+        # Stored pending payment
+        tx_ref = "FG-alpha-txref12345"
+        payment = Payment.all_objects.create(
+            gym=gym_a,
+            payer_type=Payment.PAYER_TYPE_MEMBER,
+            member=member_a,
+            plan=plan,
+            method=Payment.METHOD_CHAPA,
+            amount_etb=Decimal("1800.00"),
+            currency="ETB",
+            chapa_ref=tx_ref,
+            status=Payment.STATUS_PENDING,
+        )
+
+        return {
+            "gym_a": gym_a,
+            "gym_b": gym_b,
+            "member_user_a": member_user_a,
+            "member_a": member_a,
+            "plan": plan,
+            "config": config,
+            "payment": payment,
+            "tx_ref": tx_ref,
+        }
+
+    def _sign_payload(self, payload_dict: dict, secret: str) -> tuple[bytes, str]:
+        body_bytes = json.dumps(payload_dict).encode("utf-8")
+        sig = hmac.new(secret.encode("utf-8"), body_bytes, hashlib.sha256).hexdigest()
+        return body_bytes, sig
+
+    def test_forged_signature_rejected_and_changes_nothing(self, setup_data):
+        client = APIClient()
+        payment = setup_data["payment"]
+        tx_ref = setup_data["tx_ref"]
+
+        payload = {"event": "charge.success", "tx_ref": tx_ref}
+        body, _ = self._sign_payload(payload, "wrong_attacker_secret")
+
+        resp = client.post(
+            "/api/webhooks/chapa/",
+            data=body,
+            content_type="application/json",
+            HTTP_CHAPA_SIGNATURE="forged_signature_value",
+            HTTP_HOST="alpha.localhost",
+        )
+        assert resp.status_code == status.HTTP_401_UNAUTHORIZED
+        payment.refresh_from_db()
+        assert payment.status == Payment.STATUS_PENDING
+        assert (
+            MemberSubscription.all_objects.filter(member=setup_data["member_a"]).count()
+            == 0
+        )
+
+    def test_missing_signature_rejected(self, setup_data):
+        client = APIClient()
+        payment = setup_data["payment"]
+        tx_ref = setup_data["tx_ref"]
+
+        payload = {"event": "charge.success", "tx_ref": tx_ref}
+        body = json.dumps(payload).encode("utf-8")
+
+        resp = client.post(
+            "/api/webhooks/chapa/",
+            data=body,
+            content_type="application/json",
+            HTTP_HOST="alpha.localhost",
+        )
+        assert resp.status_code == status.HTTP_401_UNAUTHORIZED
+        payment.refresh_from_db()
+        assert payment.status == Payment.STATUS_PENDING
+
+    def test_successful_confirmation_and_atomic_subscription_activation(
+        self, setup_data
+    ):
+        client = APIClient()
+        payment = setup_data["payment"]
+        tx_ref = setup_data["tx_ref"]
+        config = setup_data["config"]
+        member = setup_data["member_a"]
+        plan = setup_data["plan"]
+
+        payload = {"event": "charge.success", "tx_ref": tx_ref}
+        body, sig = self._sign_payload(payload, config.webhook_secret)
+
+        mock_verify_data = {
+            "status": "success",
+            "data": {
+                "status": "success",
+                "tx_ref": tx_ref,
+                "amount": "1800.00",
+                "currency": "ETB",
+            },
+        }
+
+        with patch(
+            "apps.payments.chapa_client.ChapaClient.verify_transaction",
+            return_value=mock_verify_data,
+        ):
+            resp = client.post(
+                "/api/webhooks/chapa/",
+                data=body,
+                content_type="application/json",
+                HTTP_CHAPA_SIGNATURE=sig,
+                HTTP_HOST="alpha.localhost",
+            )
+        assert resp.status_code == status.HTTP_200_OK
+
+        # Payment status moved to confirmed
+        payment.refresh_from_db()
+        assert payment.status == Payment.STATUS_CONFIRMED
+        assert payment.subscription is not None
+
+        # Member status and subscription active
+        member.refresh_from_db()
+        assert member.status == Member.STATUS_ACTIVE
+        sub = payment.subscription
+        assert sub.status == MemberSubscription.STATUS_ACTIVE
+        assert sub.plan == plan
+
+        # Member notification recorded
+        notif = Notification.all_objects.filter(recipient=member.user).first()
+        assert notif is not None
+        assert notif.type == "payment_confirmed"
+        assert "1800.00 ETB" in notif.message
+
+        # Audit log with actor "system"
+        audit = AuditLog.all_objects.filter(
+            gym=setup_data["gym_a"],
+            action_type="payment_confirmed",
+        ).first()
+        assert audit is not None
+        assert audit.actor is None
+        assert audit.metadata["actor"] == "system"
+        assert audit.metadata["method"] == "chapa"
+
+    def test_repeated_webhook_idempotency_no_duplicate_subscription(self, setup_data):
+        client = APIClient()
+        tx_ref = setup_data["tx_ref"]
+        config = setup_data["config"]
+        member = setup_data["member_a"]
+
+        payload = {"event": "charge.success", "tx_ref": tx_ref}
+        body, sig = self._sign_payload(payload, config.webhook_secret)
+
+        mock_verify_data = {
+            "status": "success",
+            "data": {
+                "status": "success",
+                "tx_ref": tx_ref,
+                "amount": "1800.00",
+                "currency": "ETB",
+            },
+        }
+
+        with patch(
+            "apps.payments.chapa_client.ChapaClient.verify_transaction",
+            return_value=mock_verify_data,
+        ):
+            # First webhook confirmation
+            resp1 = client.post(
+                "/api/webhooks/chapa/",
+                data=body,
+                content_type="application/json",
+                HTTP_CHAPA_SIGNATURE=sig,
+                HTTP_HOST="alpha.localhost",
+            )
+            assert resp1.status_code == status.HTTP_200_OK
+
+            sub_count_after_first = MemberSubscription.all_objects.filter(
+                member=member
+            ).count()
+            assert sub_count_after_first == 1
+
+            # Second duplicate webhook call
+            resp2 = client.post(
+                "/api/webhooks/chapa/",
+                data=body,
+                content_type="application/json",
+                HTTP_CHAPA_SIGNATURE=sig,
+                HTTP_HOST="alpha.localhost",
+            )
+            assert resp2.status_code == status.HTTP_200_OK
+            assert "already confirmed" in resp2.json()["detail"].lower()
+
+            # No second subscription or extension created
+            sub_count_after_second = MemberSubscription.all_objects.filter(
+                member=member
+            ).count()
+            assert sub_count_after_second == 1
+
+    def test_wrong_amount_mismatch_rejected_and_recorded(self, setup_data):
+        client = APIClient()
+        payment = setup_data["payment"]
+        tx_ref = setup_data["tx_ref"]
+        config = setup_data["config"]
+        member = setup_data["member_a"]
+
+        payload = {"event": "charge.success", "tx_ref": tx_ref}
+        body, sig = self._sign_payload(payload, config.webhook_secret)
+
+        # Chapa reported 100.00 ETB instead of 1800.00 ETB
+        mock_verify_data = {
+            "status": "success",
+            "data": {
+                "status": "success",
+                "tx_ref": tx_ref,
+                "amount": "100.00",
+                "currency": "ETB",
+            },
+        }
+
+        with patch(
+            "apps.payments.chapa_client.ChapaClient.verify_transaction",
+            return_value=mock_verify_data,
+        ):
+            resp = client.post(
+                "/api/webhooks/chapa/",
+                data=body,
+                content_type="application/json",
+                HTTP_CHAPA_SIGNATURE=sig,
+                HTTP_HOST="alpha.localhost",
+            )
+        assert resp.status_code == status.HTTP_400_BAD_REQUEST
+
+        payment.refresh_from_db()
+        assert payment.status == Payment.STATUS_FAILED
+        assert "mismatch" in payment.metadata
+        # Zero subscriptions created
+        assert MemberSubscription.all_objects.filter(member=member).count() == 0
+
+        # Mismatch notification to member
+        notif = Notification.all_objects.filter(
+            recipient=member.user, type="payment_mismatch"
+        ).first()
+        assert notif is not None
+
+    def test_wrong_currency_rejected_and_recorded(self, setup_data):
+        client = APIClient()
+        payment = setup_data["payment"]
+        tx_ref = setup_data["tx_ref"]
+        config = setup_data["config"]
+        member = setup_data["member_a"]
+
+        payload = {"event": "charge.success", "tx_ref": tx_ref}
+        body, sig = self._sign_payload(payload, config.webhook_secret)
+
+        mock_verify_data = {
+            "status": "success",
+            "data": {
+                "status": "success",
+                "tx_ref": tx_ref,
+                "amount": "1800.00",
+                "currency": "USD",  # Wrong currency
+            },
+        }
+
+        with patch(
+            "apps.payments.chapa_client.ChapaClient.verify_transaction",
+            return_value=mock_verify_data,
+        ):
+            resp = client.post(
+                "/api/webhooks/chapa/",
+                data=body,
+                content_type="application/json",
+                HTTP_CHAPA_SIGNATURE=sig,
+                HTTP_HOST="alpha.localhost",
+            )
+        assert resp.status_code == status.HTTP_400_BAD_REQUEST
+        payment.refresh_from_db()
+        assert payment.status == Payment.STATUS_FAILED
+        assert MemberSubscription.all_objects.filter(member=member).count() == 0
+
+    def test_server_side_verification_failure_or_timeout_returns_502(self, setup_data):
+        client = APIClient()
+        payment = setup_data["payment"]
+        tx_ref = setup_data["tx_ref"]
+        config = setup_data["config"]
+        member = setup_data["member_a"]
+
+        payload = {"event": "charge.success", "tx_ref": tx_ref}
+        body, sig = self._sign_payload(payload, config.webhook_secret)
+
+        with patch(
+            "apps.payments.chapa_client.ChapaClient.verify_transaction",
+            side_effect=ChapaAPIError("Connection timed out"),
+        ):
+            resp = client.post(
+                "/api/webhooks/chapa/",
+                data=body,
+                content_type="application/json",
+                HTTP_CHAPA_SIGNATURE=sig,
+                HTTP_HOST="alpha.localhost",
+            )
+        assert resp.status_code == status.HTTP_502_BAD_GATEWAY
+        payment.refresh_from_db()
+        assert payment.status == Payment.STATUS_PENDING
+        assert MemberSubscription.all_objects.filter(member=member).count() == 0
+
+    def test_payment_confirmed_after_plan_deactivated_in_flight(self, setup_data):
+        client = APIClient()
+        payment = setup_data["payment"]
+        tx_ref = setup_data["tx_ref"]
+        config = setup_data["config"]
+        plan = setup_data["plan"]
+
+        # Owner deactivates the plan while payment is in flight
+        plan.is_active = False
+        plan.save(update_fields=["is_active"])
+
+        payload = {"event": "charge.success", "tx_ref": tx_ref}
+        body, sig = self._sign_payload(payload, config.webhook_secret)
+
+        mock_verify_data = {
+            "status": "success",
+            "data": {
+                "status": "success",
+                "tx_ref": tx_ref,
+                "amount": "1800.00",
+                "currency": "ETB",
+            },
+        }
+
+        with patch(
+            "apps.payments.chapa_client.ChapaClient.verify_transaction",
+            return_value=mock_verify_data,
+        ):
+            resp = client.post(
+                "/api/webhooks/chapa/",
+                data=body,
+                content_type="application/json",
+                HTTP_CHAPA_SIGNATURE=sig,
+                HTTP_HOST="alpha.localhost",
+            )
+        assert resp.status_code == status.HTTP_200_OK
+
+        payment.refresh_from_db()
+        assert payment.status == Payment.STATUS_CONFIRMED
+        sub = payment.subscription
+        assert sub is not None
+        assert sub.plan == plan
+        assert sub.status == MemberSubscription.STATUS_ACTIVE
+
+    def test_tenancy_identified_strictly_from_stored_payment(self, setup_data):
+        client = APIClient()
+        payment = setup_data["payment"]
+        tx_ref = setup_data["tx_ref"]
+        config = setup_data["config"]
+
+        # Even if request arrives with Gym Beta host header, it must only activate for Gym Alpha
+        payload = {"event": "charge.success", "tx_ref": tx_ref, "gym_subdomain": "beta"}
+        body, sig = self._sign_payload(payload, config.webhook_secret)
+
+        mock_verify_data = {
+            "status": "success",
+            "data": {
+                "status": "success",
+                "tx_ref": tx_ref,
+                "amount": "1800.00",
+                "currency": "ETB",
+            },
+        }
+
+        with patch(
+            "apps.payments.chapa_client.ChapaClient.verify_transaction",
+            return_value=mock_verify_data,
+        ):
+            resp = client.post(
+                "/api/webhooks/chapa/",
+                data=body,
+                content_type="application/json",
+                HTTP_CHAPA_SIGNATURE=sig,
+                HTTP_HOST="beta.localhost",  # Attacker hits beta subdomain
+            )
+        assert resp.status_code == status.HTTP_200_OK
+        payment.refresh_from_db()
+        assert payment.gym == setup_data["gym_a"]
+        assert payment.subscription.gym == setup_data["gym_a"]
+
+    def test_flag_unfinished_payments_records_notifications(self, setup_data):
+        payment = setup_data["payment"]
+        member = setup_data["member_a"]
+        gym = setup_data["gym_a"]
+
+        # Set payment creation time to 40 minutes ago
+        Payment.all_objects.filter(id=payment.id).update(
+            created_at=timezone.now() - timedelta(minutes=40)
+        )
+
+        flagged_count = flag_unfinished_payments(window_minutes=30)
+        assert flagged_count == 1
+
+        payment.refresh_from_db()
+        assert payment.status == Payment.STATUS_ABANDONED
+
+        # Member notification
+        member_notif = Notification.all_objects.filter(
+            recipient=member.user,
+            type="payment_abandoned",
+        ).first()
+        assert member_notif is not None
+        assert "timed out" in member_notif.message.lower()
+
+        # Staff notification
+        owner_user = User.all_objects.get(gym=gym, role=User.ROLE_OWNER)
+        staff_notif = Notification.all_objects.filter(
+            recipient=owner_user,
+            type="payment_unfinished_alert",
+        ).first()
+        assert staff_notif is not None
+        assert "unfinished beyond 30 minutes" in staff_notif.message

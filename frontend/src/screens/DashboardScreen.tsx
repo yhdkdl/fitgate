@@ -12,6 +12,8 @@ import { FirstRunChecklistCard } from "../components/owner/FirstRunChecklistCard
 import { GymBrandingSection } from "../components/owner/GymBrandingSection";
 import { StaffManagementSection } from "../components/owner/StaffManagementSection";
 import { MembershipPlansSection } from "../components/owner/MembershipPlansSection";
+import { PaymentGatewaySection } from "../components/owner/PaymentGatewaySection";
+
 import { MemberManagementSection } from "../components/dashboard/MemberManagementSection";
 import { MemberSelfSection } from "../components/dashboard/MemberSelfSection";
 import { TrainerMeasurementsSection } from "../components/trainer/TrainerMeasurementsSection";
@@ -232,6 +234,11 @@ export const DashboardScreen: React.FC = () => {
               <MembershipPlansSection
                 onPlansUpdated={() => setChecklistKey((k) => k + 1)}
               />
+
+              <PaymentGatewaySection
+                onUpdated={() => setChecklistKey((k) => k + 1)}
+              />
+
 
               <StaffManagementSection
                 onStaffUpdated={() => setChecklistKey((k) => k + 1)}

@@ -534,6 +534,55 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/gym/payment-config/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Retrieve gym payment gateway configuration (masked)
+         * @description Returns masked configuration state. Plaintext secrets are never returned.
+         */
+        get: operations["gym_payment_config_retrieve"];
+        /**
+         * @description Manage payment gateway credentials for the active gym.
+         *     Restricted strictly to the Gym Owner of the active tenant.
+         *     Super Admins, Managers, Receptionists, and Members are blocked.
+         */
+        put: operations["gym_payment_config_update"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Update gym payment credentials
+         * @description Encrypts keys at rest using TENANT_CREDENTIALS_KEY and records an audit log.
+         */
+        patch: operations["gym_payment_config_partial_update"];
+        trace?: never;
+    };
+    "/api/gym/payment-config/test/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Test Chapa payment credentials
+         * @description Performs an external verification call against Chapa API. Sets is_verified flag.
+         */
+        post: operations["gym_payment_config_test_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/gym/plans/": {
         parameters: {
             query?: never;
@@ -849,6 +898,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/payments/checkout/chapa/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Initiate online Chapa checkout session
+         * @description Initiate an online Chapa checkout session for a membership plan.
+         *     Requires verified gym credentials; otherwise refuses and prompts front-desk cash payment.
+         */
+        post: operations["payments_checkout_chapa_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/platform/audit-logs/": {
         parameters: {
             query?: never;
@@ -1041,6 +1111,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/platform/gyms/{gym_id}/payment-status/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * View gym payment mode (Super Admin)
+         * @description Returns whether the gym is running in test or live mode. Never exposes keys.
+         */
+        get: operations["platform_gyms_payment_status_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/platform/gyms/propose-subdomain/": {
         parameters: {
             query?: never;
@@ -1135,6 +1225,26 @@ export interface paths {
         get: operations["public_plans_list"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/webhooks/chapa/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Chapa payment webhook notification
+         * @description Processes Chapa webhook notifications with HMAC verification and idempotency.
+         */
+        post: operations["webhooks_chapa_create"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1319,6 +1429,19 @@ export interface components {
             refresh: string;
             user: components["schemas"]["UserSummary"];
         };
+        /** @description Input serializer for initiating online subscription checkout. */
+        ChapaCheckoutRequestRequest: {
+            /** Format: uuid */
+            plan_id: string;
+        };
+        /** @description Output serializer for online subscription checkout session. */
+        ChapaCheckoutResponse: {
+            /** Format: uri */
+            checkout_url: string;
+            tx_ref: string;
+            /** Format: uuid */
+            payment_id: string;
+        };
         /** @description Item in first-run onboarding checklist. */
         ChecklistItem: {
             label: string;
@@ -1475,6 +1598,17 @@ export interface components {
         GymDetailResponse: {
             gym: components["schemas"]["GymTenantSummary"];
             config: components["schemas"]["GymConfig"];
+        };
+        /** @description Safe read-only representation of gym payment configuration. */
+        GymPaymentConfig: {
+            readonly is_configured: boolean;
+            readonly is_test_mode: boolean;
+            readonly is_verified: boolean;
+            /** Format: date-time */
+            readonly verified_at: string | null;
+            readonly masked_public_key: string;
+            readonly has_secret_key: boolean;
+            readonly has_webhook_secret: boolean;
         };
         /** @description Public details returned on the gym subdomain entry page. */
         GymPublicEntryResponse: {
@@ -1707,6 +1841,12 @@ export interface components {
             status?: components["schemas"]["DemoRequestStatusEnum"];
             notes?: string;
         };
+        /** @description Input serializer for gym owner configuring Chapa credentials. */
+        PatchedGymPaymentConfigUpdateRequest: {
+            public_key?: string;
+            secret_key?: string;
+            webhook_secret?: string;
+        };
         /**
          * @description Serializer for Owner-editable gym settings with strict allow-list enforcement.
          *     Any attempt to modify entitlement fields is rejected with 403 PermissionDenied.
@@ -1872,6 +2012,16 @@ export interface components {
          * @enum {string}
          */
         Status1d7Enum: "pending" | "active" | "expired" | "frozen" | "suspended";
+        /** @description Platform administration view of gym payment mode (test vs live) without exposing keys. */
+        SuperAdminGymPaymentStatus: {
+            /** Format: uuid */
+            gym_id: string;
+            gym_name: string;
+            subdomain: string;
+            is_configured: boolean;
+            is_test_mode: boolean;
+            is_verified: boolean;
+        };
         /** @description Response for created Super Admin. */
         SuperAdminResponse: {
             /** Format: uuid */
@@ -2948,6 +3098,94 @@ export interface operations {
             };
         };
     };
+    gym_payment_config_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GymPaymentConfig"];
+                };
+            };
+        };
+    };
+    gym_payment_config_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GymPaymentConfig"];
+                };
+            };
+        };
+    };
+    gym_payment_config_partial_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["PatchedGymPaymentConfigUpdateRequest"];
+                "application/x-www-form-urlencoded": components["schemas"]["PatchedGymPaymentConfigUpdateRequest"];
+                "multipart/form-data": components["schemas"]["PatchedGymPaymentConfigUpdateRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GymPaymentConfig"];
+                };
+            };
+        };
+    };
+    gym_payment_config_test_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Connection verified successfully */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Connection verification failed */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     gym_plans_list: {
         parameters: {
             query?: never;
@@ -3650,6 +3888,45 @@ export interface operations {
             };
         };
     };
+    payments_checkout_chapa_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ChapaCheckoutRequestRequest"];
+                "application/x-www-form-urlencoded": components["schemas"]["ChapaCheckoutRequestRequest"];
+                "multipart/form-data": components["schemas"]["ChapaCheckoutRequestRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChapaCheckoutResponse"];
+                };
+            };
+            /** @description Online payment disabled or invalid plan */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Payment gateway initialization failed */
+            502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     platform_audit_logs_list: {
         parameters: {
             query?: {
@@ -4039,6 +4316,27 @@ export interface operations {
             };
         };
     };
+    platform_gyms_payment_status_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                gym_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SuperAdminGymPaymentStatus"];
+                };
+            };
+        };
+    };
     platform_gyms_propose_subdomain_retrieve: {
         parameters: {
             query?: never;
@@ -4178,6 +4476,45 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["PublicPlan"][];
                 };
+            };
+        };
+    };
+    webhooks_chapa_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Payment confirmed or already handled */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Invalid payload or verification failure */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Invalid signature */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Gateway verification failure */
+            502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
         };
     };
