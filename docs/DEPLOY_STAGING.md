@@ -49,6 +49,7 @@ When deploying future updates after the initial setup, follow this short procedu
      ```bash
      bash ~/fitgate/fitgate_manage.sh migrate
      ```
+   - _Note on Sprint 10 migrations:_ The Sprint 10 migrations include data migration `0005_backfill_member_status` which safely backfills existing member records, changing members without a subscription from `active` to `pending`. The owner runs migrations on staging via this cPanel web terminal command when this build is deployed.
 7. **Collect static assets**:
    - In cPanel **Terminal**, run:
      ```bash

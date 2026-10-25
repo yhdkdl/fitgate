@@ -440,31 +440,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/gym/members/{id}/subscriptions/": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * List member subscriptions
-         * @description List and create subscriptions for a member.
-         *     Staff can assign active plans to members.
-         */
-        get: operations["gym_members_subscriptions_list"];
-        put?: never;
-        /**
-         * Create or renew subscription for member
-         * @description Assigns an active membership plan to a member and computes new status.
-         */
-        post: operations["gym_members_subscriptions_create"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/gym/members/{id}/suspend/": {
         parameters: {
             query?: never;
@@ -1658,26 +1633,6 @@ export interface components {
             /** Format: uuid */
             member_id: string;
         };
-        /** @description Serializer for member subscriptions. */
-        MemberSubscription: {
-            /** Format: uuid */
-            readonly id: string;
-            /** Format: uuid */
-            member: string;
-            /** Format: uuid */
-            plan?: string | null;
-            readonly plan_name: string;
-            /** Format: date */
-            start_date: string;
-            /** Format: date */
-            end_date: string;
-            status?: components["schemas"]["Status1d7Enum"];
-            /** Format: date */
-            freeze_start_date?: string | null;
-            frozen_days_total?: number;
-            /** Format: date-time */
-            readonly created_at: string;
-        };
         /** @description Request serializer for suspending a member. */
         MemberSuspendRequestRequest: {
             /** @description Optional reason for suspending member. */
@@ -2812,48 +2767,6 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
-            };
-        };
-    };
-    gym_members_subscriptions_list: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["MemberSubscription"][];
-                };
-            };
-        };
-    };
-    gym_members_subscriptions_create: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["MemberSubscription"];
-                };
             };
         };
     };

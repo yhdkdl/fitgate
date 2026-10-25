@@ -8,7 +8,56 @@ from django.db import models
 from django.utils import timezone
 
 from apps.memberships.calculations import calculate_bmi, calculate_us_navy_body_fat
+from apps.tenants.managers import TenantManager, TenantQuerySet
 from apps.tenants.models import TenantAwareModel
+
+
+class MemberQuerySet(TenantQuerySet):
+    """Tenant-scoped queryset for Member that blocks direct status modifications."""
+
+    def update(self, **kwargs):
+        if "status" in kwargs:
+            raise ValueError(
+                "Direct modification of Member.status via update() is prohibited. "
+                "Member.status is derived from MemberSubscription and must only be updated via update_member_status()."
+            )
+        return super().update(**kwargs)
+
+    def bulk_update(self, objs, fields, *args, **kwargs):
+        if "status" in fields:
+            raise ValueError(
+                "Direct modification of Member.status via bulk_update() is prohibited. "
+                "Member.status is derived from MemberSubscription and must only be updated via update_member_status()."
+            )
+        return super().bulk_update(objs, fields, *args, **kwargs)
+
+
+class MemberManager(TenantManager.from_queryset(MemberQuerySet)):
+    pass
+
+
+class MemberAllObjectsQuerySet(models.QuerySet):
+    """Unscoped queryset for Member that blocks direct status modifications."""
+
+    def update(self, **kwargs):
+        if "status" in kwargs:
+            raise ValueError(
+                "Direct modification of Member.status via update() is prohibited. "
+                "Member.status is derived from MemberSubscription and must only be updated via update_member_status()."
+            )
+        return super().update(**kwargs)
+
+    def bulk_update(self, objs, fields, *args, **kwargs):
+        if "status" in fields:
+            raise ValueError(
+                "Direct modification of Member.status via bulk_update() is prohibited. "
+                "Member.status is derived from MemberSubscription and must only be updated via update_member_status()."
+            )
+        return super().bulk_update(objs, fields, *args, **kwargs)
+
+
+class MemberAllObjectsManager(models.Manager.from_queryset(MemberAllObjectsQuerySet)):
+    pass
 
 
 class Member(TenantAwareModel):
@@ -69,6 +118,9 @@ class Member(TenantAwareModel):
     )
     joined_at = models.DateTimeField(auto_now_add=True)
     waiver_accepted_at = models.DateTimeField()
+
+    objects = MemberManager()
+    all_objects = MemberAllObjectsManager()
 
     class Meta:
         verbose_name = "Member"

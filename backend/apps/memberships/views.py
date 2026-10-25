@@ -23,14 +23,12 @@ from apps.memberships.models import (
     BodyMetrics,
     Member,
     MembershipPlan,
-    MemberSubscription,
 )
 from apps.memberships.serializers import (
     BodyMetricsSerializer,
     MemberDetailSerializer,
     MemberSerializer,
     MembershipPlanSerializer,
-    MemberSubscriptionSerializer,
     MemberSuspendRequestSerializer,
     MemberUpdateSerializer,
     PublicMemberRegistrationSerializer,
@@ -40,7 +38,6 @@ from apps.memberships.serializers import (
     VerifyEmailRequestSerializer,
 )
 from apps.memberships.services import (
-    create_or_renew_subscription,
     reactivate_member,
     register_member_self_service,
     register_member_staff_assisted,
@@ -671,6 +668,7 @@ class MembershipPlanDetailView(APIView):
                 )
 
         with transaction.atomic():
+            old_price_etb = str(plan.price_etb)
             updated_plan = serializer.save()
             record_audit_log(
                 action_type="membership_plan_updated",
@@ -680,6 +678,7 @@ class MembershipPlanDetailView(APIView):
                 gym=tenant,
                 metadata={
                     "name": updated_plan.name,
+                    "old_price_etb": old_price_etb,
                     "price_etb": str(updated_plan.price_etb),
                     "is_active": updated_plan.is_active,
                 },
@@ -840,103 +839,4 @@ class MemberReactivateView(APIView):
                 ).data,
             },
             status=status.HTTP_200_OK,
-        )
-
-
-class MemberSubscriptionListCreateView(APIView):
-    """
-    List and create subscriptions for a member.
-    Staff can assign active plans to members.
-    """
-
-    permission_classes = [IsAuthenticated, RequirePasswordChanged, IsGymStaff]
-
-    @extend_schema(
-        summary="List member subscriptions",
-        responses={200: MemberSubscriptionSerializer(many=True)},
-    )
-    def get(self, request, pk, *args, **kwargs):
-        tenant = getattr(request, "tenant", None)
-        if tenant is None:
-            raise Http404("Gym tenant context required.")
-
-        member = Member.objects.filter(id=pk, gym=tenant).first()
-        if not member:
-            raise Http404("Member not found.")
-
-        subs = MemberSubscription.all_objects.filter(
-            gym=tenant, member=member
-        ).order_by("-created_at")
-        return Response(
-            MemberSubscriptionSerializer(subs, many=True).data,
-            status=status.HTTP_200_OK,
-        )
-
-    @extend_schema(
-        summary="Create or renew subscription for member",
-        description="Assigns an active membership plan to a member and computes new status.",
-        responses={201: MemberSubscriptionSerializer},
-    )
-    def post(self, request, pk, *args, **kwargs):
-        tenant = getattr(request, "tenant", None)
-        if tenant is None:
-            raise Http404("Gym tenant context required.")
-
-        # RBAC: Only staff can create subscriptions
-        if request.user.role not in (
-            User.ROLE_OWNER,
-            User.ROLE_MANAGER,
-            User.ROLE_RECEPTION,
-        ):
-            raise PermissionDenied(
-                "Only gym staff can create or renew member subscriptions."
-            )
-
-        member = Member.objects.filter(id=pk, gym=tenant).first()
-        if not member:
-            raise Http404("Member not found.")
-
-        plan_id = request.data.get("plan_id")
-        if not plan_id:
-            return Response(
-                {"plan_id": ["Plan ID is required."]},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-        plan = MembershipPlan.objects.filter(id=plan_id, gym=tenant).first()
-        if not plan:
-            return Response(
-                {"plan_id": ["Membership plan not found in this gym."]},
-                status=status.HTTP_404_NOT_FOUND,
-            )
-
-        if not plan.is_active:
-            return Response(
-                {"detail": "Cannot subscribe to a deactivated plan."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-        raw_start_date = request.data.get("start_date")
-        start_date = None
-        if raw_start_date:
-            try:
-                from datetime import datetime
-
-                start_date = datetime.strptime(raw_start_date, "%Y-%m-%d").date()
-            except ValueError:
-                return Response(
-                    {"start_date": ["Invalid date format (YYYY-MM-DD required)."]},
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
-
-        subscription = create_or_renew_subscription(
-            member=member,
-            plan=plan,
-            start_date=start_date,
-            actor=request.user,
-        )
-
-        return Response(
-            MemberSubscriptionSerializer(subscription).data,
-            status=status.HTTP_201_CREATED,
         )

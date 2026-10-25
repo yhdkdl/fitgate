@@ -33,6 +33,7 @@ import uuid
 from datetime import date, timedelta
 
 import pytest
+from django.core.exceptions import ValidationError
 from django.db import IntegrityError, transaction
 from django.utils import timezone
 from rest_framework.test import APIClient
@@ -299,10 +300,42 @@ class TestMemberStatusAndCalculation:
         member = make_member(gym_tenant, "Guarded Member", "+251911999999")
         assert member.status == Member.STATUS_PENDING
 
+        # 1. Direct model save
         member.status = Member.STATUS_ACTIVE
         with pytest.raises(ValueError) as exc:
             member.save()
         assert "Direct modification of Member.status" in str(exc.value)
+
+        # 2. Queryset update via scoped objects
+        with pytest.raises(ValueError) as exc:
+            Member.objects.filter(id=member.id).update(status=Member.STATUS_ACTIVE)
+        assert "Direct modification of Member.status via update() is prohibited" in str(
+            exc.value
+        )
+
+        # 3. Queryset update via unscoped all_objects
+        with pytest.raises(ValueError) as exc:
+            Member.all_objects.filter(id=member.id).update(status=Member.STATUS_ACTIVE)
+        assert "Direct modification of Member.status via update() is prohibited" in str(
+            exc.value
+        )
+
+        # 4. bulk_update via scoped objects
+        member.status = Member.STATUS_ACTIVE
+        with pytest.raises(ValueError) as exc:
+            Member.objects.bulk_update([member], ["status"])
+        assert (
+            "Direct modification of Member.status via bulk_update() is prohibited"
+            in str(exc.value)
+        )
+
+        # 5. bulk_update via unscoped all_objects
+        with pytest.raises(ValueError) as exc:
+            Member.all_objects.bulk_update([member], ["status"])
+        assert (
+            "Direct modification of Member.status via bulk_update() is prohibited"
+            in str(exc.value)
+        )
 
     def test_month_end_date_calculation_with_relativedelta(self):
         """
@@ -471,12 +504,34 @@ class TestMembershipPlanCRUDAndSecurity:
         sample_plan.refresh_from_db()
         assert sample_plan.is_active is False
         member2 = make_member(gym_tenant, "Subscriber 2", "+251911888002")
-        with pytest.raises(Exception):
+        with pytest.raises(ValidationError) as exc:
             create_or_renew_subscription(
                 member=member2,
                 plan=sample_plan,
                 start_date=timezone.localdate(),
             )
+        assert "deactivated plan" in str(exc.value).lower()
+
+    def test_create_or_renew_subscription_refuses_plan_from_other_gym(
+        self, gym_tenant, other_gym_tenant
+    ):
+        """create_or_renew_subscription refuses a plan belonging to another gym."""
+        plan_b = MembershipPlan.objects.create(
+            gym=other_gym_tenant,
+            name="Gym B Plan",
+            duration_value=1,
+            duration_unit=MembershipPlan.DURATION_MONTHS,
+            price_etb="1000.00",
+            is_active=True,
+        )
+        member_a = make_member(gym_tenant, "Gym A Member", "+251911777001")
+        with pytest.raises(ValidationError) as exc:
+            create_or_renew_subscription(
+                member=member_a,
+                plan=plan_b,
+                start_date=timezone.localdate(),
+            )
+        assert "plan from another gym" in str(exc.value).lower()
 
     def test_price_change_immutability(
         self, api_client, gym_tenant, owner_user, sample_plan
@@ -506,37 +561,55 @@ class TestMembershipPlanCRUDAndSecurity:
         assert sub.status == MemberSubscription.STATUS_ACTIVE
         assert sub.end_date == original_end_date
 
+        # Audit log records both old and new price
+        audit = (
+            AuditLog.all_objects.filter(
+                action_type="membership_plan_updated",
+                affected_record_id=str(sample_plan.id),
+            )
+            .order_by("-timestamp")
+            .first()
+        )
+        assert audit is not None
+        assert audit.metadata["old_price_etb"] == "1500.00"
+        assert audit.metadata["price_etb"] == "2500.00"
+
     def test_tenant_isolation_on_plans(
-        self, api_client, gym_tenant, other_gym_tenant, owner_user, sample_plan
+        self, api_client, gym_tenant, other_gym_tenant, sample_plan
     ):
-        """Gym A plans are never visible or modifiable by Gym B staff."""
-        other_owner = User.objects.create_user(
-            email="owner@kazanchis.com",
+        """A Manager of Gym B cannot view, edit, or deactivate Gym A's plan."""
+        other_manager = User.objects.create_user(
+            email="manager@kazanchis.com",
             password="Password123!",
-            role=User.ROLE_OWNER,
+            role=User.ROLE_MANAGER,
             gym=other_gym_tenant,
-            full_name="Kazanchis Owner",
+            full_name="Kazanchis Manager",
             phone="+251922000001",
             email_verified_at=timezone.now(),
         )
-        client = auth_client(api_client, other_owner, other_gym_tenant.subdomain)
+        client = auth_client(api_client, other_manager, other_gym_tenant.subdomain)
 
-        # 1. Other gym cannot see Gym A's plan in list
+        # 1. Manager of Gym B cannot see Gym A's plan in list
         list_resp = client.get("/api/gym/membership-plans/")
         assert list_resp.status_code == 200
         plan_ids = [p["id"] for p in list_resp.data]
         assert str(sample_plan.id) not in plan_ids
 
-        # 2. Other gym cannot access or patch Gym A's plan (404)
+        # 2. Manager of Gym B cannot access Gym A's plan detail (404)
         get_resp = client.get(f"/api/gym/membership-plans/{sample_plan.id}/")
         assert get_resp.status_code == 404
 
+        # 3. Manager of Gym B cannot edit Gym A's plan (404)
         patch_resp = client.patch(
             f"/api/gym/membership-plans/{sample_plan.id}/",
             {"name": "Stolen Plan"},
             format="json",
         )
         assert patch_resp.status_code == 404
+
+        # 4. Manager of Gym B cannot deactivate Gym A's plan (404)
+        del_resp = client.delete(f"/api/gym/membership-plans/{sample_plan.id}/")
+        assert del_resp.status_code == 404
 
 
 class TestPublicPlanListing:

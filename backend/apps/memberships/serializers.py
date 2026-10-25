@@ -19,7 +19,6 @@ from apps.memberships.models import (
     BodyMetrics,
     Member,
     MembershipPlan,
-    MemberSubscription,
 )
 
 
@@ -474,29 +473,3 @@ class MemberSuspendRequestSerializer(serializers.Serializer):
         max_length=500,
         help_text="Optional reason for suspending member.",
     )
-
-
-class MemberSubscriptionSerializer(serializers.ModelSerializer):
-    """Serializer for member subscriptions."""
-
-    plan_name = serializers.CharField(source="plan.name", read_only=True)
-
-    class Meta:
-        model = MemberSubscription
-        fields = [
-            "id",
-            "member",
-            "plan",
-            "plan_name",
-            "start_date",
-            "end_date",
-            "status",
-            "freeze_start_date",
-            "frozen_days_total",
-            "created_at",
-        ]
-        read_only_fields = [
-            "id",
-            "plan_name",
-            "created_at",
-        ]

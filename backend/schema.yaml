@@ -734,56 +734,6 @@ paths:
       responses:
         '200':
           description: Member reactivated
-  /api/gym/members/{id}/subscriptions/:
-    get:
-      operationId: gym_members_subscriptions_list
-      description: |-
-        List and create subscriptions for a member.
-        Staff can assign active plans to members.
-      summary: List member subscriptions
-      parameters:
-      - in: path
-        name: id
-        schema:
-          type: string
-          format: uuid
-        required: true
-      tags:
-      - gym
-      security:
-      - jwtAuth: []
-      responses:
-        '200':
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/MemberSubscription'
-          description: ''
-    post:
-      operationId: gym_members_subscriptions_create
-      description: Assigns an active membership plan to a member and computes new
-        status.
-      summary: Create or renew subscription for member
-      parameters:
-      - in: path
-        name: id
-        schema:
-          type: string
-          format: uuid
-        required: true
-      tags:
-      - gym
-      security:
-      - jwtAuth: []
-      responses:
-        '201':
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/MemberSubscription'
-          description: ''
   /api/gym/members/{id}/suspend/:
     post:
       operationId: gym_members_suspend_create
@@ -3163,51 +3113,6 @@ components:
       - expires_at
       - member_id
       - token
-    MemberSubscription:
-      type: object
-      description: Serializer for member subscriptions.
-      properties:
-        id:
-          type: string
-          format: uuid
-          readOnly: true
-        member:
-          type: string
-          format: uuid
-        plan:
-          type: string
-          format: uuid
-          nullable: true
-        plan_name:
-          type: string
-          readOnly: true
-        start_date:
-          type: string
-          format: date
-        end_date:
-          type: string
-          format: date
-        status:
-          $ref: '#/components/schemas/Status1d7Enum'
-        freeze_start_date:
-          type: string
-          format: date
-          nullable: true
-        frozen_days_total:
-          type: integer
-          maximum: 2147483647
-          minimum: 0
-        created_at:
-          type: string
-          format: date-time
-          readOnly: true
-      required:
-      - created_at
-      - end_date
-      - id
-      - member
-      - plan_name
-      - start_date
     MemberSuspendRequestRequest:
       type: object
       description: Request serializer for suspending a member.

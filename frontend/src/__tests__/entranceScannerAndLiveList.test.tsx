@@ -52,7 +52,7 @@ describe("Sprint 8c: Entrance Scanner & Today's Check-ins List", () => {
       render(<TodayCheckinsList />);
 
       expect(await screen.findByText("Today's Check-ins")).toBeInTheDocument();
-      expect(screen.getByText("2 check-ins")).toBeInTheDocument();
+      expect(await screen.findByText("2 check-ins")).toBeInTheDocument();
 
       // Check member Dawit (QR scan)
       expect(screen.getByText("Dawit Bekele")).toBeInTheDocument();

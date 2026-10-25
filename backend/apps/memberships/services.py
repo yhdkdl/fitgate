@@ -455,6 +455,11 @@ def create_or_renew_subscription(
     Deactivated plans are rejected for new subscriptions.
     Calculates end_date via calculate_plan_end_date and calls update_member_status in the same transaction.
     """
+    if plan.gym_id != member.gym_id:
+        raise ValidationError(
+            "Cannot create or renew a subscription with a plan from another gym."
+        )
+
     if not plan.is_active:
         raise ValidationError(
             "Cannot create or renew a subscription with a deactivated plan."

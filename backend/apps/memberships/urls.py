@@ -11,7 +11,6 @@ from apps.memberships.views import (
     MemberSelfProfileView,
     MembershipPlanDetailView,
     MembershipPlanListCreateView,
-    MemberSubscriptionListCreateView,
     MemberSuspendView,
     PublicMemberRegistrationView,
     PublicPlanListView,
@@ -87,11 +86,6 @@ urlpatterns = [
         "api/gym/members/<uuid:pk>/reactivate/",
         MemberReactivateView.as_view(),
         name="gym-member-reactivate",
-    ),
-    path(
-        "api/gym/members/<uuid:pk>/subscriptions/",
-        MemberSubscriptionListCreateView.as_view(),
-        name="gym-member-subscriptions",
     ),
     # Member self-service endpoints
     path(

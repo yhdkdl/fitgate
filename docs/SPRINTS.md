@@ -306,6 +306,7 @@ Preparation for deploying the Increment 1 milestone to the real Yegara cPanel st
     - Status: implemented, full suite green — awaiting owner review (branch `feature/sprint-10-membership-plans`, STRICT sprint)
 
 11. **Chapa payment integration (one account per gym) (GATE)** — Sprint 11 builds the `Notification` record and ONE shared helper function that creates a notification (stored only, no email, scoped to the gym) so notification criteria are immediately verifiable. What gym users can do after this sprint:
+    - _Subscription creation rule:_ Subscriptions must never be creatable or renewable by staff without a recorded payment. The ONLY paths that create or renew a subscription are (a) a verified Chapa payment confirmation (this sprint) and (b) a staff-confirmed cash payment (Sprint 12), each executed in the exact same database transaction as its payment record.
     - Gym owners can enter and update their gym's Chapa payment credentials securely in their gym settings, with keys stored encrypted and masked from view.
     - Only the gym owner can view or edit payment credentials; other staff and platform administrators cannot access them.
     - Gym owners can test their Chapa connection to verify their keys before enabling online member checkout.
@@ -317,6 +318,7 @@ Preparation for deploying the Increment 1 milestone to the real Yegara cPanel st
     - Chapa cannot be used to pay platform gym subscription fees.
 
 12. **Manual cash payment, payment history, and the registration-to-payment flow** — What gym users can do after this sprint:
+    - _Subscription creation rule:_ Subscriptions are created or renewed via staff-confirmed cash payment in the exact same database transaction as the confirmed payment record; subscriptions are never created without a payment.
     - Reception staff can record and confirm cash payments from members and issue an official digital receipt.
     - Direct bank transfer is not available for member payments, and cash payments must always record which staff member confirmed them.
     - Members can view their complete payment history with dates, amounts, and receipt references.
