@@ -597,6 +597,7 @@ class TestScanEndpointAndDuplicateHandling:
         assert att.gym == gym_tenant
         assert att.date == timezone.localdate()
         assert not att.is_override
+        assert att.method == Attendance.METHOD_QR
 
     def test_second_scan_same_day_denied_no_second_row_notifies_staff(
         self,
@@ -834,6 +835,7 @@ class TestScanEndpointAndDuplicateHandling:
         """
         sub = MemberSubscription.all_objects.filter(member=active_member).first()
         if inactive_scenario == "member_suspended":
+            active_member._status_update_allowed = True
             active_member.status = Member.STATUS_SUSPENDED
             active_member.save(update_fields=["status"])
         elif inactive_scenario == "sub_expired":
@@ -1206,9 +1208,9 @@ class TestScanEndpointAndDuplicateHandling:
                 resp = api_client.get(path)
             else:
                 resp = api_client.post(path, payload, format="json")
-            assert resp.status_code == 401, (
-                f"Expected 401 for anonymous access to {path}, got {resp.status_code}"
-            )
+            assert (
+                resp.status_code == 401
+            ), f"Expected 401 for anonymous access to {path}, got {resp.status_code}"
 
 
 class TestTodayCheckinsAndDuplicateNotificationMerging:
@@ -1235,6 +1237,7 @@ class TestTodayCheckinsAndDuplicateNotificationMerging:
             member=active_member,
             date=today,
             checked_in_at=timezone.now(),
+            method=Attendance.METHOD_QR,
             is_override=False,
         )
 
@@ -1253,6 +1256,7 @@ class TestTodayCheckinsAndDuplicateNotificationMerging:
             assert entry["member_id"] == str(active_member.id)
             assert entry["member_name"] == active_member.full_name
             assert entry["is_override"] is False
+            assert entry["method"] == "qr"
 
         # 2. Denied roles: Trainer, Member, Super Admin -> 403
         for denied_user in [trainer_user, member_user, super_admin_user]:
@@ -1328,6 +1332,7 @@ class TestTodayCheckinsAndDuplicateNotificationMerging:
             member=members[0],
             date=today,
             checked_in_at=base_time,
+            method=Attendance.METHOD_QR,
             is_override=False,
         )
         att1 = Attendance.all_objects.create(
@@ -1335,6 +1340,7 @@ class TestTodayCheckinsAndDuplicateNotificationMerging:
             member=members[1],
             date=today,
             checked_in_at=base_time + timedelta(minutes=30),
+            method=Attendance.METHOD_MANUAL_OVERRIDE,
             is_override=True,
             override_reason="Forgotten phone",
             recorded_by=reception_user,
@@ -1344,6 +1350,7 @@ class TestTodayCheckinsAndDuplicateNotificationMerging:
             member=members[2],
             date=today,
             checked_in_at=base_time + timedelta(minutes=60),
+            method=Attendance.METHOD_QR,
             is_override=False,
         )
 
@@ -1360,6 +1367,7 @@ class TestTodayCheckinsAndDuplicateNotificationMerging:
         assert results[0]["id"] == str(att2.id)
         assert results[1]["id"] == str(att1.id)
         assert results[1]["is_override"] is True
+        assert results[1]["method"] == "manual_override"
         assert results[1]["override_reason"] == "Forgotten phone"
         assert results[1]["recorded_by_name"] == reception_user.full_name
         assert results[2]["id"] == str(att0.id)

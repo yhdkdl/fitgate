@@ -674,9 +674,9 @@ class TestOwnerSettingsAllowListAndIntrospection:
         unclassified_tenant_fields = (
             gym_tenant_fields - entitlements - system_tenant_fields
         )
-        assert not unclassified_tenant_fields, (
-            f"Found unclassified fields on GymTenant: {unclassified_tenant_fields}."
-        )
+        assert (
+            not unclassified_tenant_fields
+        ), f"Found unclassified fields on GymTenant: {unclassified_tenant_fields}."
 
 
 @pytest.mark.django_db
@@ -938,7 +938,7 @@ class TestSpec2PermissionMatrixParametrizedTable:
         Rows not yet wired skip with an explicit reason.
         Wired rows (Sprint 5) assert directly against real HTTP endpoints.
         """
-        if wired_sprint not in (5, 6, "9a"):
+        if wired_sprint not in (5, 6, "9a", 10):
             pytest.skip(
                 f"Row '{row_name}' has no real endpoint yet (scheduled for Sprint {wired_sprint} in docs/SPRINTS.md)"
             )
@@ -1052,5 +1052,58 @@ class TestSpec2PermissionMatrixParametrizedTable:
             resp = client.get(url, HTTP_HOST=host)
             if expected_allowed:
                 assert resp.status_code == 200
+            else:
+                assert resp.status_code in (403, 404)
+        elif row_name == "Create/edit membership plans and pricing":
+            url = "/api/gym/plans/"
+            host = (
+                "localhost"
+                if role == User.ROLE_SUPER_ADMIN
+                else f"{gym_tenant.subdomain}.localhost"
+            )
+            resp = client.post(
+                url,
+                {
+                    "name": f"Matrix Plan {role}",
+                    "duration_value": 1,
+                    "duration_unit": "months",
+                    "price_etb": "1500.00",
+                },
+                format="json",
+                HTTP_HOST=host,
+            )
+            if expected_allowed:
+                assert resp.status_code == 201
+                plan_id = resp.data["id"]
+                patch_resp = client.patch(
+                    f"/api/gym/plans/{plan_id}/",
+                    {"price_etb": "1800.00"},
+                    format="json",
+                    HTTP_HOST=host,
+                )
+                assert patch_resp.status_code == 200
+            else:
+                assert resp.status_code in (403, 404)
+        elif row_name == "Suspend or reactivate a member":
+            url = f"/api/gym/members/{member_user.member_profile.id}/suspend/"
+            host = (
+                "localhost"
+                if role == User.ROLE_SUPER_ADMIN
+                else f"{gym_tenant.subdomain}.localhost"
+            )
+            resp = client.post(
+                url,
+                {"reason": "Testing matrix suspension"},
+                format="json",
+                HTTP_HOST=host,
+            )
+            if expected_allowed:
+                assert resp.status_code == 200
+                react_resp = client.post(
+                    f"/api/gym/members/{member_user.member_profile.id}/reactivate/",
+                    format="json",
+                    HTTP_HOST=host,
+                )
+                assert react_resp.status_code == 200
             else:
                 assert resp.status_code in (403, 404)

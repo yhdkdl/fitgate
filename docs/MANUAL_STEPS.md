@@ -69,6 +69,11 @@ The feasibility spike on the real Yegara cPanel host passed all checks:
    - **Fallback in use:** Signed mocked webhooks and simulated checkout in automated tests and local dev.
    - **Status:** Skipped for Increment 2 preflight per owner decision; feature marked "not verified against the real service".
 
+8. **Sprint 10 — Manual Subscription Activation on Staging Before Sprint 12**
+   - **What to do:** Because staff cannot create subscriptions without payments and cash payment arrives in Sprint 12, to manually assign an active subscription for check-in testing on staging before Sprint 12, run in cPanel Web Terminal:
+     `/home/<user>/virtualenv/fitgate_backend/3.11/bin/python manage.py shell -c "from apps.memberships.models import Member, MembershipPlan; from apps.memberships.services import create_or_renew_subscription; m = Member.all_objects.first(); p = MembershipPlan.all_objects.filter(gym=m.gym, is_active=True).first(); create_or_renew_subscription(m, p)"`
+   - **Status:** Testing convenience before Sprint 12.
+
 ---
 
 ## Email & Domain Configuration (Brevo + cPanel)

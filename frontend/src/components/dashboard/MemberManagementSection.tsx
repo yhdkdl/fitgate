@@ -2,7 +2,9 @@ import React, { useCallback, useEffect, useState } from "react";
 import {
   getGymMemberDetail,
   listGymMembers,
+  reactivateMember,
   registerMemberStaffAssisted,
+  suspendMember,
   uploadMemberPhoto,
   type Member,
   type StaffMemberRegistrationPayload,
@@ -74,6 +76,12 @@ export const MemberManagementSection: React.FC<Props> = ({
   const [changingPhoto, setChangingPhoto] = useState(false);
   const [detailPhotoError, setDetailPhotoError] = useState<string | null>(null);
   const [detailPhotoSuccess, setDetailPhotoSuccess] = useState<string | null>(null);
+
+  // Status action state
+  const [suspendReason, setSuspendReason] = useState("");
+  const [actionLoading, setActionLoading] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [actionSuccess, setActionSuccess] = useState<string | null>(null);
 
   const canRegister =
     userRole === "owner" || userRole === "manager" || userRole === "reception";
@@ -364,6 +372,9 @@ export const MemberManagementSection: React.FC<Props> = ({
 
   const handleOpenDetail = async (memberId: string) => {
     setSelectedMember(null);
+    setActionError(null);
+    setActionSuccess(null);
+    setSuspendReason("");
     try {
       const detail = await getGymMemberDetail(memberId);
       setSelectedMember(detail);
@@ -371,6 +382,45 @@ export const MemberManagementSection: React.FC<Props> = ({
       setError(
         err instanceof Error ? err.message : "Failed to load member detail."
       );
+    }
+  };
+
+  const handleSuspend = async () => {
+    if (!selectedMember || !suspendReason.trim()) return;
+    setActionLoading(true);
+    setActionError(null);
+    setActionSuccess(null);
+    try {
+      const res = await suspendMember(selectedMember.id, suspendReason.trim());
+      setSelectedMember(res.member);
+      setActionSuccess("Member suspended successfully.");
+      setSuspendReason("");
+      fetchMembers();
+    } catch (err: unknown) {
+      setActionError(
+        err instanceof Error ? err.message : "Failed to suspend member."
+      );
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleReactivate = async () => {
+    if (!selectedMember) return;
+    setActionLoading(true);
+    setActionError(null);
+    setActionSuccess(null);
+    try {
+      const res = await reactivateMember(selectedMember.id);
+      setSelectedMember(res.member);
+      setActionSuccess("Member reactivated successfully.");
+      fetchMembers();
+    } catch (err: unknown) {
+      setActionError(
+        err instanceof Error ? err.message : "Failed to reactivate member."
+      );
+    } finally {
+      setActionLoading(false);
     }
   };
 
@@ -425,13 +475,14 @@ export const MemberManagementSection: React.FC<Props> = ({
           <option value="expired">Expired</option>
           <option value="frozen">Frozen</option>
           <option value="suspended">Suspended</option>
+          <option value="pending">Pending</option>
         </select>
       </div>
 
       {/* Members Table */}
       <Card className="bg-surface border-border overflow-hidden">
         {loading ? (
-          <div className="p-8 text-center flex flex-col items-center gap-3">
+            <div className="p-8 text-center flex flex-col items-center gap-3">
             <Spinner size="md" />
             <p className="text-xs text-text-muted">Loading members list...</p>
           </div>
@@ -486,7 +537,9 @@ export const MemberManagementSection: React.FC<Props> = ({
                               ? "success"
                               : m.status === "frozen"
                                 ? "warning"
-                                : "secondary"
+                                : m.status === "suspended"
+                                  ? "danger"
+                                  : "secondary"
                           }
                         >
                           {m.status}
@@ -816,6 +869,9 @@ export const MemberManagementSection: React.FC<Props> = ({
                   setSelectedMember(null);
                   setDetailPhotoError(null);
                   setDetailPhotoSuccess(null);
+                  setActionError(null);
+                  setActionSuccess(null);
+                  setSuspendReason("");
                 }}
                 className="text-text-muted hover:text-text text-xl p-1"
               >
@@ -844,7 +900,19 @@ export const MemberManagementSection: React.FC<Props> = ({
               </div>
               <div>
                 <span className="text-text-muted block">Status</span>
-                <Badge variant="primary">{selectedMember.status}</Badge>
+                <Badge
+                  variant={
+                    selectedMember.status === "active"
+                      ? "success"
+                      : selectedMember.status === "frozen"
+                        ? "warning"
+                        : selectedMember.status === "suspended"
+                          ? "danger"
+                          : "secondary"
+                  }
+                >
+                  {selectedMember.status}
+                </Badge>
               </div>
               <div>
                 <span className="text-text-muted block">Gender</span>
@@ -951,6 +1019,64 @@ export const MemberManagementSection: React.FC<Props> = ({
                   Not measured yet. A trainer records measurements.
                 </div>
               ))}
+
+            {/* Owner/Manager Actions: Suspend / Reactivate */}
+            {(userRole === "owner" || userRole === "manager") && (
+              <div className="p-4 bg-surface-2/40 border border-border rounded-lg space-y-3">
+                <h4 className="text-xs font-bold uppercase tracking-wider text-text">
+                  Membership Status Action
+                </h4>
+                {selectedMember.status === "suspended" ? (
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <p className="text-xs text-text-muted">
+                      This member is currently suspended. Reinstating will restore their account and subscription status.
+                    </p>
+                    <Button
+                      variant="primary"
+                      size="sm"
+                      disabled={actionLoading}
+                      onClick={handleReactivate}
+                    >
+                      {actionLoading ? "Reactivating..." : "Reactivate Member"}
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    <p className="text-xs text-text-muted">
+                      Suspend this member to block facility entry and access immediately.
+                    </p>
+                    <div className="flex flex-col sm:flex-row gap-2">
+                      <Input
+                        type="text"
+                        placeholder="Reason for suspension (required, e.g. rule violation)..."
+                        value={suspendReason}
+                        onChange={(e) => setSuspendReason(e.target.value)}
+                        className="text-xs min-h-[38px] flex-1"
+                      />
+                      <Button
+                        variant="danger"
+                        size="sm"
+                        disabled={actionLoading || !suspendReason.trim()}
+                        onClick={handleSuspend}
+                        className="min-h-[38px]"
+                      >
+                        {actionLoading ? "Suspending..." : "Suspend Member"}
+                      </Button>
+                    </div>
+                  </div>
+                )}
+                {actionError && (
+                  <Alert variant="danger" className="text-xs py-2">
+                    {actionError}
+                  </Alert>
+                )}
+                {actionSuccess && (
+                  <Alert variant="success" className="text-xs py-2">
+                    {actionSuccess}
+                  </Alert>
+                )}
+              </div>
+            )}
           </Card>
         </div>
       )}

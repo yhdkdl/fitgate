@@ -261,27 +261,76 @@ export const GymEntryScreen: React.FC = () => {
           </Card>
         </div>
 
-        {/* Membership Plans Section (Sprint 10 Preview) */}
+        {/* Membership Plans Section */}
         <div className="bg-surface border border-border rounded-card p-6 space-y-4">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-border pb-3">
             <div>
               <h2 className="text-lg font-bold text-text">Membership Plans</h2>
               <p className="text-xs text-text-muted">
-                Flexible subscription durations tailored to your goals.
+                Flexible subscription durations tailored to your fitness goals.
               </p>
             </div>
-            <Badge variant="secondary">Plans Available Soon</Badge>
+            <Badge variant="primary">
+              {data.plans && data.plans.length > 0
+                ? `${data.plans.length} ${data.plans.length === 1 ? "Plan" : "Plans"} Available`
+                : "Active Plans"}
+            </Badge>
           </div>
 
-          <div className="p-6 bg-surface-2/40 border border-border/60 rounded-lg text-center space-y-2">
-            <p className="text-sm text-text-muted">
-              Online plan purchasing and subscription enrollment will be
-              available shortly.
-            </p>
-            <p className="text-xs text-text-muted">
-              For in-person registration, please visit the gym reception.
-            </p>
-          </div>
+          {data.plans && data.plans.length > 0 ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 pt-2">
+              {data.plans.map((plan) => (
+                <div
+                  key={plan.id}
+                  className="bg-bg border border-border rounded-xl p-5 flex flex-col justify-between hover:border-primary/50 transition-colors"
+                >
+                  <div className="space-y-3">
+                    <div className="flex items-start justify-between gap-2">
+                      <h3 className="font-bold text-base text-text">{plan.name}</h3>
+                      {plan.trainer_inclusive && (
+                        <Badge variant="success" className="text-[10px]">
+                          Trainer Included
+                        </Badge>
+                      )}
+                    </div>
+
+                    <div className="flex items-baseline gap-1">
+                      <span className="text-2xl font-black text-text">
+                        {Number(plan.price_etb).toLocaleString()}
+                      </span>
+                      <span className="text-xs font-semibold text-text-muted">ETB</span>
+                      <span className="text-xs text-text-muted">
+                        / {plan.duration_value} {plan.duration_unit}
+                      </span>
+                    </div>
+
+                    {plan.description && (
+                      <p className="text-xs text-text-muted line-clamp-2">
+                        {plan.description}
+                      </p>
+                    )}
+                  </div>
+
+                  <div className="pt-4 mt-auto">
+                    <Link to="/register" className="w-full block">
+                      <Button variant="secondary" size="sm" className="w-full min-h-[40px]">
+                        Choose Plan
+                      </Button>
+                    </Link>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="p-6 bg-surface-2/40 border border-border/60 rounded-lg text-center space-y-2">
+              <p className="text-sm text-text-muted">
+                No active plans currently listed online.
+              </p>
+              <p className="text-xs text-text-muted">
+                Please visit the front desk for available in-person packages.
+              </p>
+            </div>
+          )}
         </div>
       </main>
 

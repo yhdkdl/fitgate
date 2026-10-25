@@ -3,9 +3,10 @@
 import hashlib
 import logging
 import secrets
-from datetime import timedelta
+from datetime import date, timedelta
 from typing import Any, Dict, Optional, Tuple
 
+from dateutil.relativedelta import relativedelta
 from django.conf import settings
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import PermissionDenied, ValidationError
@@ -23,7 +24,7 @@ from apps.core.validators import (
     validate_email_address,
     validate_name,
 )
-from apps.memberships.models import Member
+from apps.memberships.models import Member, MembershipPlan, MemberSubscription
 from apps.tenants.models import GymTenant
 
 logger = logging.getLogger(__name__)
@@ -167,8 +168,7 @@ def register_member_self_service(
             gender=validated["gender"],
             emergency_contact=validated["emergency_contact"],
             referral_source=validated["referral_source"],
-            photo_url=validated["photo_url"],
-            status=Member.STATUS_ACTIVE,
+            status=Member.STATUS_PENDING,
             waiver_accepted_at=timezone.now(),
         )
 
@@ -262,8 +262,7 @@ def register_member_staff_assisted(
             gender=validated["gender"],
             emergency_contact=validated["emergency_contact"],
             referral_source=validated["referral_source"],
-            photo_url=validated["photo_url"],
-            status=Member.STATUS_ACTIVE,
+            status=Member.STATUS_PENDING,
             waiver_accepted_at=timezone.now(),
         )
 
@@ -362,3 +361,257 @@ def verify_member_email(
         )
 
     return user
+
+
+def calculate_plan_end_date(
+    start_date: date, duration_value: int, duration_unit: str
+) -> date:
+    """
+    Calculate subscription end date accurately based on duration unit.
+    For month durations, uses calendar months including month-end days (e.g. Jan 31 + 1 mo = Feb 28).
+    For day durations, uses exact day count.
+    """
+    if duration_unit == MembershipPlan.DURATION_MONTHS or duration_unit == "months":
+        return start_date + relativedelta(months=duration_value)
+    elif duration_unit == MembershipPlan.DURATION_DAYS or duration_unit == "days":
+        return start_date + timedelta(days=duration_value)
+    else:
+        raise ValueError(f"Unsupported duration unit: {duration_unit}")
+
+
+def compute_member_status(member: Member, today: Optional[date] = None) -> str:
+    """
+    Derives member status strictly from MemberSubscription.
+    MemberSubscription is the single source of truth.
+    Returns one of: 'pending', 'active', 'expired', 'frozen', 'suspended'.
+    """
+    if today is None:
+        today = timezone.localdate()
+
+    subs = list(
+        MemberSubscription.all_objects.filter(gym=member.gym, member=member).order_by(
+            "-end_date", "-created_at"
+        )
+    )
+    if not subs:
+        return Member.STATUS_PENDING
+
+    # 1. Any suspended subscription marks the member as suspended
+    if any(s.status == MemberSubscription.STATUS_SUSPENDED for s in subs):
+        return Member.STATUS_SUSPENDED
+
+    # 2. Any currently frozen subscription
+    if any(s.status == MemberSubscription.STATUS_FROZEN for s in subs):
+        return Member.STATUS_FROZEN
+
+    # 3. Check for active subscription covering today
+    for s in subs:
+        if s.status == MemberSubscription.STATUS_ACTIVE:
+            if s.start_date <= today <= s.end_date:
+                return Member.STATUS_ACTIVE
+
+    # 4. Check for future active subscription
+    for s in subs:
+        if s.status == MemberSubscription.STATUS_ACTIVE and s.start_date > today:
+            return Member.STATUS_PENDING
+
+    # 5. Check for expired subscriptions
+    all_expired = all(
+        s.status == MemberSubscription.STATUS_EXPIRED or s.end_date < today
+        for s in subs
+        if s.status != MemberSubscription.STATUS_PENDING
+    )
+    if all_expired and any(s.status != MemberSubscription.STATUS_PENDING for s in subs):
+        return Member.STATUS_EXPIRED
+
+    return Member.STATUS_PENDING
+
+
+def update_member_status(member: Member, today: Optional[date] = None) -> str:
+    """
+    Computes derived status from MemberSubscription and writes Member.status.
+    Runs inside the current transaction with protected access.
+    Only this function may write Member.status.
+    """
+    new_status = compute_member_status(member, today=today)
+    if member.status != new_status:
+        member.status = new_status
+        member._status_update_allowed = True
+        try:
+            member.save(update_fields=["status"])
+        finally:
+            member._status_update_allowed = False
+    return new_status
+
+
+def create_or_renew_subscription(
+    member: Member,
+    plan: MembershipPlan,
+    start_date: Optional[date] = None,
+    actor: Optional[User] = None,
+) -> MemberSubscription:
+    """
+    Create or renew a member subscription for an active plan.
+    Deactivated plans are rejected for new subscriptions.
+    Calculates end_date via calculate_plan_end_date and calls update_member_status in the same transaction.
+    """
+    if plan.gym_id != member.gym_id:
+        raise ValidationError(
+            "Cannot create or renew a subscription with a plan from another gym."
+        )
+
+    if not plan.is_active:
+        raise ValidationError(
+            "Cannot create or renew a subscription with a deactivated plan."
+        )
+
+    today = timezone.localdate()
+    if start_date is None:
+        current_sub = (
+            MemberSubscription.all_objects.filter(
+                gym=member.gym,
+                member=member,
+                status=MemberSubscription.STATUS_ACTIVE,
+                end_date__gte=today,
+            )
+            .order_by("-end_date")
+            .first()
+        )
+        if current_sub and current_sub.end_date >= today:
+            start_date = current_sub.end_date + timedelta(days=1)
+        else:
+            start_date = today
+
+    end_date = calculate_plan_end_date(
+        start_date, plan.duration_value, plan.duration_unit
+    )
+
+    with transaction.atomic():
+        subscription = MemberSubscription.all_objects.create(
+            gym=member.gym,
+            member=member,
+            plan=plan,
+            start_date=start_date,
+            end_date=end_date,
+            status=MemberSubscription.STATUS_ACTIVE,
+        )
+        update_member_status(member, today=today)
+
+        from apps.accounts.services import record_audit_log
+
+        record_audit_log(
+            action_type="member_subscription_created",
+            affected_record_type="MemberSubscription",
+            affected_record_id=str(subscription.id),
+            actor=actor or getattr(member, "user", None),
+            gym=member.gym,
+            metadata={
+                "member_id": str(member.id),
+                "member_name": member.full_name,
+                "plan_id": str(plan.id),
+                "plan_name": plan.name,
+                "start_date": str(start_date),
+                "end_date": str(end_date),
+                "price_etb": str(plan.price_etb),
+            },
+        )
+    return subscription
+
+
+def suspend_member(
+    member: Member,
+    actor: User,
+    reason: str = "",
+) -> Member:
+    """
+    Suspend a member. Moves their subscription to STATUS_SUSPENDED and derives Member.status in the same transaction.
+    Only Gym Owner and Manager can suspend a member.
+    """
+    today = timezone.localdate()
+    with transaction.atomic():
+        subs = list(
+            MemberSubscription.all_objects.filter(
+                gym=member.gym, member=member
+            ).order_by("-end_date", "-created_at")
+        )
+        if subs:
+            for s in subs:
+                if s.status in (
+                    MemberSubscription.STATUS_ACTIVE,
+                    MemberSubscription.STATUS_FROZEN,
+                    MemberSubscription.STATUS_PENDING,
+                ):
+                    s.status = MemberSubscription.STATUS_SUSPENDED
+                    s.save(update_fields=["status"])
+        else:
+            MemberSubscription.all_objects.create(
+                gym=member.gym,
+                member=member,
+                plan=None,
+                start_date=today,
+                end_date=today,
+                status=MemberSubscription.STATUS_SUSPENDED,
+            )
+
+        update_member_status(member, today=today)
+
+        from apps.accounts.services import record_audit_log
+
+        record_audit_log(
+            action_type="member_suspended",
+            affected_record_type="Member",
+            affected_record_id=str(member.id),
+            actor=actor,
+            gym=member.gym,
+            metadata={
+                "member_id": str(member.id),
+                "member_name": member.full_name,
+                "reason": reason,
+            },
+        )
+    return member
+
+
+def reactivate_member(
+    member: Member,
+    actor: User,
+) -> Member:
+    """
+    Reactivate a suspended member. Restores subscription status and derives Member.status in the same transaction.
+    Only Gym Owner and Manager can reactivate a member.
+    """
+    today = timezone.localdate()
+    with transaction.atomic():
+        suspended_subs = list(
+            MemberSubscription.all_objects.filter(
+                gym=member.gym,
+                member=member,
+                status=MemberSubscription.STATUS_SUSPENDED,
+            )
+        )
+        for s in suspended_subs:
+            if s.plan is None and s.start_date == s.end_date == today:
+                s.delete()
+            elif s.end_date >= today:
+                s.status = MemberSubscription.STATUS_ACTIVE
+                s.save(update_fields=["status"])
+            else:
+                s.status = MemberSubscription.STATUS_EXPIRED
+                s.save(update_fields=["status"])
+
+        update_member_status(member, today=today)
+
+        from apps.accounts.services import record_audit_log
+
+        record_audit_log(
+            action_type="member_reactivated",
+            affected_record_type="Member",
+            affected_record_id=str(member.id),
+            actor=actor,
+            gym=member.gym,
+            metadata={
+                "member_id": str(member.id),
+                "member_name": member.full_name,
+            },
+        )
+    return member

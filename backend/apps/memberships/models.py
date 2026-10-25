@@ -8,7 +8,56 @@ from django.db import models
 from django.utils import timezone
 
 from apps.memberships.calculations import calculate_bmi, calculate_us_navy_body_fat
+from apps.tenants.managers import TenantManager, TenantQuerySet
 from apps.tenants.models import TenantAwareModel
+
+
+class MemberQuerySet(TenantQuerySet):
+    """Tenant-scoped queryset for Member that blocks direct status modifications."""
+
+    def update(self, **kwargs):
+        if "status" in kwargs:
+            raise ValueError(
+                "Direct modification of Member.status via update() is prohibited. "
+                "Member.status is derived from MemberSubscription and must only be updated via update_member_status()."
+            )
+        return super().update(**kwargs)
+
+    def bulk_update(self, objs, fields, *args, **kwargs):
+        if "status" in fields:
+            raise ValueError(
+                "Direct modification of Member.status via bulk_update() is prohibited. "
+                "Member.status is derived from MemberSubscription and must only be updated via update_member_status()."
+            )
+        return super().bulk_update(objs, fields, *args, **kwargs)
+
+
+class MemberManager(TenantManager.from_queryset(MemberQuerySet)):
+    pass
+
+
+class MemberAllObjectsQuerySet(models.QuerySet):
+    """Unscoped queryset for Member that blocks direct status modifications."""
+
+    def update(self, **kwargs):
+        if "status" in kwargs:
+            raise ValueError(
+                "Direct modification of Member.status via update() is prohibited. "
+                "Member.status is derived from MemberSubscription and must only be updated via update_member_status()."
+            )
+        return super().update(**kwargs)
+
+    def bulk_update(self, objs, fields, *args, **kwargs):
+        if "status" in fields:
+            raise ValueError(
+                "Direct modification of Member.status via bulk_update() is prohibited. "
+                "Member.status is derived from MemberSubscription and must only be updated via update_member_status()."
+            )
+        return super().bulk_update(objs, fields, *args, **kwargs)
+
+
+class MemberAllObjectsManager(models.Manager.from_queryset(MemberAllObjectsQuerySet)):
+    pass
 
 
 class Member(TenantAwareModel):
@@ -20,12 +69,14 @@ class Member(TenantAwareModel):
     profile photo key, membership status, and required health waiver timestamp.
     """
 
+    STATUS_PENDING = "pending"
     STATUS_ACTIVE = "active"
     STATUS_EXPIRED = "expired"
     STATUS_FROZEN = "frozen"
     STATUS_SUSPENDED = "suspended"
 
     STATUS_CHOICES = [
+        (STATUS_PENDING, "Pending"),
         (STATUS_ACTIVE, "Active"),
         (STATUS_EXPIRED, "Expired"),
         (STATUS_FROZEN, "Frozen"),
@@ -62,10 +113,14 @@ class Member(TenantAwareModel):
     status = models.CharField(
         max_length=20,
         choices=STATUS_CHOICES,
-        default=STATUS_ACTIVE,
+        default=STATUS_PENDING,
+        db_index=True,
     )
     joined_at = models.DateTimeField(auto_now_add=True)
     waiver_accepted_at = models.DateTimeField()
+
+    objects = MemberManager()
+    all_objects = MemberAllObjectsManager()
 
     class Meta:
         verbose_name = "Member"
@@ -81,6 +136,17 @@ class Member(TenantAwareModel):
     def __str__(self) -> str:
         gym_name = self.gym.name if self.gym_id else "No Gym"
         return f"{self.full_name} ({self.phone}) @ {gym_name}"
+
+    def save(self, *args, **kwargs):
+        if self.pk:
+            orig = Member.all_objects.filter(pk=self.pk).values("status").first()
+            if orig and orig["status"] != self.status:
+                if not getattr(self, "_status_update_allowed", False):
+                    raise ValueError(
+                        f"Direct modification of Member.status from '{orig['status']}' to '{self.status}' is prohibited. "
+                        "Member.status is derived from MemberSubscription and must only be updated via update_member_status()."
+                    )
+        super().save(*args, **kwargs)
 
     @property
     def latest_metrics(self) -> Optional["BodyMetrics"]:
@@ -115,6 +181,59 @@ class Member(TenantAwareModel):
         if sub:
             return sub.start_date, sub.end_date
         return None, None
+
+
+class MembershipPlan(TenantAwareModel):
+    """
+    Membership plan configured by gym Owner/Manager.
+
+    SPEC §8 / Sprint 10:
+    - id (UUID PK)
+    - gym_id (inherited from TenantAwareModel)
+    - name (CharField 100)
+    - description (TextField blank)
+    - duration_value (PositiveIntegerField)
+    - duration_unit (days/months)
+    - price_etb (DecimalField)
+    - trainer_inclusive (BooleanField, default False)
+    - is_active (BooleanField, default True)
+    """
+
+    DURATION_DAYS = "days"
+    DURATION_MONTHS = "months"
+    DURATION_UNIT_CHOICES = [
+        (DURATION_DAYS, "Days"),
+        (DURATION_MONTHS, "Months"),
+    ]
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    name = models.CharField(max_length=100)
+    description = models.TextField(blank=True, default="")
+    duration_value = models.PositiveIntegerField()
+    duration_unit = models.CharField(
+        max_length=10,
+        choices=DURATION_UNIT_CHOICES,
+        default=DURATION_MONTHS,
+    )
+    price_etb = models.DecimalField(max_digits=10, decimal_places=2)
+    trainer_inclusive = models.BooleanField(default=False)
+    is_active = models.BooleanField(default=True, db_index=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Membership Plan"
+        verbose_name_plural = "Membership Plans"
+        ordering = ["-created_at"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["gym", "name"],
+                name="membershipplan_gym_name_unique",
+            )
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.name} ({self.duration_value} {self.duration_unit} - {self.price_etb} ETB)"
 
 
 class BodyMetrics(TenantAwareModel):
@@ -181,7 +300,7 @@ class MemberSubscription(TenantAwareModel):
     - id (UUID PK)
     - member (FK -> Member, CASCADE)
     - gym_id (inherited from TenantAwareModel)
-    - plan_id (nullable UUID)
+    - plan (FK -> MembershipPlan, PROTECT, nullable)
     - start_date (DateField)
     - end_date (DateField)
     - status (pending/active/frozen/suspended/expired)
@@ -209,7 +328,14 @@ class MemberSubscription(TenantAwareModel):
         on_delete=models.CASCADE,
         related_name="subscriptions",
     )
-    plan_id = models.UUIDField(null=True, blank=True)
+    plan = models.ForeignKey(
+        MembershipPlan,
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="subscriptions",
+        db_column="plan_id",
+    )
     start_date = models.DateField()
     end_date = models.DateField()
     status = models.CharField(

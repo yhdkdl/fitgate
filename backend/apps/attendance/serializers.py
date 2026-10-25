@@ -61,6 +61,7 @@ class AttendanceRecordSerializer(serializers.Serializer):
     id = serializers.UUIDField()
     date = serializers.DateField()
     checked_in_at = serializers.DateTimeField()
+    method = serializers.CharField()
     is_override = serializers.BooleanField()
     override_reason = serializers.CharField(allow_blank=True, required=False)
 
@@ -119,6 +120,7 @@ class DailyAttendanceItemSerializer(serializers.Serializer):
     )
     attended = serializers.BooleanField()
     checked_in_at = serializers.DateTimeField(required=False, allow_null=True)
+    method = serializers.CharField(required=False, allow_blank=True)
     is_override = serializers.BooleanField(required=False)
 
 
@@ -141,6 +143,7 @@ class AttendanceTodayItemSerializer(serializers.Serializer):
     member_name = serializers.CharField()
     member_photo_url = serializers.CharField(allow_blank=True)
     checked_in_at = serializers.DateTimeField()
+    method = serializers.CharField()
     is_override = serializers.BooleanField()
     override_reason = serializers.CharField(allow_blank=True, required=False)
     recorded_by_name = serializers.CharField(allow_null=True, required=False)

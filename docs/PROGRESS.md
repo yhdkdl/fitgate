@@ -26,21 +26,16 @@
 - Fix: Cross-tab session synchronization (`e49b29ec95ccd55e4953526360cc3fef7ce4df23`, tag `fix-cross-tab-session-done`)
 - Staging deploy prep: release packaging, cPanel deployment guide, UAPI client hardening, PG 13 compatibility, security settings (`2d981a8`, tag `staging-prep-done`)
 - Fix: Private photo authentication, domain normalization, and deferred checklist (`001764e14ea58c33a1628ab19731859ba79cd31d`, tag `fix-private-photos-done`)
+- Sprint 10: Membership plans & subscription lifecycle (STRICT) — unified check-in engine (`execute_check_in`), `Attendance.method` single source of truth (`qr`, `manual_override`) enforced via DB `CheckConstraint`, `MemberSubscription` status single source of truth with protected derived `Member.status` (direct write raises `ValueError`), 5th choice `pending` for new signups, plans CRUD (days/months with accurate month-end calculation), trainer warning on inclusive plans, price change immutability, tenant isolation, public plan listing, member suspend/reactivate actions.
 
 ## Current
 
-- Increment 2 preparation: documentation updates, scope alignments, and Increment 2 preflight.
-- Scope adjustments recorded:
-  - Deferred to future versions: Sprint 18 (trainer availability schedule), Sprint 19 (trainer-to-member messaging), Sprint 26 (group class scheduling and booking), Sprint 28a (badges and member progress charts), and advanced analytics (peak-hours heatmap, cohort retention, referral analytics).
-  - Premium analytics in v1 narrowed to revenue by plan only (Growth and Pro tiers).
-  - Tiers restated: Pro hidden from landing page and gym creation until Increment 6 ships; `has_group_classes` inert across all tiers.
-  - Multi-branch ordering: Increment 6 (Sprints 30–34) runs after Increment 7 as an optional final phase; go/no-go decision date: to be set by the owner.
-  - Member status model: `pending` added for newly registered members with no active plan; `MemberSubscription` established as single source of truth.
-  - Notification architecture: Sprint 11 creates the Notification model and shared helper (stored only, gym-scoped) so criteria in Sprints 11–13 are checkable; Sprint 15 delivers the in-app UI screens.
+- Sprint 10 completed and tested (100% green on backend and frontend suites). STRICT sprint report submitted; awaiting owner review to merge.
 
 ## Next
 
-- Increment 2 starts with Sprint 10: Membership plans & subscription lifecycle (STRICT sprint).
+- Merge Sprint 10 (`feature/sprint-10-membership-plans` -> `develop`), tag `sprint-10-done`, pull develop.
+- Sprint 11: Chapa payment integration (one account per gym) (GATE) — Notification record and shared storage helper, encrypted per-gym credentials, signed mocked webhooks.
 
 ## Open manual steps
 
@@ -61,7 +56,7 @@
 - (e) Working rules updated: plain-language non-developer acceptance criteria in SPRINTS.md, plain-language sprint reports without diffs or code, new tests written only for security/money/tenancy or silently breakable logic, and clear bug-fix diagnoses.
 - (f) Body measurements recorded by Trainers only; registration captures none. A gym with no trainer cannot record measurements, so BMI, body fat and AI plans show 'not measured yet'. Owner decided: no fallback for now.
 
-Until Sprint 10, check-in requires a MemberSubscription row (create via Django shell/tests).
+From Sprint 10, check-in directly reads MemberSubscription and verifies valid plan, date ranges, and status (pending members refused with plain reason).
 
 ## Docs Note — Sprint 4 Strict Security & Path Coverage Report (for review at Sprint 5 Gate)
 
