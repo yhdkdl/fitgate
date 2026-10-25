@@ -165,7 +165,7 @@ class TestMemberRegistrationSelfServiceAndStaffParity:
         assert member.gender == "male"
         assert member.emergency_contact == "Almaz - +251922001122"
         assert member.referral_source == "friend"
-        assert member.status == Member.STATUS_ACTIVE
+        assert member.status == Member.STATUS_PENDING
         assert member.waiver_accepted_at is not None
 
         # User checks
@@ -217,7 +217,7 @@ class TestMemberRegistrationSelfServiceAndStaffParity:
         assert member.gender == "female"
         assert member.emergency_contact == "Bekele - +251933445566"
         assert member.referral_source == "walk_in"
-        assert member.status == Member.STATUS_ACTIVE
+        assert member.status == Member.STATUS_PENDING
         assert member.waiver_accepted_at is not None
 
         # User checks

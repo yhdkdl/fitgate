@@ -715,6 +715,386 @@ paths:
           description: Forbidden - Trainer only
         '404':
           description: Member not found
+  /api/gym/members/{id}/reactivate/:
+    post:
+      operationId: gym_members_reactivate_create
+      description: Owner or Manager reactivates a suspended member.
+      summary: Reactivate a suspended member
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - gym
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: Member reactivated
+  /api/gym/members/{id}/subscriptions/:
+    get:
+      operationId: gym_members_subscriptions_list
+      description: |-
+        List and create subscriptions for a member.
+        Staff can assign active plans to members.
+      summary: List member subscriptions
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - gym
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/MemberSubscription'
+          description: ''
+    post:
+      operationId: gym_members_subscriptions_create
+      description: Assigns an active membership plan to a member and computes new
+        status.
+      summary: Create or renew subscription for member
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - gym
+      security:
+      - jwtAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MemberSubscription'
+          description: ''
+  /api/gym/members/{id}/suspend/:
+    post:
+      operationId: gym_members_suspend_create
+      description: Owner or Manager suspends a member. Moves subscription status to
+        suspended.
+      summary: Suspend a member
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - gym
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MemberSuspendRequestRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/MemberSuspendRequestRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/MemberSuspendRequestRequest'
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: Member suspended
+  /api/gym/membership-plans/:
+    get:
+      operationId: gym_membership_plans_list
+      description: Returns all membership plans configured for the gym.
+      summary: List gym membership plans
+      tags:
+      - gym
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/MembershipPlan'
+          description: ''
+    post:
+      operationId: gym_membership_plans_create
+      description: Owner or Manager creates a new membership plan. Warns if trainer-inclusive
+        with no trainers.
+      summary: Create gym membership plan
+      tags:
+      - gym
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MembershipPlanRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/MembershipPlanRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/MembershipPlanRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MembershipPlan'
+          description: ''
+        '400':
+          description: Validation error
+        '403':
+          description: Forbidden
+  /api/gym/membership-plans/{id}/:
+    get:
+      operationId: gym_membership_plans_retrieve
+      description: |-
+        Retrieve, update, or deactivate a membership plan.
+        Read: Gym Staff.
+        Write/Deactivate: Owner and Manager only.
+      summary: Retrieve membership plan details
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - gym
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MembershipPlan'
+          description: ''
+    patch:
+      operationId: gym_membership_plans_partial_update
+      description: Owner or Manager updates a plan. Price changes do not affect past
+        payments or existing subscriptions.
+      summary: Update membership plan
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - gym
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedMembershipPlanRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedMembershipPlanRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedMembershipPlanRequest'
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MembershipPlan'
+          description: ''
+        '403':
+          description: Forbidden
+    delete:
+      operationId: gym_membership_plans_destroy
+      description: Owner or Manager deactivates plan. Existing subscriptions remain
+        intact.
+      summary: Deactivate membership plan
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - gym
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: Plan deactivated
+  /api/gym/membership-plans/public/:
+    get:
+      operationId: gym_membership_plans_public_list
+      description: Visitors can view all active plans and prices without logging in.
+      summary: List active plans publicly
+      tags:
+      - gym
+      security:
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/PublicPlan'
+          description: ''
+  /api/gym/plans/:
+    get:
+      operationId: gym_plans_list
+      description: Returns all membership plans configured for the gym.
+      summary: List gym membership plans
+      tags:
+      - gym
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/MembershipPlan'
+          description: ''
+    post:
+      operationId: gym_plans_create
+      description: Owner or Manager creates a new membership plan. Warns if trainer-inclusive
+        with no trainers.
+      summary: Create gym membership plan
+      tags:
+      - gym
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MembershipPlanRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/MembershipPlanRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/MembershipPlanRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MembershipPlan'
+          description: ''
+        '400':
+          description: Validation error
+        '403':
+          description: Forbidden
+  /api/gym/plans/{id}/:
+    get:
+      operationId: gym_plans_retrieve
+      description: |-
+        Retrieve, update, or deactivate a membership plan.
+        Read: Gym Staff.
+        Write/Deactivate: Owner and Manager only.
+      summary: Retrieve membership plan details
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - gym
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MembershipPlan'
+          description: ''
+    patch:
+      operationId: gym_plans_partial_update
+      description: Owner or Manager updates a plan. Price changes do not affect past
+        payments or existing subscriptions.
+      summary: Update membership plan
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - gym
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedMembershipPlanRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedMembershipPlanRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedMembershipPlanRequest'
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MembershipPlan'
+          description: ''
+        '403':
+          description: Forbidden
+    delete:
+      operationId: gym_plans_destroy
+      description: Owner or Manager deactivates plan. Existing subscriptions remain
+        intact.
+      summary: Deactivate membership plan
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - gym
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: Plan deactivated
   /api/gym/settings/:
     get:
       operationId: gym_settings_retrieve
@@ -1624,6 +2004,24 @@ paths:
           description: Validation error, missing waiver, or duplicate email/phone
         '404':
           description: Gym tenant not found
+  /api/public/plans/:
+    get:
+      operationId: public_plans_list
+      description: Visitors can view all active plans and prices without logging in.
+      summary: List active plans publicly
+      tags:
+      - public
+      security:
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/PublicPlan'
+          description: ''
 components:
   schemas:
     AttendanceLogResponse:
@@ -1665,8 +2063,8 @@ components:
           description: UUID of the member to check in.
         reason:
           type: string
-          minLength: 1
-          description: Non-empty explanation for manual override.
+          minLength: 5
+          description: Explanation for manual override (5 to 500 characters).
           maxLength: 500
         branch_id:
           type: string
@@ -1718,6 +2116,8 @@ components:
         checked_in_at:
           type: string
           format: date-time
+        method:
+          type: string
         is_override:
           type: boolean
         override_reason:
@@ -1727,6 +2127,7 @@ components:
       - date
       - id
       - is_override
+      - method
     AttendanceScanErrorResponse:
       type: object
       properties:
@@ -1747,6 +2148,7 @@ components:
           type: string
           minLength: 1
           description: Scanned QR token string (EdDSA JWT).
+          maxLength: 2048
         branch_id:
           type: string
           format: uuid
@@ -1812,6 +2214,8 @@ components:
         checked_in_at:
           type: string
           format: date-time
+        method:
+          type: string
         is_override:
           type: boolean
         override_reason:
@@ -1826,6 +2230,7 @@ components:
       - member_id
       - member_name
       - member_photo_url
+      - method
     AttendanceTodayListResponse:
       type: object
       description: Response serializer for live Today's Check-ins list.
@@ -2051,7 +2456,7 @@ components:
         contact_phone:
           type: string
           default: ''
-          maxLength: 20
+          maxLength: 50
         contact_email:
           oneOf:
           - type: string
@@ -2104,6 +2509,8 @@ components:
         payment_id:
           type: string
           format: uuid
+        gym_url:
+          type: string
       required:
       - config
       - gym
@@ -2148,6 +2555,8 @@ components:
           type: string
           format: date-time
           nullable: true
+        method:
+          type: string
         is_override:
           type: boolean
       required:
@@ -2276,6 +2685,14 @@ components:
       required:
       - dismissed_at
       - is_dismissed
+    DurationUnitEnum:
+      enum:
+      - days
+      - months
+      type: string
+      description: |-
+        * `days` - Days
+        * `months` - Months
     FirstRunChecklistResponse:
       type: object
       description: First-run onboarding checklist progress for gym Owner.
@@ -2434,6 +2851,9 @@ components:
         subdomain:
           type: string
           readOnly: true
+        url:
+          type: string
+          readOnly: true
         status:
           allOf:
           - $ref: '#/components/schemas/GymStatusEnum'
@@ -2491,6 +2911,7 @@ components:
       - tier
       - tls_confirmed_at
       - updated_at
+      - url
     HealthCheckResponse:
       type: object
       properties:
@@ -2517,7 +2938,7 @@ components:
         phone:
           type: string
           default: ''
-          maxLength: 20
+          maxLength: 50
       required:
       - email
       - role
@@ -2620,7 +3041,9 @@ components:
           type: string
           maxLength: 255
         status:
-          $ref: '#/components/schemas/StatusBa9Enum'
+          allOf:
+          - $ref: '#/components/schemas/Status1d7Enum'
+          readOnly: true
         joined_at:
           type: string
           format: date-time
@@ -2640,6 +3063,7 @@ components:
       - joined_at
       - latest_metrics
       - phone
+      - status
       - waiver_accepted_at
     MemberDetail:
       type: object
@@ -2677,7 +3101,9 @@ components:
           type: string
           maxLength: 255
         status:
-          $ref: '#/components/schemas/StatusBa9Enum'
+          allOf:
+          - $ref: '#/components/schemas/Status1d7Enum'
+          readOnly: true
         joined_at:
           type: string
           format: date-time
@@ -2703,6 +3129,7 @@ components:
       - joined_at
       - latest_metrics
       - phone
+      - status
       - waiver_accepted_at
     MemberQrTokenErrorResponse:
       type: object
@@ -2736,6 +3163,138 @@ components:
       - expires_at
       - member_id
       - token
+    MemberSubscription:
+      type: object
+      description: Serializer for member subscriptions.
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        member:
+          type: string
+          format: uuid
+        plan:
+          type: string
+          format: uuid
+          nullable: true
+        plan_name:
+          type: string
+          readOnly: true
+        start_date:
+          type: string
+          format: date
+        end_date:
+          type: string
+          format: date
+        status:
+          $ref: '#/components/schemas/Status1d7Enum'
+        freeze_start_date:
+          type: string
+          format: date
+          nullable: true
+        frozen_days_total:
+          type: integer
+          maximum: 2147483647
+          minimum: 0
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - created_at
+      - end_date
+      - id
+      - member
+      - plan_name
+      - start_date
+    MemberSuspendRequestRequest:
+      type: object
+      description: Request serializer for suspending a member.
+      properties:
+        reason:
+          type: string
+          description: Optional reason for suspending member.
+          maxLength: 500
+    MembershipPlan:
+      type: object
+      description: Serializer for gym membership plans.
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        name:
+          type: string
+          maxLength: 100
+        description:
+          type: string
+        duration_value:
+          type: integer
+          maximum: 2147483647
+          minimum: 0
+        duration_unit:
+          $ref: '#/components/schemas/DurationUnitEnum'
+        price_etb:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+        trainer_inclusive:
+          type: boolean
+        is_active:
+          type: boolean
+        warning:
+          type: string
+          readOnly: true
+        has_no_trainers_warning:
+          type: boolean
+          readOnly: true
+          default: false
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - created_at
+      - duration_value
+      - has_no_trainers_warning
+      - id
+      - name
+      - price_etb
+      - updated_at
+      - warning
+    MembershipPlanRequest:
+      type: object
+      description: Serializer for gym membership plans.
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+        description:
+          type: string
+        duration_value:
+          type: integer
+          maximum: 2147483647
+          minimum: 0
+        duration_unit:
+          $ref: '#/components/schemas/DurationUnitEnum'
+        price_etb:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+        trainer_inclusive:
+          type: boolean
+        is_active:
+          type: boolean
+      required:
+      - duration_value
+      - name
+      - price_etb
     PaginatedAuditLogList:
       type: object
       required:
@@ -2856,8 +3415,30 @@ components:
         photo_url:
           type: string
           maxLength: 255
-        status:
-          $ref: '#/components/schemas/StatusBa9Enum'
+    PatchedMembershipPlanRequest:
+      type: object
+      description: Serializer for gym membership plans.
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+        description:
+          type: string
+        duration_value:
+          type: integer
+          maximum: 2147483647
+          minimum: 0
+        duration_unit:
+          $ref: '#/components/schemas/DurationUnitEnum'
+        price_etb:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+        trainer_inclusive:
+          type: boolean
+        is_active:
+          type: boolean
     PatchedUserProfileUpdateRequest:
       type: object
       description: Payload for updating user profile (full_name and phone only).
@@ -2867,7 +3448,7 @@ components:
           maxLength: 150
         phone:
           type: string
-          maxLength: 20
+          maxLength: 50
     ProposeSubdomainResponse:
       type: object
       description: Response containing proposed candidate subdomain.
@@ -2942,7 +3523,7 @@ components:
         phone:
           type: string
           minLength: 1
-          maxLength: 20
+          maxLength: 50
         password:
           type: string
           writeOnly: true
@@ -2973,6 +3554,43 @@ components:
       - password
       - phone
       - waiver_accepted
+    PublicPlan:
+      type: object
+      description: Public read-only serializer for active membership plans.
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        name:
+          type: string
+          readOnly: true
+        description:
+          type: string
+          readOnly: true
+        duration_value:
+          type: integer
+          readOnly: true
+        duration_unit:
+          allOf:
+          - $ref: '#/components/schemas/DurationUnitEnum'
+          readOnly: true
+        price_etb:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+          readOnly: true
+        trainer_inclusive:
+          type: boolean
+          readOnly: true
+      required:
+      - description
+      - duration_unit
+      - duration_value
+      - id
+      - name
+      - price_etb
+      - trainer_inclusive
     RecordBodyMetricsRequest:
       type: object
       description: |-
@@ -3110,7 +3728,7 @@ components:
         phone:
           type: string
           minLength: 1
-          maxLength: 20
+          maxLength: 50
         waiver_accepted:
           type: boolean
         date_of_birth:
@@ -3135,14 +3753,16 @@ components:
       - full_name
       - phone
       - waiver_accepted
-    StatusBa9Enum:
+    Status1d7Enum:
       enum:
+      - pending
       - active
       - expired
       - frozen
       - suspended
       type: string
       description: |-
+        * `pending` - Pending
         * `active` - Active
         * `expired` - Expired
         * `frozen` - Frozen

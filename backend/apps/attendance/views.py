@@ -206,6 +206,7 @@ class AttendanceScanView(APIView):
         except ScanValidationError as e:
             data = {
                 "detail": e.message,
+                "message": e.message,
                 "reason": e.reason,
             }
             if e.member:
@@ -273,6 +274,7 @@ class AttendanceManualOverrideView(APIView):
         except ScanValidationError as e:
             data = {
                 "detail": e.message,
+                "message": e.message,
                 "reason": e.reason,
             }
             if e.member:
@@ -469,6 +471,7 @@ class AttendanceTodayListView(APIView):
                     tenant.id, att.member.photo_url
                 ),
                 "checked_in_at": att.checked_in_at,
+                "method": att.method,
                 "is_override": att.is_override,
                 "override_reason": att.override_reason or "",
                 "recorded_by_name": (

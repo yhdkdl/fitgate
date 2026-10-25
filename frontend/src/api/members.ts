@@ -52,7 +52,7 @@ export interface Member {
   emergency_contact?: string;
   referral_source?: string;
   photo_url?: string;
-  status: "active" | "expired" | "frozen" | "suspended";
+  status: "pending" | "active" | "expired" | "frozen" | "suspended";
   joined_at: string;
   waiver_accepted_at: string;
   latest_metrics?: BodyMetrics | null;
@@ -285,5 +285,47 @@ export async function uploadMemberPhoto(
   return handleResponse<{ file_path: string; filename: string; url: string }>(
     res,
     "Failed to upload member photo."
+  );
+}
+
+/**
+ * Suspend a gym member (Owner/Manager).
+ */
+export async function suspendMember(
+  memberId: string,
+  reason: string
+): Promise<{ detail: string; status: string; member: Member }> {
+  const res = await fetch(`/api/gym/members/${memberId}/suspend/`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...getAuthHeader(),
+    },
+    body: JSON.stringify({ reason }),
+  });
+
+  return handleResponse<{ detail: string; status: string; member: Member }>(
+    res,
+    "Failed to suspend member."
+  );
+}
+
+/**
+ * Reactivate a suspended gym member (Owner/Manager).
+ */
+export async function reactivateMember(
+  memberId: string
+): Promise<{ detail: string; status: string; member: Member }> {
+  const res = await fetch(`/api/gym/members/${memberId}/reactivate/`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...getAuthHeader(),
+    },
+  });
+
+  return handleResponse<{ detail: string; status: string; member: Member }>(
+    res,
+    "Failed to reactivate member."
   );
 }

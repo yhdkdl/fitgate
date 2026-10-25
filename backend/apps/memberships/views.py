@@ -15,23 +15,36 @@ from apps.accounts.models import User
 from apps.accounts.permissions import (
     IsGymStaff,
     IsMember,
+    IsOwnerOrManager,
     RequirePasswordChanged,
 )
 from apps.accounts.services import record_audit_log
-from apps.memberships.models import BodyMetrics, Member
+from apps.memberships.models import (
+    BodyMetrics,
+    Member,
+    MembershipPlan,
+    MemberSubscription,
+)
 from apps.memberships.serializers import (
     BodyMetricsSerializer,
     MemberDetailSerializer,
     MemberSerializer,
+    MembershipPlanSerializer,
+    MemberSubscriptionSerializer,
+    MemberSuspendRequestSerializer,
     MemberUpdateSerializer,
     PublicMemberRegistrationSerializer,
+    PublicPlanSerializer,
     RecordBodyMetricsSerializer,
     StaffMemberRegistrationSerializer,
     VerifyEmailRequestSerializer,
 )
 from apps.memberships.services import (
+    create_or_renew_subscription,
+    reactivate_member,
     register_member_self_service,
     register_member_staff_assisted,
+    suspend_member,
     verify_member_email,
 )
 from apps.memberships.throttling import MemberRegistrationRateThrottle
@@ -504,4 +517,426 @@ class MemberSelfMetricsView(APIView):
     def post(self, request, *args, **kwargs):
         raise PermissionDenied(
             "Members cannot enter or edit measurements. A trainer records measurements."
+        )
+
+
+class MembershipPlanListCreateView(APIView):
+    """
+    List and create membership plans for the gym.
+    Read: Gym Staff (Owner, Manager, Trainer, Reception).
+    Write: Owner and Manager only.
+    """
+
+    permission_classes = [IsAuthenticated, RequirePasswordChanged, IsGymStaff]
+
+    @extend_schema(
+        summary="List gym membership plans",
+        description="Returns all membership plans configured for the gym.",
+        responses={200: MembershipPlanSerializer(many=True)},
+    )
+    def get(self, request, *args, **kwargs):
+        tenant = getattr(request, "tenant", None)
+        if tenant is None:
+            raise Http404("Gym tenant context required.")
+
+        plans = MembershipPlan.objects.filter(gym=tenant).order_by("-created_at")
+        return Response(
+            MembershipPlanSerializer(plans, many=True).data,
+            status=status.HTTP_200_OK,
+        )
+
+    @extend_schema(
+        summary="Create gym membership plan",
+        description="Owner or Manager creates a new membership plan. Warns if trainer-inclusive with no trainers.",
+        request=MembershipPlanSerializer,
+        responses={
+            201: MembershipPlanSerializer,
+            400: OpenApiResponse(description="Validation error"),
+            403: OpenApiResponse(description="Forbidden"),
+        },
+    )
+    def post(self, request, *args, **kwargs):
+        tenant = getattr(request, "tenant", None)
+        if tenant is None:
+            raise Http404("Gym tenant context required.")
+
+        # RBAC: Only Owner or Manager can create plans
+        if request.user.role not in (User.ROLE_OWNER, User.ROLE_MANAGER):
+            raise PermissionDenied(
+                "Only gym owners and managers can create membership plans."
+            )
+
+        serializer = MembershipPlanSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        trainer_inclusive = serializer.validated_data.get("trainer_inclusive", False)
+        warning = None
+        if trainer_inclusive:
+            has_trainers = User.objects.filter(
+                gym=tenant, role=User.ROLE_TRAINER, is_active=True
+            ).exists()
+            if not has_trainers:
+                warning = (
+                    "This gym currently has no active trainers. The plan has been created, "
+                    "but trainer assignment will not be possible until trainers are added."
+                )
+
+        with transaction.atomic():
+            plan = serializer.save(gym=tenant)
+            record_audit_log(
+                action_type="membership_plan_created",
+                affected_record_type="MembershipPlan",
+                affected_record_id=str(plan.id),
+                actor=request.user,
+                gym=tenant,
+                metadata={
+                    "name": plan.name,
+                    "duration": f"{plan.duration_value} {plan.duration_unit}",
+                    "price_etb": str(plan.price_etb),
+                    "trainer_inclusive": plan.trainer_inclusive,
+                },
+            )
+
+        resp_data = MembershipPlanSerializer(plan).data
+        resp_data["has_no_trainers_warning"] = bool(warning)
+        if warning:
+            resp_data["warning"] = warning
+
+        return Response(resp_data, status=status.HTTP_201_CREATED)
+
+
+class MembershipPlanDetailView(APIView):
+    """
+    Retrieve, update, or deactivate a membership plan.
+    Read: Gym Staff.
+    Write/Deactivate: Owner and Manager only.
+    """
+
+    permission_classes = [IsAuthenticated, RequirePasswordChanged, IsGymStaff]
+
+    def _get_plan(self, pk, tenant):
+        plan = MembershipPlan.objects.filter(id=pk, gym=tenant).first()
+        if not plan:
+            raise Http404("Membership plan not found.")
+        return plan
+
+    @extend_schema(
+        summary="Retrieve membership plan details",
+        responses={200: MembershipPlanSerializer},
+    )
+    def get(self, request, pk, *args, **kwargs):
+        tenant = getattr(request, "tenant", None)
+        if tenant is None:
+            raise Http404("Gym tenant context required.")
+        plan = self._get_plan(pk, tenant)
+        return Response(MembershipPlanSerializer(plan).data, status=status.HTTP_200_OK)
+
+    @extend_schema(
+        summary="Update membership plan",
+        description="Owner or Manager updates a plan. Price changes do not affect past payments or existing subscriptions.",
+        request=MembershipPlanSerializer,
+        responses={
+            200: MembershipPlanSerializer,
+            403: OpenApiResponse(description="Forbidden"),
+        },
+    )
+    def patch(self, request, pk, *args, **kwargs):
+        tenant = getattr(request, "tenant", None)
+        if tenant is None:
+            raise Http404("Gym tenant context required.")
+
+        if request.user.role not in (User.ROLE_OWNER, User.ROLE_MANAGER):
+            raise PermissionDenied(
+                "Only gym owners and managers can update membership plans."
+            )
+
+        plan = self._get_plan(pk, tenant)
+        serializer = MembershipPlanSerializer(plan, data=request.data, partial=True)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        trainer_inclusive = serializer.validated_data.get(
+            "trainer_inclusive", plan.trainer_inclusive
+        )
+        warning = None
+        if trainer_inclusive:
+            has_trainers = User.objects.filter(
+                gym=tenant, role=User.ROLE_TRAINER, is_active=True
+            ).exists()
+            if not has_trainers:
+                warning = (
+                    "This gym currently has no active trainers. The plan has been updated, "
+                    "but trainer assignment will not be possible until trainers are added."
+                )
+
+        with transaction.atomic():
+            updated_plan = serializer.save()
+            record_audit_log(
+                action_type="membership_plan_updated",
+                affected_record_type="MembershipPlan",
+                affected_record_id=str(updated_plan.id),
+                actor=request.user,
+                gym=tenant,
+                metadata={
+                    "name": updated_plan.name,
+                    "price_etb": str(updated_plan.price_etb),
+                    "is_active": updated_plan.is_active,
+                },
+            )
+
+        resp_data = MembershipPlanSerializer(updated_plan).data
+        resp_data["has_no_trainers_warning"] = bool(warning)
+        if warning:
+            resp_data["warning"] = warning
+
+        return Response(resp_data, status=status.HTTP_200_OK)
+
+    @extend_schema(
+        summary="Deactivate membership plan",
+        description="Owner or Manager deactivates plan. Existing subscriptions remain intact.",
+        responses={200: OpenApiResponse(description="Plan deactivated")},
+    )
+    def delete(self, request, pk, *args, **kwargs):
+        tenant = getattr(request, "tenant", None)
+        if tenant is None:
+            raise Http404("Gym tenant context required.")
+
+        if request.user.role not in (User.ROLE_OWNER, User.ROLE_MANAGER):
+            raise PermissionDenied(
+                "Only gym owners and managers can deactivate membership plans."
+            )
+
+        plan = self._get_plan(pk, tenant)
+        with transaction.atomic():
+            plan.is_active = False
+            plan.save(update_fields=["is_active", "updated_at"])
+            record_audit_log(
+                action_type="membership_plan_deactivated",
+                affected_record_type="MembershipPlan",
+                affected_record_id=str(plan.id),
+                actor=request.user,
+                gym=tenant,
+                metadata={"name": plan.name},
+            )
+
+        return Response(
+            {
+                "detail": "Membership plan deactivated successfully.",
+                "plan": MembershipPlanSerializer(plan).data,
+            },
+            status=status.HTTP_200_OK,
+        )
+
+
+class PublicPlanListView(APIView):
+    """
+    Public endpoint on gym subdomain returning all active membership plans.
+    """
+
+    permission_classes = [AllowAny]
+    authentication_classes = []
+
+    @extend_schema(
+        summary="List active plans publicly",
+        description="Visitors can view all active plans and prices without logging in.",
+        responses={200: PublicPlanSerializer(many=True)},
+    )
+    def get(self, request, *args, **kwargs):
+        tenant = getattr(request, "tenant", None)
+        if tenant is None:
+            subdomain = request.query_params.get("subdomain")
+            if subdomain:
+                from apps.tenants.models import GymTenant
+
+                tenant = GymTenant.objects.filter(
+                    subdomain=subdomain.strip().lower()
+                ).first()
+
+        if tenant is None:
+            return Response(
+                {"detail": "Gym tenant context required."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        plans = MembershipPlan.all_objects.filter(gym=tenant, is_active=True).order_by(
+            "-created_at"
+        )
+        return Response(
+            PublicPlanSerializer(plans, many=True).data,
+            status=status.HTTP_200_OK,
+        )
+
+
+class MemberSuspendView(APIView):
+    """
+    Suspend a gym member.
+    Allowed: Owner and Manager only.
+    """
+
+    permission_classes = [IsAuthenticated, RequirePasswordChanged, IsOwnerOrManager]
+
+    @extend_schema(
+        summary="Suspend a member",
+        description="Owner or Manager suspends a member. Moves subscription status to suspended.",
+        request=MemberSuspendRequestSerializer,
+        responses={200: OpenApiResponse(description="Member suspended")},
+    )
+    def post(self, request, pk, *args, **kwargs):
+        tenant = getattr(request, "tenant", None)
+        if tenant is None:
+            raise Http404("Gym tenant context required.")
+
+        member = Member.objects.filter(id=pk, gym=tenant).first()
+        if not member:
+            raise Http404("Member not found.")
+
+        serializer = MemberSuspendRequestSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        reason = serializer.validated_data.get("reason", "")
+
+        suspended_member = suspend_member(member, actor=request.user, reason=reason)
+        return Response(
+            {
+                "detail": f"Member {suspended_member.full_name} has been suspended.",
+                "status": suspended_member.status,
+                "member": MemberDetailSerializer(
+                    suspended_member, context={"request": request}
+                ).data,
+            },
+            status=status.HTTP_200_OK,
+        )
+
+
+class MemberReactivateView(APIView):
+    """
+    Reactivate a suspended gym member.
+    Allowed: Owner and Manager only.
+    """
+
+    permission_classes = [IsAuthenticated, RequirePasswordChanged, IsOwnerOrManager]
+
+    @extend_schema(
+        summary="Reactivate a suspended member",
+        description="Owner or Manager reactivates a suspended member.",
+        responses={200: OpenApiResponse(description="Member reactivated")},
+    )
+    def post(self, request, pk, *args, **kwargs):
+        tenant = getattr(request, "tenant", None)
+        if tenant is None:
+            raise Http404("Gym tenant context required.")
+
+        member = Member.objects.filter(id=pk, gym=tenant).first()
+        if not member:
+            raise Http404("Member not found.")
+
+        reactivated_member = reactivate_member(member, actor=request.user)
+        return Response(
+            {
+                "detail": f"Member {reactivated_member.full_name} has been reactivated.",
+                "status": reactivated_member.status,
+                "member": MemberDetailSerializer(
+                    reactivated_member, context={"request": request}
+                ).data,
+            },
+            status=status.HTTP_200_OK,
+        )
+
+
+class MemberSubscriptionListCreateView(APIView):
+    """
+    List and create subscriptions for a member.
+    Staff can assign active plans to members.
+    """
+
+    permission_classes = [IsAuthenticated, RequirePasswordChanged, IsGymStaff]
+
+    @extend_schema(
+        summary="List member subscriptions",
+        responses={200: MemberSubscriptionSerializer(many=True)},
+    )
+    def get(self, request, pk, *args, **kwargs):
+        tenant = getattr(request, "tenant", None)
+        if tenant is None:
+            raise Http404("Gym tenant context required.")
+
+        member = Member.objects.filter(id=pk, gym=tenant).first()
+        if not member:
+            raise Http404("Member not found.")
+
+        subs = MemberSubscription.all_objects.filter(
+            gym=tenant, member=member
+        ).order_by("-created_at")
+        return Response(
+            MemberSubscriptionSerializer(subs, many=True).data,
+            status=status.HTTP_200_OK,
+        )
+
+    @extend_schema(
+        summary="Create or renew subscription for member",
+        description="Assigns an active membership plan to a member and computes new status.",
+        responses={201: MemberSubscriptionSerializer},
+    )
+    def post(self, request, pk, *args, **kwargs):
+        tenant = getattr(request, "tenant", None)
+        if tenant is None:
+            raise Http404("Gym tenant context required.")
+
+        # RBAC: Only staff can create subscriptions
+        if request.user.role not in (
+            User.ROLE_OWNER,
+            User.ROLE_MANAGER,
+            User.ROLE_RECEPTION,
+        ):
+            raise PermissionDenied(
+                "Only gym staff can create or renew member subscriptions."
+            )
+
+        member = Member.objects.filter(id=pk, gym=tenant).first()
+        if not member:
+            raise Http404("Member not found.")
+
+        plan_id = request.data.get("plan_id")
+        if not plan_id:
+            return Response(
+                {"plan_id": ["Plan ID is required."]},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        plan = MembershipPlan.objects.filter(id=plan_id, gym=tenant).first()
+        if not plan:
+            return Response(
+                {"plan_id": ["Membership plan not found in this gym."]},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        if not plan.is_active:
+            return Response(
+                {"detail": "Cannot subscribe to a deactivated plan."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        raw_start_date = request.data.get("start_date")
+        start_date = None
+        if raw_start_date:
+            try:
+                from datetime import datetime
+
+                start_date = datetime.strptime(raw_start_date, "%Y-%m-%d").date()
+            except ValueError:
+                return Response(
+                    {"start_date": ["Invalid date format (YYYY-MM-DD required)."]},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+        subscription = create_or_renew_subscription(
+            member=member,
+            plan=plan,
+            start_date=start_date,
+            actor=request.user,
+        )
+
+        return Response(
+            MemberSubscriptionSerializer(subscription).data,
+            status=status.HTTP_201_CREATED,
         )

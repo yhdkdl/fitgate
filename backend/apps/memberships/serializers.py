@@ -15,7 +15,12 @@ from apps.core.validators import (
     validate_waist,
     validate_weight,
 )
-from apps.memberships.models import BodyMetrics, Member
+from apps.memberships.models import (
+    BodyMetrics,
+    Member,
+    MembershipPlan,
+    MemberSubscription,
+)
 
 
 class BodyMetricsSerializer(serializers.ModelSerializer):
@@ -101,6 +106,7 @@ class MemberSerializer(serializers.ModelSerializer):
         read_only_fields = [
             "id",
             "email",
+            "status",
             "joined_at",
             "waiver_accepted_at",
             "latest_metrics",
@@ -156,6 +162,7 @@ class MemberDetailSerializer(serializers.ModelSerializer):
         read_only_fields = [
             "id",
             "email",
+            "status",
             "joined_at",
             "waiver_accepted_at",
             "latest_metrics",
@@ -305,7 +312,6 @@ class MemberUpdateSerializer(serializers.ModelSerializer):
             "emergency_contact",
             "referral_source",
             "photo_url",
-            "status",
         ]
 
     def validate_full_name(self, value):
@@ -382,3 +388,115 @@ class RecordBodyMetricsSerializer(serializers.Serializer):
 
     def validate_hip_cm(self, value):
         return validate_hip(value)
+
+
+class MembershipPlanSerializer(serializers.ModelSerializer):
+    """Serializer for gym membership plans."""
+
+    warning = serializers.CharField(read_only=True, required=False)
+    has_no_trainers_warning = serializers.BooleanField(read_only=True, default=False)
+
+    class Meta:
+        model = MembershipPlan
+        fields = [
+            "id",
+            "name",
+            "description",
+            "duration_value",
+            "duration_unit",
+            "price_etb",
+            "trainer_inclusive",
+            "is_active",
+            "warning",
+            "has_no_trainers_warning",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = [
+            "id",
+            "warning",
+            "has_no_trainers_warning",
+            "created_at",
+            "updated_at",
+        ]
+
+    def validate_name(self, value):
+        if not value or not str(value).strip():
+            raise serializers.ValidationError("Plan name cannot be blank.")
+        return validate_text_length(value.strip(), 2, 100, "Plan name")
+
+    def validate_duration_value(self, value):
+        if value is None or int(value) <= 0:
+            raise serializers.ValidationError(
+                "Duration value must be a positive number greater than 0."
+            )
+        return int(value)
+
+    def validate_duration_unit(self, value):
+        if value not in (
+            MembershipPlan.DURATION_DAYS,
+            MembershipPlan.DURATION_MONTHS,
+        ):
+            raise serializers.ValidationError(
+                "Duration unit must be either 'days' or 'months'."
+            )
+        return value
+
+    def validate_price_etb(self, value):
+        if value is None or value < 0:
+            raise serializers.ValidationError("Price must be 0 or greater.")
+        return value
+
+
+class PublicPlanSerializer(serializers.ModelSerializer):
+    """Public read-only serializer for active membership plans."""
+
+    class Meta:
+        model = MembershipPlan
+        fields = [
+            "id",
+            "name",
+            "description",
+            "duration_value",
+            "duration_unit",
+            "price_etb",
+            "trainer_inclusive",
+        ]
+        read_only_fields = fields
+
+
+class MemberSuspendRequestSerializer(serializers.Serializer):
+    """Request serializer for suspending a member."""
+
+    reason = serializers.CharField(
+        required=False,
+        allow_blank=True,
+        max_length=500,
+        help_text="Optional reason for suspending member.",
+    )
+
+
+class MemberSubscriptionSerializer(serializers.ModelSerializer):
+    """Serializer for member subscriptions."""
+
+    plan_name = serializers.CharField(source="plan.name", read_only=True)
+
+    class Meta:
+        model = MemberSubscription
+        fields = [
+            "id",
+            "member",
+            "plan",
+            "plan_name",
+            "start_date",
+            "end_date",
+            "status",
+            "freeze_start_date",
+            "frozen_days_total",
+            "created_at",
+        ]
+        read_only_fields = [
+            "id",
+            "plan_name",
+            "created_at",
+        ]

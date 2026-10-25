@@ -302,6 +302,8 @@ Preparation for deploying the Increment 1 milestone to the real Yegara cPanel st
       - Member subscription status moves strictly according to business rules (for example, expired subscriptions cannot become active without payment, and only gym owners or managers can suspend or unsuspend a member).
       - Plans belong strictly to their gym and are never visible or usable by another gym.
       - Visitors on the public gym website can view all active plans with their prices without needing to log in.
+    - _Note on multiple daily check-ins:_ A gym setting to allow multiple daily check-ins per member is noted as a possible future setting; it was not added in this sprint (second check-in on the same day remains strictly refused).
+    - Status: implemented, full suite green — awaiting owner review (branch `feature/sprint-10-membership-plans`, STRICT sprint)
 
 11. **Chapa payment integration (one account per gym) (GATE)** — Sprint 11 builds the `Notification` record and ONE shared helper function that creates a notification (stored only, no email, scoped to the gym) so notification criteria are immediately verifiable. What gym users can do after this sprint:
     - Gym owners can enter and update their gym's Chapa payment credentials securely in their gym settings, with keys stored encrypted and masked from view.

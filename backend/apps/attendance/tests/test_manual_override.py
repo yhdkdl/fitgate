@@ -183,6 +183,7 @@ class TestManualOverrideFlow:
         assert response.status_code == 201
         assert response.data["status"] == "success"
         assert response.data["attendance"]["is_override"] is True
+        assert response.data["attendance"]["method"] == "manual_override"
         assert (
             response.data["attendance"]["override_reason"]
             == "Member phone battery died at entrance"
@@ -196,6 +197,7 @@ class TestManualOverrideFlow:
         att = Attendance.all_objects.first()
         assert att.member == active_member
         assert att.is_override is True
+        assert att.method == Attendance.METHOD_MANUAL_OVERRIDE
         assert att.override_reason == "Member phone battery died at entrance"
         assert att.recorded_by == reception_user
 

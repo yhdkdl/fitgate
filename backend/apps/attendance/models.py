@@ -71,6 +71,14 @@ class Attendance(TenantAwareModel):
         (STATUS_CHECKED_IN, "Checked In"),
     ]
 
+    METHOD_QR = "qr"
+    METHOD_MANUAL_OVERRIDE = "manual_override"
+
+    METHOD_CHOICES = [
+        (METHOD_QR, "QR Code Scan"),
+        (METHOD_MANUAL_OVERRIDE, "Manual Staff Override"),
+    ]
+
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     member = models.ForeignKey(
         Member,
@@ -85,6 +93,11 @@ class Attendance(TenantAwareModel):
         default=STATUS_CHECKED_IN,
     )
     checked_in_at = models.DateTimeField(default=timezone.now)
+    method = models.CharField(
+        max_length=20,
+        choices=METHOD_CHOICES,
+        default=METHOD_QR,
+    )
     is_override = models.BooleanField(default=False)
     override_reason = models.TextField(blank=True, default="")
     recorded_by = models.ForeignKey(
@@ -103,7 +116,17 @@ class Attendance(TenantAwareModel):
             models.UniqueConstraint(
                 fields=["gym", "member", "date"],
                 name="attendance_gym_member_date_unique",
-            )
+            ),
+            models.CheckConstraint(
+                condition=(
+                    (models.Q(is_override=True) & models.Q(method="manual_override"))
+                    | (
+                        models.Q(is_override=False)
+                        & ~models.Q(method="manual_override")
+                    )
+                ),
+                name="attendance_override_matches_method",
+            ),
         ]
 
     def __str__(self):

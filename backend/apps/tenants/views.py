@@ -997,6 +997,13 @@ class GymPublicEntryView(APIView):
             )
 
         config = getattr(gym, "config", None)
+        from apps.memberships.models import MembershipPlan
+        from apps.memberships.serializers import PublicPlanSerializer
+
+        active_plans = MembershipPlan.all_objects.filter(
+            gym=gym, is_active=True
+        ).order_by("-created_at")
+
         data = {
             "still_securing": False,
             "gym_id": gym.id,
@@ -1007,6 +1014,6 @@ class GymPublicEntryView(APIView):
             "phone": gym.contact_phone,
             "location": gym.location,
             "currency": gym.currency,
-            "plans": [],
+            "plans": PublicPlanSerializer(active_plans, many=True).data,
         }
         return Response(data, status=status.HTTP_200_OK)
