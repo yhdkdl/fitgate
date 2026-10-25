@@ -36,6 +36,7 @@
   - Tiers restated: Pro hidden from landing page and gym creation until Increment 6 ships; `has_group_classes` inert across all tiers.
   - Multi-branch ordering: Increment 6 (Sprints 30–34) runs after Increment 7 as an optional final phase; go/no-go decision date: to be set by the owner.
   - Member status model: `pending` added for newly registered members with no active plan; `MemberSubscription` established as single source of truth.
+  - Notification architecture: Sprint 11 creates the Notification model and shared helper (stored only, gym-scoped) so criteria in Sprints 11–13 are checkable; Sprint 15 delivers the in-app UI screens.
 
 ## Next
 
@@ -49,6 +50,7 @@
 - Sprint 8: QR asymmetric signing key pair (to be verified at staging)
 - Sprint 8b/8c: Camera scanning on physical devices (to be verified at staging)
 - Sprint 4d: Apex platform address wiring (to be verified at staging)
+- Sprint 11: Chapa test keys & online payments (skipped for Increment 2 per preflight answer; mocked webhooks in use; marked not verified against real service)
 
 ## Deviations
 
