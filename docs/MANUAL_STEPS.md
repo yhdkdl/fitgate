@@ -127,6 +127,14 @@ The feasibility spike on the real Yegara cPanel host passed all checks:
       ```
     - **Status:** To be verified at staging.
 
+13. **Step 13 — Sprint 14: Scheduled Jobs & Nightly Membership Sweep Cron Job**
+    - **Nightly Membership Sweep Cron Job:**
+      - Runs daily at 01:00 UTC: expires past member subscriptions, derives member status via `update_member_status()`, checks gym suspension/grace period, dispatches member renewal reminder notices and platform renewal notices strictly through `send_fitgate_email`, reactivates completed freezes via `process_unfreezes`, and runs payments housekeeping:
+      ```bash
+      0 1 * * * /home/<user>/virtualenv/fitgate_backend/3.11/bin/python /home/<user>/fitgate/backend/manage.py daily_membership_sweep >> /home/<user>/fitgate_logs/cron_daily_sweep.log 2>&1
+      ```
+    - **Status:** To be verified at staging.
+
 ---
 
 ## Email & Domain Configuration (Brevo + cPanel)

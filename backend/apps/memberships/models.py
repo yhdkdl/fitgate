@@ -345,6 +345,7 @@ class MemberSubscription(TenantAwareModel):
     )
     freeze_start_date = models.DateField(null=True, blank=True)
     frozen_days_total = models.PositiveIntegerField(default=0)
+    reminder_sent_date = models.DateField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
