@@ -803,6 +803,22 @@ class TestSpec2PermissionMatrixParametrizedTable:
             "wired_in_sprint": 13,
         },
         {
+            "row_name": "Request a membership freeze",
+            "spec_super_admin": "—",
+            "spec_owner": "No (Members only)",
+            "spec_manager": "No (Members only)",
+            "spec_trainer": "No",
+            "spec_reception": "No",
+            "spec_member": "Yes",
+            "super_admin": False,
+            "owner": False,
+            "manager": False,
+            "trainer": False,
+            "reception": False,
+            "member": True,
+            "wired_in_sprint": 13,
+        },
+        {
             "row_name": "Manually reassign a trainer",
             "spec_super_admin": "—",
             "spec_owner": "Yes",
@@ -1066,7 +1082,7 @@ class TestSpec2PermissionMatrixParametrizedTable:
         Rows not yet wired skip with an explicit reason.
         Wired rows (Sprint 5) assert directly against real HTTP endpoints.
         """
-        if wired_sprint not in (5, 6, "9a", 10, 11, 12):
+        if wired_sprint not in (5, 6, "9a", 10, 11, 12, 13):
             pytest.skip(
                 f"Row '{row_name}' has no real endpoint yet (scheduled for Sprint {wired_sprint} in docs/SPRINTS.md)"
             )
@@ -1444,6 +1460,37 @@ class TestSpec2PermissionMatrixParametrizedTable:
             resp = client.post(url, payload, format="json", HTTP_HOST=host)
             if expected_allowed:
                 assert resp.status_code in (200, 400)
+            else:
+                assert resp.status_code in (401, 403, 404)
+        elif row_name == "Approve or reject a freeze request":
+            import uuid
+
+            url = f"/api/gym/freezes/{uuid.uuid4()}/approve/"
+            host = (
+                "localhost"
+                if role == User.ROLE_SUPER_ADMIN
+                else f"{gym_tenant.subdomain}.localhost"
+            )
+            resp = client.post(url, {}, format="json", HTTP_HOST=host)
+            if expected_allowed:
+                assert resp.status_code in (200, 400)
+            else:
+                assert resp.status_code in (401, 403, 404)
+        elif row_name == "Request a membership freeze":
+            url = "/api/memberships/freezes/"
+            host = (
+                "localhost"
+                if role == User.ROLE_SUPER_ADMIN
+                else f"{gym_tenant.subdomain}.localhost"
+            )
+            payload = {
+                "start_date": "2026-11-01",
+                "end_date": "2026-11-07",
+                "reason": "Matrix freeze test",
+            }
+            resp = client.post(url, payload, format="json", HTTP_HOST=host)
+            if expected_allowed:
+                assert resp.status_code in (200, 201, 400)
             else:
                 assert resp.status_code in (401, 403, 404)
 

@@ -354,3 +354,64 @@ class MemberSubscription(TenantAwareModel):
 
     def __str__(self) -> str:
         return f"Subscription({self.member.full_name}: {self.start_date} to {self.end_date} [{self.status}])"
+
+
+class MemberFreeze(TenantAwareModel):
+    """
+    Member membership freeze request and approval workflow record.
+    Tracks freeze request date range, reason, review decision, and whether extension has been applied.
+    """
+
+    STATUS_PENDING = "pending"
+    STATUS_APPROVED = "approved"
+    STATUS_REJECTED = "rejected"
+    STATUS_COMPLETED = "completed"
+
+    STATUS_CHOICES = [
+        (STATUS_PENDING, "Pending"),
+        (STATUS_APPROVED, "Approved"),
+        (STATUS_REJECTED, "Rejected"),
+        (STATUS_COMPLETED, "Completed"),
+    ]
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    member = models.ForeignKey(
+        Member,
+        on_delete=models.CASCADE,
+        related_name="freeze_requests",
+    )
+    subscription = models.ForeignKey(
+        MemberSubscription,
+        on_delete=models.CASCADE,
+        related_name="freeze_requests",
+    )
+    start_date = models.DateField()
+    end_date = models.DateField()
+    days = models.PositiveIntegerField()
+    reason = models.CharField(max_length=500)
+    status = models.CharField(
+        max_length=20,
+        choices=STATUS_CHOICES,
+        default=STATUS_PENDING,
+    )
+    approved_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="reviewed_freezes",
+    )
+    reviewed_at = models.DateTimeField(null=True, blank=True)
+    rejection_reason = models.CharField(max_length=500, blank=True, default="")
+    extension_applied = models.BooleanField(default=False)
+    unfrozen_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Member Freeze"
+        verbose_name_plural = "Member Freezes"
+        ordering = ["-created_at"]
+
+    def __str__(self) -> str:
+        return f"Freeze({self.member.full_name}: {self.days} days [{self.status}])"

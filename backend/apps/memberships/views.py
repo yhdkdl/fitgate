@@ -22,11 +22,16 @@ from apps.accounts.services import record_audit_log
 from apps.memberships.models import (
     BodyMetrics,
     Member,
+    MemberFreeze,
     MembershipPlan,
 )
 from apps.memberships.serializers import (
     BodyMetricsSerializer,
     MemberDetailSerializer,
+    MemberFreezeAllowanceSerializer,
+    MemberFreezeRejectSerializer,
+    MemberFreezeRequestSerializer,
+    MemberFreezeSerializer,
     MemberSerializer,
     MembershipPlanSerializer,
     MemberSuspendRequestSerializer,
@@ -38,9 +43,13 @@ from apps.memberships.serializers import (
     VerifyEmailRequestSerializer,
 )
 from apps.memberships.services import (
+    approve_membership_freeze,
+    get_member_freeze_allowance,
     reactivate_member,
     register_member_self_service,
     register_member_staff_assisted,
+    reject_membership_freeze,
+    request_membership_freeze,
     suspend_member,
     verify_member_email,
 )
@@ -837,6 +846,298 @@ class MemberReactivateView(APIView):
                 "member": MemberDetailSerializer(
                     reactivated_member, context={"request": request}
                 ).data,
+            },
+            status=status.HTTP_200_OK,
+        )
+
+
+class MemberFreezeRequestView(APIView):
+    """
+    Submit a membership freeze request for the logged-in member.
+    Allowed: Member of that gym only. Denied: All other roles, Super Admin, cross-gym (403).
+    """
+
+    permission_classes = [IsAuthenticated, RequirePasswordChanged, IsMember]
+
+    @extend_schema(
+        summary="Submit a membership freeze request (Member only)",
+        description="Submits a freeze request for the authenticated member's active subscription.",
+        request=MemberFreezeRequestSerializer,
+        responses={
+            201: MemberFreezeSerializer,
+            400: OpenApiResponse(description="Validation error or allowance exceeded"),
+            403: OpenApiResponse(description="Permission denied"),
+        },
+    )
+    def post(self, request, *args, **kwargs):
+        if request.user.role == User.ROLE_SUPER_ADMIN:
+            return Response(
+                {"detail": "Super Admin cannot request a membership freeze."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        tenant = getattr(request, "tenant", None)
+        if not tenant:
+            return Response(
+                {"detail": "Tenant required."}, status=status.HTTP_400_BAD_REQUEST
+            )
+
+        member = Member.all_objects.filter(user=request.user, gym=tenant).first()
+        if not member:
+            return Response(
+                {"detail": "Member profile not found."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        serializer = MemberFreezeRequestSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        start_date = serializer.validated_data["start_date"]
+        end_date = serializer.validated_data["end_date"]
+        reason = serializer.validated_data["reason"]
+
+        try:
+            freeze = request_membership_freeze(
+                member=member,
+                start_date=start_date,
+                end_date=end_date,
+                reason=reason,
+            )
+        except ValidationError as exc:
+            detail = exc.message_dict if hasattr(exc, "message_dict") else exc.messages
+            return Response({"detail": detail}, status=status.HTTP_400_BAD_REQUEST)
+
+        return Response(
+            MemberFreezeSerializer(freeze).data,
+            status=status.HTTP_201_CREATED,
+        )
+
+
+class MemberMyFreezesView(APIView):
+    """
+    List freeze requests submitted by the logged-in member.
+    Allowed: Member only. Denied: All other roles, Super Admin (403).
+    """
+
+    permission_classes = [IsAuthenticated, RequirePasswordChanged, IsMember]
+
+    @extend_schema(
+        summary="List my freeze requests (Member only)",
+        description="Returns all freeze requests for the logged-in member.",
+        responses={200: MemberFreezeSerializer(many=True)},
+    )
+    def get(self, request, *args, **kwargs):
+        if request.user.role == User.ROLE_SUPER_ADMIN:
+            return Response(
+                {"detail": "Super Admin cannot view member freezes."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        tenant = getattr(request, "tenant", None)
+        if not tenant:
+            return Response(
+                {"detail": "Tenant required."}, status=status.HTTP_400_BAD_REQUEST
+            )
+
+        member = Member.all_objects.filter(user=request.user, gym=tenant).first()
+        if not member:
+            return Response(
+                {"detail": "Member profile not found."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        freezes = MemberFreeze.all_objects.filter(member=member, gym=tenant).order_by(
+            "-created_at"
+        )
+
+        return Response(
+            MemberFreezeSerializer(freezes, many=True).data,
+            status=status.HTTP_200_OK,
+        )
+
+
+class MemberFreezeAllowanceView(APIView):
+    """
+    Check remaining freeze days and allowance for the logged-in member.
+    Allowed: Member only. Denied: Super Admin and staff (403).
+    """
+
+    permission_classes = [IsAuthenticated, RequirePasswordChanged, IsMember]
+
+    @extend_schema(
+        summary="Check member freeze allowance (Member only)",
+        description="Returns total allowed, used, and remaining freeze days.",
+        responses={200: MemberFreezeAllowanceSerializer},
+    )
+    def get(self, request, *args, **kwargs):
+        if request.user.role == User.ROLE_SUPER_ADMIN:
+            return Response(
+                {"detail": "Super Admin cannot view member freeze allowance."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        tenant = getattr(request, "tenant", None)
+        if not tenant:
+            return Response(
+                {"detail": "Tenant required."}, status=status.HTTP_400_BAD_REQUEST
+            )
+
+        member = Member.all_objects.filter(user=request.user, gym=tenant).first()
+        if not member:
+            return Response(
+                {"detail": "Member profile not found."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        allowance = get_member_freeze_allowance(member)
+        return Response(
+            MemberFreezeAllowanceSerializer(allowance).data,
+            status=status.HTTP_200_OK,
+        )
+
+
+class GymFreezeListView(APIView):
+    """
+    List gym membership freeze requests for staff review.
+    Allowed: Owner and Manager of that gym only. Denied: Super Admin, Reception, Trainer, Member (403).
+    """
+
+    permission_classes = [IsAuthenticated, RequirePasswordChanged, IsOwnerOrManager]
+
+    @extend_schema(
+        summary="List gym freeze requests (Owner, Manager)",
+        description="Returns all freeze requests for the gym, filterable by status.",
+        responses={200: MemberFreezeSerializer(many=True)},
+    )
+    def get(self, request, *args, **kwargs):
+        if request.user.role == User.ROLE_SUPER_ADMIN:
+            return Response(
+                {"detail": "Super Admin cannot view gym freeze requests."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        tenant = getattr(request, "tenant", None)
+        if not tenant:
+            return Response(
+                {"detail": "Tenant required."}, status=status.HTTP_400_BAD_REQUEST
+            )
+
+        qs = (
+            MemberFreeze.all_objects.select_related("member", "approved_by")
+            .filter(gym=tenant)
+            .order_by("-created_at")
+        )
+
+        status_param = request.query_params.get("status")
+        if status_param:
+            qs = qs.filter(status=status_param)
+
+        return Response(
+            MemberFreezeSerializer(qs, many=True).data,
+            status=status.HTTP_200_OK,
+        )
+
+
+class GymFreezeApproveView(APIView):
+    """
+    Approve a pending membership freeze request.
+    Allowed: Owner and Manager of that gym only. Denied: Super Admin, Reception, Trainer, Member (403).
+    """
+
+    permission_classes = [IsAuthenticated, RequirePasswordChanged, IsOwnerOrManager]
+
+    @extend_schema(
+        summary="Approve a freeze request (Owner, Manager)",
+        description="Approves a member freeze, pauses pass, extends subscription end date once, and notifies member.",
+        responses={
+            200: MemberFreezeSerializer,
+            400: OpenApiResponse(description="Validation error"),
+            403: OpenApiResponse(description="Permission denied"),
+        },
+    )
+    def post(self, request, freeze_id, *args, **kwargs):
+        if request.user.role == User.ROLE_SUPER_ADMIN:
+            return Response(
+                {"detail": "Super Admin cannot approve freeze requests."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        tenant = getattr(request, "tenant", None)
+        if not tenant:
+            return Response(
+                {"detail": "Tenant required."}, status=status.HTTP_400_BAD_REQUEST
+            )
+
+        try:
+            freeze = approve_membership_freeze(
+                freeze_id=freeze_id,
+                reviewer=request.user,
+                gym=tenant,
+            )
+        except ValidationError as exc:
+            detail = exc.message_dict if hasattr(exc, "message_dict") else exc.messages
+            return Response({"detail": detail}, status=status.HTTP_400_BAD_REQUEST)
+        except PermissionDenied as exc:
+            return Response({"detail": str(exc)}, status=status.HTTP_403_FORBIDDEN)
+
+        return Response(
+            {
+                "detail": f"Freeze request for {freeze.days} day(s) has been approved.",
+                "freeze": MemberFreezeSerializer(freeze).data,
+            },
+            status=status.HTTP_200_OK,
+        )
+
+
+class GymFreezeRejectView(APIView):
+    """
+    Reject a pending membership freeze request.
+    Allowed: Owner and Manager of that gym only. Denied: Super Admin, Reception, Trainer, Member (403).
+    """
+
+    permission_classes = [IsAuthenticated, RequirePasswordChanged, IsOwnerOrManager]
+
+    @extend_schema(
+        summary="Reject a freeze request (Owner, Manager)",
+        description="Rejects a member freeze request with explanation and notifies member.",
+        request=MemberFreezeRejectSerializer,
+        responses={
+            200: MemberFreezeSerializer,
+            400: OpenApiResponse(description="Validation error"),
+            403: OpenApiResponse(description="Permission denied"),
+        },
+    )
+    def post(self, request, freeze_id, *args, **kwargs):
+        if request.user.role == User.ROLE_SUPER_ADMIN:
+            return Response(
+                {"detail": "Super Admin cannot reject freeze requests."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        tenant = getattr(request, "tenant", None)
+        if not tenant:
+            return Response(
+                {"detail": "Tenant required."}, status=status.HTTP_400_BAD_REQUEST
+            )
+
+        serializer = MemberFreezeRejectSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        rejection_reason = serializer.validated_data["rejection_reason"]
+
+        try:
+            freeze = reject_membership_freeze(
+                freeze_id=freeze_id,
+                reviewer=request.user,
+                rejection_reason=rejection_reason,
+                gym=tenant,
+            )
+        except ValidationError as exc:
+            detail = exc.message_dict if hasattr(exc, "message_dict") else exc.messages
+            return Response({"detail": detail}, status=status.HTTP_400_BAD_REQUEST)
+        except PermissionDenied as exc:
+            return Response({"detail": str(exc)}, status=status.HTTP_403_FORBIDDEN)
+
+        return Response(
+            {
+                "detail": "Freeze request has been rejected.",
+                "freeze": MemberFreezeSerializer(freeze).data,
             },
             status=status.HTTP_200_OK,
         )

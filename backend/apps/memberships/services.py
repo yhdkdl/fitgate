@@ -24,7 +24,12 @@ from apps.core.validators import (
     validate_email_address,
     validate_name,
 )
-from apps.memberships.models import Member, MembershipPlan, MemberSubscription
+from apps.memberships.models import (
+    Member,
+    MemberFreeze,
+    MembershipPlan,
+    MemberSubscription,
+)
 from apps.tenants.models import GymTenant
 
 logger = logging.getLogger(__name__)
@@ -617,3 +622,452 @@ def reactivate_member(
             },
         )
     return member
+
+
+def get_member_freeze_allowance(member: Member) -> Dict[str, Any]:
+    """
+    Returns gym freeze allowance and member's remaining freeze days.
+    Server-enforced: checks GymConfig.freeze_days_allowed.
+    """
+    from apps.tenants.models import GymConfig
+
+    config = GymConfig.objects.filter(gym=member.gym).first()
+    total_allowed = config.freeze_days_allowed if config else 0
+
+    sub = (
+        MemberSubscription.all_objects.filter(gym=member.gym, member=member)
+        .order_by("-end_date", "-created_at")
+        .first()
+    )
+
+    if not sub:
+        return {
+            "total_allowed": total_allowed,
+            "used_days": 0,
+            "remaining_days": total_allowed,
+            "has_active_subscription": False,
+            "freeze_allowed": total_allowed > 0,
+        }
+
+    used_days = sum(
+        f.days
+        for f in MemberFreeze.all_objects.filter(
+            gym=member.gym,
+            member=member,
+            subscription=sub,
+            status__in=[MemberFreeze.STATUS_APPROVED, MemberFreeze.STATUS_COMPLETED],
+        )
+    )
+    remaining_days = max(0, total_allowed - used_days)
+    return {
+        "total_allowed": total_allowed,
+        "used_days": used_days,
+        "remaining_days": remaining_days,
+        "has_active_subscription": sub.status
+        in [MemberSubscription.STATUS_ACTIVE, MemberSubscription.STATUS_FROZEN],
+        "freeze_allowed": total_allowed > 0,
+        "subscription_id": str(sub.id),
+    }
+
+
+def request_membership_freeze(
+    member: Member,
+    start_date: date,
+    end_date: date,
+    reason: str,
+) -> MemberFreeze:
+    """
+    Member submits a freeze request for their active subscription.
+    Enforces freeze allowance and gym freeze entitlement on the SERVER.
+    """
+    from apps.tenants.models import GymConfig
+
+    config = GymConfig.objects.filter(gym=member.gym).first()
+    total_allowed = config.freeze_days_allowed if config else 0
+    if total_allowed <= 0:
+        raise ValidationError({"detail": "This gym does not allow membership freezes."})
+
+    today = timezone.localdate()
+    if start_date < today:
+        raise ValidationError(
+            {"start_date": "Freeze start date cannot be in the past."}
+        )
+    if end_date < start_date:
+        raise ValidationError(
+            {"end_date": "Freeze end date must be on or after start date."}
+        )
+
+    days = (end_date - start_date).days + 1
+    if days <= 0:
+        raise ValidationError({"days": "Freeze duration must be at least 1 day."})
+
+    trimmed_reason = (reason or "").strip()
+    if len(trimmed_reason) < 5 or len(trimmed_reason) > 500:
+        raise ValidationError(
+            {"reason": "Reason must be between 5 and 500 characters."}
+        )
+
+    sub = (
+        MemberSubscription.all_objects.filter(
+            gym=member.gym,
+            member=member,
+            status__in=[
+                MemberSubscription.STATUS_ACTIVE,
+                MemberSubscription.STATUS_FROZEN,
+            ],
+        )
+        .order_by("-end_date", "-created_at")
+        .first()
+    )
+
+    if not sub:
+        raise ValidationError(
+            {"detail": "You do not have an active membership subscription to freeze."}
+        )
+
+    if start_date > sub.end_date:
+        raise ValidationError(
+            {"start_date": "Freeze cannot start after your subscription end date."}
+        )
+
+    used_days = sum(
+        f.days
+        for f in MemberFreeze.all_objects.filter(
+            gym=member.gym,
+            member=member,
+            subscription=sub,
+            status__in=[MemberFreeze.STATUS_APPROVED, MemberFreeze.STATUS_COMPLETED],
+        )
+    )
+    remaining = total_allowed - used_days
+    if days > remaining:
+        raise ValidationError(
+            {
+                "detail": f"Requested freeze of {days} days exceeds your remaining allowance of {remaining} days."
+            }
+        )
+
+    overlapping = MemberFreeze.all_objects.filter(
+        gym=member.gym,
+        member=member,
+        status__in=[MemberFreeze.STATUS_PENDING, MemberFreeze.STATUS_APPROVED],
+        start_date__lte=end_date,
+        end_date__gte=start_date,
+    ).exists()
+    if overlapping:
+        raise ValidationError(
+            {
+                "detail": "An overlapping pending or approved freeze request already exists."
+            }
+        )
+
+    freeze = MemberFreeze.all_objects.create(
+        gym=member.gym,
+        member=member,
+        subscription=sub,
+        start_date=start_date,
+        end_date=end_date,
+        days=days,
+        reason=trimmed_reason,
+        status=MemberFreeze.STATUS_PENDING,
+    )
+    return freeze
+
+
+def approve_membership_freeze(
+    freeze_id: str,
+    reviewer: User,
+    gym: GymTenant,
+) -> MemberFreeze:
+    """
+    Approve a pending member freeze request.
+    Owner or Manager of that gym only.
+    Concurrency protected: locks member record to prevent allowance races.
+    Approving extends subscription end date by exactly frozen days, once.
+    Updates member status strictly via shared update_member_status().
+    Records audit entry and notification.
+    """
+    from apps.accounts.notifications import create_notification
+    from apps.accounts.services import record_audit_log
+    from apps.tenants.models import GymConfig
+
+    if (
+        reviewer.role not in (User.ROLE_OWNER, User.ROLE_MANAGER)
+        or reviewer.gym_id != gym.id
+    ):
+        raise PermissionDenied("Only gym owner or manager can approve freeze requests.")
+
+    with transaction.atomic():
+        freeze = (
+            MemberFreeze.all_objects.select_for_update()
+            .filter(id=freeze_id, gym=gym)
+            .first()
+        )
+        if not freeze:
+            raise ValidationError({"detail": "Freeze request not found."})
+
+        if freeze.status != MemberFreeze.STATUS_PENDING:
+            raise ValidationError(
+                {
+                    "detail": f"Cannot approve freeze request with status '{freeze.status}'."
+                }
+            )
+
+        # Lock member row for concurrency control
+        member = Member.all_objects.select_for_update().get(id=freeze.member_id)
+
+        config = GymConfig.objects.filter(gym=gym).first()
+        total_allowed = config.freeze_days_allowed if config else 0
+        if total_allowed <= 0:
+            raise ValidationError(
+                {"detail": "This gym does not allow membership freezes."}
+            )
+
+        sub = MemberSubscription.all_objects.select_for_update().get(
+            id=freeze.subscription_id
+        )
+
+        used_days = sum(
+            f.days
+            for f in MemberFreeze.all_objects.filter(
+                gym=gym,
+                member=member,
+                subscription=sub,
+                status__in=[
+                    MemberFreeze.STATUS_APPROVED,
+                    MemberFreeze.STATUS_COMPLETED,
+                ],
+            )
+        )
+        remaining = total_allowed - used_days
+        if freeze.days > remaining:
+            raise ValidationError(
+                {
+                    "detail": f"Freeze approval refused: requested {freeze.days} days exceeds remaining allowance of {remaining} days."
+                }
+            )
+
+        if not freeze.extension_applied:
+            sub.end_date = sub.end_date + timedelta(days=freeze.days)
+            sub.frozen_days_total += freeze.days
+            today = timezone.localdate()
+            if freeze.start_date <= today <= freeze.end_date:
+                sub.status = MemberSubscription.STATUS_FROZEN
+                sub.freeze_start_date = freeze.start_date
+            sub.save(
+                update_fields=[
+                    "end_date",
+                    "frozen_days_total",
+                    "status",
+                    "freeze_start_date",
+                ]
+            )
+            freeze.extension_applied = True
+
+        freeze.status = MemberFreeze.STATUS_APPROVED
+        freeze.approved_by = reviewer
+        freeze.reviewed_at = timezone.now()
+        freeze.save()
+
+        # Update member status strictly through shared status function
+        update_member_status(member)
+
+        record_audit_log(
+            action_type="freeze_approved",
+            affected_record_type="MemberFreeze",
+            affected_record_id=str(freeze.id),
+            actor=reviewer,
+            gym=gym,
+            metadata={
+                "member_id": str(member.id),
+                "member_name": member.full_name,
+                "days": freeze.days,
+                "start_date": str(freeze.start_date),
+                "end_date": str(freeze.end_date),
+                "new_subscription_end_date": str(sub.end_date),
+            },
+        )
+
+        create_notification(
+            recipient=member.user,
+            notification_type="freeze_approved",
+            message=f"Your freeze request for {freeze.days} day(s) was approved. Your subscription has been extended to {sub.end_date}.",
+            gym=gym,
+        )
+
+        return freeze
+
+
+def reject_membership_freeze(
+    freeze_id: str,
+    reviewer: User,
+    rejection_reason: str,
+    gym: GymTenant,
+) -> MemberFreeze:
+    """
+    Reject a pending member freeze request with explanation.
+    Leaves subscription active, writes audit log, and notifies member.
+    """
+    from apps.accounts.notifications import create_notification
+    from apps.accounts.services import record_audit_log
+
+    if (
+        reviewer.role not in (User.ROLE_OWNER, User.ROLE_MANAGER)
+        or reviewer.gym_id != gym.id
+    ):
+        raise PermissionDenied("Only gym owner or manager can reject freeze requests.")
+
+    trimmed_reason = (rejection_reason or "").strip()
+    if len(trimmed_reason) < 5 or len(trimmed_reason) > 500:
+        raise ValidationError(
+            {
+                "rejection_reason": "Rejection explanation must be between 5 and 500 characters."
+            }
+        )
+
+    with transaction.atomic():
+        freeze = (
+            MemberFreeze.all_objects.select_for_update()
+            .filter(id=freeze_id, gym=gym)
+            .first()
+        )
+        if not freeze:
+            raise ValidationError({"detail": "Freeze request not found."})
+
+        if freeze.status != MemberFreeze.STATUS_PENDING:
+            raise ValidationError(
+                {
+                    "detail": f"Cannot reject freeze request with status '{freeze.status}'."
+                }
+            )
+
+        member = Member.all_objects.get(id=freeze.member_id)
+        freeze.status = MemberFreeze.STATUS_REJECTED
+        freeze.approved_by = reviewer
+        freeze.reviewed_at = timezone.now()
+        freeze.rejection_reason = trimmed_reason
+        freeze.save()
+
+        record_audit_log(
+            action_type="freeze_rejected",
+            affected_record_type="MemberFreeze",
+            affected_record_id=str(freeze.id),
+            actor=reviewer,
+            gym=gym,
+            metadata={
+                "member_id": str(member.id),
+                "member_name": member.full_name,
+                "rejection_reason": trimmed_reason,
+            },
+        )
+
+        create_notification(
+            recipient=member.user,
+            notification_type="freeze_rejected",
+            message=f"Your membership freeze request was rejected. Reason: {trimmed_reason}",
+            gym=gym,
+        )
+
+        return freeze
+
+
+def process_unfreezes(today: Optional[date] = None) -> int:
+    """
+    Scheduled task (runs every 5 minutes).
+    Finds approved freezes whose end date has passed, completes them,
+    returns subscriptions to active status, updates member status via
+    shared update_member_status(), records audit logs, and notifies members.
+    Also activates freezes whose start_date has arrived.
+    """
+    from apps.accounts.notifications import create_notification
+    from apps.accounts.services import record_audit_log
+
+    if today is None:
+        today = timezone.localdate()
+
+    # 1. Complete ended freezes
+    ended_freezes = list(
+        MemberFreeze.all_objects.filter(
+            status=MemberFreeze.STATUS_APPROVED,
+            end_date__lt=today,
+        )
+    )
+
+    completed_count = 0
+    for freeze in ended_freezes:
+        with transaction.atomic():
+            f = MemberFreeze.all_objects.select_for_update().get(id=freeze.id)
+            if f.status != MemberFreeze.STATUS_APPROVED or f.end_date >= today:
+                continue
+
+            f.status = MemberFreeze.STATUS_COMPLETED
+            f.unfrozen_at = timezone.now()
+            f.save(update_fields=["status", "unfrozen_at", "updated_at"])
+
+            sub = MemberSubscription.all_objects.select_for_update().get(
+                id=f.subscription_id
+            )
+
+            # Check if any other approved freeze covers today
+            other_active = MemberFreeze.all_objects.filter(
+                subscription=sub,
+                status=MemberFreeze.STATUS_APPROVED,
+                start_date__lte=today,
+                end_date__gte=today,
+            ).exists()
+
+            if not other_active and sub.status == MemberSubscription.STATUS_FROZEN:
+                sub.status = (
+                    MemberSubscription.STATUS_ACTIVE
+                    if sub.end_date >= today
+                    else MemberSubscription.STATUS_EXPIRED
+                )
+                sub.freeze_start_date = None
+                sub.save(update_fields=["status", "freeze_start_date"])
+
+            member = Member.all_objects.get(id=f.member_id)
+            update_member_status(member, today=today)
+
+            record_audit_log(
+                action_type="freeze_unfrozen",
+                affected_record_type="MemberFreeze",
+                affected_record_id=str(f.id),
+                actor=None,
+                gym=f.gym,
+                metadata={
+                    "member_id": str(member.id),
+                    "member_name": member.full_name,
+                    "days": f.days,
+                    "unfrozen_date": str(today),
+                },
+            )
+
+            create_notification(
+                recipient=member.user,
+                notification_type="freeze_unfrozen",
+                message="Your membership freeze has ended. Your check-in pass is now active.",
+                gym=f.gym,
+            )
+            completed_count += 1
+
+    # 2. Activate freezes starting today or earlier
+    starting_freezes = list(
+        MemberFreeze.all_objects.filter(
+            status=MemberFreeze.STATUS_APPROVED,
+            start_date__lte=today,
+            end_date__gte=today,
+        )
+    )
+    for freeze in starting_freezes:
+        with transaction.atomic():
+            sub = MemberSubscription.all_objects.select_for_update().get(
+                id=freeze.subscription_id
+            )
+            if sub.status != MemberSubscription.STATUS_FROZEN:
+                sub.status = MemberSubscription.STATUS_FROZEN
+                sub.freeze_start_date = freeze.start_date
+                sub.save(update_fields=["status", "freeze_start_date"])
+                member = Member.all_objects.get(id=freeze.member_id)
+                update_member_status(member, today=today)
+
+    return completed_count

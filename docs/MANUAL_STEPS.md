@@ -96,6 +96,14 @@ The feasibility spike on the real Yegara cPanel host passed all checks:
       ```
     - **Status:** To be verified at staging.
 
+11. **Sprint 13 — Automatic Unfreeze Cron Job**
+    - **What to do:** Configure a cPanel Cron Job running every 5 minutes to process ended membership freezes, reactivate subscriptions, and activate today's freezes via `process_unfreezes`.
+    - **Cron Command:**
+      ```bash
+      */5 * * * * /home/<user>/virtualenv/fitgate_backend/3.11/bin/python /home/<user>/fitgate/backend/manage.py process_unfreezes >> /home/<user>/fitgate_logs/cron_unfreeze.log 2>&1
+      ```
+    - **Status:** To be verified at staging.
+
 ---
 
 ## Email & Domain Configuration (Brevo + cPanel)
