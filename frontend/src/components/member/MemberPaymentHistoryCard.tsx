@@ -86,8 +86,19 @@ export const MemberPaymentHistoryCard: React.FC = () => {
               >
                 {new Date(item.created_at).toLocaleDateString()} • Method:{" "}
                 <span style={{ textTransform: "uppercase", fontWeight: 600 }}>
-                  {item.method}
+                  {item.method === "bank_transfer" ? "Bank Transfer" : item.method}
                 </span>
+                {item.bank_reference && (
+                  <span
+                    style={{
+                      marginLeft: "8px",
+                      color: "#a78bfa",
+                      fontFamily: "monospace",
+                    }}
+                  >
+                    Ref: {item.bank_reference}
+                  </span>
+                )}
                 {item.receipt_number && (
                   <span
                     style={{
@@ -97,6 +108,22 @@ export const MemberPaymentHistoryCard: React.FC = () => {
                     }}
                   >
                     Receipt #{item.receipt_number}
+                  </span>
+                )}
+                {item.is_reversed && (
+                  <span
+                    style={{
+                      marginLeft: "8px",
+                      backgroundColor: "#7f1d1d",
+                      color: "#fca5a5",
+                      padding: "2px 6px",
+                      borderRadius: "4px",
+                      fontSize: "10px",
+                      fontWeight: 700,
+                      letterSpacing: "0.5px",
+                    }}
+                  >
+                    REVERSED
                   </span>
                 )}
               </div>
@@ -117,7 +144,8 @@ export const MemberPaymentHistoryCard: React.FC = () => {
               <div
                 style={{
                   fontWeight: "bold",
-                  color: "#34d399",
+                  color: item.is_reversed ? "#94a3b8" : "#34d399",
+                  textDecoration: item.is_reversed ? "line-through" : "none",
                   fontSize: "15px",
                 }}
               >
@@ -129,15 +157,17 @@ export const MemberPaymentHistoryCard: React.FC = () => {
                   textTransform: "capitalize",
                   fontWeight: 600,
                   color:
-                    item.status === "confirmed"
-                      ? "#34d399"
-                      : item.status === "pending"
-                        ? "#fbbf24"
-                        : "#f87171",
+                    item.is_reversed || item.status === "reversed"
+                      ? "#ef4444"
+                      : item.status === "confirmed"
+                        ? "#34d399"
+                        : item.status === "pending"
+                          ? "#fbbf24"
+                          : "#f87171",
                   marginTop: "2px",
                 }}
               >
-                {item.status}
+                {item.is_reversed ? "reversed" : item.status}
               </div>
             </div>
           </div>

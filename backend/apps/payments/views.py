@@ -32,11 +32,22 @@ from apps.payments.serializers import (
     GymPaymentConfigUpdateSerializer,
     MemberPaymentHistoryItemSerializer,
     ReceiptSerializer,
+    ReconcileBankTransfersSerializer,
+    RecordBankTransferPaymentRequestSerializer,
+    RecordBankTransferResponseSerializer,
     RecordCashPaymentRequestSerializer,
     RecordCashPaymentResponseSerializer,
+    ReverseBankTransferSerializer,
     SuperAdminGymPaymentStatusSerializer,
+    UnreconciledBankTransferItemSerializer,
 )
-from apps.payments.services import process_chapa_webhook, record_cash_payment
+from apps.payments.services import (
+    process_chapa_webhook,
+    reconcile_bank_transfers,
+    record_bank_transfer_payment,
+    record_cash_payment,
+    reverse_bank_transfer_payment,
+)
 from apps.tenants.models import GymTenant
 
 logger = logging.getLogger(__name__)
@@ -607,6 +618,11 @@ class GymPaymentListView(APIView):
                 p.receipt.receipt_number if hasattr(p, "receipt") and p.receipt else ""
             )
             notes = p.metadata.get("notes", "") if isinstance(p.metadata, dict) else ""
+            reversal_at = (
+                p.reversal.reversed_at
+                if hasattr(p, "reversal") and p.reversal
+                else None
+            )
             results.append(
                 {
                     "id": str(p.id),
@@ -628,6 +644,13 @@ class GymPaymentListView(APIView):
                     ),
                     "receipt_number": receipt_no,
                     "notes": notes,
+                    "bank_reference": p.bank_reference or "",
+                    "transfer_date": p.transfer_date,
+                    "channel": p.channel or "",
+                    "is_reconciled": p.is_reconciled,
+                    "reconciled_at": p.reconciled_at,
+                    "is_reversed": p.status == Payment.STATUS_REVERSED,
+                    "reversed_at": reversal_at,
                 }
             )
 
@@ -667,7 +690,7 @@ class MemberPaymentHistoryView(APIView):
             return Response({"results": []}, status=status.HTTP_200_OK)
 
         qs = Payment.all_objects.select_related(
-            "plan", "subscription", "receipt"
+            "plan", "subscription", "receipt", "reversal"
         ).filter(member=member)
         if tenant:
             qs = qs.filter(gym=tenant)
@@ -676,6 +699,11 @@ class MemberPaymentHistoryView(APIView):
         for p in qs:
             receipt_no = (
                 p.receipt.receipt_number if hasattr(p, "receipt") and p.receipt else ""
+            )
+            reversal_at = (
+                p.reversal.reversed_at
+                if hasattr(p, "reversal") and p.reversal
+                else None
             )
             results.append(
                 {
@@ -687,6 +715,9 @@ class MemberPaymentHistoryView(APIView):
                     "currency": p.currency,
                     "status": p.status,
                     "receipt_number": receipt_no,
+                    "bank_reference": p.bank_reference or "",
+                    "is_reversed": p.status == Payment.STATUS_REVERSED,
+                    "reversed_at": reversal_at,
                     "subscription_start_date": (
                         p.subscription.start_date if p.subscription else None
                     ),
@@ -751,3 +782,309 @@ class ReceiptDetailView(APIView):
 
         serializer = ReceiptSerializer(receipt)
         return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+class CanRecordBankTransfer(BasePermission):
+    """
+    Bank transfer payment recording can be executed by Owner, Manager, or Reception.
+    Super Admin, Trainer, Member are denied (403). Cross-gym denied (403).
+    """
+
+    def has_permission(self, request, view):
+        if not request.user or not request.user.is_authenticated:
+            return False
+        if request.user.role == User.ROLE_SUPER_ADMIN:
+            return False
+        tenant = getattr(request, "tenant", None)
+        if tenant is None:
+            return False
+        return (
+            request.user.role
+            in (User.ROLE_OWNER, User.ROLE_MANAGER, User.ROLE_RECEPTION)
+            and request.user.gym_id == tenant.id
+        )
+
+
+class CanManageBankTransfers(BasePermission):
+    """
+    Owner ONLY of that gym can view unreconciled bank transfers, reconcile them, or reverse them.
+    Super Admin, Manager, Reception, Trainer, Member are denied (403). Cross-gym denied (403).
+    """
+
+    def has_permission(self, request, view):
+        if not request.user or not request.user.is_authenticated:
+            return False
+        if request.user.role == User.ROLE_SUPER_ADMIN:
+            return False
+        tenant = getattr(request, "tenant", None)
+        if tenant is None:
+            return False
+        return request.user.role == User.ROLE_OWNER and request.user.gym_id == tenant.id
+
+
+class RecordBankTransferPaymentView(APIView):
+    """
+    Record and confirm a bank-transfer payment for a member.
+    Allowed: Owner, Manager, Reception of that gym.
+    Denied: Member, Trainer, Super Admin (403). Other gyms (403).
+    """
+
+    permission_classes = [
+        IsAuthenticated,
+        RequirePasswordChanged,
+        CanRecordBankTransfer,
+    ]
+
+    @extend_schema(
+        summary="Record member bank-transfer payment",
+        description="Records a bank-transfer payment for a member with bank reference, transfer date, and channel.",
+        request=RecordBankTransferPaymentRequestSerializer,
+        responses={
+            201: RecordBankTransferResponseSerializer,
+            400: OpenApiResponse(description="Validation error or duplicate reference"),
+            403: OpenApiResponse(description="Permission denied"),
+        },
+    )
+    def post(self, request, *args, **kwargs):
+        tenant = getattr(request, "tenant", None)
+        if not tenant:
+            return Response(
+                {"detail": "Tenant required."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        serializer = RecordBankTransferPaymentRequestSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        member_id = serializer.validated_data["member_id"]
+        plan_id = serializer.validated_data["plan_id"]
+        bank_reference = serializer.validated_data["bank_reference"]
+        transfer_date = serializer.validated_data["transfer_date"]
+        channel = serializer.validated_data.get("channel", "")
+        notes = serializer.validated_data.get("notes", "")
+        idempotency_key = serializer.validated_data.get("idempotency_key", "")
+
+        member = Member.all_objects.filter(id=member_id).first()
+        if not member or member.gym_id != tenant.id:
+            return Response(
+                {"detail": "Member does not belong to this gym."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        plan = MembershipPlan.all_objects.filter(id=plan_id).first()
+        if not plan or plan.gym_id != tenant.id:
+            return Response(
+                {"detail": "Plan does not belong to this gym."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        if not plan.is_active:
+            return Response(
+                {"detail": "Cannot record payment for a deactivated plan."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            payment, receipt, subscription = record_bank_transfer_payment(
+                gym=tenant,
+                member=member,
+                plan=plan,
+                recorded_by=request.user,
+                bank_reference=bank_reference,
+                transfer_date=transfer_date,
+                channel=channel,
+                notes=notes,
+                idempotency_key=idempotency_key or None,
+            )
+        except ValidationError as exc:
+            detail = exc.message_dict if hasattr(exc, "message_dict") else exc.messages
+            return Response({"detail": detail}, status=status.HTTP_400_BAD_REQUEST)
+        except PermissionDenied as exc:
+            return Response({"detail": str(exc)}, status=status.HTTP_403_FORBIDDEN)
+
+        receipt_data = ReceiptSerializer(receipt).data if receipt else None
+        return Response(
+            {
+                "detail": "Bank transfer payment recorded and confirmed.",
+                "payment_id": str(payment.id),
+                "amount_etb": payment.amount_etb,
+                "status": payment.status,
+                "bank_reference": payment.bank_reference,
+                "is_reconciled": payment.is_reconciled,
+                "receipt": receipt_data,
+                "subscription_id": (str(subscription.id) if subscription else None),
+            },
+            status=status.HTTP_201_CREATED,
+        )
+
+
+class UnreconciledBankTransfersView(APIView):
+    """
+    List unreconciled bank transfers for owner review.
+    Owner ONLY of that gym.
+    """
+
+    permission_classes = [
+        IsAuthenticated,
+        RequirePasswordChanged,
+        CanManageBankTransfers,
+    ]
+
+    @extend_schema(
+        summary="List unreconciled bank transfers",
+        description="Returns unreconciled bank transfers for owner reconciliation. Owner only.",
+        responses={200: UnreconciledBankTransferItemSerializer(many=True)},
+    )
+    def get(self, request, *args, **kwargs):
+        tenant = getattr(request, "tenant", None)
+        if not tenant:
+            return Response(
+                {"detail": "Tenant required."}, status=status.HTTP_400_BAD_REQUEST
+            )
+
+        transfers = (
+            Payment.all_objects.select_related("member", "confirmed_by", "receipt")
+            .filter(
+                gym=tenant,
+                method=Payment.METHOD_BANK_TRANSFER,
+                status=Payment.STATUS_CONFIRMED,
+                is_reconciled=False,
+            )
+            .order_by("-created_at")
+        )
+
+        results = []
+        for t in transfers:
+            receipt_no = (
+                t.receipt.receipt_number if hasattr(t, "receipt") and t.receipt else ""
+            )
+            results.append(
+                {
+                    "id": str(t.id),
+                    "transfer_date": t.transfer_date,
+                    "created_at": t.created_at,
+                    "bank_reference": t.bank_reference or "",
+                    "channel": t.channel or "",
+                    "amount_etb": t.amount_etb,
+                    "member_id": str(t.member_id) if t.member_id else None,
+                    "member_name": t.member.full_name if t.member else "",
+                    "member_phone": t.member.phone if t.member else "",
+                    "confirmed_by_id": (
+                        str(t.confirmed_by_id) if t.confirmed_by_id else None
+                    ),
+                    "confirmed_by_name": (
+                        t.confirmed_by.full_name if t.confirmed_by else ""
+                    ),
+                    "receipt_number": receipt_no,
+                }
+            )
+
+        return Response(
+            {"count": len(results), "results": results}, status=status.HTTP_200_OK
+        )
+
+
+class ReconcileBankTransfersView(APIView):
+    """
+    Reconcile one or multiple bank transfers against bank statement.
+    Owner ONLY of that gym.
+    """
+
+    permission_classes = [
+        IsAuthenticated,
+        RequirePasswordChanged,
+        CanManageBankTransfers,
+    ]
+
+    @extend_schema(
+        summary="Reconcile bank transfers",
+        description="Marks bank transfers as reconciled. Owner only.",
+        request=ReconcileBankTransfersSerializer,
+        responses={200: OpenApiResponse(description="Reconciliation result")},
+    )
+    def post(self, request, *args, **kwargs):
+        tenant = getattr(request, "tenant", None)
+        if not tenant:
+            return Response(
+                {"detail": "Tenant required."}, status=status.HTTP_400_BAD_REQUEST
+            )
+
+        serializer = ReconcileBankTransfersSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        payment_ids = serializer.validated_data["payment_ids"]
+        try:
+            cleared_count = reconcile_bank_transfers(
+                payment_ids=payment_ids,
+                cleared_by=request.user,
+                gym=tenant,
+            )
+        except PermissionDenied as exc:
+            return Response({"detail": str(exc)}, status=status.HTTP_403_FORBIDDEN)
+        except ValidationError as exc:
+            detail = exc.message_dict if hasattr(exc, "message_dict") else exc.messages
+            return Response({"detail": detail}, status=status.HTTP_400_BAD_REQUEST)
+
+        return Response(
+            {
+                "detail": f"Successfully cleared {cleared_count} bank transfer(s).",
+                "cleared_count": cleared_count,
+            },
+            status=status.HTTP_200_OK,
+        )
+
+
+class ReverseBankTransferView(APIView):
+    """
+    Reverse an unreconciled bank transfer payment.
+    Owner ONLY of that gym.
+    """
+
+    permission_classes = [
+        IsAuthenticated,
+        RequirePasswordChanged,
+        CanManageBankTransfers,
+    ]
+
+    @extend_schema(
+        summary="Reverse bank transfer payment",
+        description="Reverses an unreconciled bank transfer, restores subscription state, and creates immutable reversal record. Owner only.",
+        request=ReverseBankTransferSerializer,
+        responses={200: OpenApiResponse(description="Reversal result")},
+    )
+    def post(self, request, payment_id, *args, **kwargs):
+        tenant = getattr(request, "tenant", None)
+        if not tenant:
+            return Response(
+                {"detail": "Tenant required."}, status=status.HTTP_400_BAD_REQUEST
+            )
+
+        serializer = ReverseBankTransferSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        reason = serializer.validated_data["reason"]
+        try:
+            payment, reversal = reverse_bank_transfer_payment(
+                payment_id=payment_id,
+                reversed_by=request.user,
+                reason=reason,
+                gym=tenant,
+            )
+        except PermissionDenied as exc:
+            return Response({"detail": str(exc)}, status=status.HTTP_403_FORBIDDEN)
+        except ValidationError as exc:
+            detail = exc.message_dict if hasattr(exc, "message_dict") else exc.messages
+            return Response({"detail": detail}, status=status.HTTP_400_BAD_REQUEST)
+
+        return Response(
+            {
+                "detail": "Bank transfer payment successfully reversed.",
+                "payment_id": str(payment.id),
+                "status": payment.status,
+                "reversal_id": str(reversal.id),
+                "reversed_at": reversal.reversed_at,
+            },
+            status=status.HTTP_200_OK,
+        )

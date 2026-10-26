@@ -1,6 +1,7 @@
 """Data models for payments, payment configurations, and transactions."""
 
 import uuid
+from typing import Optional
 
 from django.conf import settings
 from django.core.exceptions import ValidationError
@@ -125,12 +126,14 @@ class Payment(TenantAwareModel):
     STATUS_CONFIRMED = "confirmed"
     STATUS_FAILED = "failed"
     STATUS_ABANDONED = "abandoned"
+    STATUS_REVERSED = "reversed"
 
     STATUS_CHOICES = [
         (STATUS_PENDING, "Pending"),
         (STATUS_CONFIRMED, "Confirmed"),
         (STATUS_FAILED, "Failed"),
         (STATUS_ABANDONED, "Abandoned"),
+        (STATUS_REVERSED, "Reversed"),
     ]
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
@@ -167,6 +170,22 @@ class Payment(TenantAwareModel):
     currency = models.CharField(max_length=10, default="ETB")
     chapa_ref = models.CharField(max_length=100, null=True, blank=True, unique=True)
     bank_reference = models.CharField(max_length=100, null=True, blank=True)
+    bank_reference_normalized = models.CharField(
+        max_length=100, null=True, blank=True, db_index=True
+    )
+    transfer_date = models.DateField(null=True, blank=True)
+    channel = models.CharField(max_length=50, blank=True, default="")
+    is_reconciled = models.BooleanField(default=False)
+    reconciled_at = models.DateTimeField(null=True, blank=True)
+    reconciled_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="reconciled_payments",
+    )
+    flagged_unreconciled_at = models.DateTimeField(null=True, blank=True)
+    previous_subscription_state = models.JSONField(default=dict, blank=True)
     status = models.CharField(
         max_length=20,
         choices=STATUS_CHOICES,
@@ -198,7 +217,12 @@ class Payment(TenantAwareModel):
                 fields=["gym", "idempotency_key"],
                 condition=models.Q(idempotency_key__isnull=False),
                 name="unique_gym_payment_idempotency_key",
-            )
+            ),
+            models.UniqueConstraint(
+                fields=["gym", "bank_reference_normalized"],
+                condition=models.Q(bank_reference_normalized__isnull=False),
+                name="unique_gym_bank_reference_normalized",
+            ),
         ]
 
     def clean(self):
@@ -216,9 +240,38 @@ class Payment(TenantAwareModel):
                     }
                 )
         elif self.payer_type == self.PAYER_TYPE_MEMBER:
-            if self.method not in (self.METHOD_CHAPA, self.METHOD_CASH):
+            if self.method not in (
+                self.METHOD_CHAPA,
+                self.METHOD_CASH,
+                self.METHOD_BANK_TRANSFER,
+            ):
                 raise ValidationError(
-                    {"method": ["Member payments must use chapa or cash."]}
+                    {
+                        "method": [
+                            "Member payments must use chapa, cash, or bank_transfer."
+                        ]
+                    }
+                )
+
+        if self.bank_reference:
+            cleaned_ref = self.bank_reference.strip()
+            if len(cleaned_ref) < 3 or len(cleaned_ref) > 100:
+                raise ValidationError(
+                    {
+                        "bank_reference": [
+                            "Bank reference must be between 3 and 100 characters."
+                        ]
+                    }
+                )
+            self.bank_reference = cleaned_ref
+            self.bank_reference_normalized = cleaned_ref.lower()
+
+        if self.transfer_date:
+            from django.utils import timezone
+
+            if self.transfer_date > timezone.localdate():
+                raise ValidationError(
+                    {"transfer_date": ["Transfer date cannot be in the future."]}
                 )
 
         if self.status == self.STATUS_CONFIRMED and self.method in (
@@ -240,6 +293,68 @@ class Payment(TenantAwareModel):
 
     def __str__(self):
         return f"Payment {self.id} ({self.payer_type} - {self.amount_etb} ETB [{self.status}])"
+
+
+class PaymentReversal(TenantAwareModel):
+    """
+    Immutable record of a reversed bank-transfer payment.
+    Protected against update and deletion at application and database trigger level.
+    """
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    payment = models.OneToOneField(
+        "payments.Payment",
+        on_delete=models.PROTECT,
+        related_name="reversal",
+    )
+    reversed_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        related_name="executed_reversals",
+    )
+    reversed_at = models.DateTimeField(editable=False)
+    reason = models.TextField()
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-reversed_at"]
+        verbose_name = "Payment Reversal"
+        verbose_name_plural = "Payment Reversals"
+
+    def clean(self):
+        super().clean()
+        if self.reason:
+            cleaned_reason = self.reason.strip()
+            if len(cleaned_reason) < 5 or len(cleaned_reason) > 500:
+                raise ValidationError(
+                    {
+                        "reason": [
+                            "Reversal reason must be between 5 and 500 characters."
+                        ]
+                    }
+                )
+            self.reason = cleaned_reason
+        else:
+            raise ValidationError({"reason": ["Reversal reason is required."]})
+
+    def save(self, *args, **kwargs):
+        if not self._state.adding and self.pk:
+            if PaymentReversal.all_objects.filter(pk=self.pk).exists():
+                raise ValidationError(
+                    "Payment reversals are immutable and cannot be updated."
+                )
+        if not self.reversed_at:
+            from django.utils import timezone
+
+            self.reversed_at = timezone.now()
+        self.clean()
+        super().save(*args, **kwargs)
+
+    def delete(self, *args, **kwargs):
+        raise ValidationError("Payment reversals are immutable and cannot be deleted.")
+
+    def __str__(self):
+        return f"PaymentReversal({self.payment_id} by {self.reversed_by_id})"
 
 
 class Receipt(TenantAwareModel):
@@ -299,16 +414,31 @@ class Receipt(TenantAwareModel):
         super().clean()
         if (
             self.payment
-            and self.payment.method == Payment.METHOD_CASH
+            and self.payment.method
+            in (Payment.METHOD_CASH, Payment.METHOD_BANK_TRANSFER)
             and not self.issued_by_id
         ):
             raise ValidationError(
                 {
                     "issued_by": [
-                        "Cash receipts must record which staff member issued them."
+                        "Cash and bank transfer receipts must record which staff member issued them."
                     ]
                 }
             )
+
+    @property
+    def is_reversed(self) -> bool:
+        return (
+            self.payment.status == Payment.STATUS_REVERSED if self.payment_id else False
+        )
+
+    @property
+    def bank_reference(self) -> Optional[str]:
+        return self.payment.bank_reference if self.payment_id else None
+
+    @property
+    def transfer_channel(self) -> Optional[str]:
+        return self.payment.channel if self.payment_id else None
 
     def save(self, *args, **kwargs):
         if not self._state.adding and self.pk:
