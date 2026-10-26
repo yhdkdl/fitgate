@@ -1,4 +1,4 @@
-"""Data models for payments and transactions."""
+"""Data models for payments, payment configurations, and transactions."""
 
 import uuid
 
@@ -7,6 +7,93 @@ from django.core.exceptions import ValidationError
 from django.db import models
 
 from apps.tenants.models import TenantAwareModel
+
+
+class GymPaymentConfig(TenantAwareModel):
+    """
+    Per-gym payment configuration for Chapa and external gateways.
+    One config per gym tenant. Credentials are encrypted at rest with TENANT_CREDENTIALS_KEY.
+    """
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    encrypted_public_key = models.TextField(blank=True, default="")
+    encrypted_secret_key = models.TextField(blank=True, default="")
+    encrypted_webhook_secret = models.TextField(blank=True, default="")
+    is_test_mode = models.BooleanField(default=True)
+    is_verified = models.BooleanField(default=False)
+    verified_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Gym Payment Configuration"
+        verbose_name_plural = "Gym Payment Configurations"
+        constraints = [
+            models.UniqueConstraint(fields=["gym"], name="unique_gym_payment_config")
+        ]
+
+    @property
+    def public_key(self) -> str:
+        from apps.payments.encryption import decrypt_credential
+
+        return decrypt_credential(self.encrypted_public_key)
+
+    @public_key.setter
+    def public_key(self, value: str):
+        from apps.payments.encryption import encrypt_credential
+
+        self.encrypted_public_key = encrypt_credential(value)
+        if value:
+            self.is_test_mode = "test" in value.lower()
+
+    @property
+    def secret_key(self) -> str:
+        from apps.payments.encryption import decrypt_credential
+
+        return decrypt_credential(self.encrypted_secret_key)
+
+    @secret_key.setter
+    def secret_key(self, value: str):
+        from apps.payments.encryption import encrypt_credential
+
+        self.encrypted_secret_key = encrypt_credential(value)
+        if value and not self.encrypted_public_key:
+            self.is_test_mode = "test" in value.lower()
+
+    @property
+    def webhook_secret(self) -> str:
+        from apps.payments.encryption import decrypt_credential
+
+        return decrypt_credential(self.encrypted_webhook_secret)
+
+    @webhook_secret.setter
+    def webhook_secret(self, value: str):
+        from apps.payments.encryption import encrypt_credential
+
+        self.encrypted_webhook_secret = encrypt_credential(value)
+
+    @property
+    def masked_public_key(self) -> str:
+        from apps.payments.encryption import mask_credential
+
+        return mask_credential(self.public_key)
+
+    @property
+    def has_secret_key(self) -> bool:
+        return bool(self.encrypted_secret_key)
+
+    @property
+    def has_webhook_secret(self) -> bool:
+        return bool(self.encrypted_webhook_secret)
+
+    @property
+    def is_configured(self) -> bool:
+        return bool(self.encrypted_public_key and self.encrypted_secret_key)
+
+    def __str__(self):
+        mode = "Test" if self.is_test_mode else "Live"
+        status = "Verified" if self.is_verified else "Unverified"
+        return f"GymPaymentConfig({self.gym.subdomain} - {mode} [{status}])"
 
 
 class Payment(TenantAwareModel):
@@ -37,11 +124,13 @@ class Payment(TenantAwareModel):
     STATUS_PENDING = "pending"
     STATUS_CONFIRMED = "confirmed"
     STATUS_FAILED = "failed"
+    STATUS_ABANDONED = "abandoned"
 
     STATUS_CHOICES = [
         (STATUS_PENDING, "Pending"),
         (STATUS_CONFIRMED, "Confirmed"),
         (STATUS_FAILED, "Failed"),
+        (STATUS_ABANDONED, "Abandoned"),
     ]
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
@@ -50,17 +139,40 @@ class Payment(TenantAwareModel):
         choices=PAYER_TYPE_CHOICES,
         default=PAYER_TYPE_MEMBER,
     )
-    member_id = models.UUIDField(null=True, blank=True)
-    subscription_id = models.UUIDField(null=True, blank=True)
+    member = models.ForeignKey(
+        "memberships.Member",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="payments",
+        db_column="member_id",
+    )
+    plan = models.ForeignKey(
+        "memberships.MembershipPlan",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="payments",
+    )
+    subscription = models.ForeignKey(
+        "memberships.MemberSubscription",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="payments",
+        db_column="subscription_id",
+    )
     method = models.CharField(max_length=30, choices=METHOD_CHOICES)
     amount_etb = models.DecimalField(max_digits=12, decimal_places=2)
-    chapa_ref = models.CharField(max_length=100, null=True, blank=True)
+    currency = models.CharField(max_length=10, default="ETB")
+    chapa_ref = models.CharField(max_length=100, null=True, blank=True, unique=True)
     bank_reference = models.CharField(max_length=100, null=True, blank=True)
     status = models.CharField(
         max_length=20,
         choices=STATUS_CHOICES,
         default=STATUS_PENDING,
     )
+    metadata = models.JSONField(default=dict, blank=True)
     confirmed_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         null=True,

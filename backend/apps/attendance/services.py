@@ -92,20 +92,18 @@ def notify_staff_duplicate_scan(
         is_active=True,
         role__in=[User.ROLE_OWNER, User.ROLE_MANAGER, User.ROLE_RECEPTION],
     )
-    notifications = [
-        Notification(
-            gym=gym,
+    from apps.accounts.notifications import create_notification
+
+    for staff in staff_users:
+        create_notification(
             recipient=staff,
-            type="duplicate_checkin_alert",
+            notification_type="duplicate_checkin_alert",
             message=(
                 f"Duplicate check-in attempted today ({checkin_date}) by member "
                 f"{member.full_name} ({member.phone})."
             ),
+            gym=gym,
         )
-        for staff in staff_users
-    ]
-    if notifications:
-        Notification.objects.bulk_create(notifications)
 
 
 def issue_member_qr_token(

@@ -51,19 +51,43 @@ def qr_jwt_test_keys(settings):
     settings.QR_JWT_PUBLIC_KEY = keys[1]
 
 
-@pytest.fixture
-def allow_auditlog_test_flush():
-    """
-    Fixture for transactional_db tests that need to flush tables.
-    Disables accounts_auditlog USER triggers before flush and re-enables after.
-    Never embedded in database migrations.
-    """
-    from django.db import connection
+_TEST_TENANT_CREDENTIALS_KEY = "test_fernet_secret_key_32_bytes!"
+os.environ["TENANT_CREDENTIALS_KEY"] = _TEST_TENANT_CREDENTIALS_KEY
 
-    with connection.cursor() as cursor:
-        cursor.execute("ALTER TABLE accounts_auditlog DISABLE TRIGGER USER;")
-    try:
-        yield
-    finally:
-        with connection.cursor() as cursor:
-            cursor.execute("ALTER TABLE accounts_auditlog ENABLE TRIGGER USER;")
+
+@pytest.fixture(autouse=True)
+def tenant_credentials_test_key(settings):
+    """Configure test encryption key in test environment only and restore on teardown."""
+    settings.TENANT_CREDENTIALS_KEY = _TEST_TENANT_CREDENTIALS_KEY
+    yield
+    settings.TENANT_CREDENTIALS_KEY = _TEST_TENANT_CREDENTIALS_KEY
+
+
+try:
+    from django.db.backends.base.operations import BaseDatabaseOperations
+
+    _orig_execute_sql_flush = BaseDatabaseOperations.execute_sql_flush
+
+    def _safe_execute_sql_flush(self, sql_list):
+        """
+        Disable accounts_auditlog immutability trigger around execute_sql_flush
+        so TransactionTestCase post-teardown table flushes can succeed cleanly.
+        Never embedded in database migrations.
+        """
+        try:
+            with self.connection.cursor() as cursor:
+                cursor.execute("ALTER TABLE accounts_auditlog DISABLE TRIGGER ALL;")
+        except Exception:
+            pass
+        try:
+            return _orig_execute_sql_flush(self, sql_list)
+        finally:
+            try:
+                with self.connection.cursor() as cursor:
+                    cursor.execute("ALTER TABLE accounts_auditlog ENABLE TRIGGER ALL;")
+            except Exception:
+                pass
+
+    BaseDatabaseOperations.execute_sql_flush = _safe_execute_sql_flush
+except Exception:
+    pass
