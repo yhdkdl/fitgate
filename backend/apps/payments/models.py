@@ -452,3 +452,29 @@ class Receipt(TenantAwareModel):
 
     def __str__(self):
         return f"Receipt {self.receipt_number} ({self.amount_etb} ETB)"
+
+
+class GymReceiptCounter(TenantAwareModel):
+    """
+    Dedicated per-gym counter for sequential, gapless receipt numbering.
+    Locked with select_for_update inside payment transactions.
+    Rolls back automatically if the payment transaction fails.
+    """
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    last_receipt_number = models.PositiveIntegerField(default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Gym Receipt Counter"
+        verbose_name_plural = "Gym Receipt Counters"
+        constraints = [
+            models.UniqueConstraint(
+                fields=["gym"],
+                name="unique_gym_receipt_counter",
+            )
+        ]
+
+    def __str__(self):
+        return f"ReceiptCounter ({self.gym_id}): {self.last_receipt_number}"

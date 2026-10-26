@@ -21,7 +21,13 @@ from apps.memberships.services import (
     update_member_status,
 )
 from apps.payments.chapa_client import ChapaAPIError, ChapaClient
-from apps.payments.models import GymPaymentConfig, Payment, PaymentReversal, Receipt
+from apps.payments.models import (
+    GymPaymentConfig,
+    GymReceiptCounter,
+    Payment,
+    PaymentReversal,
+    Receipt,
+)
 from apps.tenants.models import GymTenant
 
 logger = logging.getLogger(__name__)
@@ -34,6 +40,36 @@ def _dummy_timing_compare(raw_body: bytes, signature_header: str) -> None:
     hmac.compare_digest(
         dummy_sig, signature_header.strip().lower() if signature_header else "none"
     )
+
+
+def get_next_receipt_sequence_and_number(gym: GymTenant) -> Tuple[int, str]:
+    """
+    Acquires an exclusive row lock on the gym's receipt counter inside an active transaction.
+    Increments the counter by 1, persists it, and returns (sequence, receipt_number).
+    Guarantees sequential, gapless numbering without duplicates under concurrency (starting at 1).
+    Rolls back automatically if the payment transaction rolls back.
+    """
+    counter = GymReceiptCounter.all_objects.select_for_update().filter(gym=gym).first()
+    if not counter:
+        with transaction.atomic():
+            GymReceiptCounter.all_objects.get_or_create(gym=gym)
+        counter = GymReceiptCounter.all_objects.select_for_update().get(gym=gym)
+
+    if counter.last_receipt_number == 0:
+        max_existing = (
+            Receipt.all_objects.filter(gym=gym)
+            .order_by("-sequence_number")
+            .values_list("sequence_number", flat=True)
+            .first()
+        )
+        if max_existing:
+            counter.last_receipt_number = max_existing
+
+    counter.last_receipt_number += 1
+    counter.save(update_fields=["last_receipt_number", "updated_at"])
+    sequence = counter.last_receipt_number
+    receipt_number = f"REC-{sequence:06d}"
+    return sequence, receipt_number
 
 
 def process_chapa_webhook(
@@ -339,13 +375,7 @@ def process_chapa_webhook(
             # Generate immutable digital receipt with sequential number
             try:
                 if not hasattr(locked_payment, "receipt"):
-                    last_receipt = (
-                        Receipt.all_objects.filter(gym=gym)
-                        .order_by("-sequence_number")
-                        .first()
-                    )
-                    sequence = (last_receipt.sequence_number + 1) if last_receipt else 1
-                    receipt_number = f"REC-{sequence:06d}"
+                    sequence, receipt_number = get_next_receipt_sequence_and_number(gym)
                     duration_str = (
                         f"{locked_payment.plan.duration_value} {locked_payment.plan.duration_unit}"
                         if locked_payment.plan
@@ -599,12 +629,8 @@ def record_cash_payment(
             metadata={"notes": notes, "recorded_by": recorded_by.email},
         )
 
-        # 6. Generate sequential Receipt unique per gym
-        last_receipt = (
-            Receipt.all_objects.filter(gym=gym).order_by("-sequence_number").first()
-        )
-        sequence = (last_receipt.sequence_number + 1) if last_receipt else 1
-        receipt_number = f"REC-{sequence:06d}"
+        # 6. Generate sequential Receipt unique per gym via locked per-gym counter
+        sequence, receipt_number = get_next_receipt_sequence_and_number(gym)
         duration_str = f"{plan.duration_value} {plan.duration_unit}"
 
         receipt = Receipt.all_objects.create(
@@ -851,12 +877,8 @@ def record_bank_transfer_payment(
             },
         )
 
-        # 8. Generate sequential digital Receipt unique per gym
-        last_receipt = (
-            Receipt.all_objects.filter(gym=gym).order_by("-sequence_number").first()
-        )
-        sequence = (last_receipt.sequence_number + 1) if last_receipt else 1
-        receipt_number = f"REC-{sequence:06d}"
+        # 8. Generate sequential digital Receipt unique per gym via locked per-gym counter
+        sequence, receipt_number = get_next_receipt_sequence_and_number(gym)
         duration_str = f"{plan.duration_value} {plan.duration_unit}"
 
         receipt = Receipt.all_objects.create(
