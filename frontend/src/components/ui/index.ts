@@ -7,3 +7,4 @@ export * from "./Spinner";
 export * from "./FormField";
 export * from "./PasswordChecklist";
 export * from "./AuthenticatedImage";
+export * from "./Modal";

@@ -14,6 +14,7 @@ import { StaffManagementSection } from "../components/owner/StaffManagementSecti
 import { MembershipPlansSection } from "../components/owner/MembershipPlansSection";
 import { PaymentGatewaySection } from "../components/owner/PaymentGatewaySection";
 import { GymPaymentsSection } from "../components/staff/GymPaymentsSection";
+import { GymFreezesSection } from "../components/staff/GymFreezesSection";
 
 import { MemberManagementSection } from "../components/dashboard/MemberManagementSection";
 import { MemberSelfSection } from "../components/dashboard/MemberSelfSection";
@@ -242,6 +243,8 @@ export const DashboardScreen: React.FC = () => {
 
               <GymPaymentsSection />
 
+              <GymFreezesSection />
+
               <StaffManagementSection
                 onStaffUpdated={() => setChecklistKey((k) => k + 1)}
               />
@@ -262,6 +265,7 @@ export const DashboardScreen: React.FC = () => {
             <div className="space-y-6">
               <MembershipPlansSection />
               <GymPaymentsSection />
+              <GymFreezesSection />
               <StaffManagementSection />
               <AttendanceScannerSection userRole={user?.role} />
               <MemberManagementSection userRole={user?.role} />

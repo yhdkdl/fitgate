@@ -8,6 +8,7 @@ import { MemberQrCard } from "../attendance/MemberQrCard";
 import { AttendanceLogCard } from "../attendance/AttendanceLogCard";
 import { MemberCheckoutCard } from "../member/MemberCheckoutCard";
 import { MemberPaymentHistoryCard } from "../member/MemberPaymentHistoryCard";
+import { MemberFreezeCard } from "../member/MemberFreezeCard";
 
 export const MemberSelfSection: React.FC = () => {
   const [profile, setProfile] = useState<Member | null>(null);
@@ -234,6 +235,9 @@ export const MemberSelfSection: React.FC = () => {
           </p>
         </Card>
       )}
+
+      {/* Membership Freeze Management */}
+      <MemberFreezeCard memberStatus={profile.status} />
 
       {/* Payment History & Receipts */}
       <MemberPaymentHistoryCard />

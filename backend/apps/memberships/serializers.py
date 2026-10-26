@@ -18,6 +18,7 @@ from apps.core.validators import (
 from apps.memberships.models import (
     BodyMetrics,
     Member,
+    MemberFreeze,
     MembershipPlan,
 )
 
@@ -473,3 +474,81 @@ class MemberSuspendRequestSerializer(serializers.Serializer):
         max_length=500,
         help_text="Optional reason for suspending member.",
     )
+
+
+class MemberFreezeRequestSerializer(serializers.Serializer):
+    """Request serializer for submitting a membership freeze."""
+
+    start_date = serializers.DateField(
+        required=True,
+        help_text="First day of membership freeze.",
+    )
+    end_date = serializers.DateField(
+        required=True,
+        help_text="Last day of membership freeze.",
+    )
+    reason = serializers.CharField(
+        required=True,
+        min_length=5,
+        max_length=500,
+        help_text="Reason for the freeze request (5 to 500 characters).",
+    )
+
+
+class MemberFreezeRejectSerializer(serializers.Serializer):
+    """Request serializer for rejecting a membership freeze."""
+
+    rejection_reason = serializers.CharField(
+        required=True,
+        min_length=5,
+        max_length=500,
+        help_text="Explanation for rejecting the freeze request (5 to 500 characters).",
+    )
+
+
+class MemberFreezeSerializer(serializers.ModelSerializer):
+    """Detailed read serializer for MemberFreeze records."""
+
+    member_name = serializers.CharField(source="member.full_name", read_only=True)
+    member_phone = serializers.CharField(source="member.phone", read_only=True)
+    approved_by_name = serializers.SerializerMethodField()
+
+    class Meta:
+        model = MemberFreeze
+        fields = [
+            "id",
+            "member_id",
+            "member_name",
+            "member_phone",
+            "subscription_id",
+            "start_date",
+            "end_date",
+            "days",
+            "reason",
+            "status",
+            "approved_by_id",
+            "approved_by_name",
+            "reviewed_at",
+            "rejection_reason",
+            "extension_applied",
+            "unfrozen_at",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = fields
+
+    def get_approved_by_name(self, obj) -> str:
+        if obj.approved_by:
+            return obj.approved_by.full_name or obj.approved_by.email
+        return ""
+
+
+class MemberFreezeAllowanceSerializer(serializers.Serializer):
+    """Read serializer for member freeze allowance."""
+
+    total_allowed = serializers.IntegerField()
+    used_days = serializers.IntegerField()
+    remaining_days = serializers.IntegerField()
+    has_active_subscription = serializers.BooleanField()
+    freeze_allowed = serializers.BooleanField()
+    subscription_id = serializers.CharField(required=False, allow_null=True)
