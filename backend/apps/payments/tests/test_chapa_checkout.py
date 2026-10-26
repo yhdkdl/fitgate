@@ -198,3 +198,52 @@ class TestChapaCheckout:
             HTTP_HOST="alpha.localhost",
         )
         assert resp.status_code == status.HTTP_404_NOT_FOUND
+
+    def test_staff_roles_and_super_admin_denied_online_checkout(self, setup_data):
+        """Online checkout is restricted to members only; staff use cash flow in Sprint 12."""
+        gym = setup_data["gym_a"]
+        plan = setup_data["plan_active"]
+
+        config = GymPaymentConfig.all_objects.create(gym=gym)
+        config.public_key = "CHAPUBK_TEST-abc"
+        config.secret_key = "CHASECK_TEST-sec"
+        config.is_verified = True
+        config.save()
+
+        staff_roles = [
+            User.ROLE_OWNER,
+            User.ROLE_MANAGER,
+            User.ROLE_RECEPTION,
+            User.ROLE_TRAINER,
+        ]
+
+        for role in staff_roles:
+            staff_user = User.objects.create_user(
+                email=f"staff_{role}@alpha.test",
+                password="StaffPassword123!",
+                gym=gym,
+                role=role,
+            )
+            client = APIClient()
+            client.force_authenticate(user=staff_user)
+            resp = client.post(
+                "/api/payments/checkout/chapa/",
+                {"plan_id": str(plan.id)},
+                format="json",
+                HTTP_HOST="alpha.localhost",
+            )
+            assert resp.status_code == status.HTTP_403_FORBIDDEN
+
+        super_admin = User.objects.create_superuser(
+            email="platform_admin@fitgate.org",
+            password="AdminPassword123!",
+        )
+        client = APIClient()
+        client.force_authenticate(user=super_admin)
+        resp = client.post(
+            "/api/payments/checkout/chapa/",
+            {"plan_id": str(plan.id)},
+            format="json",
+            HTTP_HOST="alpha.localhost",
+        )
+        assert resp.status_code == status.HTTP_403_FORBIDDEN

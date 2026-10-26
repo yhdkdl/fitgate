@@ -37,19 +37,15 @@ logger = logging.getLogger(__name__)
 
 class CanInitiateCheckout(BasePermission):
     """
-    Online checkout can be initiated by members (for themselves)
-    or by gym staff (Owner, Manager, Reception). Denies Super Admin and Trainer.
+    Online checkout can be initiated by members only (for themselves).
+    Owner, Manager, Reception, Trainer, and Super Admin are denied.
+    Staff take payments from members through the cash flow in Sprint 12.
     """
 
     def has_permission(self, request, view):
         if not request.user or not request.user.is_authenticated:
             return False
-        return request.user.role in (
-            User.ROLE_MEMBER,
-            User.ROLE_OWNER,
-            User.ROLE_MANAGER,
-            User.ROLE_RECEPTION,
-        )
+        return request.user.role == User.ROLE_MEMBER
 
 
 class GymPaymentConfigView(APIView):
@@ -229,17 +225,8 @@ class ChapaCheckoutView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        # Resolve member
-        if request.user.role == User.ROLE_MEMBER:
-            member = Member.all_objects.filter(user=request.user, gym=gym).first()
-        else:
-            member_id = request.data.get("member_id")
-            member = (
-                Member.all_objects.filter(id=member_id, gym=gym).first()
-                if member_id
-                else None
-            )
-
+        # Resolve member strictly from logged-in member account
+        member = Member.all_objects.filter(user=request.user, gym=gym).first()
         if not member:
             return Response(
                 {"detail": "Member record not found for this gym."},
@@ -368,9 +355,8 @@ class ChapaWebhookView(APIView):
             )
 
         sig_header = (
-            request.headers.get("Chapa-Signature")
-            or request.META.get("HTTP_CHAPA_SIGNATURE")
-            or request.headers.get("x-chapa-signature")
+            request.headers.get("x-chapa-signature")
+            or request.META.get("HTTP_X_CHAPA_SIGNATURE")
             or ""
         )
         success, message, http_status = process_chapa_webhook(

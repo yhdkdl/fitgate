@@ -21,6 +21,15 @@ from apps.payments.models import GymPaymentConfig, Payment
 logger = logging.getLogger(__name__)
 
 
+def _dummy_timing_compare(raw_body: bytes, signature_header: str) -> None:
+    """Execute dummy constant-time HMAC comparison to match timing across failure modes."""
+    dummy_secret = b"fitgate_constant_timing_dummy_00"
+    dummy_sig = hmac.new(dummy_secret, raw_body, hashlib.sha256).hexdigest()
+    hmac.compare_digest(
+        dummy_sig, signature_header.strip().lower() if signature_header else "none"
+    )
+
+
 def process_chapa_webhook(
     raw_body: bytes,
     signature_header: str,
@@ -35,16 +44,23 @@ def process_chapa_webhook(
     6. Repeated webhook handling (idempotency): never creates duplicate payment or subscription.
     7. Atomic DB transaction: payment confirmed + subscription activated + member notified + system audit log.
     """
+    if not signature_header:
+        _dummy_timing_compare(raw_body, signature_header)
+        logger.warning("Chapa webhook rejected: missing signature header.")
+        return False, "Invalid webhook signature.", 401
+
     try:
         payload = json.loads(raw_body.decode("utf-8"))
     except Exception:
+        _dummy_timing_compare(raw_body, signature_header)
         logger.warning("Chapa webhook rejected: malformed JSON payload.")
-        return False, "Malformed JSON payload.", 400
+        return False, "Invalid webhook signature.", 401
 
     tx_ref = payload.get("tx_ref")
     if not tx_ref:
+        _dummy_timing_compare(raw_body, signature_header)
         logger.warning("Chapa webhook rejected: missing tx_ref in payload.")
-        return False, "Missing tx_ref in payload.", 400
+        return False, "Invalid webhook signature.", 401
 
     # Locate stored payment record by tx_ref
     payment = (
@@ -53,38 +69,64 @@ def process_chapa_webhook(
         .first()
     )
     if not payment:
+        _dummy_timing_compare(raw_body, signature_header)
         logger.warning("Chapa webhook rejected: unknown tx_ref '%s'.", tx_ref)
-        return False, "Payment record not found for transaction reference.", 400
+        return False, "Invalid webhook signature.", 401
 
     # Tenancy resolved exclusively from stored payment
     gym = payment.gym
     config = GymPaymentConfig.all_objects.filter(gym=gym).first()
-    if not config or not config.is_configured:
-
+    if not config or not (config.webhook_secret or config.secret_key):
+        _dummy_timing_compare(raw_body, signature_header)
         logger.warning(
-            "Chapa webhook rejected: gym %s has no active payment configuration.",
+            "Chapa webhook rejected: gym %s has no active payment configuration or secrets.",
             gym.subdomain,
         )
-        return False, "Gym payment configuration unavailable.", 401
+        return False, "Invalid webhook signature.", 401
 
-    # Verify HMAC SHA256 signature
-    secret = config.webhook_secret or config.secret_key
-    if not signature_header or not secret:
-        logger.warning("Chapa webhook rejected: missing signature or secret key.")
-        return False, "Missing signature or webhook secret.", 401
+    # Verify HMAC SHA256 signature against gym's webhook secret or secret key (constant time)
+    sig_header_clean = signature_header.strip().lower()
+    wh_match = False
+    if config.webhook_secret:
+        expected_wh = (
+            hmac.new(
+                config.webhook_secret.encode("utf-8"),
+                raw_body,
+                hashlib.sha256,
+            )
+            .hexdigest()
+            .lower()
+        )
+        wh_match = hmac.compare_digest(expected_wh, sig_header_clean)
 
-    expected_sig = hmac.new(
-        secret.encode("utf-8"),
-        raw_body,
-        hashlib.sha256,
-    ).hexdigest()
+    sec_match = False
+    if config.secret_key:
+        expected_sec = (
+            hmac.new(
+                config.secret_key.encode("utf-8"),
+                raw_body,
+                hashlib.sha256,
+            )
+            .hexdigest()
+            .lower()
+        )
+        sec_match = hmac.compare_digest(expected_sec, sig_header_clean)
 
-    if not hmac.compare_digest(expected_sig.lower(), signature_header.strip().lower()):
+    if not (wh_match or sec_match):
         logger.warning(
             "Chapa webhook rejected: forged or invalid signature for tx_ref %s.",
             tx_ref,
         )
         return False, "Invalid webhook signature.", 401
+
+    # Idempotency: if already confirmed or failed, never alter payment, amount, member, or plan
+    if payment.status == Payment.STATUS_CONFIRMED:
+        logger.info("Chapa webhook idempotency: tx_ref %s already confirmed.", tx_ref)
+        return True, "Payment already confirmed.", 200
+
+    if payment.status == Payment.STATUS_FAILED:
+        logger.info("Chapa webhook: tx_ref %s already failed.", tx_ref)
+        return False, "Payment already marked failed.", 400
 
     # Server-side verification call to Chapa API
     client = ChapaClient(secret_key=config.secret_key)
@@ -255,6 +297,10 @@ def process_chapa_webhook(
         logger.info("Chapa webhook idempotency: tx_ref %s already confirmed.", tx_ref)
         return True, "Payment already confirmed.", 200
 
+    if payment.status == Payment.STATUS_FAILED:
+        logger.info("Chapa webhook: tx_ref %s already failed.", tx_ref)
+        return False, "Payment already marked failed.", 400
+
     # Execute in ONE atomic database transaction strictly bound to stored payment's gym tenant
     from apps.tenants.context import reset_current_tenant, set_current_tenant
 
@@ -264,6 +310,9 @@ def process_chapa_webhook(
             locked_payment = Payment.all_objects.select_for_update().get(id=payment.id)
             if locked_payment.status == Payment.STATUS_CONFIRMED:
                 return True, "Payment already confirmed.", 200
+
+            if locked_payment.status == Payment.STATUS_FAILED:
+                return False, "Payment already marked failed.", 400
 
             locked_payment.status = Payment.STATUS_CONFIRMED
             locked_payment.metadata["chapa_verified"] = data

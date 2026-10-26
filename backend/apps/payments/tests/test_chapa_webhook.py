@@ -114,7 +114,7 @@ class TestChapaWebhookSafety:
             "/api/webhooks/chapa/",
             data=body,
             content_type="application/json",
-            HTTP_CHAPA_SIGNATURE="forged_signature_value",
+            HTTP_X_CHAPA_SIGNATURE="forged_signature_value",
             HTTP_HOST="alpha.localhost",
         )
         assert resp.status_code == status.HTTP_401_UNAUTHORIZED
@@ -174,7 +174,7 @@ class TestChapaWebhookSafety:
                 "/api/webhooks/chapa/",
                 data=body,
                 content_type="application/json",
-                HTTP_CHAPA_SIGNATURE=sig,
+                HTTP_X_CHAPA_SIGNATURE=sig,
                 HTTP_HOST="alpha.localhost",
             )
         assert resp.status_code == status.HTTP_200_OK
@@ -235,7 +235,7 @@ class TestChapaWebhookSafety:
                 "/api/webhooks/chapa/",
                 data=body,
                 content_type="application/json",
-                HTTP_CHAPA_SIGNATURE=sig,
+                HTTP_X_CHAPA_SIGNATURE=sig,
                 HTTP_HOST="alpha.localhost",
             )
             assert resp1.status_code == status.HTTP_200_OK
@@ -250,7 +250,7 @@ class TestChapaWebhookSafety:
                 "/api/webhooks/chapa/",
                 data=body,
                 content_type="application/json",
-                HTTP_CHAPA_SIGNATURE=sig,
+                HTTP_X_CHAPA_SIGNATURE=sig,
                 HTTP_HOST="alpha.localhost",
             )
             assert resp2.status_code == status.HTTP_200_OK
@@ -291,7 +291,7 @@ class TestChapaWebhookSafety:
                 "/api/webhooks/chapa/",
                 data=body,
                 content_type="application/json",
-                HTTP_CHAPA_SIGNATURE=sig,
+                HTTP_X_CHAPA_SIGNATURE=sig,
                 HTTP_HOST="alpha.localhost",
             )
         assert resp.status_code == status.HTTP_400_BAD_REQUEST
@@ -351,7 +351,7 @@ class TestChapaWebhookSafety:
                 "/api/webhooks/chapa/",
                 data=body,
                 content_type="application/json",
-                HTTP_CHAPA_SIGNATURE=sig,
+                HTTP_X_CHAPA_SIGNATURE=sig,
                 HTTP_HOST="alpha.localhost",
             )
         assert resp.status_code == status.HTTP_400_BAD_REQUEST
@@ -377,7 +377,7 @@ class TestChapaWebhookSafety:
                 "/api/webhooks/chapa/",
                 data=body,
                 content_type="application/json",
-                HTTP_CHAPA_SIGNATURE=sig,
+                HTTP_X_CHAPA_SIGNATURE=sig,
                 HTTP_HOST="alpha.localhost",
             )
         assert resp.status_code == status.HTTP_502_BAD_GATEWAY
@@ -417,7 +417,7 @@ class TestChapaWebhookSafety:
                 "/api/webhooks/chapa/",
                 data=body,
                 content_type="application/json",
-                HTTP_CHAPA_SIGNATURE=sig,
+                HTTP_X_CHAPA_SIGNATURE=sig,
                 HTTP_HOST="alpha.localhost",
             )
         assert resp.status_code == status.HTTP_200_OK
@@ -457,7 +457,7 @@ class TestChapaWebhookSafety:
                 "/api/webhooks/chapa/",
                 data=body,
                 content_type="application/json",
-                HTTP_CHAPA_SIGNATURE=sig,
+                HTTP_X_CHAPA_SIGNATURE=sig,
                 HTTP_HOST="beta.localhost",  # Attacker hits beta subdomain
             )
         assert resp.status_code == status.HTTP_200_OK
@@ -594,7 +594,7 @@ class TestChapaWebhookSafety:
                 "/api/webhooks/chapa/",
                 data=body,
                 content_type="application/json",
-                HTTP_CHAPA_SIGNATURE=sig,
+                HTTP_X_CHAPA_SIGNATURE=sig,
                 HTTP_HOST="alpha.localhost",
             )
         assert resp.status_code == status.HTTP_200_OK
@@ -613,8 +613,156 @@ class TestChapaWebhookSafety:
             "/api/webhooks/chapa/",
             data=oversized_body,
             content_type="application/json",
-            HTTP_CHAPA_SIGNATURE="fake_sig",
+            HTTP_X_CHAPA_SIGNATURE="fake_sig",
             HTTP_HOST="localhost",
         )
         assert resp.status_code == status.HTTP_400_BAD_REQUEST
         assert "64 KB" in resp.json()["detail"]
+
+    def test_chapa_signature_constant_header_rejected_without_x_chapa_signature(
+        self, setup_data
+    ):
+        """Header chapa-signature alone must never authenticate a request."""
+        client = APIClient()
+        tx_ref = setup_data["tx_ref"]
+        config = setup_data["config"]
+
+        payload = {"event": "charge.success", "tx_ref": tx_ref}
+        body, sig = self._sign_payload(payload, config.webhook_secret)
+
+        resp = client.post(
+            "/api/webhooks/chapa/",
+            data=body,
+            content_type="application/json",
+            HTTP_CHAPA_SIGNATURE=sig,  # Not x-chapa-signature
+            HTTP_HOST="alpha.localhost",
+        )
+        assert resp.status_code == status.HTTP_401_UNAUTHORIZED
+        assert resp.json()["detail"] == "Invalid webhook signature."
+
+    def test_unknown_tx_ref_missing_signature_and_wrong_signature_return_identical_response(
+        self, setup_data
+    ):
+        """Unknown tx_ref, missing signature, and wrong signature return the exact same 401 response."""
+        client = APIClient()
+        tx_ref = setup_data["tx_ref"]
+        config = setup_data["config"]
+
+        # Case 1: Unknown tx_ref with random signature
+        unknown_body, unknown_sig = self._sign_payload(
+            {"event": "charge.success", "tx_ref": "FG-alpha-nonexistent9999"},
+            config.webhook_secret,
+        )
+        resp_unknown = client.post(
+            "/api/webhooks/chapa/",
+            data=unknown_body,
+            content_type="application/json",
+            HTTP_X_CHAPA_SIGNATURE=unknown_sig,
+            HTTP_HOST="alpha.localhost",
+        )
+
+        # Case 2: Missing signature header
+        valid_body, _ = self._sign_payload(
+            {"event": "charge.success", "tx_ref": tx_ref},
+            config.webhook_secret,
+        )
+        resp_missing = client.post(
+            "/api/webhooks/chapa/",
+            data=valid_body,
+            content_type="application/json",
+            HTTP_HOST="alpha.localhost",
+        )
+
+        # Case 3: Wrong signature header
+        resp_wrong = client.post(
+            "/api/webhooks/chapa/",
+            data=valid_body,
+            content_type="application/json",
+            HTTP_X_CHAPA_SIGNATURE="invalid_tampered_signature_hex",
+            HTTP_HOST="alpha.localhost",
+        )
+
+        # All three return the exact same HTTP status code and body
+        assert resp_unknown.status_code == status.HTTP_401_UNAUTHORIZED
+        assert resp_missing.status_code == status.HTTP_401_UNAUTHORIZED
+        assert resp_wrong.status_code == status.HTTP_401_UNAUTHORIZED
+
+        expected_body = {"detail": "Invalid webhook signature."}
+        assert resp_unknown.json() == expected_body
+        assert resp_missing.json() == expected_body
+        assert resp_wrong.json() == expected_body
+
+    def test_webhook_signed_with_secret_key_succeeds_when_webhook_secret_not_set(
+        self, setup_data
+    ):
+        """Gym with empty webhook_secret authenticates webhook signed with gym secret_key."""
+        client = APIClient()
+        payment = setup_data["payment"]
+        tx_ref = setup_data["tx_ref"]
+        config = setup_data["config"]
+
+        # Clear webhook_secret so gym only has secret_key
+        config.webhook_secret = ""
+        config.save()
+
+        payload = {"event": "charge.success", "tx_ref": tx_ref}
+        body, sig = self._sign_payload(payload, config.secret_key)
+
+        mock_verify_data = {
+            "status": "success",
+            "data": {
+                "status": "success",
+                "tx_ref": tx_ref,
+                "amount": "1800.00",
+                "currency": "ETB",
+            },
+        }
+
+        with patch(
+            "apps.payments.chapa_client.ChapaClient.verify_transaction",
+            return_value=mock_verify_data,
+        ):
+            resp = client.post(
+                "/api/webhooks/chapa/",
+                data=body,
+                content_type="application/json",
+                HTTP_X_CHAPA_SIGNATURE=sig,
+                HTTP_HOST="alpha.localhost",
+            )
+        assert resp.status_code == status.HTTP_200_OK
+        payment.refresh_from_db()
+        assert payment.status == Payment.STATUS_CONFIRMED
+
+    def test_webhook_does_not_modify_amount_member_or_plan_for_existing_payments(
+        self, setup_data
+    ):
+        """Webhook for already confirmed or failed payment never changes its amount, member or plan."""
+        client = APIClient()
+        payment = setup_data["payment"]
+        tx_ref = setup_data["tx_ref"]
+        config = setup_data["config"]
+
+        original_amount = payment.amount_etb
+        original_member = payment.member
+        original_plan = payment.plan
+
+        # Mark payment as failed
+        payment.status = Payment.STATUS_FAILED
+        payment.save(update_fields=["status"])
+
+        payload = {"event": "charge.success", "tx_ref": tx_ref}
+        body, sig = self._sign_payload(payload, config.webhook_secret)
+
+        resp = client.post(
+            "/api/webhooks/chapa/",
+            data=body,
+            content_type="application/json",
+            HTTP_X_CHAPA_SIGNATURE=sig,
+            HTTP_HOST="alpha.localhost",
+        )
+        assert resp.status_code == status.HTTP_400_BAD_REQUEST
+
+        payment.refresh_from_db()
+        assert payment.amount_etb == original_amount
+        assert payment.member == original_member
+        assert payment.plan == original_plan

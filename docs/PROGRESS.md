@@ -28,13 +28,15 @@
 - Fix: Private photo authentication, domain normalization, and deferred checklist (`001764e14ea58c33a1628ab19731859ba79cd31d`, tag `fix-private-photos-done`)
 - Sprint 10: Membership plans & subscription lifecycle (STRICT) — unified check-in engine (`execute_check_in`), `Attendance.method` single source of truth (`qr`, `manual_override`) enforced via DB `CheckConstraint`, `MemberSubscription` status single source of truth with protected derived `Member.status` (direct write raises `ValueError` on instance save, queryset update, and bulk_update), 5th choice `pending` for new signups, plans CRUD (days/months with accurate month-end calculation), trainer warning on inclusive plans, price change immutability, tenant isolation, public plan listing, member suspend/reactivate actions, subscriptions bound strictly to payment confirmation (no unearned staff creation) (tag `sprint-10-done`).
 
+- Sprint 11: Chapa payment integration (one account per gym) (GATE) — Notification record and shared storage helper, encrypted per-gym credentials, signed mocked webhooks (x-chapa-signature HMAC-SHA256, constant-time validation), member-only online checkout, Chapa payment verification, and atomic subscription extension (`sprint-11-done`).
+
 ## Current
 
-- Sprint 11: Chapa payment integration (one account per gym) (GATE) — Notification record and shared storage helper, encrypted per-gym credentials, signed mocked webhooks, Chapa payment verification and atomic subscription extension.
+- Sprint 12: Manual cash payment, payment history, and the registration-to-payment flow (STRICT).
 
 ## Next
 
-- Sprint 12: Manual cash payment, payment history, and the registration-to-payment flow.
+- Sprint 13: Freeze workflow (Growth/Pro gated, tracked against freeze days allowed).
 
 ## Open manual steps
 

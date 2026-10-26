@@ -933,16 +933,16 @@ class TestSpec2PermissionMatrixParametrizedTable:
         {
             "row_name": "Initiate online Chapa checkout session",
             "spec_super_admin": "—",
-            "spec_owner": "Yes",
-            "spec_manager": "Yes",
+            "spec_owner": "No (Members only; staff use cash flow in Sprint 12)",
+            "spec_manager": "No (Members only; staff use cash flow in Sprint 12)",
             "spec_trainer": "No",
-            "spec_reception": "Yes",
+            "spec_reception": "No (Members only; staff use cash flow in Sprint 12)",
             "spec_member": "Yes",
             "super_admin": False,
-            "owner": True,
-            "manager": True,
+            "owner": False,
+            "manager": False,
             "trainer": False,
-            "reception": True,
+            "reception": False,
             "member": True,
             "wired_in_sprint": 11,
         },
@@ -1216,8 +1216,6 @@ class TestSpec2PermissionMatrixParametrizedTable:
                 else f"{gym_tenant.subdomain}.localhost"
             )
             payload = {"plan_id": str(plan.id)}
-            if role in (User.ROLE_OWNER, User.ROLE_MANAGER, User.ROLE_RECEPTION):
-                payload["member_id"] = str(member_user.member_profile.id)
             resp = client.post(url, payload, format="json", HTTP_HOST=host)
             if expected_allowed:
                 # 400 because payment config is unverified, but authorized past RBAC check
@@ -1247,6 +1245,6 @@ class TestSpec2PermissionMatrixParametrizedTable:
             content_type="application/json",
             HTTP_HOST="localhost",
         )
-        # Unauthenticated request is processed without 401 JWT Missing
-        assert resp.status_code == 400
-        assert "tx_ref" in resp.json()["detail"].lower()
+        # Unauthenticated request is processed without JWT auth; missing/bad signature gives 401 signature error
+        assert resp.status_code == 401
+        assert resp.json()["detail"] == "Invalid webhook signature."

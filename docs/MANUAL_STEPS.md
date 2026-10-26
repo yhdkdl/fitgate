@@ -67,6 +67,12 @@ The feasibility spike on the real Yegara cPanel host passed all checks:
    - **What to do:** Obtain Chapa test merchant credentials (public key, secret key, webhook secret) from `chapa.et` dashboard and enter them into gym settings (`GymPaymentConfig`) on the staging host once deployed and secured with HTTPS.
    - **What to paste where:** In gym Owner settings under Payment Settings (stored encrypted in the database using `TENANT_CREDENTIALS_KEY`). In `/home/<user>/fitgate_env/.env`, set `TENANT_CREDENTIALS_KEY=<key>` generated via `docker compose exec backend python manage.py generate_tenant_credentials_key`. Outside test environments, the backend refuses to encrypt or decrypt credentials if this variable is missing or empty.
    - **Fallback in use:** Signed mocked webhooks and simulated checkout in automated tests and local dev.
+   - **Live Test Checklist (to run later with real TEST keys on staging):**
+     1. Confirm the real webhook arrives with the header `x-chapa-signature`.
+     2. Confirm our HMAC check matches Chapa's real signature (Chapa's own documentation example hashes the re-serialized JSON body while our implementation hashes the raw request body, so check and verify this against live deliveries).
+     3. Confirm the field names in the real webhook and verification responses match the mock (`tx_ref` reference field, `status`, `amount`, `currency`).
+     4. Confirm the server-side verify call (`GET /transaction/verify/{tx_ref}`) and connection test (`GET /banks`) work with real keys.
+     5. Confirm abandoned payments (after 30-minute timeout) and failed payments behave properly without activating subscriptions.
    - **Status:** Skipped for Increment 2 preflight per owner decision; feature marked "not verified against the real service".
 
 8. **Sprint 10 — Manual Subscription Activation on Staging Before Sprint 12**
