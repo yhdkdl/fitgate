@@ -13,17 +13,26 @@ logger = logging.getLogger(__name__)
 def _get_fernet() -> Fernet:
     """
     Construct a Fernet cipher instance using TENANT_CREDENTIALS_KEY.
-    Handles raw 32-byte strings as well as standard 44-character urlsafe-base64 keys.
+    Requires a valid 32-byte secret key or standard 44-character urlsafe-base64 key.
+    Refuses to operate with an empty or missing key outside test settings.
     """
+    from django.core.exceptions import ImproperlyConfigured
+
     raw_key = getattr(settings, "TENANT_CREDENTIALS_KEY", "")
+    if not raw_key:
+        raise ImproperlyConfigured(
+            "TENANT_CREDENTIALS_KEY is missing or empty in settings. "
+            "A 32-byte secret key is required to encrypt or decrypt tenant credentials."
+        )
+
     if isinstance(raw_key, str):
         key_bytes = raw_key.encode("utf-8")
     elif isinstance(raw_key, bytes):
         key_bytes = raw_key
     else:
-        key_bytes = b""
+        raise ImproperlyConfigured("TENANT_CREDENTIALS_KEY must be a string or bytes.")
 
-    # Attempt to use as-is if already a valid 32-byte base64-encoded key
+    # Attempt to use as-is if already a valid 32-byte base64-encoded Fernet key
     try:
         decoded = base64.urlsafe_b64decode(key_bytes)
         if len(decoded) == 32:
@@ -31,10 +40,15 @@ def _get_fernet() -> Fernet:
     except Exception:
         pass
 
-    # Fallback / normalization: pad or truncate to 32 bytes and urlsafe-base64 encode
-    normalized_32 = key_bytes.ljust(32, b"0")[:32]
-    fernet_key = base64.urlsafe_b64encode(normalized_32)
-    return Fernet(fernet_key)
+    # If raw 32-byte string, encode to urlsafe base64
+    if len(key_bytes) >= 32:
+        normalized_32 = key_bytes[:32]
+        fernet_key = base64.urlsafe_b64encode(normalized_32)
+        return Fernet(fernet_key)
+
+    raise ImproperlyConfigured(
+        "TENANT_CREDENTIALS_KEY must be at least 32 bytes or a valid 44-character urlsafe-base64 key."
+    )
 
 
 def encrypt_credential(plaintext: Optional[str]) -> str:
@@ -66,6 +80,10 @@ def decrypt_credential(ciphertext: Optional[str]) -> str:
         )
         return ""
     except Exception as exc:
+        from django.core.exceptions import ImproperlyConfigured
+
+        if isinstance(exc, ImproperlyConfigured):
+            raise
         logger.error("Unexpected error decrypting credential: %s", exc)
         return ""
 

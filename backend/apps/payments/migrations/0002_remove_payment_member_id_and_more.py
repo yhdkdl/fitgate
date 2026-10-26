@@ -70,6 +70,11 @@ class Migration(migrations.Migration):
         ),
         migrations.AlterField(
             model_name="payment",
+            name="chapa_ref",
+            field=models.CharField(blank=True, max_length=100, null=True, unique=True),
+        ),
+        migrations.AlterField(
+            model_name="payment",
             name="status",
             field=models.CharField(
                 choices=[

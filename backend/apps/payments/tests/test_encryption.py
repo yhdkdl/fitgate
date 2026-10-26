@@ -49,3 +49,27 @@ class TestEncryptionUtilities:
         assert mask_credential("") == ""
         assert mask_credential("12") == "****"
         assert mask_credential("abcdefgh") == "****efgh"
+
+    def test_missing_tenant_credentials_key_raises_improperly_configured(
+        self, settings
+    ):
+        import pytest
+        from django.core.exceptions import ImproperlyConfigured
+
+        settings.TENANT_CREDENTIALS_KEY = ""
+        with pytest.raises(ImproperlyConfigured):
+            encrypt_credential("my_secret")
+
+        with pytest.raises(ImproperlyConfigured):
+            decrypt_credential("some_token")
+
+    def test_short_tenant_credentials_key_raises_improperly_configured(self, settings):
+        import pytest
+        from django.core.exceptions import ImproperlyConfigured
+
+        settings.TENANT_CREDENTIALS_KEY = "too_short"
+        with pytest.raises(ImproperlyConfigured):
+            encrypt_credential("my_secret")
+
+        with pytest.raises(ImproperlyConfigured):
+            decrypt_credential("some_token")

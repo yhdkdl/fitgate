@@ -165,7 +165,7 @@ class Payment(TenantAwareModel):
     method = models.CharField(max_length=30, choices=METHOD_CHOICES)
     amount_etb = models.DecimalField(max_digits=12, decimal_places=2)
     currency = models.CharField(max_length=10, default="ETB")
-    chapa_ref = models.CharField(max_length=100, null=True, blank=True)
+    chapa_ref = models.CharField(max_length=100, null=True, blank=True, unique=True)
     bank_reference = models.CharField(max_length=100, null=True, blank=True)
     status = models.CharField(
         max_length=20,

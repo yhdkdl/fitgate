@@ -104,12 +104,12 @@ class TestApiTokenLeakPrevention:
         data = resp.json()
 
         for forbidden in self.FORBIDDEN_KEYS:
-            assert forbidden not in data, (
-                f"Key '{forbidden}' was leaked in gym creation response"
-            )
-            assert forbidden not in data.get("owner", {}), (
-                f"Key '{forbidden}' was leaked in owner summary"
-            )
+            assert (
+                forbidden not in data
+            ), f"Key '{forbidden}' was leaked in gym creation response"
+            assert forbidden not in data.get(
+                "owner", {}
+            ), f"Key '{forbidden}' was leaked in owner summary"
 
     def test_staff_invite_api_response_does_not_leak_invite_token_or_link(
         self, gym_owner, test_gym
@@ -136,12 +136,12 @@ class TestApiTokenLeakPrevention:
         data = resp.json()
 
         for forbidden in self.FORBIDDEN_KEYS:
-            assert forbidden not in data, (
-                f"Key '{forbidden}' was leaked in staff invite response"
-            )
-            assert forbidden not in data.get("user", {}), (
-                f"Key '{forbidden}' was leaked in staff user summary"
-            )
+            assert (
+                forbidden not in data
+            ), f"Key '{forbidden}' was leaked in staff invite response"
+            assert forbidden not in data.get(
+                "user", {}
+            ), f"Key '{forbidden}' was leaked in staff user summary"
 
     def test_member_self_service_registration_does_not_leak_token_or_link(
         self, test_gym
@@ -169,12 +169,12 @@ class TestApiTokenLeakPrevention:
         data = resp.json()
 
         for forbidden in self.FORBIDDEN_KEYS:
-            assert forbidden not in data, (
-                f"Key '{forbidden}' was leaked in self-service member response"
-            )
-            assert forbidden not in data.get("member", {}), (
-                f"Key '{forbidden}' was leaked in member summary"
-            )
+            assert (
+                forbidden not in data
+            ), f"Key '{forbidden}' was leaked in self-service member response"
+            assert forbidden not in data.get(
+                "member", {}
+            ), f"Key '{forbidden}' was leaked in member summary"
 
     def test_member_staff_assisted_registration_does_not_leak_token_or_link(
         self, gym_owner, test_gym
@@ -204,9 +204,9 @@ class TestApiTokenLeakPrevention:
         data = resp.json()
 
         for forbidden in self.FORBIDDEN_KEYS:
-            assert forbidden not in data, (
-                f"Key '{forbidden}' was leaked in staff-assisted member response"
-            )
-            assert forbidden not in data.get("member", {}), (
-                f"Key '{forbidden}' was leaked in member summary"
-            )
+            assert (
+                forbidden not in data
+            ), f"Key '{forbidden}' was leaked in staff-assisted member response"
+            assert forbidden not in data.get(
+                "member", {}
+            ), f"Key '{forbidden}' was leaked in member summary"

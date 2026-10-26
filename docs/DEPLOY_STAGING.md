@@ -242,6 +242,7 @@ LOG_DIR=/home/<username>/fitgate_logs
 > - **EMAIL_HOST_PASSWORD**: Use the dedicated Brevo **SMTP key** (starts with `xsmtpsib-...` generated under **Transactional** &rarr; **Email** &rarr; **SMTP & API** &rarr; **Generate a new SMTP key**), NOT your Brevo web account login password.
 > - **CPANEL_HOST**: FitGate's `uapi.py` enforces strict TLS certificate checking via `ssl.create_default_context()` with hostname verification ON. A connection to `localhost` or `127.0.0.1` on port 2083 will fail TLS verification because the cPanel SSL certificate is issued for the real server hostname. You MUST set `CPANEL_HOST` to the cPanel server's real hostname (the same hostname used during the laptop probe, without `https://` and without `:2083`). "localhost" is documented only as a fallback and will fail certificate checks.
 > - **CPANEL_API_TOKEN**: In cPanel, navigate to **Security** &rarr; **Manage API Tokens**. Click **Create API Token**, enter name `FitGate-UAPI`, set an expiration date, and generate the token. (cPanel API tokens take only a name and expiration date and carry account access; no subdomain-specific permission checkbox is presented on this screen). Use a dedicated token for the host's env file, and delete any temporary laptop probe token after staging.
+> - **TENANT_CREDENTIALS_KEY**: Mandatory 32-byte encryption key generated via `python manage.py generate_tenant_credentials_key`. Outside test environments, the application fails fast and refuses to save or read gym payment credentials if this variable is missing or empty.
 
 ---
 

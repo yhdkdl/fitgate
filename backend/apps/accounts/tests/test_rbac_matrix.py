@@ -898,6 +898,70 @@ class TestSpec2PermissionMatrixParametrizedTable:
             "member": False,
             "wired_in_sprint": 28,
         },
+        {
+            "row_name": "Configure payment gateway credentials",
+            "spec_super_admin": "—",
+            "spec_owner": "Yes",
+            "spec_manager": "No",
+            "spec_trainer": "No",
+            "spec_reception": "No",
+            "spec_member": "No",
+            "super_admin": False,
+            "owner": True,
+            "manager": False,
+            "trainer": False,
+            "reception": False,
+            "member": False,
+            "wired_in_sprint": 11,
+        },
+        {
+            "row_name": "Test payment gateway connection",
+            "spec_super_admin": "—",
+            "spec_owner": "Yes",
+            "spec_manager": "No",
+            "spec_trainer": "No",
+            "spec_reception": "No",
+            "spec_member": "No",
+            "super_admin": False,
+            "owner": True,
+            "manager": False,
+            "trainer": False,
+            "reception": False,
+            "member": False,
+            "wired_in_sprint": 11,
+        },
+        {
+            "row_name": "Initiate online Chapa checkout session",
+            "spec_super_admin": "—",
+            "spec_owner": "Yes",
+            "spec_manager": "Yes",
+            "spec_trainer": "No",
+            "spec_reception": "Yes",
+            "spec_member": "Yes",
+            "super_admin": False,
+            "owner": True,
+            "manager": True,
+            "trainer": False,
+            "reception": True,
+            "member": True,
+            "wired_in_sprint": 11,
+        },
+        {
+            "row_name": "View platform-wide payment status for gyms",
+            "spec_super_admin": "Yes",
+            "spec_owner": "No",
+            "spec_manager": "No",
+            "spec_trainer": "No",
+            "spec_reception": "No",
+            "spec_member": "No",
+            "super_admin": True,
+            "owner": False,
+            "manager": False,
+            "trainer": False,
+            "reception": False,
+            "member": False,
+            "wired_in_sprint": 11,
+        },
     ]
 
     MATRIX_TEST_CASES = []
@@ -938,7 +1002,7 @@ class TestSpec2PermissionMatrixParametrizedTable:
         Rows not yet wired skip with an explicit reason.
         Wired rows (Sprint 5) assert directly against real HTTP endpoints.
         """
-        if wired_sprint not in (5, 6, "9a", 10):
+        if wired_sprint not in (5, 6, "9a", 10, 11):
             pytest.skip(
                 f"Row '{row_name}' has no real endpoint yet (scheduled for Sprint {wired_sprint} in docs/SPRINTS.md)"
             )
@@ -1107,3 +1171,82 @@ class TestSpec2PermissionMatrixParametrizedTable:
                 assert react_resp.status_code == 200
             else:
                 assert resp.status_code in (403, 404)
+        elif row_name == "Configure payment gateway credentials":
+            url = "/api/gym/payment-config/"
+            host = (
+                "localhost"
+                if role == User.ROLE_SUPER_ADMIN
+                else f"{gym_tenant.subdomain}.localhost"
+            )
+            resp = client.get(url, HTTP_HOST=host)
+            if expected_allowed:
+                assert resp.status_code == 200
+            else:
+                assert resp.status_code in (403, 404)
+        elif row_name == "Test payment gateway connection":
+            url = "/api/gym/payment-config/test/"
+            host = (
+                "localhost"
+                if role == User.ROLE_SUPER_ADMIN
+                else f"{gym_tenant.subdomain}.localhost"
+            )
+            resp = client.post(url, HTTP_HOST=host)
+            if expected_allowed:
+                # 400 because unconfigured credentials in matrix fixture, but authorized past RBAC check
+                assert resp.status_code in (200, 400)
+                assert resp.status_code not in (401, 403, 404)
+            else:
+                assert resp.status_code in (403, 404)
+        elif row_name == "Initiate online Chapa checkout session":
+            from apps.memberships.models import MembershipPlan
+
+            plan = MembershipPlan.objects.filter(gym=gym_tenant).first()
+            if not plan:
+                plan = MembershipPlan.objects.create(
+                    gym=gym_tenant,
+                    name="RBAC Matrix Plan",
+                    duration_value=1,
+                    duration_unit="months",
+                    price_etb=1200,
+                )
+            url = "/api/payments/checkout/chapa/"
+            host = (
+                "localhost"
+                if role == User.ROLE_SUPER_ADMIN
+                else f"{gym_tenant.subdomain}.localhost"
+            )
+            payload = {"plan_id": str(plan.id)}
+            if role in (User.ROLE_OWNER, User.ROLE_MANAGER, User.ROLE_RECEPTION):
+                payload["member_id"] = str(member_user.member_profile.id)
+            resp = client.post(url, payload, format="json", HTTP_HOST=host)
+            if expected_allowed:
+                # 400 because payment config is unverified, but authorized past RBAC check
+                assert resp.status_code in (200, 400)
+                assert resp.status_code not in (401, 403, 404)
+            else:
+                assert resp.status_code in (403, 404)
+        elif row_name == "View platform-wide payment status for gyms":
+            url = f"/api/platform/gyms/{gym_tenant.id}/payment-status/"
+            host = (
+                "localhost"
+                if role == User.ROLE_SUPER_ADMIN
+                else f"{gym_tenant.subdomain}.localhost"
+            )
+            resp = client.get(url, HTTP_HOST=host)
+            if expected_allowed:
+                assert resp.status_code == 200
+            else:
+                assert resp.status_code in (403, 404)
+
+    def test_chapa_webhook_endpoint_is_public_with_signature_check(self, gym_tenant):
+        """Webhook endpoint is public at transport layer and rejects bad payload without JWT."""
+        client = APIClient()
+        resp = client.post(
+            "/api/webhooks/chapa/",
+            data=b"{}",
+            content_type="application/json",
+            HTTP_HOST="localhost",
+        )
+        # Unauthenticated request is processed without 401 JWT Missing
+        assert resp.status_code == 400
+        assert "tx_ref" in resp.json()["detail"].lower()

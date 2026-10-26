@@ -1,14 +1,15 @@
 """API Views for Gym Payment Configuration, Chapa Checkout, Webhook processing, and Admin status."""
 
 import logging
-import uuid
+import secrets
 
 from django.conf import settings
 from django.utils import timezone
 from drf_spectacular.utils import OpenApiResponse, extend_schema
 from rest_framework import status
-from rest_framework.permissions import AllowAny, IsAuthenticated
+from rest_framework.permissions import AllowAny, BasePermission, IsAuthenticated
 from rest_framework.response import Response
+from rest_framework.throttling import AnonRateThrottle
 from rest_framework.views import APIView
 
 from apps.accounts.models import User
@@ -32,6 +33,23 @@ from apps.payments.services import process_chapa_webhook
 from apps.tenants.models import GymTenant
 
 logger = logging.getLogger(__name__)
+
+
+class CanInitiateCheckout(BasePermission):
+    """
+    Online checkout can be initiated by members (for themselves)
+    or by gym staff (Owner, Manager, Reception). Denies Super Admin and Trainer.
+    """
+
+    def has_permission(self, request, view):
+        if not request.user or not request.user.is_authenticated:
+            return False
+        return request.user.role in (
+            User.ROLE_MEMBER,
+            User.ROLE_OWNER,
+            User.ROLE_MANAGER,
+            User.ROLE_RECEPTION,
+        )
 
 
 class GymPaymentConfigView(APIView):
@@ -174,7 +192,11 @@ class ChapaCheckoutView(APIView):
     Requires verified gym credentials; otherwise refuses and prompts front-desk cash payment.
     """
 
-    permission_classes = [IsAuthenticated, RequirePasswordChanged]
+    permission_classes = [
+        IsAuthenticated,
+        RequirePasswordChanged,
+        CanInitiateCheckout,
+    ]
     serializer_class = ChapaCheckoutRequestSerializer
 
     @extend_schema(
@@ -237,8 +259,8 @@ class ChapaCheckoutView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        # Build transaction reference
-        tx_ref = f"FG-{gym.subdomain}-{uuid.uuid4().hex[:12]}"
+        # Build transaction reference with 16 bytes of cryptographically secure randomness
+        tx_ref = f"FG-{gym.subdomain}-{secrets.token_hex(16)}"
 
         # Create pending Payment record bound to gym, member, and plan
         payment = Payment.objects.create(
@@ -251,6 +273,20 @@ class ChapaCheckoutView(APIView):
             currency="ETB",
             chapa_ref=tx_ref,
             status=Payment.STATUS_PENDING,
+        )
+
+        record_audit_log(
+            actor=request.user,
+            gym=gym,
+            action_type="payment_checkout_started",
+            affected_record_type="Payment",
+            affected_record_id=str(payment.id),
+            metadata={
+                "tx_ref": tx_ref,
+                "plan_id": str(plan.id),
+                "plan_name": plan.name,
+                "amount_etb": str(plan.price_etb),
+            },
         )
 
         client = ChapaClient(secret_key=config.secret_key)
@@ -268,7 +304,7 @@ class ChapaCheckoutView(APIView):
             "first_name": first_name,
             "last_name": last_name,
             "tx_ref": tx_ref,
-            "callback_url": f"{scheme}://{gym.subdomain}.{domain}/api/webhooks/chapa/",
+            "callback_url": f"{scheme}://{domain}/api/webhooks/chapa/",
             "return_url": f"{scheme}://{gym.subdomain}.{domain}/members/payment-complete?tx_ref={tx_ref}",
             "customization": {
                 "title": f"{gym.name} - {plan.name}",
@@ -298,6 +334,11 @@ class ChapaCheckoutView(APIView):
         )
 
 
+class ChapaWebhookThrottle(AnonRateThrottle):
+    scope = "webhook"
+    rate = "120/minute"
+
+
 class ChapaWebhookView(APIView):
     """
     Public webhook endpoint for Chapa payment confirmations.
@@ -307,6 +348,7 @@ class ChapaWebhookView(APIView):
 
     permission_classes = [AllowAny]
     authentication_classes = []
+    throttle_classes = [ChapaWebhookThrottle]
 
     @extend_schema(
         summary="Chapa payment webhook notification",
@@ -319,6 +361,12 @@ class ChapaWebhookView(APIView):
         },
     )
     def post(self, request):
+        if len(request.body) > 65536:
+            return Response(
+                {"detail": "Webhook payload exceeds maximum size limit (64 KB)."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
         sig_header = (
             request.headers.get("Chapa-Signature")
             or request.META.get("HTTP_CHAPA_SIGNATURE")

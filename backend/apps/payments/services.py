@@ -107,11 +107,30 @@ def process_chapa_webhook(
 
     if verify_resp.get("status") != "success":
         logger.warning(
-            "Chapa verification returned non-success for %s: %s", tx_ref, verify_resp
+            "Chapa verification returned non-success for %s: status=%s, message=%s",
+            tx_ref,
+            verify_resp.get("status"),
+            verify_resp.get("message"),
         )
         payment.status = Payment.STATUS_FAILED
-        payment.metadata["chapa_verification_failure"] = verify_resp
+        payment.metadata["chapa_verification_failure"] = {
+            "status": verify_resp.get("status"),
+            "message": str(verify_resp.get("message", ""))[:200],
+        }
         payment.save(update_fields=["status", "metadata", "updated_at"])
+
+        record_audit_log(
+            actor=None,
+            gym=gym,
+            action_type="payment_failed",
+            affected_record_type="Payment",
+            affected_record_id=str(payment.id),
+            metadata={
+                "tx_ref": tx_ref,
+                "actor": "system",
+                "reason": str(verify_resp.get("message", "Verification non-success")),
+            },
+        )
 
         if payment.member and hasattr(payment.member, "user") and payment.member.user:
             create_notification(
@@ -128,8 +147,23 @@ def process_chapa_webhook(
     data = verify_resp.get("data", {})
     if data.get("status") != "success":
         payment.status = Payment.STATUS_FAILED
-        payment.metadata["chapa_verification_failure"] = data
+        payment.metadata["chapa_verification_failure"] = {
+            "status": data.get("status"),
+        }
         payment.save(update_fields=["status", "metadata", "updated_at"])
+
+        record_audit_log(
+            actor=None,
+            gym=gym,
+            action_type="payment_failed",
+            affected_record_type="Payment",
+            affected_record_id=str(payment.id),
+            metadata={
+                "tx_ref": tx_ref,
+                "actor": "system",
+                "reason": f"Data status: {data.get('status')}",
+            },
+        )
 
         if payment.member and hasattr(payment.member, "user") and payment.member.user:
             create_notification(
@@ -167,6 +201,7 @@ def process_chapa_webhook(
         }
         payment.save(update_fields=["status", "metadata", "updated_at"])
 
+        # Notify member
         if payment.member and hasattr(payment.member, "user") and payment.member.user:
             create_notification(
                 recipient=payment.member.user,
@@ -177,6 +212,42 @@ def process_chapa_webhook(
                 ),
                 gym=gym,
             )
+
+        # Notify gym staff so paid-but-not-activated payments are never silent
+        staff_users = User.all_objects.filter(
+            gym=gym,
+            is_active=True,
+            role__in=[User.ROLE_OWNER, User.ROLE_MANAGER, User.ROLE_RECEPTION],
+        )
+        for staff in staff_users:
+            member_name = payment.member.full_name if payment.member else "A member"
+            create_notification(
+                recipient=staff,
+                notification_type="payment_mismatch_alert",
+                message=(
+                    f"Payment mismatch detected for {member_name} (tx_ref: {tx_ref}): "
+                    f"expected {payment.amount_etb} ETB, Chapa reported {received_amount} {received_currency}. "
+                    f"Subscription was NOT activated. Review payment record for manual resolution."
+                ),
+                gym=gym,
+            )
+
+        # Record audit log
+        record_audit_log(
+            actor=None,
+            gym=gym,
+            action_type="payment_mismatch_detected",
+            affected_record_type="Payment",
+            affected_record_id=str(payment.id),
+            metadata={
+                "tx_ref": tx_ref,
+                "actor": "system",
+                "expected_amount": str(payment.amount_etb),
+                "received_amount": str(received_amount),
+                "expected_currency": "ETB",
+                "received_currency": received_currency,
+            },
+        )
         return False, "Amount or currency mismatch.", 400
 
     # Idempotency: repeated webhook never creates duplicate payment or subscription
@@ -298,5 +369,18 @@ def flag_unfinished_payments(window_minutes: int = 30) -> int:
                     ),
                     gym=p.gym,
                 )
+
+            record_audit_log(
+                actor=None,
+                gym=p.gym,
+                action_type="payment_flagged_abandoned",
+                affected_record_type="Payment",
+                affected_record_id=str(p.id),
+                metadata={
+                    "tx_ref": p.chapa_ref,
+                    "actor": "system",
+                    "window_minutes": window_minutes,
+                },
+            )
             count += 1
     return count

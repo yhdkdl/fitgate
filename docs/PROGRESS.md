@@ -44,7 +44,8 @@
 - Sprint 8: QR asymmetric signing key pair (to be verified at staging)
 - Sprint 8b/8c: Camera scanning on physical devices (to be verified at staging)
 - Sprint 4d: Apex platform address wiring (to be verified at staging)
-- Sprint 11: Chapa test keys & online payments (skipped for Increment 2 per preflight answer; mocked webhooks in use; marked not verified against real service)
+- Sprint 11: Chapa test keys & online payments (skipped for Increment 2 per preflight answer; mocked webhooks in use; marked not verified against real service; TENANT_CREDENTIALS_KEY generated via manage.py generate_tenant_credentials_key)
+- Sprint 11: Abandoned online payments sweep cron job (to be verified at staging; cPanel cron running every 5 minutes calling manage.py sweep_unfinished_payments)
 
 ## Deviations
 

@@ -95,3 +95,6 @@ if not QR_JWT_PRIVATE_KEY:
     QR_JWT_PRIVATE_KEY = env.str("QR_JWT_PRIVATE_KEY", default=_DEV_QR_PRIVATE_KEY)
 if not QR_JWT_PUBLIC_KEY:
     QR_JWT_PUBLIC_KEY = env.str("QR_JWT_PUBLIC_KEY", default=_DEV_QR_PUBLIC_KEY)
+
+# Tenant payment credentials encryption key (no default secret in code per AGENT.md rule 14)
+TENANT_CREDENTIALS_KEY = env("TENANT_CREDENTIALS_KEY")

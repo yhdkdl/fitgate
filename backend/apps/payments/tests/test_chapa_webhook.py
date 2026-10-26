@@ -308,6 +308,21 @@ class TestChapaWebhookSafety:
         ).first()
         assert notif is not None
 
+        # Staff alert notification (paid-but-not-activated is never silent)
+        staff_alert = Notification.all_objects.filter(
+            type="payment_mismatch_alert"
+        ).first()
+        assert staff_alert is not None
+        assert "mismatch" in staff_alert.message.lower()
+
+        # Audit log entry with actor system
+        audit = AuditLog.all_objects.filter(
+            action_type="payment_mismatch_detected"
+        ).first()
+        assert audit is not None
+        assert audit.actor is None
+        assert audit.metadata["actor"] == "system"
+
     def test_wrong_currency_rejected_and_recorded(self, setup_data):
         client = APIClient()
         payment = setup_data["payment"]
@@ -482,3 +497,124 @@ class TestChapaWebhookSafety:
         ).first()
         assert staff_notif is not None
         assert "unfinished beyond 30 minutes" in staff_notif.message
+
+        # Abandoned sweep audit log
+        audit = AuditLog.all_objects.filter(
+            action_type="payment_flagged_abandoned"
+        ).first()
+        assert audit is not None
+        assert audit.actor is None
+        assert audit.metadata["actor"] == "system"
+
+    @pytest.mark.django_db(transaction=True)
+    def test_two_simultaneous_webhook_deliveries_prevents_double_activation(
+        self, setup_data
+    ):
+        """Simultaneous deliveries serialized via row-level lock; prevents double activation."""
+        import concurrent.futures
+
+        payment = setup_data["payment"]
+        tx_ref = setup_data["tx_ref"]
+        config = setup_data["config"]
+        member = setup_data["member_a"]
+
+        payload = {"event": "charge.success", "tx_ref": tx_ref}
+        body, sig = self._sign_payload(payload, config.webhook_secret)
+
+        mock_verify_data = {
+            "status": "success",
+            "data": {
+                "status": "success",
+                "tx_ref": tx_ref,
+                "amount": "1800.00",
+                "currency": "ETB",
+            },
+        }
+
+        def deliver():
+            from django.db import connection
+
+            from apps.payments.services import process_chapa_webhook
+
+            try:
+                with patch(
+                    "apps.payments.chapa_client.ChapaClient.verify_transaction",
+                    return_value=mock_verify_data,
+                ):
+                    return process_chapa_webhook(
+                        raw_body=body,
+                        signature_header=sig,
+                    )
+            finally:
+                connection.close()
+
+        with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
+            fut1 = executor.submit(deliver)
+            fut2 = executor.submit(deliver)
+            res1 = fut1.result()
+            res2 = fut2.result()
+
+        # Both calls succeed (one confirms payment, second detects already confirmed)
+        assert res1[2] == status.HTTP_200_OK
+        assert res2[2] == status.HTTP_200_OK
+
+        payment.refresh_from_db()
+        assert payment.status == Payment.STATUS_CONFIRMED
+        assert MemberSubscription.all_objects.filter(member=member).count() == 1
+
+    def test_abandoned_payment_confirmed_later_by_chapa(self, setup_data):
+        """A payment marked abandoned after 30 mins that is subsequently confirmed by Chapa is honored."""
+        client = APIClient()
+        payment = setup_data["payment"]
+        tx_ref = setup_data["tx_ref"]
+        config = setup_data["config"]
+        member = setup_data["member_a"]
+
+        payment.status = Payment.STATUS_ABANDONED
+        payment.save(update_fields=["status"])
+
+        payload = {"event": "charge.success", "tx_ref": tx_ref}
+        body, sig = self._sign_payload(payload, config.webhook_secret)
+
+        mock_verify_data = {
+            "status": "success",
+            "data": {
+                "status": "success",
+                "tx_ref": tx_ref,
+                "amount": "1800.00",
+                "currency": "ETB",
+            },
+        }
+
+        with patch(
+            "apps.payments.chapa_client.ChapaClient.verify_transaction",
+            return_value=mock_verify_data,
+        ):
+            resp = client.post(
+                "/api/webhooks/chapa/",
+                data=body,
+                content_type="application/json",
+                HTTP_CHAPA_SIGNATURE=sig,
+                HTTP_HOST="alpha.localhost",
+            )
+        assert resp.status_code == status.HTTP_200_OK
+
+        payment.refresh_from_db()
+        assert payment.status == Payment.STATUS_CONFIRMED
+        assert payment.subscription is not None
+        assert payment.subscription.status == MemberSubscription.STATUS_ACTIVE
+        assert MemberSubscription.all_objects.filter(member=member).count() == 1
+
+    def test_webhook_size_limit_rejects_oversized_payload(self):
+        """Webhook rejects payloads larger than 64 KB."""
+        client = APIClient()
+        oversized_body = b"x" * 65537
+        resp = client.post(
+            "/api/webhooks/chapa/",
+            data=oversized_body,
+            content_type="application/json",
+            HTTP_CHAPA_SIGNATURE="fake_sig",
+            HTTP_HOST="localhost",
+        )
+        assert resp.status_code == status.HTTP_400_BAD_REQUEST
+        assert "64 KB" in resp.json()["detail"]

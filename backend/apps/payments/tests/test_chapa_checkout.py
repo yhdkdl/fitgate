@@ -8,7 +8,7 @@ from django.utils import timezone
 from rest_framework import status
 from rest_framework.test import APIClient
 
-from apps.accounts.models import User
+from apps.accounts.models import AuditLog, User
 from apps.memberships.models import Member, MembershipPlan
 from apps.payments.models import GymPaymentConfig, Payment
 from apps.tenants.models import GymTenant
@@ -127,6 +127,11 @@ class TestChapaCheckout:
                 format="json",
                 HTTP_HOST="alpha.localhost",
             )
+            # Confirm callback_url sent to Chapa uses apex domain
+            call_args = mock_init.call_args[0][0]
+            assert "/api/webhooks/chapa/" in call_args["callback_url"]
+            assert "alpha." not in call_args["callback_url"]
+            assert "alpha." in call_args["return_url"]
         assert resp.status_code == status.HTTP_200_OK
         data = resp.json()
         assert (
@@ -144,6 +149,14 @@ class TestChapaCheckout:
         assert payment.payer_type == Payment.PAYER_TYPE_MEMBER
         assert payment.member == setup_data["member"]
         assert payment.plan == plan
+
+        # Verify audit log recorded for checkout started with member actor
+        audit = AuditLog.all_objects.filter(
+            gym=gym, action_type="payment_checkout_started"
+        ).first()
+        assert audit is not None
+        assert audit.actor == setup_data["member_user"]
+        assert audit.metadata["amount_etb"] == "1500.00"
 
     def test_checkout_refuses_deactivated_plan(self, setup_data):
         client = APIClient()
