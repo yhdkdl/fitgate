@@ -35,14 +35,14 @@
 - Sprint 13: Freeze workflow (Growth/Pro gated, tracked against freeze days allowed) — Server-enforced gym freeze entitlement (`GymConfig.freeze_days_allowed` from DB; 0 days blocked on server), concurrency-protected allowance locking with `select_for_update` preventing allowance overruns across concurrent requests, single subscription extension on approval (approving twice never extends twice), member status derived strictly via shared `update_member_status()`, frozen members rejected at check-in (both manual override and QR token issuance refused with distinguishable `frozen` reason), 5-minute cron unfreeze management command (`process_unfreezes`) returning completed freezes to active status via shared function, rejection workflow saving required reason and keeping pass active, RBAC tenant isolation (Member requests and views own, Owner and Manager approve/reject, Super Admin and other gyms denied 403), audit logging, and in-app notifications (tag `sprint-13-done`).
 - Followup fixes (Increment 2): Per-gym row-locked receipt counter (`GymReceiptCounter` locked via `select_for_update`) ensuring sequential gapless receipts under concurrency (`REC-000001`, `REC-000002`), and future start date freeze check-in verification with single end date extension (tag `fix-increment-2-followup-done`).
 - Sprint 9b: Email safety (Brevo bounce protection & delivery safeguard) — Brevo webhook suppression recording (`hardBounce`, `blocked`, `spam`, `invalid`), suppression check prior to send, strict mode gate for reserved test domains and NXDOMAINs, disposable domain block on public registration with lenient front-desk entry, rate caps (100/hr per gym, 500/hr platform), confirmation of owner email on gym creation, 3-resend daily cap per recipient, tenant-isolated invitation delivery status, and unverified member cleanup command (tag `sprint-9b-done`).
+- Sprint 14: Scheduled jobs (automated daily maintenance tasks) — Idempotent nightly sweep command (`daily_membership_sweep`), expiring past subscriptions strictly via shared `update_member_status()`, sending renewal reminders via `send_fitgate_email` based on gym reminder settings, tenant-isolated reminders with suspended and past-grace gyms sending nothing, unfreezing completed freezes via `process_unfreezes`, and flagging unresolved payments and unreconciled bank transfers (tag `sprint-14-done`).
 
 ## Current
 
-- Sprint 14: Scheduled jobs (nightly membership sweep and expiry/reminders) — branch `feature/sprint-14-scheduled-jobs`.
+- Sprint 15: Notification center UI — branch `feature/sprint-15-notifications`.
 
 ## Next
 
-- Sprint 15: Notification center UI.
 - Increment 2 report and manual verification walkthrough script (`docs/INCREMENT_2_TEST.md`).
 
 ## Open manual steps
