@@ -66,10 +66,12 @@ export const SetPasswordScreen: React.FC = () => {
 
     if (Object.keys(errors).length > 0) {
       setFieldErrors(errors);
-      focusFirstInvalidField([
-        errors.newPassword ? "set-new-password" : "",
-        errors.confirmPassword ? "set-confirm-password" : "",
-      ].filter(Boolean));
+      focusFirstInvalidField(
+        [
+          errors.newPassword ? "set-new-password" : "",
+          errors.confirmPassword ? "set-confirm-password" : "",
+        ].filter(Boolean)
+      );
       return;
     }
 
@@ -82,7 +84,10 @@ export const SetPasswordScreen: React.FC = () => {
     } catch (err: unknown) {
       const errorObj = err as {
         status?: number;
-        response?: { status?: number; data?: { detail?: string; new_password?: string[] } };
+        response?: {
+          status?: number;
+          data?: { detail?: string; new_password?: string[] };
+        };
         data?: { detail?: string; new_password?: string[] };
       };
       const status = errorObj.status ?? errorObj.response?.status;
@@ -182,7 +187,10 @@ export const SetPasswordScreen: React.FC = () => {
                     onChange={(e) => {
                       setNewPassword(e.target.value);
                       if (fieldErrors.newPassword) {
-                        setFieldErrors((prev) => ({ ...prev, newPassword: undefined }));
+                        setFieldErrors((prev) => ({
+                          ...prev,
+                          newPassword: undefined,
+                        }));
                       }
                     }}
                     required
@@ -206,7 +214,10 @@ export const SetPasswordScreen: React.FC = () => {
                     onChange={(e) => {
                       setConfirmPassword(e.target.value);
                       if (fieldErrors.confirmPassword) {
-                        setFieldErrors((prev) => ({ ...prev, confirmPassword: undefined }));
+                        setFieldErrors((prev) => ({
+                          ...prev,
+                          confirmPassword: undefined,
+                        }));
                       }
                     }}
                     required

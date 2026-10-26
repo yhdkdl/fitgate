@@ -115,9 +115,12 @@ export const GymBrandingSection: React.FC<GymBrandingSectionProps> = ({
       .split(",")
       .map((s) => s.trim())
       .filter(Boolean);
-    const hasInvalidDays = parts.some((p) => !/^\d+$/.test(p) || parseInt(p, 10) > 365);
+    const hasInvalidDays = parts.some(
+      (p) => !/^\d+$/.test(p) || parseInt(p, 10) > 365
+    );
     if (hasInvalidDays) {
-      errors.member_reminder_days = "Reminder days must be comma-separated numbers between 0 and 365.";
+      errors.member_reminder_days =
+        "Reminder days must be comma-separated numbers between 0 and 365.";
     }
 
     if (Object.keys(errors).length > 0) {

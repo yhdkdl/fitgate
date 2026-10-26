@@ -7,6 +7,10 @@ from apps.payments.views import (
     ChapaWebhookView,
     GymPaymentConfigTestView,
     GymPaymentConfigView,
+    GymPaymentListView,
+    MemberPaymentHistoryView,
+    ReceiptDetailView,
+    RecordCashPaymentView,
     SuperAdminGymPaymentStatusView,
 )
 
@@ -29,6 +33,30 @@ urlpatterns = [
         "api/payments/checkout/chapa/",
         ChapaCheckoutView.as_view(),
         name="chapa-checkout",
+    ),
+    # Member Self-Service Payment History
+    path(
+        "api/payments/history/",
+        MemberPaymentHistoryView.as_view(),
+        name="member-payment-history",
+    ),
+    # Staff Cash Payment Recording (Owner, Manager, Reception)
+    path(
+        "api/gym/payments/cash/",
+        RecordCashPaymentView.as_view(),
+        name="gym-record-cash-payment",
+    ),
+    # Staff Gym Payment History & Revenue Summary (Owner, Manager)
+    path(
+        "api/gym/payments/",
+        GymPaymentListView.as_view(),
+        name="gym-payments-list",
+    ),
+    # Digital Receipt Details (Staff or owning member)
+    path(
+        "api/gym/receipts/<uuid:receipt_id>/",
+        ReceiptDetailView.as_view(),
+        name="gym-receipt-detail",
     ),
     # Chapa Webhook Receiver (public, HMAC-verified)
     path(

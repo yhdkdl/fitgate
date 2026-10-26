@@ -18,6 +18,7 @@ import { Card } from "../ui/Card";
 import { FormField } from "../ui/FormField";
 import { Input } from "../ui/Input";
 import { Spinner } from "../ui/Spinner";
+import { RecordCashPaymentModal } from "../staff/RecordCashPaymentModal";
 import {
   filterPhoneInput,
   focusFirstInvalidField,
@@ -75,13 +76,25 @@ export const MemberManagementSection: React.FC<Props> = ({
   const [selectedMember, setSelectedMember] = useState<Member | null>(null);
   const [changingPhoto, setChangingPhoto] = useState(false);
   const [detailPhotoError, setDetailPhotoError] = useState<string | null>(null);
-  const [detailPhotoSuccess, setDetailPhotoSuccess] = useState<string | null>(null);
+  const [detailPhotoSuccess, setDetailPhotoSuccess] = useState<string | null>(
+    null
+  );
 
   // Status action state
   const [suspendReason, setSuspendReason] = useState("");
   const [actionLoading, setActionLoading] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
   const [actionSuccess, setActionSuccess] = useState<string | null>(null);
+
+  // Cash payment modal state
+  const [showCashPaymentModal, setShowCashPaymentModal] = useState(false);
+  const [cashPaymentMemberId, setCashPaymentMemberId] = useState<
+    string | undefined
+  >(undefined);
+  const [registeredMemberInfo, setRegisteredMemberInfo] = useState<{
+    id: string;
+    name: string;
+  } | null>(null);
 
   const canRegister =
     userRole === "owner" || userRole === "manager" || userRole === "reception";
@@ -171,7 +184,10 @@ export const MemberManagementSection: React.FC<Props> = ({
       const ext = photoFile.name.split(".").pop()?.toLowerCase();
       const isAllowedExt =
         ext === "jpg" || ext === "jpeg" || ext === "png" || ext === "webp";
-      if (!allowedTypes.includes(photoFile.type.toLowerCase()) && !isAllowedExt) {
+      if (
+        !allowedTypes.includes(photoFile.type.toLowerCase()) &&
+        !isAllowedExt
+      ) {
         errors["reg-photo"] =
           "Unsupported image format. Only JPEG, PNG, and WebP are allowed.";
       } else if (photoFile.size > 2 * 1024 * 1024) {
@@ -230,7 +246,8 @@ export const MemberManagementSection: React.FC<Props> = ({
       const gymId = activeGymId;
       if (photoFile) {
         if (!gymId) {
-          const msg = "Active gym could not be determined. Member photo was not saved.";
+          const msg =
+            "Active gym could not be determined. Member photo was not saved.";
           setRegError(msg);
           setFieldErrors((prev) => ({ ...prev, "reg-photo": msg }));
           setSubmitting(false);
@@ -239,7 +256,9 @@ export const MemberManagementSection: React.FC<Props> = ({
         try {
           const res = await uploadMemberPhoto(photoFile, gymId);
           if (!res || !res.url) {
-            throw new Error("Photo upload did not return a valid file path. Photo was not saved.");
+            throw new Error(
+              "Photo upload did not return a valid file path. Photo was not saved."
+            );
           }
           uploadedPhotoUrl = res.url;
         } catch (uploadErr: unknown) {
@@ -266,10 +285,16 @@ export const MemberManagementSection: React.FC<Props> = ({
         photo_url: uploadedPhotoUrl,
       };
 
-      await registerMemberStaffAssisted(payload);
+      const res = await registerMemberStaffAssisted(payload);
       setRegSuccess(
         `Member ${fullName.trim()} registered successfully. Set-password invite link emailed.`
       );
+      if (res?.member?.id) {
+        setRegisteredMemberInfo({
+          id: res.member.id,
+          name: res.member.full_name,
+        });
+      }
       // Reset form
       setFullName("");
       setEmail("");
@@ -482,7 +507,7 @@ export const MemberManagementSection: React.FC<Props> = ({
       {/* Members Table */}
       <Card className="bg-surface border-border overflow-hidden">
         {loading ? (
-            <div className="p-8 text-center flex flex-col items-center gap-3">
+          <div className="p-8 text-center flex flex-col items-center gap-3">
             <Spinner size="md" />
             <p className="text-xs text-text-muted">Loading members list...</p>
           </div>
@@ -570,14 +595,29 @@ export const MemberManagementSection: React.FC<Props> = ({
                         </>
                       )}
                       <td className="px-4 py-3">
-                        <Button
-                          variant="secondary"
-                          size="sm"
-                          onClick={() => handleOpenDetail(m.id)}
-                          className="min-h-[36px]"
-                        >
-                          View Details
-                        </Button>
+                        <div className="flex items-center gap-2">
+                          <Button
+                            variant="secondary"
+                            size="sm"
+                            onClick={() => handleOpenDetail(m.id)}
+                            className="min-h-[36px]"
+                          >
+                            View Details
+                          </Button>
+                          {canRegister && (
+                            <Button
+                              variant="primary"
+                              size="sm"
+                              onClick={() => {
+                                setCashPaymentMemberId(m.id);
+                                setShowCashPaymentModal(true);
+                              }}
+                              className="min-h-[36px]"
+                            >
+                              Pay Cash
+                            </Button>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   );
@@ -606,9 +646,36 @@ export const MemberManagementSection: React.FC<Props> = ({
             </div>
 
             {regError && <Alert variant="danger">{regError}</Alert>}
-            {regSuccess && <Alert variant="success">{regSuccess}</Alert>}
+            {regSuccess && (
+              <div className="space-y-2">
+                <Alert variant="success">{regSuccess}</Alert>
+                {registeredMemberInfo && (
+                  <div className="p-3 bg-primary/10 border border-primary/30 rounded-lg flex items-center justify-between">
+                    <span className="text-xs text-text font-medium">
+                      Collect payment for{" "}
+                      <strong>{registeredMemberInfo.name}</strong>?
+                    </span>
+                    <Button
+                      size="sm"
+                      variant="primary"
+                      type="button"
+                      onClick={() => {
+                        setCashPaymentMemberId(registeredMemberInfo.id);
+                        setShowCashPaymentModal(true);
+                      }}
+                    >
+                      💵 Record Cash Payment
+                    </Button>
+                  </div>
+                )}
+              </div>
+            )}
 
-            <form onSubmit={handleRegisterSubmit} className="space-y-3" noValidate>
+            <form
+              onSubmit={handleRegisterSubmit}
+              className="space-y-3"
+              noValidate
+            >
               <FormField
                 label="Full Name"
                 htmlFor="reg-full-name"
@@ -946,7 +1013,8 @@ export const MemberManagementSection: React.FC<Props> = ({
             {/* Latest Calculated Estimates (Owner & Manager view-only; hidden for Reception) */}
             {userRole !== "reception" &&
               (selectedMember.latest_metrics &&
-              (selectedMember.latest_metrics.weight_kg || selectedMember.latest_metrics.height_cm) ? (
+              (selectedMember.latest_metrics.weight_kg ||
+                selectedMember.latest_metrics.height_cm) ? (
                 <div className="p-4 bg-primary/5 border border-primary/20 rounded-lg space-y-2">
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
                     <h4 className="text-xs font-bold uppercase tracking-wider text-primary">
@@ -989,8 +1057,10 @@ export const MemberManagementSection: React.FC<Props> = ({
                         Estimated BMI
                       </span>
                       <span className="text-sm font-bold text-primary">
-                        {selectedMember.latest_metrics?.estimated_bmi !== null &&
-                        selectedMember.latest_metrics?.estimated_bmi !== undefined
+                        {selectedMember.latest_metrics?.estimated_bmi !==
+                          null &&
+                        selectedMember.latest_metrics?.estimated_bmi !==
+                          undefined
                           ? selectedMember.latest_metrics.estimated_bmi
                           : "—"}
                       </span>
@@ -1010,8 +1080,8 @@ export const MemberManagementSection: React.FC<Props> = ({
                     </div>
                   </div>
                   <p className="text-[11px] text-text-muted text-center pt-1">
-                    * BMI and US Navy body fat percentage are calculated on read as
-                    labeled estimates.
+                    * BMI and US Navy body fat percentage are calculated on read
+                    as labeled estimates.
                   </p>
                 </div>
               ) : (
@@ -1029,7 +1099,8 @@ export const MemberManagementSection: React.FC<Props> = ({
                 {selectedMember.status === "suspended" ? (
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                     <p className="text-xs text-text-muted">
-                      This member is currently suspended. Reinstating will restore their account and subscription status.
+                      This member is currently suspended. Reinstating will
+                      restore their account and subscription status.
                     </p>
                     <Button
                       variant="primary"
@@ -1043,7 +1114,8 @@ export const MemberManagementSection: React.FC<Props> = ({
                 ) : (
                   <div className="space-y-3">
                     <p className="text-xs text-text-muted">
-                      Suspend this member to block facility entry and access immediately.
+                      Suspend this member to block facility entry and access
+                      immediately.
                     </p>
                     <div className="flex flex-col sm:flex-row gap-2">
                       <Input
@@ -1077,9 +1149,51 @@ export const MemberManagementSection: React.FC<Props> = ({
                 )}
               </div>
             )}
+
+            {/* Staff Cash Payment Action */}
+            {canRegister && (
+              <div className="p-4 bg-surface-2/40 border border-border rounded-lg flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div>
+                  <h4 className="text-xs font-bold uppercase tracking-wider text-text">
+                    In-Person Payment
+                  </h4>
+                  <p className="text-xs text-text-muted mt-0.5">
+                    Record a cash payment to activate or renew this member's
+                    subscription.
+                  </p>
+                </div>
+                <Button
+                  variant="primary"
+                  size="sm"
+                  onClick={() => {
+                    setCashPaymentMemberId(selectedMember.id);
+                    setShowCashPaymentModal(true);
+                  }}
+                >
+                  💵 Record Cash Payment
+                </Button>
+              </div>
+            )}
           </Card>
         </div>
       )}
+
+      <RecordCashPaymentModal
+        isOpen={showCashPaymentModal}
+        onClose={() => {
+          setShowCashPaymentModal(false);
+          setCashPaymentMemberId(undefined);
+        }}
+        initialMemberId={cashPaymentMemberId}
+        onPaymentSuccess={() => {
+          setShowCashPaymentModal(false);
+          setCashPaymentMemberId(undefined);
+          fetchMembers();
+          if (selectedMember) {
+            handleOpenDetail(selectedMember.id);
+          }
+        }}
+      />
     </div>
   );
 };

@@ -33,7 +33,9 @@ export const MembershipPlansSection: React.FC<MembershipPlansSectionProps> = ({
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
   // Filter
-  const [statusFilter, setStatusFilter] = useState<"all" | "active" | "inactive">("all");
+  const [statusFilter, setStatusFilter] = useState<
+    "all" | "active" | "inactive"
+  >("all");
 
   // Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -60,7 +62,8 @@ export const MembershipPlansSection: React.FC<MembershipPlansSectionProps> = ({
   });
 
   // Deactivate confirmation
-  const [deactivatingPlan, setDeactivatingPlan] = useState<MembershipPlan | null>(null);
+  const [deactivatingPlan, setDeactivatingPlan] =
+    useState<MembershipPlan | null>(null);
   const [deactivatingSubmitting, setDeactivatingSubmitting] = useState(false);
 
   const fetchPlans = async () => {
@@ -145,7 +148,9 @@ export const MembershipPlansSection: React.FC<MembershipPlansSectionProps> = ({
         if (updated.has_no_trainers_warning && updated.warning) {
           setSuccessMsg(`Plan updated with note: ${updated.warning}`);
         } else {
-          setSuccessMsg(`Membership plan '${updated.name}' updated successfully.`);
+          setSuccessMsg(
+            `Membership plan '${updated.name}' updated successfully.`
+          );
         }
       } else {
         const payload: CreatePlanInput = {
@@ -160,7 +165,9 @@ export const MembershipPlansSection: React.FC<MembershipPlansSectionProps> = ({
         if (created.has_no_trainers_warning && created.warning) {
           setSuccessMsg(`Plan created with note: ${created.warning}`);
         } else {
-          setSuccessMsg(`Membership plan '${created.name}' created successfully.`);
+          setSuccessMsg(
+            `Membership plan '${created.name}' created successfully.`
+          );
         }
       }
 
@@ -180,7 +187,9 @@ export const MembershipPlansSection: React.FC<MembershipPlansSectionProps> = ({
     try {
       setDeactivatingSubmitting(true);
       await deactivateMembershipPlan(deactivatingPlan.id);
-      setSuccessMsg(`Membership plan '${deactivatingPlan.name}' has been deactivated.`);
+      setSuccessMsg(
+        `Membership plan '${deactivatingPlan.name}' has been deactivated.`
+      );
       setDeactivatingPlan(null);
       await fetchPlans();
       if (onPlansUpdated) onPlansUpdated();
@@ -206,9 +215,12 @@ export const MembershipPlansSection: React.FC<MembershipPlansSectionProps> = ({
     <Card className="bg-surface border-border p-6 space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border pb-4">
         <div>
-          <h2 className="text-xl font-bold text-text">Membership Plans & Pricing</h2>
+          <h2 className="text-xl font-bold text-text">
+            Membership Plans & Pricing
+          </h2>
           <p className="text-sm text-text-muted">
-            Configure flexible subscription tiers with daily or monthly durations for your members.
+            Configure flexible subscription tiers with daily or monthly
+            durations for your members.
           </p>
         </div>
         <Button
@@ -234,7 +246,9 @@ export const MembershipPlansSection: React.FC<MembershipPlansSectionProps> = ({
 
       {/* Filter Tabs */}
       <div className="flex items-center gap-2">
-        <span className="text-xs font-semibold uppercase text-text-muted">Status:</span>
+        <span className="text-xs font-semibold uppercase text-text-muted">
+          Status:
+        </span>
         {(["all", "active", "inactive"] as const).map((filter) => (
           <button
             key={filter}
@@ -245,7 +259,13 @@ export const MembershipPlansSection: React.FC<MembershipPlansSectionProps> = ({
                 : "bg-surface-2 text-text-muted hover:text-text hover:bg-surface-3"
             }`}
           >
-            {filter} ({filter === "all" ? plans.length : plans.filter((p) => filter === "active" ? p.is_active : !p.is_active).length})
+            {filter} (
+            {filter === "all"
+              ? plans.length
+              : plans.filter((p) =>
+                  filter === "active" ? p.is_active : !p.is_active
+                ).length}
+            )
           </button>
         ))}
       </div>
@@ -257,14 +277,20 @@ export const MembershipPlansSection: React.FC<MembershipPlansSectionProps> = ({
         </div>
       ) : filteredPlans.length === 0 ? (
         <div className="py-12 text-center border border-dashed border-border rounded-xl p-8 space-y-3">
-          <p className="text-base font-semibold text-text">No membership plans found</p>
+          <p className="text-base font-semibold text-text">
+            No membership plans found
+          </p>
           <p className="text-sm text-text-muted max-w-md mx-auto">
             {statusFilter === "all"
               ? "Your gym has not created any membership plans yet. Add your first plan to start enrolling members."
               : `No ${statusFilter} membership plans match the selected filter.`}
           </p>
           {statusFilter === "all" && (
-            <Button onClick={handleOpenCreateModal} variant="secondary" className="mt-2 min-h-[44px]">
+            <Button
+              onClick={handleOpenCreateModal}
+              variant="secondary"
+              className="mt-2 min-h-[44px]"
+            >
               Create First Plan
             </Button>
           )}
@@ -282,7 +308,9 @@ export const MembershipPlansSection: React.FC<MembershipPlansSectionProps> = ({
             >
               <div className="space-y-3">
                 <div className="flex items-start justify-between gap-2">
-                  <h3 className="font-bold text-lg text-text leading-tight">{plan.name}</h3>
+                  <h3 className="font-bold text-lg text-text leading-tight">
+                    {plan.name}
+                  </h3>
                   <Badge variant={plan.is_active ? "success" : "default"}>
                     {plan.is_active ? "Active" : "Deactivated"}
                   </Badge>
@@ -292,7 +320,9 @@ export const MembershipPlansSection: React.FC<MembershipPlansSectionProps> = ({
                   <span className="text-3xl font-extrabold text-text">
                     {Number(plan.price_etb).toLocaleString()}
                   </span>
-                  <span className="text-sm font-semibold text-text-muted">ETB</span>
+                  <span className="text-sm font-semibold text-text-muted">
+                    ETB
+                  </span>
                   <span className="text-xs text-text-muted">
                     / {plan.duration_value} {plan.duration_unit}
                   </span>
@@ -307,9 +337,13 @@ export const MembershipPlansSection: React.FC<MembershipPlansSectionProps> = ({
                 )}
 
                 {plan.description ? (
-                  <p className="text-sm text-text-muted line-clamp-3">{plan.description}</p>
+                  <p className="text-sm text-text-muted line-clamp-3">
+                    {plan.description}
+                  </p>
                 ) : (
-                  <p className="text-xs italic text-text-muted/60">No description provided</p>
+                  <p className="text-xs italic text-text-muted/60">
+                    No description provided
+                  </p>
                 )}
               </div>
 
@@ -344,7 +378,9 @@ export const MembershipPlansSection: React.FC<MembershipPlansSectionProps> = ({
           <div className="bg-surface border border-border rounded-card max-w-lg w-full p-6 space-y-5 shadow-2xl">
             <div className="flex items-center justify-between border-b border-border pb-3">
               <h3 className="text-lg font-bold text-text">
-                {editingPlan ? "Edit Membership Plan" : "Create New Membership Plan"}
+                {editingPlan
+                  ? "Edit Membership Plan"
+                  : "Create New Membership Plan"}
               </h3>
               <button
                 type="button"
@@ -373,7 +409,9 @@ export const MembershipPlansSection: React.FC<MembershipPlansSectionProps> = ({
                 <Input
                   id="plan_name"
                   value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                  onChange={(e) =>
+                    setFormData({ ...formData, name: e.target.value })
+                  }
                   placeholder="e.g. Monthly Standard, 3-Month Premium"
                   required
                   maxLength={100}
@@ -381,18 +419,31 @@ export const MembershipPlansSection: React.FC<MembershipPlansSectionProps> = ({
               </FormField>
 
               <div className="grid grid-cols-2 gap-4">
-                <FormField label="Duration Value" htmlFor="duration_value" required>
+                <FormField
+                  label="Duration Value"
+                  htmlFor="duration_value"
+                  required
+                >
                   <Input
                     id="duration_value"
                     type="number"
                     min="1"
                     value={formData.duration_value}
-                    onChange={(e) => setFormData({ ...formData, duration_value: e.target.value })}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        duration_value: e.target.value,
+                      })
+                    }
                     required
                   />
                 </FormField>
 
-                <FormField label="Duration Unit" htmlFor="duration_unit" required>
+                <FormField
+                  label="Duration Unit"
+                  htmlFor="duration_unit"
+                  required
+                >
                   <select
                     id="duration_unit"
                     value={formData.duration_unit}
@@ -417,7 +468,9 @@ export const MembershipPlansSection: React.FC<MembershipPlansSectionProps> = ({
                   step="0.01"
                   min="0"
                   value={formData.price_etb}
-                  onChange={(e) => setFormData({ ...formData, price_etb: e.target.value })}
+                  onChange={(e) =>
+                    setFormData({ ...formData, price_etb: e.target.value })
+                  }
                   placeholder="e.g. 1500.00"
                   required
                 />
@@ -426,7 +479,9 @@ export const MembershipPlansSection: React.FC<MembershipPlansSectionProps> = ({
               <FormField label="Description (Optional)">
                 <textarea
                   value={formData.description}
-                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                  onChange={(e) =>
+                    setFormData({ ...formData, description: e.target.value })
+                  }
                   placeholder="What is included in this membership package?"
                   className="w-full bg-bg border border-border rounded-lg p-3 text-sm text-text focus:outline-none focus:ring-2 focus:ring-primary min-h-[80px]"
                 />
@@ -438,17 +493,24 @@ export const MembershipPlansSection: React.FC<MembershipPlansSectionProps> = ({
                   id="trainer_inclusive"
                   checked={formData.trainer_inclusive}
                   onChange={(e) =>
-                    setFormData({ ...formData, trainer_inclusive: e.target.checked })
+                    setFormData({
+                      ...formData,
+                      trainer_inclusive: e.target.checked,
+                    })
                   }
                   className="mt-1 h-4 w-4 rounded border-border text-primary focus:ring-primary"
                 />
-                <label htmlFor="trainer_inclusive" className="text-sm cursor-pointer">
+                <label
+                  htmlFor="trainer_inclusive"
+                  className="text-sm cursor-pointer"
+                >
                   <span className="font-semibold text-text block">
                     Include Personal Training
                   </span>
                   <span className="text-xs text-text-muted">
-                    Check if this plan entitles the member to a certified personal trainer.
-                    (Warns if your gym currently has no active trainers.)
+                    Check if this plan entitles the member to a certified
+                    personal trainer. (Warns if your gym currently has no active
+                    trainers.)
                   </span>
                 </label>
               </div>
@@ -462,8 +524,18 @@ export const MembershipPlansSection: React.FC<MembershipPlansSectionProps> = ({
                 >
                   Cancel
                 </Button>
-                <Button type="submit" variant="primary" disabled={modalSubmitting}>
-                  {modalSubmitting ? <Spinner size="sm" /> : editingPlan ? "Update Plan" : "Create Plan"}
+                <Button
+                  type="submit"
+                  variant="primary"
+                  disabled={modalSubmitting}
+                >
+                  {modalSubmitting ? (
+                    <Spinner size="sm" />
+                  ) : editingPlan ? (
+                    "Update Plan"
+                  ) : (
+                    "Create Plan"
+                  )}
                 </Button>
               </div>
             </form>
@@ -481,8 +553,14 @@ export const MembershipPlansSection: React.FC<MembershipPlansSectionProps> = ({
               <strong className="text-text">{deactivatingPlan.name}</strong>?
             </p>
             <div className="bg-surface-2/40 border border-border rounded-lg p-3 text-xs text-text-muted space-y-1">
-              <p>• This plan will be hidden from new member registrations and signups.</p>
-              <p>• All existing active subscriptions under this plan remain completely intact.</p>
+              <p>
+                • This plan will be hidden from new member registrations and
+                signups.
+              </p>
+              <p>
+                • All existing active subscriptions under this plan remain
+                completely intact.
+              </p>
             </div>
             <div className="flex items-center justify-end gap-3 pt-2">
               <Button
@@ -497,7 +575,11 @@ export const MembershipPlansSection: React.FC<MembershipPlansSectionProps> = ({
                 onClick={handleConfirmDeactivate}
                 disabled={deactivatingSubmitting}
               >
-                {deactivatingSubmitting ? <Spinner size="sm" /> : "Deactivate Plan"}
+                {deactivatingSubmitting ? (
+                  <Spinner size="sm" />
+                ) : (
+                  "Deactivate Plan"
+                )}
               </Button>
             </div>
           </div>

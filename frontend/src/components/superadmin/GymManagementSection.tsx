@@ -80,7 +80,8 @@ export const GymManagementSection: React.FC<GymManagementSectionProps> = ({
         setContactName(prefillData.contact_name);
         setOwnerName(prefillData.contact_name);
       }
-      if (prefillData.contact_phone) setContactPhone(filterPhoneInput(prefillData.contact_phone));
+      if (prefillData.contact_phone)
+        setContactPhone(filterPhoneInput(prefillData.contact_phone));
       if (prefillData.contact_email) {
         setContactEmail(prefillData.contact_email);
         setOwnerEmail(prefillData.contact_email);
@@ -171,7 +172,12 @@ export const GymManagementSection: React.FC<GymManagementSectionProps> = ({
     const payErr = validatePaymentAmount(paymentAmount);
     if (payErr) errors.payment_amount = payErr;
 
-    const refErr = validateTextLength(paymentReference, "Bank reference", 3, 100);
+    const refErr = validateTextLength(
+      paymentReference,
+      "Bank reference",
+      3,
+      100
+    );
     if (refErr) errors.payment_reference = refErr;
 
     if (Object.keys(errors).length > 0) {
@@ -425,7 +431,11 @@ export const GymManagementSection: React.FC<GymManagementSectionProps> = ({
               </Alert>
             )}
 
-            <form onSubmit={handleCreateGym} className="space-y-4 mt-4" noValidate>
+            <form
+              onSubmit={handleCreateGym}
+              className="space-y-4 mt-4"
+              noValidate
+            >
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <FormField
                   label="Gym Name"

@@ -1,4 +1,3 @@
-import React from "react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { PaymentGatewaySection } from "../components/owner/PaymentGatewaySection";
@@ -110,7 +109,7 @@ describe("Sprint 11 - MemberCheckoutCard", () => {
       duration_value: 1,
       duration_unit: "months",
       is_active: true,
-      includes_trainer: false,
+      trainer_inclusive: false,
       created_at: "2026-10-25T00:00:00Z",
       updated_at: "2026-10-25T00:00:00Z",
     },
@@ -119,10 +118,10 @@ describe("Sprint 11 - MemberCheckoutCard", () => {
       name: "Annual VIP",
       description: "Annual membership",
       price_etb: "15000.00",
-      duration_value: 1,
-      duration_unit: "years",
+      duration_value: 12,
+      duration_unit: "months",
       is_active: true,
-      includes_trainer: true,
+      trainer_inclusive: true,
       created_at: "2026-10-25T00:00:00Z",
       updated_at: "2026-10-25T00:00:00Z",
     },

@@ -195,7 +195,9 @@ export const CameraQrScanner: React.FC<CameraQrScannerProps> = ({
               facingMode: { ideal: facingMode },
               width: { ideal: 1280, min: 640 },
               height: { ideal: 720, min: 480 },
-              advanced: [{ focusMode: "continuous" } as MediaTrackConstraintSet],
+              advanced: [
+                { focusMode: "continuous" } as MediaTrackConstraintSet,
+              ],
             },
           });
         } catch {
@@ -222,12 +224,18 @@ export const CameraQrScanner: React.FC<CameraQrScannerProps> = ({
           try {
             const capabilities =
               typeof videoTrack.getCapabilities === "function"
-                ? (videoTrack.getCapabilities() as unknown as { focusMode?: string[] })
+                ? (videoTrack.getCapabilities() as unknown as {
+                    focusMode?: string[];
+                  })
                 : null;
             if (capabilities?.focusMode?.includes("continuous")) {
-              await videoTrack.applyConstraints({
-                advanced: [{ focusMode: "continuous" } as MediaTrackConstraintSet],
-              }).catch(() => {});
+              await videoTrack
+                .applyConstraints({
+                  advanced: [
+                    { focusMode: "continuous" } as MediaTrackConstraintSet,
+                  ],
+                })
+                .catch(() => {});
             }
           } catch {
             // ignore if unsupported

@@ -1,4 +1,3 @@
-import React from "react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
@@ -23,11 +22,10 @@ vi.mock("../context/AuthContext", () => ({
 const mockPlans: plansApi.MembershipPlan[] = [
   {
     id: "plan-1",
-    gym: "gym-1",
     name: "Monthly Standard",
+    description: "",
     duration_value: 1,
     duration_unit: "months",
-    duration_in_days: 30,
     price_etb: "1500.00",
     trainer_inclusive: false,
     is_active: true,
@@ -36,11 +34,10 @@ const mockPlans: plansApi.MembershipPlan[] = [
   },
   {
     id: "plan-2",
-    gym: "gym-1",
     name: "Pro Training VIP",
+    description: "",
     duration_value: 3,
     duration_unit: "months",
-    duration_in_days: 90,
     price_etb: "4500.00",
     trainer_inclusive: true,
     is_active: false,
@@ -73,11 +70,10 @@ describe("MembershipPlansSection", () => {
     const user = userEvent.setup();
     const createdPlan: plansApi.MembershipPlan = {
       id: "plan-3",
-      gym: "gym-1",
       name: "Annual Unlimited",
+      description: "",
       duration_value: 12,
       duration_unit: "months",
-      duration_in_days: 365,
       price_etb: "12000.00",
       trainer_inclusive: false,
       is_active: true,
@@ -128,8 +124,7 @@ describe("MembershipPlansSection", () => {
   it("allows deactivating an active plan", async () => {
     const user = userEvent.setup();
     vi.mocked(plansApi.deactivateMembershipPlan).mockResolvedValue({
-      ...mockPlans[0],
-      is_active: false,
+      detail: "Plan deactivated successfully.",
     });
 
     render(<MembershipPlansSection />);
@@ -142,7 +137,9 @@ describe("MembershipPlansSection", () => {
     await user.click(deactivateBtn);
 
     // Confirmation modal appears
-    expect(screen.getByText(/Are you sure you want to deactivate/i)).toBeInTheDocument();
+    expect(
+      screen.getByText(/Are you sure you want to deactivate/i)
+    ).toBeInTheDocument();
     const confirmBtn = screen.getByRole("button", { name: /Deactivate Plan/i });
     await user.click(confirmBtn);
 

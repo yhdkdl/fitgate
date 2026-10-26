@@ -145,8 +145,14 @@ export const ProfileScreen: React.FC = () => {
       const errData = (err as { data?: Record<string, unknown> })?.data;
       if (errData && typeof errData === "object") {
         const serverErrors: Record<string, string> = {};
-        if ("full_name" in errData) serverErrors["profile-full-name"] = Array.isArray(errData.full_name) ? errData.full_name.join(" ") : String(errData.full_name);
-        if ("phone" in errData) serverErrors["profile-phone"] = Array.isArray(errData.phone) ? errData.phone.join(" ") : String(errData.phone);
+        if ("full_name" in errData)
+          serverErrors["profile-full-name"] = Array.isArray(errData.full_name)
+            ? errData.full_name.join(" ")
+            : String(errData.full_name);
+        if ("phone" in errData)
+          serverErrors["profile-phone"] = Array.isArray(errData.phone)
+            ? errData.phone.join(" ")
+            : String(errData.phone);
         if (Object.keys(serverErrors).length > 0) {
           setProfileFieldErrors(serverErrors);
           focusFirstInvalidField(serverErrors);
@@ -173,10 +179,15 @@ export const ProfileScreen: React.FC = () => {
 
     const pwdReqs = checkPasswordRequirements(newPassword, confirmPassword);
     if (!pwdReqs.isValid) {
-      if (!pwdReqs.hasMinLength) errors["change-new-pwd"] = "Password must be at least 10 characters long.";
-      else if (!pwdReqs.hasNoCommon) errors["change-new-pwd"] = "Password is too common.";
-      else if (!pwdReqs.hasNotOnlyDigits) errors["change-new-pwd"] = "Password cannot be entirely numeric.";
-      else if (!pwdReqs.matchesConfirm) errors["change-confirm-pwd"] = "New passwords do not match.";
+      if (!pwdReqs.hasMinLength)
+        errors["change-new-pwd"] =
+          "Password must be at least 10 characters long.";
+      else if (!pwdReqs.hasNoCommon)
+        errors["change-new-pwd"] = "Password is too common.";
+      else if (!pwdReqs.hasNotOnlyDigits)
+        errors["change-new-pwd"] = "Password cannot be entirely numeric.";
+      else if (!pwdReqs.matchesConfirm)
+        errors["change-confirm-pwd"] = "New passwords do not match.";
     }
 
     if (Object.keys(errors).length > 0) {
@@ -200,8 +211,16 @@ export const ProfileScreen: React.FC = () => {
       const errData = (err as { data?: Record<string, unknown> })?.data;
       if (errData && typeof errData === "object") {
         const serverErrors: Record<string, string> = {};
-        if ("current_password" in errData) serverErrors["change-current-pwd"] = Array.isArray(errData.current_password) ? errData.current_password.join(" ") : String(errData.current_password);
-        if ("new_password" in errData) serverErrors["change-new-pwd"] = Array.isArray(errData.new_password) ? errData.new_password.join(" ") : String(errData.new_password);
+        if ("current_password" in errData)
+          serverErrors["change-current-pwd"] = Array.isArray(
+            errData.current_password
+          )
+            ? errData.current_password.join(" ")
+            : String(errData.current_password);
+        if ("new_password" in errData)
+          serverErrors["change-new-pwd"] = Array.isArray(errData.new_password)
+            ? errData.new_password.join(" ")
+            : String(errData.new_password);
         if (Object.keys(serverErrors).length > 0) {
           setPasswordFieldErrors(serverErrors);
           focusFirstInvalidField(serverErrors);
@@ -245,7 +264,8 @@ export const ProfileScreen: React.FC = () => {
               Profile Photo
             </h2>
             <p className="text-xs text-text-muted mb-4">
-              Your photo is used for member identification at reception and entrance scanner check-in.
+              Your photo is used for member identification at reception and
+              entrance scanner check-in.
             </p>
 
             {photoSuccess && (
@@ -266,7 +286,9 @@ export const ProfileScreen: React.FC = () => {
                     Add Your Profile Photo
                   </h4>
                   <p className="text-xs text-text-muted mt-0.5">
-                    You haven&apos;t added a profile photo yet. Upload a clear photo so reception and entrance staff can identify you at check-in.
+                    You haven&apos;t added a profile photo yet. Upload a clear
+                    photo so reception and entrance staff can identify you at
+                    check-in.
                   </p>
                 </div>
               </div>
@@ -291,7 +313,9 @@ export const ProfileScreen: React.FC = () => {
                       <span>Uploading...</span>
                     </>
                   ) : (
-                    <span>{memberData?.photo_url ? "Change Photo" : "Upload Photo"}</span>
+                    <span>
+                      {memberData?.photo_url ? "Change Photo" : "Upload Photo"}
+                    </span>
                   )}
                   <input
                     type="file"
@@ -302,7 +326,8 @@ export const ProfileScreen: React.FC = () => {
                   />
                 </label>
                 <p className="text-[11px] text-text-muted">
-                  JPEG, PNG or WebP, up to 2 MB. Photos are kept private and served securely.
+                  JPEG, PNG or WebP, up to 2 MB. Photos are kept private and
+                  served securely.
                 </p>
               </div>
             </div>
@@ -327,7 +352,11 @@ export const ProfileScreen: React.FC = () => {
               </Alert>
             )}
 
-            <form onSubmit={handleProfileSubmit} className="space-y-4" noValidate>
+            <form
+              onSubmit={handleProfileSubmit}
+              className="space-y-4"
+              noValidate
+            >
               <FormField label="Email" htmlFor="profile-email">
                 <Input
                   id="profile-email"
@@ -402,7 +431,11 @@ export const ProfileScreen: React.FC = () => {
               </Alert>
             )}
 
-            <form onSubmit={handlePasswordSubmit} className="space-y-4" noValidate>
+            <form
+              onSubmit={handlePasswordSubmit}
+              className="space-y-4"
+              noValidate
+            >
               <FormField
                 label="Current password"
                 htmlFor="change-current-pwd"
@@ -460,7 +493,10 @@ export const ProfileScreen: React.FC = () => {
                 />
               </FormField>
 
-              <PasswordChecklist password={newPassword} confirmPassword={confirmPassword} />
+              <PasswordChecklist
+                password={newPassword}
+                confirmPassword={confirmPassword}
+              />
 
               <Button
                 type="submit"

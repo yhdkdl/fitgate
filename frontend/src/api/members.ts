@@ -13,7 +13,9 @@ async function handleResponse<T>(
   if (!res.ok) {
     const errorData = await parseResponseBody(res);
     const detail =
-      typeof errorData === "object" && errorData !== null && "detail" in errorData
+      typeof errorData === "object" &&
+      errorData !== null &&
+      "detail" in errorData
         ? String((errorData as { detail: unknown }).detail)
         : typeof errorData === "string" && errorData.trim() !== ""
           ? errorData

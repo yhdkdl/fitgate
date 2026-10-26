@@ -44,27 +44,32 @@ export const ForcedChangePasswordScreen: React.FC = () => {
     const reqs = checkPasswordRequirements(newPassword, confirmPassword);
     if (!reqs.allValid) {
       if (!reqs.minLength) {
-        errors.newPassword = "New password must be at least 10 characters long.";
+        errors.newPassword =
+          "New password must be at least 10 characters long.";
       } else if (!reqs.notNumeric) {
         errors.newPassword = "New password cannot be only digits.";
       } else if (!reqs.notCommon) {
-        errors.newPassword = "New password is too common; choose a stronger one.";
+        errors.newPassword =
+          "New password is too common; choose a stronger one.";
       } else if (!reqs.matchesConfirm) {
         errors.confirmPassword = "New passwords do not match.";
       }
     }
 
     if (newPassword && currentPassword && newPassword === currentPassword) {
-      errors.newPassword = "New password must be different from current password.";
+      errors.newPassword =
+        "New password must be different from current password.";
     }
 
     if (Object.keys(errors).length > 0) {
       setFieldErrors(errors);
-      focusFirstInvalidField([
-        errors.currentPassword ? "forced-current-password" : "",
-        errors.newPassword ? "forced-new-password" : "",
-        errors.confirmPassword ? "forced-confirm-password" : "",
-      ].filter(Boolean));
+      focusFirstInvalidField(
+        [
+          errors.currentPassword ? "forced-current-password" : "",
+          errors.newPassword ? "forced-new-password" : "",
+          errors.confirmPassword ? "forced-confirm-password" : "",
+        ].filter(Boolean)
+      );
       return;
     }
 
@@ -124,7 +129,10 @@ export const ForcedChangePasswordScreen: React.FC = () => {
                 onChange={(e) => {
                   setCurrentPassword(e.target.value);
                   if (fieldErrors.currentPassword) {
-                    setFieldErrors((prev) => ({ ...prev, currentPassword: undefined }));
+                    setFieldErrors((prev) => ({
+                      ...prev,
+                      currentPassword: undefined,
+                    }));
                   }
                 }}
                 required
@@ -147,7 +155,10 @@ export const ForcedChangePasswordScreen: React.FC = () => {
                 onChange={(e) => {
                   setNewPassword(e.target.value);
                   if (fieldErrors.newPassword) {
-                    setFieldErrors((prev) => ({ ...prev, newPassword: undefined }));
+                    setFieldErrors((prev) => ({
+                      ...prev,
+                      newPassword: undefined,
+                    }));
                   }
                 }}
                 required
@@ -170,7 +181,10 @@ export const ForcedChangePasswordScreen: React.FC = () => {
                 onChange={(e) => {
                   setConfirmPassword(e.target.value);
                   if (fieldErrors.confirmPassword) {
-                    setFieldErrors((prev) => ({ ...prev, confirmPassword: undefined }));
+                    setFieldErrors((prev) => ({
+                      ...prev,
+                      confirmPassword: undefined,
+                    }));
                   }
                 }}
                 required
@@ -195,7 +209,6 @@ export const ForcedChangePasswordScreen: React.FC = () => {
             </Button>
           </form>
         </Card>
-
       </div>
     </div>
   );

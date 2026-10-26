@@ -12,7 +12,10 @@ import { focusFirstInvalidField, validateEmail } from "../utils/validators";
 export const LoginScreen: React.FC = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [fieldErrors, setFieldErrors] = useState<{ email?: string; password?: string }>({});
+  const [fieldErrors, setFieldErrors] = useState<{
+    email?: string;
+    password?: string;
+  }>({});
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -72,7 +75,6 @@ export const LoginScreen: React.FC = () => {
     }
   };
 
-
   return (
     <div className="min-h-screen bg-bg flex flex-col justify-center items-center p-4">
       <div className="w-full max-w-[400px]">
@@ -122,7 +124,8 @@ export const LoginScreen: React.FC = () => {
                 value={email}
                 onChange={(e) => {
                   setEmail(e.target.value);
-                  if (fieldErrors.email) setFieldErrors((prev) => ({ ...prev, email: undefined }));
+                  if (fieldErrors.email)
+                    setFieldErrors((prev) => ({ ...prev, email: undefined }));
                 }}
                 required
                 error={fieldErrors.email}
@@ -144,14 +147,17 @@ export const LoginScreen: React.FC = () => {
                 value={password}
                 onChange={(e) => {
                   setPassword(e.target.value);
-                  if (fieldErrors.password) setFieldErrors((prev) => ({ ...prev, password: undefined }));
+                  if (fieldErrors.password)
+                    setFieldErrors((prev) => ({
+                      ...prev,
+                      password: undefined,
+                    }));
                 }}
                 required
                 error={fieldErrors.password}
                 disabled={isSubmitting}
               />
             </FormField>
-
 
             <div className="flex items-center justify-end">
               <Link

@@ -31,8 +31,16 @@ export const FormField: React.FC<FormFieldProps> = ({
   return (
     <FormFieldContext.Provider value={{ insideFormField: true }}>
       <div className={`space-y-1.5 ${className}`}>
-        <label htmlFor={targetId} className="block text-sm font-medium text-text">
-          {label} {required && <span className="text-danger" aria-hidden="true">*</span>}
+        <label
+          htmlFor={targetId}
+          className="block text-sm font-medium text-text"
+        >
+          {label}{" "}
+          {required && (
+            <span className="text-danger" aria-hidden="true">
+              *
+            </span>
+          )}
         </label>
         {children}
         {error ? (

@@ -57,7 +57,8 @@ export const ResetPasswordScreen: React.FC = () => {
     const reqs = checkPasswordRequirements(newPassword, confirmPassword);
     if (!reqs.allValid) {
       if (!reqs.minLength) {
-        errors.newPassword = "New password must be at least 10 characters long.";
+        errors.newPassword =
+          "New password must be at least 10 characters long.";
       } else if (!reqs.notNumeric) {
         errors.newPassword = "Password cannot be only digits.";
       } else if (!reqs.notCommon) {
@@ -69,10 +70,12 @@ export const ResetPasswordScreen: React.FC = () => {
 
     if (Object.keys(errors).length > 0) {
       setFieldErrors(errors);
-      focusFirstInvalidField([
-        errors.newPassword ? "reset-new-password" : "",
-        errors.confirmPassword ? "reset-confirm-password" : "",
-      ].filter(Boolean));
+      focusFirstInvalidField(
+        [
+          errors.newPassword ? "reset-new-password" : "",
+          errors.confirmPassword ? "reset-confirm-password" : "",
+        ].filter(Boolean)
+      );
       return;
     }
 
@@ -152,7 +155,10 @@ export const ResetPasswordScreen: React.FC = () => {
                   onChange={(e) => {
                     setNewPassword(e.target.value);
                     if (fieldErrors.newPassword) {
-                      setFieldErrors((prev) => ({ ...prev, newPassword: undefined }));
+                      setFieldErrors((prev) => ({
+                        ...prev,
+                        newPassword: undefined,
+                      }));
                     }
                   }}
                   required
@@ -176,7 +182,10 @@ export const ResetPasswordScreen: React.FC = () => {
                   onChange={(e) => {
                     setConfirmPassword(e.target.value);
                     if (fieldErrors.confirmPassword) {
-                      setFieldErrors((prev) => ({ ...prev, confirmPassword: undefined }));
+                      setFieldErrors((prev) => ({
+                        ...prev,
+                        confirmPassword: undefined,
+                      }));
                     }
                   }}
                   required

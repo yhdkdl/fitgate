@@ -51,7 +51,9 @@ export const StaffManagementSection: React.FC<StaffManagementSectionProps> = ({
     phone: "",
   });
   const [inviteError, setInviteError] = useState<string | null>(null);
-  const [inviteFieldErrors, setInviteFieldErrors] = useState<Record<string, string>>({});
+  const [inviteFieldErrors, setInviteFieldErrors] = useState<
+    Record<string, string>
+  >({});
 
   // Deactivate confirmation state
   const [deactivatingId, setDeactivatingId] = useState<string | null>(null);
@@ -130,15 +132,21 @@ export const StaffManagementSection: React.FC<StaffManagementSectionProps> = ({
         const serverFieldErrors: Record<string, string> = {};
         if ("email" in data) {
           const val = data.email;
-          serverFieldErrors["staff-email"] = Array.isArray(val) ? val.join(" ") : String(val);
+          serverFieldErrors["staff-email"] = Array.isArray(val)
+            ? val.join(" ")
+            : String(val);
         }
         if ("full_name" in data) {
           const val = data.full_name;
-          serverFieldErrors["staff-name"] = Array.isArray(val) ? val.join(" ") : String(val);
+          serverFieldErrors["staff-name"] = Array.isArray(val)
+            ? val.join(" ")
+            : String(val);
         }
         if ("phone" in data) {
           const val = data.phone;
-          serverFieldErrors["staff-phone"] = Array.isArray(val) ? val.join(" ") : String(val);
+          serverFieldErrors["staff-phone"] = Array.isArray(val)
+            ? val.join(" ")
+            : String(val);
         }
         if (Object.keys(serverFieldErrors).length > 0) {
           setInviteFieldErrors(serverFieldErrors);
@@ -501,7 +509,11 @@ export const StaffManagementSection: React.FC<StaffManagementSectionProps> = ({
               </Alert>
             )}
 
-            <form onSubmit={handleInviteSubmit} className="space-y-4" noValidate>
+            <form
+              onSubmit={handleInviteSubmit}
+              className="space-y-4"
+              noValidate
+            >
               <FormField
                 label="Email Address"
                 htmlFor="staff-email"

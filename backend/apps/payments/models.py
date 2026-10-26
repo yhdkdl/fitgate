@@ -180,6 +180,12 @@ class Payment(TenantAwareModel):
         on_delete=models.SET_NULL,
         related_name="confirmed_payments",
     )
+    idempotency_key = models.CharField(
+        max_length=64,
+        null=True,
+        blank=True,
+        db_index=True,
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -187,6 +193,13 @@ class Payment(TenantAwareModel):
         ordering = ["-created_at"]
         verbose_name = "Payment"
         verbose_name_plural = "Payments"
+        constraints = [
+            models.UniqueConstraint(
+                fields=["gym", "idempotency_key"],
+                condition=models.Q(idempotency_key__isnull=False),
+                name="unique_gym_payment_idempotency_key",
+            )
+        ]
 
     def clean(self):
         super().clean()
@@ -227,3 +240,85 @@ class Payment(TenantAwareModel):
 
     def __str__(self):
         return f"Payment {self.id} ({self.payer_type} - {self.amount_etb} ETB [{self.status}])"
+
+
+class Receipt(TenantAwareModel):
+    """
+    Official digital receipt for confirmed payments.
+    Receipt numbers are sequential and unique per gym.
+    Receipts are immutable: cannot be edited or deleted once issued.
+    """
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    payment = models.OneToOneField(
+        "payments.Payment",
+        on_delete=models.PROTECT,
+        related_name="receipt",
+    )
+    receipt_number = models.CharField(max_length=64, editable=False)
+    sequence_number = models.PositiveIntegerField(editable=False)
+    issued_at = models.DateTimeField(auto_now_add=True)
+    issued_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.PROTECT,
+        related_name="issued_receipts",
+    )
+    amount_etb = models.DecimalField(max_digits=12, decimal_places=2, editable=False)
+    currency = models.CharField(max_length=10, default="ETB", editable=False)
+    payment_method = models.CharField(max_length=30, editable=False)
+    member_name = models.CharField(max_length=255, editable=False)
+    member_phone = models.CharField(
+        max_length=30, blank=True, default="", editable=False
+    )
+    plan_name = models.CharField(max_length=255, editable=False)
+    plan_duration = models.CharField(
+        max_length=100, blank=True, default="", editable=False
+    )
+    notes = models.TextField(blank=True, default="", editable=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-issued_at"]
+        verbose_name = "Receipt"
+        verbose_name_plural = "Receipts"
+        constraints = [
+            models.UniqueConstraint(
+                fields=["gym", "receipt_number"],
+                name="unique_gym_receipt_number",
+            ),
+            models.UniqueConstraint(
+                fields=["gym", "sequence_number"],
+                name="unique_gym_receipt_sequence",
+            ),
+        ]
+
+    def clean(self):
+        super().clean()
+        if (
+            self.payment
+            and self.payment.method == Payment.METHOD_CASH
+            and not self.issued_by_id
+        ):
+            raise ValidationError(
+                {
+                    "issued_by": [
+                        "Cash receipts must record which staff member issued them."
+                    ]
+                }
+            )
+
+    def save(self, *args, **kwargs):
+        if not self._state.adding and self.pk:
+            if Receipt.all_objects.filter(pk=self.pk).exists():
+                raise ValidationError("Receipts are immutable and cannot be updated.")
+        self.clean()
+        super().save(*args, **kwargs)
+
+    def delete(self, *args, **kwargs):
+        raise ValidationError("Receipts cannot be deleted.")
+
+    def __str__(self):
+        return f"Receipt {self.receipt_number} ({self.amount_etb} ETB)"

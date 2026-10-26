@@ -6,17 +6,20 @@ import json
 import logging
 from datetime import timedelta
 from decimal import Decimal
-from typing import Tuple
+from typing import Optional, Tuple
 
+from django.core.exceptions import PermissionDenied, ValidationError
 from django.db import transaction
 from django.utils import timezone
 
 from apps.accounts.models import User
 from apps.accounts.notifications import create_notification
 from apps.accounts.services import record_audit_log
+from apps.memberships.models import Member, MembershipPlan, MemberSubscription
 from apps.memberships.services import create_or_renew_subscription
 from apps.payments.chapa_client import ChapaAPIError, ChapaClient
-from apps.payments.models import GymPaymentConfig, Payment
+from apps.payments.models import GymPaymentConfig, Payment, Receipt
+from apps.tenants.models import GymTenant
 
 logger = logging.getLogger(__name__)
 
@@ -330,6 +333,51 @@ def process_chapa_webhook(
                 update_fields=["status", "subscription", "metadata", "updated_at"]
             )
 
+            # Generate immutable digital receipt with sequential number
+            try:
+                if not hasattr(locked_payment, "receipt"):
+                    last_receipt = (
+                        Receipt.all_objects.filter(gym=gym)
+                        .order_by("-sequence_number")
+                        .first()
+                    )
+                    sequence = (last_receipt.sequence_number + 1) if last_receipt else 1
+                    receipt_number = f"REC-{sequence:06d}"
+                    duration_str = (
+                        f"{locked_payment.plan.duration_value} {locked_payment.plan.duration_unit}"
+                        if locked_payment.plan
+                        else ""
+                    )
+                    Receipt.all_objects.create(
+                        gym=gym,
+                        payment=locked_payment,
+                        receipt_number=receipt_number,
+                        sequence_number=sequence,
+                        issued_by=None,
+                        amount_etb=locked_payment.amount_etb,
+                        currency="ETB",
+                        payment_method=Payment.METHOD_CHAPA,
+                        member_name=(
+                            locked_payment.member.full_name
+                            if locked_payment.member
+                            else ""
+                        ),
+                        member_phone=(
+                            locked_payment.member.phone if locked_payment.member else ""
+                        ),
+                        plan_name=(
+                            locked_payment.plan.name if locked_payment.plan else ""
+                        ),
+                        plan_duration=duration_str,
+                        notes=f"Chapa online payment tx_ref: {tx_ref}",
+                    )
+            except Exception as rx_err:
+                logger.error(
+                    "Failed to generate receipt for Chapa payment %s: %s",
+                    tx_ref,
+                    rx_err,
+                )
+
             # Notify member
             if (
                 locked_payment.member
@@ -433,3 +481,167 @@ def flag_unfinished_payments(window_minutes: int = 30) -> int:
             )
             count += 1
     return count
+
+
+def record_cash_payment(
+    gym: GymTenant,
+    member: Member,
+    plan: MembershipPlan,
+    recorded_by: User,
+    notes: str = "",
+    idempotency_key: Optional[str] = None,
+) -> Tuple[Payment, Receipt, MemberSubscription]:
+    """
+    Record and confirm a cash payment from a gym member.
+    Executed in ONE database transaction:
+    1. Validates staff permissions (Owner, Manager, Reception).
+    2. Validates tenant scoping: member and plan must belong to gym.
+    3. Locks gym tenant and member rows for race condition and sequence safety.
+    4. Guards against double-submits at DB level via client request key and row lock.
+    5. Amount is strictly plan.price_etb at that moment (immutable).
+    6. Creates or renews subscription via shared create_or_renew_subscription.
+    7. Creates confirmed Payment record with confirmed_by set to staff actor.
+    8. Generates digital Receipt with sequential, immutable receipt number.
+    9. Records permanent audit log and member notification.
+    """
+    if recorded_by.role not in (
+        User.ROLE_OWNER,
+        User.ROLE_MANAGER,
+        User.ROLE_RECEPTION,
+    ):
+        raise PermissionDenied(
+            "Only gym owner, manager, or reception can record cash payments."
+        )
+
+    if recorded_by.gym_id != gym.id:
+        raise PermissionDenied("Staff does not belong to this gym.")
+
+    if member.gym_id != gym.id:
+        raise ValidationError("Member does not belong to this gym.")
+
+    if plan.gym_id != gym.id:
+        raise ValidationError("Plan does not belong to this gym.")
+
+    if not plan.is_active:
+        raise ValidationError("Cannot record payment for a deactivated plan.")
+
+    # Client request key double-submit pre-check (fast path)
+    if idempotency_key:
+        existing = (
+            Payment.all_objects.select_related("receipt", "subscription")
+            .filter(gym=gym, idempotency_key=idempotency_key)
+            .first()
+        )
+        if existing and existing.status == Payment.STATUS_CONFIRMED:
+            logger.info(
+                "Idempotent cash payment request detected with key '%s'. Returning existing record.",
+                idempotency_key,
+            )
+            return (
+                existing,
+                getattr(existing, "receipt", None),
+                existing.subscription,
+            )
+
+    with transaction.atomic():
+        # 1. Lock gym tenant row for sequence numbering concurrency
+        GymTenant.objects.select_for_update().get(id=gym.id)
+
+        # 2. Lock member row for subscription concurrency
+        locked_member = Member.all_objects.select_for_update().get(id=member.id)
+
+        # 3. Double-check idempotency key under lock
+        if idempotency_key:
+            existing = (
+                Payment.all_objects.select_related("receipt", "subscription")
+                .filter(gym=gym, idempotency_key=idempotency_key)
+                .first()
+            )
+            if existing and existing.status == Payment.STATUS_CONFIRMED:
+                return (
+                    existing,
+                    getattr(existing, "receipt", None),
+                    existing.subscription,
+                )
+
+        # 4. Activate or renew subscription via shared service
+        # (derives member.status and records audit log for subscription)
+        subscription = create_or_renew_subscription(
+            member=locked_member,
+            plan=plan,
+            actor=recorded_by,
+        )
+
+        # 5. Create Payment record with immutable plan price at this moment
+        payment = Payment.all_objects.create(
+            gym=gym,
+            payer_type=Payment.PAYER_TYPE_MEMBER,
+            member=locked_member,
+            plan=plan,
+            subscription=subscription,
+            method=Payment.METHOD_CASH,
+            amount_etb=plan.price_etb,
+            currency="ETB",
+            status=Payment.STATUS_CONFIRMED,
+            confirmed_by=recorded_by,
+            idempotency_key=idempotency_key or None,
+            metadata={"notes": notes, "recorded_by": recorded_by.email},
+        )
+
+        # 6. Generate sequential Receipt unique per gym
+        last_receipt = (
+            Receipt.all_objects.filter(gym=gym).order_by("-sequence_number").first()
+        )
+        sequence = (last_receipt.sequence_number + 1) if last_receipt else 1
+        receipt_number = f"REC-{sequence:06d}"
+        duration_str = f"{plan.duration_value} {plan.duration_unit}"
+
+        receipt = Receipt.all_objects.create(
+            gym=gym,
+            payment=payment,
+            receipt_number=receipt_number,
+            sequence_number=sequence,
+            issued_by=recorded_by,
+            amount_etb=payment.amount_etb,
+            currency="ETB",
+            payment_method=Payment.METHOD_CASH,
+            member_name=locked_member.full_name,
+            member_phone=locked_member.phone or "",
+            plan_name=plan.name,
+            plan_duration=duration_str,
+            notes=notes,
+        )
+
+        # 7. Audit log for cash payment confirmation
+        record_audit_log(
+            actor=recorded_by,
+            gym=gym,
+            action_type="cash_payment_confirmed",
+            affected_record_type="Payment",
+            affected_record_id=str(payment.id),
+            metadata={
+                "member_id": str(locked_member.id),
+                "member_name": locked_member.full_name,
+                "plan_id": str(plan.id),
+                "plan_name": plan.name,
+                "amount_etb": str(payment.amount_etb),
+                "receipt_number": receipt.receipt_number,
+                "notes": notes,
+            },
+        )
+
+        # 8. Notification to member
+        if locked_member.user:
+            create_notification(
+                recipient=locked_member.user,
+                notification_type="payment_confirmed",
+                message=(
+                    f"Your cash payment of {payment.amount_etb} ETB for {plan.name} was confirmed "
+                    f"by {recorded_by.full_name or recorded_by.email}. "
+                    f"Receipt #{receipt.receipt_number}. "
+                    f"Your subscription is active until {subscription.end_date}."
+                ),
+                gym=gym,
+            )
+
+        return payment, receipt, subscription

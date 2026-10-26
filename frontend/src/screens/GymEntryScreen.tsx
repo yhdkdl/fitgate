@@ -271,13 +271,13 @@ export const GymEntryScreen: React.FC = () => {
               </p>
             </div>
             <Badge variant="primary">
-              {data.plans && data.plans.length > 0
+              {data?.plans && data.plans.length > 0
                 ? `${data.plans.length} ${data.plans.length === 1 ? "Plan" : "Plans"} Available`
                 : "Active Plans"}
             </Badge>
           </div>
 
-          {data.plans && data.plans.length > 0 ? (
+          {data?.plans && data.plans.length > 0 ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 pt-2">
               {data.plans.map((plan) => (
                 <div
@@ -286,7 +286,9 @@ export const GymEntryScreen: React.FC = () => {
                 >
                   <div className="space-y-3">
                     <div className="flex items-start justify-between gap-2">
-                      <h3 className="font-bold text-base text-text">{plan.name}</h3>
+                      <h3 className="font-bold text-base text-text">
+                        {plan.name}
+                      </h3>
                       {plan.trainer_inclusive && (
                         <Badge variant="success" className="text-[10px]">
                           Trainer Included
@@ -298,7 +300,9 @@ export const GymEntryScreen: React.FC = () => {
                       <span className="text-2xl font-black text-text">
                         {Number(plan.price_etb).toLocaleString()}
                       </span>
-                      <span className="text-xs font-semibold text-text-muted">ETB</span>
+                      <span className="text-xs font-semibold text-text-muted">
+                        ETB
+                      </span>
                       <span className="text-xs text-text-muted">
                         / {plan.duration_value} {plan.duration_unit}
                       </span>
@@ -313,7 +317,11 @@ export const GymEntryScreen: React.FC = () => {
 
                   <div className="pt-4 mt-auto">
                     <Link to="/register" className="w-full block">
-                      <Button variant="secondary" size="sm" className="w-full min-h-[40px]">
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        className="w-full min-h-[40px]"
+                      >
                         Choose Plan
                       </Button>
                     </Link>

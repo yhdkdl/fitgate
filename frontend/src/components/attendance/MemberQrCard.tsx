@@ -292,7 +292,9 @@ export const MemberQrCard: React.FC<MemberQrCardProps> = ({ memberStatus }) => {
           <div className="w-full max-w-md flex items-center justify-between">
             <div className="flex items-center gap-2">
               <QrCode className="w-6 h-6 text-primary" />
-              <h2 className="text-xl font-bold text-slate-900">Entrance QR Pass</h2>
+              <h2 className="text-xl font-bold text-slate-900">
+                Entrance QR Pass
+              </h2>
             </div>
             <button
               type="button"

@@ -93,14 +93,16 @@ export const RequestDemoScreen: React.FC = () => {
 
     if (Object.keys(errors).length > 0) {
       setFieldErrors(errors);
-      focusFirstInvalidField([
-        errors.gymName ? "demo-gym-name" : "",
-        errors.contactName ? "demo-contact-name" : "",
-        errors.phone ? "demo-phone" : "",
-        errors.city ? "demo-city" : "",
-        errors.email ? "demo-email" : "",
-        errors.message ? "demo-message" : "",
-      ].filter(Boolean));
+      focusFirstInvalidField(
+        [
+          errors.gymName ? "demo-gym-name" : "",
+          errors.contactName ? "demo-contact-name" : "",
+          errors.phone ? "demo-phone" : "",
+          errors.city ? "demo-city" : "",
+          errors.email ? "demo-email" : "",
+          errors.message ? "demo-message" : "",
+        ].filter(Boolean)
+      );
       return;
     }
 
@@ -134,11 +136,26 @@ export const RequestDemoScreen: React.FC = () => {
           } else {
             // Map server field errors to form fields
             const newFieldErrors: DemoFieldErrors = {};
-            if (data.gym_name) newFieldErrors.gymName = Array.isArray(data.gym_name) ? String(data.gym_name[0]) : String(data.gym_name);
-            if (data.contact_name) newFieldErrors.contactName = Array.isArray(data.contact_name) ? String(data.contact_name[0]) : String(data.contact_name);
-            if (data.phone) newFieldErrors.phone = Array.isArray(data.phone) ? String(data.phone[0]) : String(data.phone);
-            if (data.email) newFieldErrors.email = Array.isArray(data.email) ? String(data.email[0]) : String(data.email);
-            if (data.message) newFieldErrors.message = Array.isArray(data.message) ? String(data.message[0]) : String(data.message);
+            if (data.gym_name)
+              newFieldErrors.gymName = Array.isArray(data.gym_name)
+                ? String(data.gym_name[0])
+                : String(data.gym_name);
+            if (data.contact_name)
+              newFieldErrors.contactName = Array.isArray(data.contact_name)
+                ? String(data.contact_name[0])
+                : String(data.contact_name);
+            if (data.phone)
+              newFieldErrors.phone = Array.isArray(data.phone)
+                ? String(data.phone[0])
+                : String(data.phone);
+            if (data.email)
+              newFieldErrors.email = Array.isArray(data.email)
+                ? String(data.email[0])
+                : String(data.email);
+            if (data.message)
+              newFieldErrors.message = Array.isArray(data.message)
+                ? String(data.message[0])
+                : String(data.message);
             setFieldErrors(newFieldErrors);
             setError("Please correct the errors indicated below.");
           }
@@ -156,7 +173,6 @@ export const RequestDemoScreen: React.FC = () => {
       setLoading(false);
     }
   };
-
 
   return (
     <div className="min-h-screen bg-bg text-text py-12 px-4 sm:px-6 lg:px-8 flex flex-col justify-center items-center">
@@ -182,13 +198,15 @@ export const RequestDemoScreen: React.FC = () => {
               Note: You are currently on a gym subdomain ({tenant}).
             </p>
             <p>
-              Demo requests are managed on the platform apex domain. Please submit from{" "}
+              Demo requests are managed on the platform apex domain. Please
+              submit from{" "}
               <a
                 href="http://localhost:5173/request-demo"
                 className="underline text-primary font-semibold"
               >
                 http://localhost:5173/request-demo
-              </a>.
+              </a>
+              .
             </p>
           </div>
         )}

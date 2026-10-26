@@ -1,10 +1,19 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
-import { render, screen, waitFor, fireEvent, act } from "@testing-library/react";
+import {
+  render,
+  screen,
+  waitFor,
+  fireEvent,
+  act,
+} from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { AuthProvider } from "../context/AuthContext";
 import { ProtectedRoute } from "../components/auth/ProtectedRoute";
 import * as client from "../api/client";
-import { AUTH_SYNC_STORAGE_KEY, AUTH_BROADCAST_CHANNEL } from "../utils/authSync";
+import {
+  AUTH_SYNC_STORAGE_KEY,
+  AUTH_BROADCAST_CHANNEL,
+} from "../utils/authSync";
 
 describe("Cross-Tab Session Synchronization", () => {
   beforeEach(() => {
@@ -23,10 +32,13 @@ describe("Cross-Tab Session Synchronization", () => {
     vi.spyOn(global, "fetch").mockImplementation(async (url) => {
       const u = String(url);
       if (u.includes("/api/auth/refresh/")) {
-        return new Response(JSON.stringify({ access: "initial-access-token" }), {
-          status: 200,
-          headers: { "Content-Type": "application/json" },
-        });
+        return new Response(
+          JSON.stringify({ access: "initial-access-token" }),
+          {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          }
+        );
       }
       if (u.includes("/api/auth/me/")) {
         return new Response(

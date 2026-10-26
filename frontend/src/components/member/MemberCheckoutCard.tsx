@@ -34,7 +34,9 @@ export const MemberCheckoutCard: React.FC<MemberCheckoutCardProps> = ({
         }
       } catch (err: unknown) {
         setErrorMsg(
-          err instanceof Error ? err.message : "Failed to load membership plans."
+          err instanceof Error
+            ? err.message
+            : "Failed to load membership plans."
         );
       } finally {
         setLoading(false);
@@ -72,7 +74,9 @@ export const MemberCheckoutCard: React.FC<MemberCheckoutCardProps> = ({
       <Card className="p-6">
         <div className="flex items-center gap-3">
           <Spinner size="sm" />
-          <span className="text-xs text-text-muted">Loading available plans...</span>
+          <span className="text-xs text-text-muted">
+            Loading available plans...
+          </span>
         </div>
       </Card>
     );
@@ -82,7 +86,8 @@ export const MemberCheckoutCard: React.FC<MemberCheckoutCardProps> = ({
     return (
       <Card className="p-6">
         <p className="text-xs text-text-muted">
-          No membership plans are currently available for purchase. Please contact reception.
+          No membership plans are currently available for purchase. Please
+          contact reception.
         </p>
       </Card>
     );
@@ -96,14 +101,19 @@ export const MemberCheckoutCard: React.FC<MemberCheckoutCardProps> = ({
       <div className="border-b border-border pb-3">
         <div className="flex items-center justify-between">
           <h3 className="text-base font-bold text-text">
-            {isPending ? "Choose a Plan to Activate Pass" : isRenewal ? "Renew Your Membership" : "Membership Plan"}
+            {isPending
+              ? "Choose a Plan to Activate Pass"
+              : isRenewal
+                ? "Renew Your Membership"
+                : "Membership Plan"}
           </h3>
           <Badge variant={isPending || isRenewal ? "warning" : "success"}>
             Status: {memberStatus}
           </Badge>
         </div>
         <p className="text-xs text-text-muted mt-1">
-          Pay online via Chapa (Telebirr, CBE, Cards) or visit reception to pay cash.
+          Pay online via Chapa (Telebirr, CBE, Cards) or visit reception to pay
+          cash.
         </p>
       </div>
 
@@ -124,17 +134,22 @@ export const MemberCheckoutCard: React.FC<MemberCheckoutCardProps> = ({
               }`}
             >
               <div className="flex justify-between items-start mb-2">
-                <span className="font-semibold text-sm text-text">{plan.name}</span>
+                <span className="font-semibold text-sm text-text">
+                  {plan.name}
+                </span>
                 {isSelected && (
-                  <span className="text-xs text-primary font-bold">Selected</span>
+                  <span className="text-xs text-primary font-bold">
+                    Selected
+                  </span>
                 )}
               </div>
               <p className="text-lg font-bold text-text mb-1">
-                {plan.price_etb} <span className="text-xs font-normal text-text-muted">ETB</span>
+                {plan.price_etb}{" "}
+                <span className="text-xs font-normal text-text-muted">ETB</span>
               </p>
               <p className="text-xs text-text-muted">
                 {plan.duration_value} {plan.duration_unit}
-                {plan.includes_trainer && " · Includes Trainer"}
+                {plan.trainer_inclusive && " · Includes Trainer"}
               </p>
             </div>
           );
@@ -159,14 +174,19 @@ export const MemberCheckoutCard: React.FC<MemberCheckoutCardProps> = ({
               disabled={checkingOut}
               className="w-full sm:w-auto"
             >
-              {checkingOut ? "Redirecting to Chapa..." : "Pay Online with Chapa"}
+              {checkingOut
+                ? "Redirecting to Chapa..."
+                : "Pay Online with Chapa"}
             </Button>
           </div>
         </div>
       )}
 
       <div className="pt-2 text-[11px] text-text-muted flex items-center justify-between border-t border-border/50">
-        <span>Payment options: Chapa (Telebirr, CBEBirr, Credit/Debit cards) or front desk cash.</span>
+        <span>
+          Payment options: Chapa (Telebirr, CBEBirr, Credit/Debit cards) or
+          front desk cash.
+        </span>
         <span>Secure 256-bit payment transaction</span>
       </div>
     </Card>

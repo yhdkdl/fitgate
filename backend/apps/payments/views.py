@@ -2,8 +2,11 @@
 
 import logging
 import secrets
+from decimal import Decimal
 
 from django.conf import settings
+from django.core.exceptions import PermissionDenied, ValidationError
+from django.db.models import Sum
 from django.utils import timezone
 from drf_spectacular.utils import OpenApiResponse, extend_schema
 from rest_framework import status
@@ -21,15 +24,19 @@ from apps.accounts.permissions import (
 from apps.accounts.services import record_audit_log
 from apps.memberships.models import Member, MembershipPlan
 from apps.payments.chapa_client import ChapaAPIError, ChapaClient
-from apps.payments.models import GymPaymentConfig, Payment
+from apps.payments.models import GymPaymentConfig, Payment, Receipt
 from apps.payments.serializers import (
     ChapaCheckoutRequestSerializer,
     ChapaCheckoutResponseSerializer,
     GymPaymentConfigSerializer,
     GymPaymentConfigUpdateSerializer,
+    MemberPaymentHistoryItemSerializer,
+    ReceiptSerializer,
+    RecordCashPaymentRequestSerializer,
+    RecordCashPaymentResponseSerializer,
     SuperAdminGymPaymentStatusSerializer,
 )
-from apps.payments.services import process_chapa_webhook
+from apps.payments.services import process_chapa_webhook, record_cash_payment
 from apps.tenants.models import GymTenant
 
 logger = logging.getLogger(__name__)
@@ -399,3 +406,357 @@ class SuperAdminGymPaymentStatusView(APIView):
             "is_verified": config.is_verified if config else False,
         }
         return Response(data, status=status.HTTP_200_OK)
+
+
+class CanRecordCashPayment(BasePermission):
+    """
+    Manual cash payment recording can be executed by Owner, Manager, or Reception.
+    Trainer, Member, and Super Admin are denied (403).
+    """
+
+    def has_permission(self, request, view):
+        if not request.user or not request.user.is_authenticated:
+            return False
+        tenant = getattr(request, "tenant", None)
+        if tenant is None:
+            return False
+        return (
+            request.user.role
+            in (User.ROLE_OWNER, User.ROLE_MANAGER, User.ROLE_RECEPTION)
+            and request.user.gym_id == tenant.id
+        )
+
+
+class RecordCashPaymentView(APIView):
+    """
+    Staff-confirmed manual cash payment recording.
+    Creates Payment (confirmed), Receipt, and Subscription in ONE atomic transaction.
+    """
+
+    permission_classes = [
+        IsAuthenticated,
+        RequirePasswordChanged,
+        CanRecordCashPayment,
+    ]
+
+    @extend_schema(
+        summary="Record manual cash payment (Owner, Manager, Reception)",
+        description="Records staff-confirmed cash payment, creates subscription, and generates digital receipt in one transaction.",
+        request=RecordCashPaymentRequestSerializer,
+        responses={
+            201: RecordCashPaymentResponseSerializer,
+            400: OpenApiResponse(description="Validation error or cross-gym entity"),
+            403: OpenApiResponse(description="Unauthorized role or cross-gym staff"),
+            404: OpenApiResponse(description="Member or plan not found"),
+        },
+    )
+    def post(self, request, *args, **kwargs):
+        tenant = getattr(request, "tenant", None)
+        if tenant is None:
+            return Response(
+                {"detail": "Cash payment can only be recorded on a gym portal."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        serializer = RecordCashPaymentRequestSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        member_id = serializer.validated_data["member_id"]
+        plan_id = serializer.validated_data["plan_id"]
+        notes = serializer.validated_data.get("notes", "")
+        idempotency_key = serializer.validated_data.get("idempotency_key", "")
+
+        # Look up member
+        member = Member.all_objects.filter(id=member_id).first()
+        if not member:
+            return Response(
+                {"detail": "Member not found."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+        if member.gym_id != tenant.id:
+            return Response(
+                {"detail": "Member does not belong to this gym."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Look up plan
+        plan = MembershipPlan.all_objects.filter(id=plan_id).first()
+        if not plan:
+            return Response(
+                {"detail": "Membership plan not found."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+        if plan.gym_id != tenant.id:
+            return Response(
+                {"detail": "Plan does not belong to this gym."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        if not plan.is_active:
+            return Response(
+                {"detail": "Cannot record payment for a deactivated plan."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            payment, receipt, subscription = record_cash_payment(
+                gym=tenant,
+                member=member,
+                plan=plan,
+                recorded_by=request.user,
+                notes=notes,
+                idempotency_key=idempotency_key or None,
+            )
+        except ValidationError as exc:
+            detail = exc.message_dict if hasattr(exc, "message_dict") else exc.messages
+            return Response({"detail": detail}, status=status.HTTP_400_BAD_REQUEST)
+        except PermissionDenied as exc:
+            return Response({"detail": str(exc)}, status=status.HTTP_403_FORBIDDEN)
+
+        receipt_data = ReceiptSerializer(receipt).data if receipt else None
+        return Response(
+            {
+                "detail": "Cash payment recorded and confirmed.",
+                "payment_id": str(payment.id),
+                "amount_etb": payment.amount_etb,
+                "status": payment.status,
+                "receipt": receipt_data,
+                "subscription_id": (str(subscription.id) if subscription else None),
+            },
+            status=status.HTTP_201_CREATED,
+        )
+
+
+class CanViewGymPaymentHistory(BasePermission):
+    """
+    Staff payment history and revenue summary can be viewed by Owner, Manager, or Super Admin.
+    Reception, Trainer, and Member are denied (403).
+    """
+
+    def has_permission(self, request, view):
+        if not request.user or not request.user.is_authenticated:
+            return False
+        if request.user.role == User.ROLE_SUPER_ADMIN:
+            return True
+        tenant = getattr(request, "tenant", None)
+        if tenant is None:
+            return False
+        return (
+            request.user.role in (User.ROLE_OWNER, User.ROLE_MANAGER)
+            and request.user.gym_id == tenant.id
+        )
+
+
+class GymPaymentListView(APIView):
+    """
+    Review gym payments filtered by date range, payment method, status, and member.
+    Includes total confirmed revenue summary.
+    """
+
+    permission_classes = [
+        IsAuthenticated,
+        RequirePasswordChanged,
+        CanViewGymPaymentHistory,
+    ]
+
+    @extend_schema(
+        summary="List gym payments & revenue summary (Owner, Manager)",
+        description="Filter payments by date range, payment method, status, and member. Returns confirmed revenue total.",
+        responses={
+            200: OpenApiResponse(
+                description="Paginated payment list with confirmed revenue total"
+            )
+        },
+    )
+    def get(self, request, *args, **kwargs):
+        tenant = getattr(request, "tenant", None)
+        qs = Payment.all_objects.select_related(
+            "member", "plan", "confirmed_by", "receipt"
+        )
+        if tenant:
+            qs = qs.filter(gym=tenant)
+        elif request.user.role == User.ROLE_SUPER_ADMIN:
+            gym_id = request.query_params.get("gym_id")
+            if gym_id:
+                qs = qs.filter(gym_id=gym_id)
+        else:
+            return Response(
+                {"detail": "Gym context missing."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        start_date = request.query_params.get("start_date")
+        if start_date:
+            qs = qs.filter(created_at__date__gte=start_date)
+
+        end_date = request.query_params.get("end_date")
+        if end_date:
+            qs = qs.filter(created_at__date__lte=end_date)
+
+        method = request.query_params.get("method")
+        if method:
+            qs = qs.filter(method=method)
+
+        status_param = request.query_params.get("status")
+        if status_param:
+            qs = qs.filter(status=status_param)
+
+        member_id = request.query_params.get("member_id")
+        if member_id:
+            qs = qs.filter(member_id=member_id)
+
+        confirmed_revenue = qs.filter(status=Payment.STATUS_CONFIRMED).aggregate(
+            total=Sum("amount_etb")
+        )["total"] or Decimal("0.00")
+
+        results = []
+        for p in qs[:200]:
+            receipt_no = (
+                p.receipt.receipt_number if hasattr(p, "receipt") and p.receipt else ""
+            )
+            notes = p.metadata.get("notes", "") if isinstance(p.metadata, dict) else ""
+            results.append(
+                {
+                    "id": str(p.id),
+                    "created_at": p.created_at,
+                    "payer_type": p.payer_type,
+                    "member_id": str(p.member_id) if p.member_id else None,
+                    "member_name": p.member.full_name if p.member else "",
+                    "plan_id": str(p.plan_id) if p.plan_id else None,
+                    "plan_name": p.plan.name if p.plan else "",
+                    "method": p.method,
+                    "amount_etb": p.amount_etb,
+                    "currency": p.currency,
+                    "status": p.status,
+                    "confirmed_by_id": (
+                        str(p.confirmed_by_id) if p.confirmed_by_id else None
+                    ),
+                    "confirmed_by_name": (
+                        p.confirmed_by.full_name if p.confirmed_by else ""
+                    ),
+                    "receipt_number": receipt_no,
+                    "notes": notes,
+                }
+            )
+
+        return Response(
+            {
+                "count": len(results),
+                "total_confirmed_revenue_etb": str(confirmed_revenue),
+                "results": results,
+            },
+            status=status.HTTP_200_OK,
+        )
+
+
+class MemberPaymentHistoryView(APIView):
+    """
+    Self-service payment history for the logged-in member.
+    Owner, Manager, Reception, Trainer, Super Admin get 403.
+    """
+
+    permission_classes = [IsAuthenticated, RequirePasswordChanged]
+
+    @extend_schema(
+        summary="View member personal payment history",
+        description="Returns the logged-in member's complete payment history with dates, amounts, and receipt references.",
+        responses={200: MemberPaymentHistoryItemSerializer(many=True)},
+    )
+    def get(self, request, *args, **kwargs):
+        if request.user.role != User.ROLE_MEMBER:
+            return Response(
+                {"detail": "Member payment history is accessible to members only."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        tenant = getattr(request, "tenant", None)
+        member = Member.all_objects.filter(user=request.user).first()
+        if not member:
+            return Response({"results": []}, status=status.HTTP_200_OK)
+
+        qs = Payment.all_objects.select_related(
+            "plan", "subscription", "receipt"
+        ).filter(member=member)
+        if tenant:
+            qs = qs.filter(gym=tenant)
+
+        results = []
+        for p in qs:
+            receipt_no = (
+                p.receipt.receipt_number if hasattr(p, "receipt") and p.receipt else ""
+            )
+            results.append(
+                {
+                    "id": str(p.id),
+                    "created_at": p.created_at,
+                    "plan_name": p.plan.name if p.plan else "",
+                    "method": p.method,
+                    "amount_etb": p.amount_etb,
+                    "currency": p.currency,
+                    "status": p.status,
+                    "receipt_number": receipt_no,
+                    "subscription_start_date": (
+                        p.subscription.start_date if p.subscription else None
+                    ),
+                    "subscription_end_date": (
+                        p.subscription.end_date if p.subscription else None
+                    ),
+                }
+            )
+
+        return Response({"results": results}, status=status.HTTP_200_OK)
+
+
+class ReceiptDetailView(APIView):
+    """
+    Retrieve digital receipt details.
+    Accessible to staff (Owner, Manager, Reception of same gym)
+    and the member who owns the receipt.
+    """
+
+    permission_classes = [IsAuthenticated, RequirePasswordChanged]
+
+    @extend_schema(
+        summary="Retrieve digital receipt details",
+        description="Returns receipt details for staff or the member who owns the payment.",
+        responses={200: ReceiptSerializer},
+    )
+    def get(self, request, receipt_id, *args, **kwargs):
+        tenant = getattr(request, "tenant", None)
+        receipt = (
+            Receipt.all_objects.select_related("gym", "issued_by", "payment__member")
+            .filter(id=receipt_id)
+            .first()
+        )
+        if not receipt:
+            return Response(
+                {"detail": "Receipt not found."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        if tenant and receipt.gym_id != tenant.id:
+            return Response(
+                {"detail": "Receipt not found."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        user = request.user
+        is_staff_allowed = (
+            user.role in (User.ROLE_OWNER, User.ROLE_MANAGER, User.ROLE_RECEPTION)
+            and user.gym_id == receipt.gym_id
+        )
+        is_owner_member = (
+            user.role == User.ROLE_MEMBER
+            and receipt.payment.member
+            and receipt.payment.member.user_id == user.id
+        )
+        is_super_admin = user.role == User.ROLE_SUPER_ADMIN
+
+        if not (is_staff_allowed or is_owner_member or is_super_admin):
+            return Response(
+                {"detail": "You do not have permission to view this receipt."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        serializer = ReceiptSerializer(receipt)
+        return Response(serializer.data, status=status.HTTP_200_OK)
