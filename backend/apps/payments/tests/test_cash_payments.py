@@ -470,6 +470,72 @@ class TestReceiptSequentialAndImmutability:
         assert other_r1.receipt_number == "REC-000001"
         assert other_r1.sequence_number == 1
 
+    @pytest.mark.django_db(transaction=True)
+    def test_receipt_counter_concurrency_no_duplicates_no_gaps(
+        self, gym_tenant, standard_plan, reception_user
+    ):
+        """
+        Receipt numbers generated under concurrency are sequential, unique, and gapless,
+        using per-gym row-locked GymReceiptCounter inside the payment transaction.
+        """
+        import concurrent.futures
+
+        u1 = User.objects.create_user(
+            email="conc1@bolehub.com",
+            full_name="Concurrent Member One",
+            role=User.ROLE_MEMBER,
+            gym=gym_tenant,
+        )
+        u2 = User.objects.create_user(
+            email="conc2@bolehub.com",
+            full_name="Concurrent Member Two",
+            role=User.ROLE_MEMBER,
+            gym=gym_tenant,
+        )
+        member1 = Member.all_objects.create(
+            gym=gym_tenant,
+            user=u1,
+            full_name="Concurrent Member One",
+            phone="+251911000001",
+            status=Member.STATUS_PENDING,
+            waiver_accepted_at=timezone.now(),
+        )
+        member2 = Member.all_objects.create(
+            gym=gym_tenant,
+            user=u2,
+            full_name="Concurrent Member Two",
+            phone="+251911000002",
+            status=Member.STATUS_PENDING,
+            waiver_accepted_at=timezone.now(),
+        )
+
+        def make_payment(member, key):
+            connection.close()
+            try:
+                _, receipt, _ = record_cash_payment(
+                    gym=gym_tenant,
+                    member=member,
+                    plan=standard_plan,
+                    recorded_by=reception_user,
+                    idempotency_key=key,
+                )
+                return receipt.receipt_number, receipt.sequence_number
+            finally:
+                connection.close()
+
+        with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
+            fut1 = executor.submit(make_payment, member1, "conc-key-1")
+            fut2 = executor.submit(make_payment, member2, "conc-key-2")
+            res1 = fut1.result()
+            res2 = fut2.result()
+
+        receipt_numbers = {res1[0], res2[0]}
+        sequence_numbers = {res1[1], res2[1]}
+
+        assert len(receipt_numbers) == 2
+        assert sequence_numbers == {1, 2}
+        assert receipt_numbers == {"REC-000001", "REC-000002"}
+
     def test_receipt_cannot_be_updated_in_python(
         self, gym_tenant, standard_plan, cash_member, reception_user
     ):

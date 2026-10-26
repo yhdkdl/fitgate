@@ -509,3 +509,91 @@ class TestFreezeWorkflow:
                 gym=gym_tenant,
             )
         assert "exceeds remaining allowance" in str(exc_info.value)
+
+    def test_future_start_date_freeze_allows_checkin_until_start_date_and_extends_once(
+        self,
+        gym_tenant,
+        member_with_subscription,
+        owner_user,
+        reception_user,
+    ):
+        """
+        When a freeze is approved with a START DATE in the future:
+        - Member remains active and can check in until the start date.
+        - Subscription end date is extended by approved days exactly once.
+        - Status changes to frozen only on the start date (via process_unfreezes).
+        - Check-in is refused once frozen, and end date is NOT extended a second time.
+        """
+        member, sub = member_with_subscription
+        today = timezone.localdate()
+        original_end_date = sub.end_date
+
+        freeze_start = today + timedelta(days=3)
+        freeze_end = today + timedelta(days=7)  # 5 days
+        freeze_days = (freeze_end - freeze_start).days + 1
+
+        freeze = MemberFreeze.objects.create(
+            gym=gym_tenant,
+            member=member,
+            subscription=sub,
+            start_date=freeze_start,
+            end_date=freeze_end,
+            days=freeze_days,
+            reason="Vacation next week",
+            status=MemberFreeze.STATUS_PENDING,
+        )
+
+        # Approve freeze with future start date
+        approved = approve_membership_freeze(
+            freeze_id=str(freeze.id),
+            reviewer=owner_user,
+            gym=gym_tenant,
+        )
+        assert approved.status == MemberFreeze.STATUS_APPROVED
+        assert approved.extension_applied is True
+
+        # End date extended by approved days exactly once
+        sub.refresh_from_db()
+        assert sub.end_date == original_end_date + timedelta(days=freeze_days)
+        assert sub.frozen_days_total == freeze_days
+
+        # Status remains active today because freeze starts in the future
+        assert sub.status == MemberSubscription.STATUS_ACTIVE
+        member.refresh_from_db()
+        assert member.status == Member.STATUS_ACTIVE
+
+        # Member is allowed to check in today
+        log = execute_check_in(
+            member=member,
+            gym=gym_tenant,
+            method="manual_override",
+            recorded_by=reception_user,
+            override_reason="Allowed check-in before future freeze",
+        )
+        assert log["status"] == "success"
+
+        # On start date: sweep activates the freeze
+        process_unfreezes(today=freeze_start)
+        sub.refresh_from_db()
+        member.refresh_from_db()
+        assert sub.status == MemberSubscription.STATUS_FROZEN
+        assert member.status == Member.STATUS_FROZEN
+
+        # End date is still extended exactly once (NOT extended again)
+        assert sub.end_date == original_end_date + timedelta(days=freeze_days)
+        assert sub.frozen_days_total == freeze_days
+
+        # On start date, check in is refused because member is frozen
+        with pytest.raises(ScanValidationError) as exc:
+            issue_member_qr_token(member)
+        assert exc.value.reason == "frozen"
+
+        with pytest.raises(ScanValidationError) as exc_override:
+            execute_check_in(
+                member=member,
+                gym=gym_tenant,
+                method="manual_override",
+                recorded_by=reception_user,
+                override_reason="Should be refused",
+            )
+        assert exc_override.value.reason == "frozen"
