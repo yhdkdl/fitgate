@@ -3,6 +3,7 @@
 from django.urls import path
 
 from apps.accounts.views import (
+    BrevoWebhookView,
     ChangePasswordView,
     CreateSuperAdminView,
     GymAuditLogListView,
@@ -15,6 +16,7 @@ from apps.accounts.views import (
     StaffDeactivateView,
     StaffListCreateView,
     StaffReactivateView,
+    StaffResendInviteView,
     TokenRefreshView,
     UserProfileView,
 )
@@ -63,6 +65,17 @@ urlpatterns = [
         "api/gym/staff/<uuid:user_id>/reactivate/",
         StaffReactivateView.as_view(),
         name="gym-staff-reactivate",
+    ),
+    path(
+        "api/gym/staff/<uuid:user_id>/resend-invite/",
+        StaffResendInviteView.as_view(),
+        name="gym-staff-resend-invite",
+    ),
+    # Brevo Webhook (Sprint 9b)
+    path(
+        "api/webhooks/brevo/",
+        BrevoWebhookView.as_view(),
+        name="brevo-webhook",
     ),
     # Audit Log Viewer (Sprint 9a)
     path(

@@ -65,6 +65,97 @@ def build_from_email(gym_or_name: Optional[Union[str, Any]] = None) -> str:
     return email.utils.formataddr((safe_name, from_addr))
 
 
+def is_recipient_allowed_by_staging_allowlist(email_addr: str) -> bool:
+    """Check staging recipient allowlist (EMAIL_ALLOWED_RECIPIENTS)."""
+    allowed_list = getattr(settings, "EMAIL_ALLOWED_RECIPIENTS", [])
+    if not allowed_list:
+        return True
+    e = email_addr.strip().lower()
+    for allowed in allowed_list:
+        a = allowed.strip().lower()
+        if a.startswith("@") and e.endswith(a):
+            return True
+        if e == a:
+            return True
+    return False
+
+
+def check_and_increment_email_rate_caps(gym: Optional[Any] = None) -> bool:
+    """
+    Check hourly email dispatch rate caps per gym and platform-wide.
+    Raises ValidationError("email limit reached") if cap is exceeded.
+    """
+    from django.core.cache import cache
+    from django.core.exceptions import ValidationError
+    from django.utils import timezone
+
+    current_hour_str = timezone.now().strftime("%Y%m%d%H")
+
+    # Platform hourly cap
+    platform_cap = getattr(settings, "EMAIL_HOURLY_CAP_PLATFORM", 500)
+    platform_key = f"email_rate_cap:platform:{current_hour_str}"
+    try:
+        current_platform = cache.get(platform_key, 0)
+        if current_platform >= platform_cap:
+            logger.warning(
+                "Platform email rate cap exceeded (%d >= %d).",
+                current_platform,
+                platform_cap,
+            )
+            raise ValidationError("email limit reached")
+    except ValidationError:
+        raise
+    except Exception as e:
+        logger.warning("Cache access error checking platform email cap: %s", e)
+
+    # Gym hourly cap
+    gym_id = None
+    if gym:
+        gym_id = gym.id if hasattr(gym, "id") else str(gym)
+    if gym_id:
+        gym_cap = getattr(settings, "EMAIL_HOURLY_CAP_PER_GYM", 100)
+        gym_key = f"email_rate_cap:gym:{gym_id}:{current_hour_str}"
+        try:
+            current_gym = cache.get(gym_key, 0)
+            if current_gym >= gym_cap:
+                logger.warning(
+                    "Gym %s email rate cap exceeded (%d >= %d).",
+                    gym_id,
+                    current_gym,
+                    gym_cap,
+                )
+                raise ValidationError("email limit reached")
+        except ValidationError:
+            raise
+        except Exception as e:
+            logger.warning("Cache access error checking gym email cap: %s", e)
+
+    return True
+
+
+def record_email_rate_cap_dispatch(gym: Optional[Any] = None, count: int = 1) -> None:
+    """Increment hourly email dispatch counters in cache."""
+    from django.core.cache import cache
+    from django.utils import timezone
+
+    current_hour_str = timezone.now().strftime("%Y%m%d%H")
+    platform_key = f"email_rate_cap:platform:{current_hour_str}"
+    try:
+        cache.set(platform_key, cache.get(platform_key, 0) + count, timeout=3700)
+    except Exception:
+        pass
+
+    gym_id = None
+    if gym:
+        gym_id = gym.id if hasattr(gym, "id") else str(gym)
+    if gym_id:
+        gym_key = f"email_rate_cap:gym:{gym_id}:{current_hour_str}"
+        try:
+            cache.set(gym_key, cache.get(gym_key, 0) + count, timeout=3700)
+        except Exception:
+            pass
+
+
 def send_fitgate_email(
     subject: str,
     message: str,
@@ -74,18 +165,123 @@ def send_fitgate_email(
     **kwargs,
 ) -> int:
     """
-    Central helper for routing all FitGate transactional emails.
-    Builds sanitized, formatted From header with gym branding or 'FitGate'.
+    Central helper for routing all FitGate transactional emails with safety gates:
+    1. Local dev uses console/mocked backend; fake addresses keep working.
+    2. Suppression table check: addresses on the suppression list are never emailed again.
+    3. Strict mode (staging/production with EMAIL_STRICT_MODE=True):
+       - Skips reserved test domains (example.com, .test, .invalid, .localhost, .local) and logs warning.
+       - Validates DNS domain existence (short timeout); definite NXDOMAIN skips and logs.
+    4. Staging allow-list: restricts real sending to approved recipients/domains (EMAIL_ALLOWED_RECIPIENTS).
+    5. Rate caps: hourly per-gym and platform-wide limits; beyond it mails are skipped with ValidationError("email limit reached").
+    6. Tracks delivery status in EmailDeliveryStatus table.
     """
+    from apps.accounts.models import EmailDeliveryStatus
+    from apps.core.validators import (
+        check_domain_dns_accepts_mail,
+        is_reserved_test_domain,
+    )
+    from apps.tenants.models import GymTenant
+
+    gym_obj = gym if isinstance(gym, GymTenant) else None
+    strict_mode = getattr(settings, "EMAIL_STRICT_MODE", False)
+
+    effective_recipients = []
+    for raw_email in recipient_list:
+        clean_email = str(raw_email).strip().lower()
+        if not clean_email:
+            continue
+
+        # 1. Suppression check
+        suppression = EmailDeliveryStatus.all_objects.filter(
+            email=clean_email,
+            status=EmailDeliveryStatus.STATUS_SUPPRESSED,
+        ).first()
+        if suppression:
+            logger.warning(
+                "Skipping email to %s: address is on suppression list (reason: %s).",
+                clean_email,
+                suppression.reason,
+            )
+            continue
+
+        domain = clean_email.split("@")[-1].strip()
+
+        # 2. Strict mode checks (staging / production)
+        if strict_mode:
+            if is_reserved_test_domain(domain):
+                logger.warning(
+                    "Skipping email to %s: domain '%s' is a reserved test domain in strict mode.",
+                    clean_email,
+                    domain,
+                )
+                EmailDeliveryStatus.all_objects.update_or_create(
+                    email=clean_email,
+                    defaults={
+                        "status": EmailDeliveryStatus.STATUS_NOT_DELIVERED,
+                        "reason": "reserved_domain",
+                        "gym": gym_obj,
+                    },
+                )
+                continue
+
+            try:
+                check_domain_dns_accepts_mail(domain)
+            except Exception as e:
+                logger.warning(
+                    "Skipping email to %s: domain '%s' DNS lookup rejected: %s",
+                    clean_email,
+                    domain,
+                    e,
+                )
+                EmailDeliveryStatus.all_objects.update_or_create(
+                    email=clean_email,
+                    defaults={
+                        "status": EmailDeliveryStatus.STATUS_NOT_DELIVERED,
+                        "reason": "dns_lookup_failed",
+                        "gym": gym_obj,
+                    },
+                )
+                continue
+
+        # 3. Optional staging allow-list check
+        if not is_recipient_allowed_by_staging_allowlist(clean_email):
+            logger.info(
+                "Skipping email to %s: not in staging EMAIL_ALLOWED_RECIPIENTS allow-list.",
+                clean_email,
+            )
+            continue
+
+        effective_recipients.append(clean_email)
+
+    if not effective_recipients:
+        return 0
+
+    # 4. Rate caps check
+    check_and_increment_email_rate_caps(gym=gym)
+
     from_email = build_from_email(gym)
-    return send_mail(
+    sent_count = send_mail(
         subject=subject,
         message=message,
         from_email=from_email,
-        recipient_list=recipient_list,
+        recipient_list=effective_recipients,
         fail_silently=fail_silently,
         **kwargs,
     )
+
+    if sent_count > 0:
+        record_email_rate_cap_dispatch(gym=gym, count=len(effective_recipients))
+        for clean_email in effective_recipients:
+            EmailDeliveryStatus.all_objects.update_or_create(
+                email=clean_email,
+                defaults={
+                    "status": EmailDeliveryStatus.STATUS_SENT,
+                    "reason": "",
+                    "gym": gym_obj,
+                },
+            )
+
+    return sent_count
 
 
 def notify_account_locked(user) -> None:

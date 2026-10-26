@@ -33,19 +33,23 @@
 - Sprint 12b: Bank transfer payments with reconciliation and reversal (STRICT) — atomic bank-transfer payment recording and confirmation in single DB transaction, sequential immutable digital receipts, client idempotency keys, case-insensitive bank reference uniqueness per gym FOREVER (enforced at DB level with constraint and trigger-protected reversals), unreconciled bank transfer listing and single/bulk statement reconciliation (Owner only), daily 7-day unreconciled flagging management command (flagged once, single summary notification to Owner, audit log naming confirming staff), Owner-only reversal restoring exact prior subscription state (pending with no active period for first purchase, previous end date and status for renewal) and refused after subsequent payment or freeze, member self-service history with reference and reversal status, Super Admin strictly denied on all endpoints (tag `sprint-12b-done`).
 
 - Sprint 13: Freeze workflow (Growth/Pro gated, tracked against freeze days allowed) — Server-enforced gym freeze entitlement (`GymConfig.freeze_days_allowed` from DB; 0 days blocked on server), concurrency-protected allowance locking with `select_for_update` preventing allowance overruns across concurrent requests, single subscription extension on approval (approving twice never extends twice), member status derived strictly via shared `update_member_status()`, frozen members rejected at check-in (both manual override and QR token issuance refused with distinguishable `frozen` reason), 5-minute cron unfreeze management command (`process_unfreezes`) returning completed freezes to active status via shared function, rejection workflow saving required reason and keeping pass active, RBAC tenant isolation (Member requests and views own, Owner and Manager approve/reject, Super Admin and other gyms denied 403), audit logging, and in-app notifications (tag `sprint-13-done`).
+- Followup fixes (Increment 2): Per-gym row-locked receipt counter (`GymReceiptCounter` locked via `select_for_update`) ensuring sequential gapless receipts under concurrency (`REC-000001`, `REC-000002`), and future start date freeze check-in verification with single end date extension (tag `fix-increment-2-followup-done`).
+- Sprint 9b: Email safety (Brevo bounce protection & delivery safeguard) — Brevo webhook suppression recording (`hardBounce`, `blocked`, `spam`, `invalid`), suppression check prior to send, strict mode gate for reserved test domains and NXDOMAINs, disposable domain block on public registration with lenient front-desk entry, rate caps (100/hr per gym, 500/hr platform), confirmation of owner email on gym creation, 3-resend daily cap per recipient, tenant-isolated invitation delivery status, and unverified member cleanup command (tag `sprint-9b-done`).
 
 ## Current
 
-- None (Increment 2 Sprint 13 completed; stopping per owner instructions).
+- Sprint 14: Scheduled jobs (nightly membership sweep and expiry/reminders) — branch `feature/sprint-14-scheduled-jobs`.
 
 ## Next
 
-- Sprint 14: Scheduled jobs (automated daily maintenance tasks).
+- Sprint 15: Notification center UI.
+- Increment 2 report and manual verification walkthrough script (`docs/INCREMENT_2_TEST.md`).
 
 ## Open manual steps
 
 - Sprint 4: cPanel UAPI token & subdomain provisioning (to be verified at staging)
 - Sprints 4, 6, 7: Production SMTP mailbox via Brevo (to be verified at staging)
+- Sprint 9b: Brevo transactional webhook URL configuration and weekly unverified member cleanup cron (to be verified at staging)
 - Sprints 4b, 7: File storage layer (skipped: local filesystem storage in /home/<user>/fitgate_media/ behind protected Django views)
 - Sprint 8: QR asymmetric signing key pair (to be verified at staging)
 - Sprint 8b/8c: Camera scanning on physical devices (to be verified at staging)

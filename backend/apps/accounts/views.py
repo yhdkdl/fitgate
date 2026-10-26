@@ -1,6 +1,9 @@
 """API views for authentication and platform administration."""
 
+import hashlib
+import hmac
 import logging
+import secrets
 from datetime import datetime, time, timedelta
 
 from django.conf import settings
@@ -21,8 +24,8 @@ from rest_framework_simplejwt.exceptions import TokenError
 from rest_framework_simplejwt.tokens import RefreshToken
 
 from apps.accounts.dashboards import dashboard_config_for
-from apps.accounts.models import AuditLog, User
-from apps.accounts.notifications import notify_account_locked
+from apps.accounts.models import AuditLog, AuthToken, EmailDeliveryStatus, User
+from apps.accounts.notifications import notify_account_locked, send_staff_invite_email
 from apps.accounts.pagination import AuditLogPagination
 from apps.accounts.permissions import (
     IsOwnerOrManager,
@@ -1098,3 +1101,233 @@ class PlatformAuditLogListView(APIView):
 
         serializer = AuditLogSerializer(qs, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+class StaffResendInviteView(APIView):
+    """
+    Resend an invitation email to a pending staff member.
+    Enforces:
+    - Scoped to active gym staff (Owner or Manager).
+    - Manager cannot resend for Manager.
+    - Rate capped to at most 3 invitation resends per recipient per day.
+    - Refused if the recipient address has bounced or is suppressed.
+    """
+
+    permission_classes = [IsAuthenticated, RequirePasswordChanged, IsOwnerOrManager]
+
+    @extend_schema(
+        summary="Resend staff member invitation",
+        description="Resends the invitation email with a fresh set-password link to a pending staff member. Capped at 3 resends per day.",
+        responses={
+            200: OpenApiResponse(description="Invitation resent successfully"),
+            400: OpenApiResponse(description="Invalid request or recipient suppressed"),
+            403: OpenApiResponse(description="Forbidden"),
+            404: OpenApiResponse(description="Staff member not found"),
+            429: OpenApiResponse(description="Daily resend limit reached"),
+        },
+    )
+    def post(self, request, user_id, *args, **kwargs):
+        staff_roles = [
+            User.ROLE_MANAGER,
+            User.ROLE_TRAINER,
+            User.ROLE_RECEPTION,
+        ]
+        target_user = User.all_objects.filter(
+            id=user_id,
+            gym=request.tenant,
+            role__in=staff_roles,
+        ).first()
+
+        if target_user is None:
+            return Response(
+                {"detail": "Staff member not found."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        if (
+            request.user.role == User.ROLE_MANAGER
+            and target_user.role == User.ROLE_MANAGER
+        ):
+            raise PermissionDenied("Managers cannot manage Manager accounts.")
+
+        if target_user.has_usable_password():
+            return Response(
+                {"detail": "This staff member has already accepted their invitation."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Check suppression
+        delivery = EmailDeliveryStatus.all_objects.filter(
+            email=target_user.email
+        ).first()
+        if delivery and delivery.status == EmailDeliveryStatus.STATUS_SUPPRESSED:
+            return Response(
+                {
+                    "detail": "Cannot resend invitation: recipient email address is suppressed."
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        today = timezone.localdate()
+        if delivery:
+            if delivery.last_resend_date != today:
+                delivery.resend_count_today = 0
+                delivery.last_resend_date = today
+            if delivery.resend_count_today >= 3:
+                return Response(
+                    {
+                        "detail": "Daily invitation resend limit (3 per day) reached for this recipient."
+                    },
+                    status=status.HTTP_429_TOO_MANY_REQUESTS,
+                )
+        else:
+            delivery = EmailDeliveryStatus.all_objects.create(
+                email=target_user.email,
+                gym=request.tenant,
+                status=EmailDeliveryStatus.STATUS_SENT,
+                resend_count_today=0,
+                last_resend_date=today,
+            )
+
+        now = timezone.now()
+        AuthToken.objects.filter(
+            user=target_user,
+            purpose=AuthToken.PURPOSE_INVITE,
+            used_at__isnull=True,
+        ).update(used_at=now)
+
+        raw_token = secrets.token_urlsafe(32)
+        token_hash = hashlib.sha256(raw_token.encode("utf-8")).hexdigest()
+        expires_at = now + timedelta(days=7)
+        AuthToken.objects.create(
+            user=target_user,
+            token_hash=token_hash,
+            purpose=AuthToken.PURPOSE_INVITE,
+            expires_at=expires_at,
+        )
+
+        scheme = settings.PUBLIC_URL_SCHEME
+        domain = settings.DOMAIN
+        port_suffix = (
+            f":{settings.PUBLIC_PORT}" if getattr(settings, "PUBLIC_PORT", "") else ""
+        )
+        invite_link = f"{scheme}://{request.tenant.subdomain}.{domain}{port_suffix}/set-password?token={raw_token}"
+
+        send_staff_invite_email(target_user, request.tenant, invite_link)
+
+        delivery.resend_count_today += 1
+        delivery.last_resend_date = today
+        delivery.last_sent_at = now
+        delivery.save(
+            update_fields=["resend_count_today", "last_resend_date", "last_sent_at"]
+        )
+
+        record_audit_log(
+            action_type="staff_invite_resent",
+            affected_record_type="User",
+            affected_record_id=str(target_user.id),
+            actor=request.user,
+            gym=request.tenant,
+            metadata={
+                "email": target_user.email,
+                "resend_count_today": delivery.resend_count_today,
+            },
+        )
+
+        return Response(
+            {
+                "detail": "Invitation resent successfully.",
+                "resend_count_today": delivery.resend_count_today,
+            },
+            status=status.HTTP_200_OK,
+        )
+
+
+class BrevoWebhookView(APIView):
+    """
+    Webhook endpoint on apex domain for Brevo transactional delivery event webhooks.
+    Accepts POST at /api/webhooks/brevo/, authenticated with BREVO_WEBHOOK_SECRET.
+    Secret passed via:
+    - Header: X-Webhook-Secret
+    - Header: Authorization: Bearer <secret>
+    - Query parameter: ?secret=<secret>
+
+    Wrong or missing secret returns the exact same response as an unknown event:
+    {"status": "ignored"} with HTTP 200 OK.
+
+    Suppression events (hardBounce, blocked, spam, invalid) record the email
+    in EmailDeliveryStatus with status='suppressed'.
+    Returns {"status": "processed"} with HTTP 200 OK.
+    """
+
+    permission_classes = [AllowAny]
+    authentication_classes = []
+
+    def post(self, request, *args, **kwargs):
+        # Extract secret
+        secret = request.headers.get("X-Webhook-Secret") or request.META.get(
+            "HTTP_X_WEBHOOK_SECRET"
+        )
+        if not secret:
+            auth_header = request.headers.get("Authorization") or request.META.get(
+                "HTTP_AUTHORIZATION", ""
+            )
+            if auth_header.startswith("Bearer "):
+                secret = auth_header[7:].strip()
+        if not secret:
+            secret = request.query_params.get("secret")
+
+        configured_secret = getattr(settings, "BREVO_WEBHOOK_SECRET", None) or ""
+
+        if (
+            not secret
+            or not configured_secret
+            or not hmac.compare_digest(
+                str(secret).strip(), str(configured_secret).strip()
+            )
+        ):
+            return Response({"status": "ignored"}, status=status.HTTP_200_OK)
+
+        payload = request.data
+        if isinstance(payload, dict):
+            events = [payload]
+        elif isinstance(payload, list):
+            events = payload
+        else:
+            return Response({"status": "ignored"}, status=status.HTTP_200_OK)
+
+        suppression_events = {
+            "hardbounce",
+            "hard_bounce",
+            "blocked",
+            "spam",
+            "invalid",
+            "invalid_email",
+        }
+
+        processed_any = False
+        for item in events:
+            if not isinstance(item, dict):
+                continue
+            raw_event = str(item.get("event") or "").strip()
+            if raw_event.lower() in suppression_events:
+                email = str(item.get("email") or "").strip().lower()
+                if email:
+                    user_match = User.all_objects.filter(email=email).first()
+                    gym = user_match.gym if user_match else None
+                    reason_str = str(item.get("reason") or raw_event)[:100]
+
+                    EmailDeliveryStatus.all_objects.update_or_create(
+                        email=email,
+                        defaults={
+                            "gym": gym,
+                            "status": EmailDeliveryStatus.STATUS_SUPPRESSED,
+                            "reason": reason_str,
+                            "event_payload": item,
+                        },
+                    )
+                    processed_any = True
+
+        if processed_any:
+            return Response({"status": "processed"}, status=status.HTTP_200_OK)
+        return Response({"status": "ignored"}, status=status.HTTP_200_OK)

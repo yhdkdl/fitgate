@@ -95,6 +95,9 @@ class CreateGymRequestSerializer(serializers.Serializer):
         max_length=150, required=False, allow_blank=True, default=""
     )
     owner_email = serializers.EmailField(required=True)
+    owner_email_confirm = serializers.EmailField(
+        required=False, allow_blank=True, default=""
+    )
     payment_amount = serializers.DecimalField(
         max_digits=12, decimal_places=2, required=True
     )
@@ -105,6 +108,15 @@ class CreateGymRequestSerializer(serializers.Serializer):
     demo_request_id = serializers.CharField(
         max_length=100, required=False, allow_null=True, allow_blank=True, default=None
     )
+
+    def validate(self, attrs):
+        owner_email = attrs.get("owner_email")
+        owner_email_confirm = attrs.get("owner_email_confirm")
+        if owner_email_confirm and owner_email != owner_email_confirm:
+            raise serializers.ValidationError(
+                {"owner_email_confirm": ["Owner email addresses do not match."]}
+            )
+        return attrs
 
     def validate_name(self, value):
         return validate_name(value, "Gym name")

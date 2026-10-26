@@ -1,4 +1,4 @@
-"""Serializers for member profiles, registration, body composition metrics, and email verification."""
+from typing import Optional
 
 from rest_framework import serializers
 
@@ -85,6 +85,8 @@ class MemberSerializer(serializers.ModelSerializer):
 
     email = serializers.EmailField(source="user.email", read_only=True)
     latest_metrics = BodyMetricsSerializer(read_only=True)
+    invitation_status = serializers.SerializerMethodField()
+    email_delivery_message = serializers.SerializerMethodField()
 
     class Meta:
         model = Member
@@ -102,6 +104,8 @@ class MemberSerializer(serializers.ModelSerializer):
             "joined_at",
             "waiver_accepted_at",
             "latest_metrics",
+            "invitation_status",
+            "email_delivery_message",
         ]
         read_only_fields = [
             "id",
@@ -110,7 +114,55 @@ class MemberSerializer(serializers.ModelSerializer):
             "joined_at",
             "waiver_accepted_at",
             "latest_metrics",
+            "invitation_status",
+            "email_delivery_message",
         ]
+
+    def get_invitation_status(self, obj) -> Optional[str]:
+        request = self.context.get("request")
+        user = getattr(request, "user", None) if request else None
+
+        # Tenancy check: Item 12 - "Email not delivered" is visible only to staff of the same gym
+        is_same_gym_staff = bool(
+            user
+            and user.is_authenticated
+            and (
+                user.role == User.ROLE_SUPER_ADMIN
+                or (
+                    user.gym_id
+                    and obj.gym_id
+                    and user.gym_id == obj.gym_id
+                    and user.role
+                    in (User.ROLE_OWNER, User.ROLE_MANAGER, User.ROLE_RECEPTION)
+                )
+            )
+        )
+        if not is_same_gym_staff:
+            return None
+
+        member_user = getattr(obj, "user", None)
+        if member_user and member_user.has_usable_password():
+            return "activated"
+
+        if member_user and member_user.email:
+            from apps.accounts.models import EmailDeliveryStatus
+
+            record = EmailDeliveryStatus.all_objects.filter(
+                email=member_user.email.strip().lower(),
+                gym_id=obj.gym_id,
+            ).first()
+            if record and record.status in (
+                EmailDeliveryStatus.STATUS_NOT_DELIVERED,
+                EmailDeliveryStatus.STATUS_SUPPRESSED,
+            ):
+                return "not_delivered"
+
+        return "sent"
+
+    def get_email_delivery_message(self, obj) -> Optional[str]:
+        if self.get_invitation_status(obj) == "not_delivered":
+            return "Fix the address and resend"
+        return None
 
     def to_representation(self, instance):
         request = self.context.get("request")

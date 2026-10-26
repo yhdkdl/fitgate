@@ -231,6 +231,13 @@ EMAIL_USE_TLS=True
 EMAIL_USE_SSL=False
 DEFAULT_FROM_EMAIL=noreply@fitgate.tebebtech.com
 
+# Email Safety & Brevo Webhook (Sprint 9b)
+EMAIL_STRICT_MODE=True
+BREVO_WEBHOOK_SECRET=<paste output of openssl rand -hex 32>
+EMAIL_ALLOWED_RECIPIENTS=
+EMAIL_HOURLY_CAP_PER_GYM=100
+EMAIL_HOURLY_CAP_PLATFORM=500
+
 # Persistent Media & Logs
 MEDIA_ROOT=/home/<username>/fitgate_media
 LOG_DIR=/home/<username>/fitgate_logs
@@ -270,6 +277,13 @@ The Brevo sending domain `fitgate.tebebtech.com` is authenticated with DKIM, DMA
    - Click the three dots (More) next to the reply button &rarr; **Show original**.
    - Verify that **SPF: PASS**, **DKIM: PASS**, and **DMARC: PASS** all display.
    - If the email does not appear in your inbox, check the **Spam** folder. If still not received, log in to Brevo &rarr; **Transactional** &rarr; **Real-time logs** and check if the address was placed on the blocked-contacts list.
+5. **Configure Brevo Webhook for Automated Bounce & Spam Suppression**:
+   - In Brevo, navigate to **Integrations** &rarr; **Webhooks** (or **Transactional** &rarr; **Settings** &rarr; **Webhooks**).
+   - Click **Add a new webhook**.
+   - Set **URL to call**: `https://fitgate.tebebtech.com/api/webhooks/brevo/`
+   - Set **Events to trigger on**: Select `hardBounce`, `blocked`, `spam`, and `invalid`.
+   - Set **Headers**: Add Header `X-Webhook-Secret` with the value of `BREVO_WEBHOOK_SECRET` from your `~/fitgate_env/.env`.
+   - Save the webhook. FitGate will now automatically record bounced and blocked recipients into the suppression list, preventing further sends and alerting gym staff immediately.
 
 ---
 
