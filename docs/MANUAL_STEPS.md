@@ -88,6 +88,14 @@ The feasibility spike on the real Yegara cPanel host passed all checks:
      ```
    - **Status:** To be verified at staging.
 
+10. **Sprint 12b — Unreconciled Bank Transfers 7-Day Flagging Cron Job**
+    - **What to do:** Configure a daily cPanel Cron Job running at 02:00 UTC to flag unreconciled bank transfers older than 7 days, notify the Owner with a single summary message per run, and record audit log entries naming the staff member who confirmed the payment.
+    - **Cron Command:**
+      ```bash
+      0 2 * * * /home/<user>/virtualenv/fitgate_backend/3.11/bin/python /home/<user>/fitgate/backend/manage.py flag_unreconciled_bank_transfers >> /home/<user>/fitgate_logs/cron_bank_transfers.log 2>&1
+      ```
+    - **Status:** To be verified at staging.
+
 ---
 
 ## Email & Domain Configuration (Brevo + cPanel)

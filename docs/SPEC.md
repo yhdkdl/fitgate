@@ -147,11 +147,11 @@ Grouped as in the source document's §3.2.1.
 
 **Payments**
 
-- **Payment methods:** `chapa`, `cash`, `bank_transfer`. Members pay by `chapa` or `cash`; gyms pay the platform by `bank_transfer`.
-- **Each gym uses its own Chapa merchant account.** The gym's secret key and webhook secret are stored encrypted, never returned by any API, never logged; only Owner and Super Admin can set them; a verify-connection check tests them. "Pay Now" opens Chapa's hosted checkout (telebirr, CBE Birr, bank cards) only once a gym's configuration is verified; otherwise members are offered cash. The platform stores no card data. A demo gym uses Chapa test keys.
-- Chapa webhooks go to a per-gym URL, are verified by signature (with that gym's secret) **and amount** (re-verified with Chapa), and duplicate deliveries are treated as already processed. A successful webhook activates the membership with no staff involvement. A payment with no webhook after a configurable window (default 30 minutes) is flagged for manual review. A failed or abandoned checkout notifies the member, who may retry or pay cash.
-- Manual cash payment by Reception/Manager: amount and optional reference note; activates immediately and generates a digital receipt.
-- Per-member payment history (method, amount, date, reference). Owners log **expenses** and view revenue vs. expenses for a period. Financial summaries count confirmed payments only.
+- **Payment methods:** `chapa`, `cash`, `bank_transfer`. Members pay by `chapa`, `cash`, or `bank_transfer` (with owner reconciliation and reversal); gyms pay the platform by `bank_transfer`.
+- **Each gym uses its own Chapa merchant account.** The gym's secret key and webhook secret are stored encrypted, never returned by any API, never logged; only Owner and Super Admin can set them; a verify-connection check tests them. "Pay Now" opens Chapa's hosted checkout (telebirr, CBE Birr, bank cards) only once a gym's configuration is verified; otherwise members are offered cash or bank transfer. The platform stores no card data. A demo gym uses Chapa test keys.
+- Chapa webhooks go to a per-gym URL, are verified by signature (with that gym's secret) **and amount** (re-verified with Chapa), and duplicate deliveries are treated as already processed. A successful webhook activates the membership with no staff involvement. A payment with no webhook after a configurable window (default 30 minutes) is flagged for manual review. A failed or abandoned checkout notifies the member, who may retry or pay cash/bank transfer.
+- Manual cash and bank-transfer payment by Reception/Manager/Owner: amount locked to plan price; optional reference note (and unique bank reference for transfers); activates immediately and generates an immutable digital receipt. Bank transfers start as unreconciled and are cleared or reversed by the Owner.
+- Per-member payment history (method, amount, date, reference, reversal status). Owners log **expenses** and view revenue vs. expenses for a period. Financial summaries count confirmed, non-reversed payments only.
 
 **Trainer management**
 
