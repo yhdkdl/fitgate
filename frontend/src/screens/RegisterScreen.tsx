@@ -62,9 +62,12 @@ export const RegisterScreen: React.FC = () => {
 
     const pwdReqs = checkPasswordRequirements(password);
     if (!pwdReqs.isValid) {
-      if (!pwdReqs.hasMinLength) errors.password = "Password must be at least 10 characters long.";
-      else if (!pwdReqs.hasNoCommon) errors.password = "Password is too common.";
-      else if (!pwdReqs.hasNotOnlyDigits) errors.password = "Password cannot be entirely numeric.";
+      if (!pwdReqs.hasMinLength)
+        errors.password = "Password must be at least 10 characters long.";
+      else if (!pwdReqs.hasNoCommon)
+        errors.password = "Password is too common.";
+      else if (!pwdReqs.hasNotOnlyDigits)
+        errors.password = "Password cannot be entirely numeric.";
     }
 
     if (dateOfBirth) {
@@ -73,17 +76,28 @@ export const RegisterScreen: React.FC = () => {
     }
 
     if (emergencyContact.trim()) {
-      const ecErr = validateTextLength(emergencyContact, "Emergency contact", 2, 100);
+      const ecErr = validateTextLength(
+        emergencyContact,
+        "Emergency contact",
+        2,
+        100
+      );
       if (ecErr) errors.emergency_contact = ecErr;
     }
 
     if (referralSource.trim()) {
-      const refErr = validateTextLength(referralSource, "Referral source", 2, 100);
+      const refErr = validateTextLength(
+        referralSource,
+        "Referral source",
+        2,
+        100
+      );
       if (refErr) errors.referral_source = refErr;
     }
 
     if (!waiverAccepted) {
-      errors.waiver_accepted = "You must accept the health and safety waiver to register.";
+      errors.waiver_accepted =
+        "You must accept the health and safety waiver to register.";
     }
 
     if (Object.keys(errors).length > 0) {
@@ -120,7 +134,9 @@ export const RegisterScreen: React.FC = () => {
         const dataObj = apiErr.data as Record<string, unknown>;
         const formattedErrors: Record<string, string> = {};
         for (const [key, val] of Object.entries(dataObj)) {
-          formattedErrors[key] = Array.isArray(val) ? val.join(" ") : String(val);
+          formattedErrors[key] = Array.isArray(val)
+            ? val.join(" ")
+            : String(val);
         }
         setFieldErrors(formattedErrors);
         focusFirstInvalidField(formattedErrors);
@@ -154,7 +170,9 @@ export const RegisterScreen: React.FC = () => {
 
           <div className="space-y-3">
             <Badge variant="primary">Verification Required</Badge>
-            <h1 className="text-2xl font-bold text-text">Verify Your Account</h1>
+            <h1 className="text-2xl font-bold text-text">
+              Verify Your Account
+            </h1>
             <p className="text-sm text-text-muted">
               We sent a single-use verification link to{" "}
               <strong className="text-text">{submittedEmail}</strong>.
@@ -177,7 +195,8 @@ export const RegisterScreen: React.FC = () => {
                 </span>
                 Transactional emails are output to the backend console. Run{" "}
                 <code className="bg-surface px-1.5 py-0.5 rounded text-text font-mono">
-                  docker compose logs backend | grep -A 5 &quot;verify-email&quot;
+                  docker compose logs backend | grep -A 5
+                  &quot;verify-email&quot;
                 </code>{" "}
                 to copy your activation link.
               </div>

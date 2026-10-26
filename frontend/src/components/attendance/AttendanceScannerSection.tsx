@@ -64,7 +64,9 @@ export const AttendanceScannerSection: React.FC<
   const [overrideMemberId, setOverrideMemberId] = useState("");
   const [overrideReason, setOverrideReason] = useState("");
   const [overrideSubmitting, setOverrideSubmitting] = useState(false);
-  const [overrideFieldErrors, setOverrideFieldErrors] = useState<Record<string, string>>({});
+  const [overrideFieldErrors, setOverrideFieldErrors] = useState<
+    Record<string, string>
+  >({});
   const [overrideError, setOverrideError] = useState<{
     detail: string;
     reason: string;
@@ -188,7 +190,12 @@ export const AttendanceScannerSection: React.FC<
       errors["override-search"] = "Please select a member for manual override.";
     }
 
-    const reasonErr = validateTextLength(overrideReason, "Override reason", 5, 500);
+    const reasonErr = validateTextLength(
+      overrideReason,
+      "Override reason",
+      5,
+      500
+    );
     if (reasonErr) {
       errors["override-reason"] = reasonErr;
     }
@@ -566,7 +573,11 @@ export const AttendanceScannerSection: React.FC<
               </Alert>
             )}
 
-            <form onSubmit={handleOverrideSubmit} className="space-y-4" noValidate>
+            <form
+              onSubmit={handleOverrideSubmit}
+              className="space-y-4"
+              noValidate
+            >
               <FormField
                 label="Member"
                 htmlFor="override-search"

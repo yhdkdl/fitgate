@@ -46,7 +46,9 @@ export const PasswordChecklist: React.FC<PasswordChecklistProps> = ({
             />
           )}
           <span
-            className={item.valid ? "text-success font-medium" : "text-text-muted"}
+            className={
+              item.valid ? "text-success font-medium" : "text-text-muted"
+            }
           >
             {item.label}
           </span>

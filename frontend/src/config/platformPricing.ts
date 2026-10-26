@@ -50,7 +50,8 @@ export const PLATFORM_PRICING_TIERS: PricingTier[] = [
     id: "growth",
     name: "Growth",
     badge: "Most Popular",
-    tagline: "For growing gyms delivering professional coaching and digital fitness services.",
+    tagline:
+      "For growing gyms delivering professional coaching and digital fitness services.",
     pricePerYearETB: 30000,
     popular: true,
     highlights: [

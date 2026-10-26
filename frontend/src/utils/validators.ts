@@ -21,7 +21,9 @@ export function filterPhoneInput(value: string): string {
   if (!value) return "";
   const hasPlus = value.startsWith("+");
   const sanitized = value.replace(/[^\d\s-]/g, "");
-  return hasPlus ? "+" + sanitized.replace(/\+/g, "") : sanitized.replace(/\+/g, "");
+  return hasPlus
+    ? "+" + sanitized.replace(/\+/g, "")
+    : sanitized.replace(/\+/g, "");
 }
 
 /**
@@ -39,7 +41,10 @@ export function normalizePhone(value: string): string {
   if (digits.startsWith("09") || digits.startsWith("07")) {
     return `+251${digits.slice(1)}`;
   }
-  if ((digits.startsWith("9") || digits.startsWith("7")) && digits.length === 9) {
+  if (
+    (digits.startsWith("9") || digits.startsWith("7")) &&
+    digits.length === 9
+  ) {
     return `+251${digits}`;
   }
   return `+${digits}`;
@@ -49,7 +54,10 @@ export function normalizePhone(value: string): string {
  * Validate phone number.
  * Returns error string or null if valid.
  */
-export function validatePhone(value: string, isRequired: boolean = true): string | null {
+export function validatePhone(
+  value: string,
+  isRequired: boolean = true
+): string | null {
   if (!value || !value.trim()) {
     if (isRequired) {
       return "Phone number is required.";
@@ -88,7 +96,10 @@ export function validatePhone(value: string, isRequired: boolean = true): string
     return null;
   }
 
-  if ((digits.startsWith("9") || digits.startsWith("7")) && digits.length === 9) {
+  if (
+    (digits.startsWith("9") || digits.startsWith("7")) &&
+    digits.length === 9
+  ) {
     return null;
   }
 
@@ -106,7 +117,8 @@ export function validateName(
   isRequiredOrMin: boolean | number = true,
   maxLen: number = 100
 ): string | null {
-  const isRequired = typeof isRequiredOrMin === "boolean" ? isRequiredOrMin : true;
+  const isRequired =
+    typeof isRequiredOrMin === "boolean" ? isRequiredOrMin : true;
   const minLen = typeof isRequiredOrMin === "number" ? isRequiredOrMin : 2;
 
   if (!value || !value.trim()) {
@@ -164,7 +176,8 @@ export function validateEmail(
   }
 
   // RFC 5322 standard email regex
-  const emailRegex = /^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)+$/;
+  const emailRegex =
+    /^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)+$/;
   if (!emailRegex.test(trimmed)) {
     return "Enter a valid email address.";
   }
@@ -206,7 +219,9 @@ export function checkPasswordRequirements(
   const notNumeric = !/^\d+$/.test(password || "");
   const notCommon = !COMMON_PASSWORDS.has((password || "").toLowerCase());
   const matchesConfirm =
-    confirmPassword !== undefined ? Boolean(password) && password === confirmPassword : true;
+    confirmPassword !== undefined
+      ? Boolean(password) && password === confirmPassword
+      : true;
 
   const allValid = minLength && notNumeric && notCommon && matchesConfirm;
 
@@ -275,7 +290,9 @@ export function validateHeight(value: number | string): string | null {
 /**
  * Validate waist (40 to 200 cm, max 2 decimals).
  */
-export function validateWaist(value: number | string | null | undefined): string | null {
+export function validateWaist(
+  value: number | string | null | undefined
+): string | null {
   if (value === "" || value === null || value === undefined) {
     return null;
   }
@@ -295,7 +312,9 @@ export function validateWaist(value: number | string | null | undefined): string
 /**
  * Validate neck (20 to 80 cm, max 2 decimals).
  */
-export function validateNeck(value: number | string | null | undefined): string | null {
+export function validateNeck(
+  value: number | string | null | undefined
+): string | null {
   if (value === "" || value === null || value === undefined) {
     return null;
   }
@@ -315,7 +334,9 @@ export function validateNeck(value: number | string | null | undefined): string 
 /**
  * Validate hip (40 to 220 cm, max 2 decimals).
  */
-export function validateHip(value: number | string | null | undefined): string | null {
+export function validateHip(
+  value: number | string | null | undefined
+): string | null {
   if (value === "" || value === null || value === undefined) {
     return null;
   }

@@ -79,7 +79,9 @@ export async function updateMembershipPlan(
 /**
  * Deactivate a membership plan (Owner/Manager).
  */
-export async function deactivateMembershipPlan(id: string): Promise<{ detail: string }> {
+export async function deactivateMembershipPlan(
+  id: string
+): Promise<{ detail: string }> {
   return apiFetch<{ detail: string }>(`/api/gym/plans/${id}/`, {
     method: "DELETE",
   });

@@ -539,7 +539,9 @@ export const LandingScreen: React.FC = () => {
                       }}
                       placeholder="e.g. bolehub"
                       aria-invalid={!!gymError}
-                      aria-describedby={gymError ? "gym-subdomain-error" : undefined}
+                      aria-describedby={
+                        gymError ? "gym-subdomain-error" : undefined
+                      }
                       className="block w-full min-w-0 flex-1 border-0 bg-transparent py-2.5 px-3 text-text placeholder-text-muted/60 text-sm focus:ring-0 focus:outline-none min-h-[44px]"
                       aria-label="Gym Subdomain"
                     />

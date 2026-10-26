@@ -76,7 +76,9 @@ export const PaymentGatewaySection: React.FC<PaymentGatewaySectionProps> = ({
       if (onUpdated) onUpdated();
     } catch (err: unknown) {
       setErrorMsg(
-        err instanceof Error ? err.message : "Failed to save payment credentials."
+        err instanceof Error
+          ? err.message
+          : "Failed to save payment credentials."
       );
     } finally {
       setSaving(false);
@@ -92,7 +94,8 @@ export const PaymentGatewaySection: React.FC<PaymentGatewaySectionProps> = ({
       const result = await testGymPaymentConfig();
       if (result.success) {
         setSuccessMsg(
-          result.message || "Chapa connection verified successfully! Online checkout is enabled."
+          result.message ||
+            "Chapa connection verified successfully! Online checkout is enabled."
         );
         fetchConfig();
         if (onUpdated) onUpdated();
@@ -115,7 +118,9 @@ export const PaymentGatewaySection: React.FC<PaymentGatewaySectionProps> = ({
       <Card className="p-6">
         <div className="flex items-center gap-3">
           <Spinner size="sm" />
-          <span className="text-xs text-text-muted">Loading payment configuration...</span>
+          <span className="text-xs text-text-muted">
+            Loading payment configuration...
+          </span>
         </div>
       </Card>
     );
@@ -139,8 +144,9 @@ export const PaymentGatewaySection: React.FC<PaymentGatewaySectionProps> = ({
             )}
           </h2>
           <p className="text-xs text-text-muted mt-1">
-            Configure your gym's Chapa merchant keys to enable online membership checkout.
-            Credentials are encrypted at rest with zero plaintext exposure.
+            Configure your gym's Chapa merchant keys to enable online membership
+            checkout. Credentials are encrypted at rest with zero plaintext
+            exposure.
           </p>
         </div>
 
@@ -176,13 +182,17 @@ export const PaymentGatewaySection: React.FC<PaymentGatewaySectionProps> = ({
             <div>
               <span className="text-text-muted">Secret Key:</span>{" "}
               <span className="text-text font-medium">
-                {config.has_secret_key ? "•••••••• (Encrypted at rest)" : "Not Set"}
+                {config.has_secret_key
+                  ? "•••••••• (Encrypted at rest)"
+                  : "Not Set"}
               </span>
             </div>
             <div>
               <span className="text-text-muted">Webhook Secret:</span>{" "}
               <span className="text-text font-medium">
-                {config.has_webhook_secret ? "•••••••• (Encrypted at rest)" : "Not Set"}
+                {config.has_webhook_secret
+                  ? "•••••••• (Encrypted at rest)"
+                  : "Not Set"}
               </span>
             </div>
           </div>
@@ -213,7 +223,8 @@ export const PaymentGatewaySection: React.FC<PaymentGatewaySectionProps> = ({
               className="font-mono text-xs"
             />
             <p className="text-[11px] text-text-muted mt-1">
-              Used on the client-side checkout and to determine test or live mode.
+              Used on the client-side checkout and to determine test or live
+              mode.
             </p>
           </div>
 
@@ -229,7 +240,8 @@ export const PaymentGatewaySection: React.FC<PaymentGatewaySectionProps> = ({
               className="font-mono text-xs"
             />
             <p className="text-[11px] text-text-muted mt-1">
-              Used for server-to-server transaction verification. Never returned in any API or logged.
+              Used for server-to-server transaction verification. Never returned
+              in any API or logged.
             </p>
           </div>
 
@@ -245,7 +257,8 @@ export const PaymentGatewaySection: React.FC<PaymentGatewaySectionProps> = ({
               className="font-mono text-xs"
             />
             <p className="text-[11px] text-text-muted mt-1">
-              Used to cryptographically verify HMAC-SHA256 signatures on incoming payment webhooks.
+              Used to cryptographically verify HMAC-SHA256 signatures on
+              incoming payment webhooks.
             </p>
           </div>
 
@@ -257,7 +270,10 @@ export const PaymentGatewaySection: React.FC<PaymentGatewaySectionProps> = ({
               onChange={(e) => setShowSecrets(e.target.checked)}
               className="rounded border-border text-primary focus:ring-primary"
             />
-            <label htmlFor="show-secrets" className="text-xs text-text-muted cursor-pointer">
+            <label
+              htmlFor="show-secrets"
+              className="text-xs text-text-muted cursor-pointer"
+            >
               Reveal secret keys in input fields while editing
             </label>
           </div>

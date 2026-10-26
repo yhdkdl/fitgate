@@ -7,7 +7,7 @@ import { Spinner } from "../ui/Spinner";
 import { MemberQrCard } from "../attendance/MemberQrCard";
 import { AttendanceLogCard } from "../attendance/AttendanceLogCard";
 import { MemberCheckoutCard } from "../member/MemberCheckoutCard";
-
+import { MemberPaymentHistoryCard } from "../member/MemberPaymentHistoryCard";
 
 export const MemberSelfSection: React.FC = () => {
   const [profile, setProfile] = useState<Member | null>(null);
@@ -100,7 +100,6 @@ export const MemberSelfSection: React.FC = () => {
         onPaymentInitiated={fetchProfile}
       />
 
-
       {/* Body Composition Summary / Estimates */}
       {hasMetrics ? (
         <div className="space-y-4">
@@ -110,7 +109,8 @@ export const MemberSelfSection: React.FC = () => {
                 Body Composition & Estimates
               </h3>
               <span className="text-xs text-text-muted">
-                * All calculated values (BMI and Body Fat %) are labeled estimates
+                * All calculated values (BMI and Body Fat %) are labeled
+                estimates
               </span>
             </div>
             {(latest?.trainer_name || latest?.recorded_by_name) && (
@@ -149,7 +149,9 @@ export const MemberSelfSection: React.FC = () => {
                   ? latest.estimated_bmi
                   : "—"}
               </span>
-              <span className="text-[10px] text-text-muted block">Estimate</span>
+              <span className="text-[10px] text-text-muted block">
+                Estimate
+              </span>
             </Card>
 
             <Card className="bg-surface border-border p-4 text-center space-y-1">
@@ -188,7 +190,10 @@ export const MemberSelfSection: React.FC = () => {
                   </thead>
                   <tbody className="divide-y divide-border/60">
                     {profile.body_metrics.map((m) => (
-                      <tr key={m.id || m.recorded_at} className="hover:bg-surface-2/40">
+                      <tr
+                        key={m.id || m.recorded_at}
+                        className="hover:bg-surface-2/40"
+                      >
                         <td className="py-2 px-3 text-text">
                           {m.recorded_at
                             ? new Date(m.recorded_at).toLocaleDateString()
@@ -229,6 +234,9 @@ export const MemberSelfSection: React.FC = () => {
           </p>
         </Card>
       )}
+
+      {/* Payment History & Receipts */}
+      <MemberPaymentHistoryCard />
     </div>
   );
 };

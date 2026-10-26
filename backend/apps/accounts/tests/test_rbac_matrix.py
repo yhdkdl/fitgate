@@ -836,13 +836,13 @@ class TestSpec2PermissionMatrixParametrizedTable:
         },
         {
             "row_name": "View payment history",
-            "spec_super_admin": "All gyms",
+            "spec_super_admin": "Denied (gym ledger is tenant-only)",
             "spec_owner": "Yes",
             "spec_manager": "Yes",
             "spec_trainer": "see SPEC §5",
             "spec_reception": "see SPEC §5",
             "spec_member": "see SPEC §5",
-            "super_admin": True,
+            "super_admin": False,
             "owner": True,
             "manager": True,
             "trainer": False,
@@ -1002,7 +1002,7 @@ class TestSpec2PermissionMatrixParametrizedTable:
         Rows not yet wired skip with an explicit reason.
         Wired rows (Sprint 5) assert directly against real HTTP endpoints.
         """
-        if wired_sprint not in (5, 6, "9a", 10, 11):
+        if wired_sprint not in (5, 6, "9a", 10, 11, 12):
             pytest.skip(
                 f"Row '{row_name}' has no real endpoint yet (scheduled for Sprint {wired_sprint} in docs/SPRINTS.md)"
             )
@@ -1235,6 +1235,62 @@ class TestSpec2PermissionMatrixParametrizedTable:
                 assert resp.status_code == 200
             else:
                 assert resp.status_code in (403, 404)
+        elif row_name == "Confirm a manual cash payment":
+            import secrets
+
+            from apps.memberships.models import Member, MembershipPlan
+
+            plan = MembershipPlan.objects.filter(gym=gym_tenant, is_active=True).first()
+            if not plan:
+                plan = MembershipPlan.objects.create(
+                    gym=gym_tenant,
+                    name="RBAC Matrix Cash Plan",
+                    duration_value=1,
+                    duration_unit="months",
+                    price_etb=1500,
+                )
+            member = Member.all_objects.filter(gym=gym_tenant).first()
+            if not member:
+                member_u = User.all_objects.create_user(
+                    email=f"matrix_cash_mem_{role}_{secrets.token_hex(4)}@bolehub.com",
+                    full_name="Cash Member",
+                    role=User.ROLE_MEMBER,
+                    gym=gym_tenant,
+                )
+                member = Member.all_objects.create(
+                    gym=gym_tenant,
+                    user=member_u,
+                    full_name="Cash Member",
+                    phone=f"+251911{secrets.randbelow(899999) + 100000}",
+                )
+            url = "/api/gym/payments/cash/"
+            host = (
+                "localhost"
+                if role == User.ROLE_SUPER_ADMIN
+                else f"{gym_tenant.subdomain}.localhost"
+            )
+            payload = {
+                "member_id": str(member.id),
+                "plan_id": str(plan.id),
+                "notes": f"Matrix test for role {role}",
+            }
+            resp = client.post(url, payload, format="json", HTTP_HOST=host)
+            if expected_allowed:
+                assert resp.status_code == 201
+            else:
+                assert resp.status_code in (403, 404)
+        elif row_name == "View payment history":
+            if role == User.ROLE_SUPER_ADMIN:
+                url = f"/api/gym/payments/?gym_id={gym_tenant.id}"
+                host = "localhost"
+            else:
+                url = "/api/gym/payments/"
+                host = f"{gym_tenant.subdomain}.localhost"
+            resp = client.get(url, HTTP_HOST=host)
+            if expected_allowed:
+                assert resp.status_code == 200
+            else:
+                assert resp.status_code in (403, 404)
 
     def test_chapa_webhook_endpoint_is_public_with_signature_check(self, gym_tenant):
         """Webhook endpoint is public at transport layer and rejects bad payload without JWT."""
@@ -1248,3 +1304,42 @@ class TestSpec2PermissionMatrixParametrizedTable:
         # Unauthenticated request is processed without JWT auth; missing/bad signature gives 401 signature error
         assert resp.status_code == 401
         assert resp.json()["detail"] == "Invalid webhook signature."
+
+    def test_member_self_service_payment_history_access(
+        self,
+        gym_tenant,
+        super_admin_user,
+        owner_user,
+        manager_user,
+        trainer_user,
+        reception_user,
+        member_user,
+    ):
+        """
+        Verify /api/payments/history/ is strictly for members only.
+        Owner, Manager, Trainer, Reception, Super Admin get 403.
+        """
+        url = "/api/payments/history/"
+        host = f"{gym_tenant.subdomain}.localhost"
+
+        # Member: allowed (200)
+        tokens = get_tokens_for_user(member_user)
+        client = APIClient()
+        client.credentials(HTTP_AUTHORIZATION=f"Bearer {tokens['access']}")
+        resp = client.get(url, HTTP_HOST=host)
+        assert resp.status_code == 200
+
+        # Non-member roles: denied (403)
+        for staff in [
+            super_admin_user,
+            owner_user,
+            manager_user,
+            trainer_user,
+            reception_user,
+        ]:
+            st_tokens = get_tokens_for_user(staff)
+            st_client = APIClient()
+            st_client.credentials(HTTP_AUTHORIZATION=f"Bearer {st_tokens['access']}")
+            st_host = "localhost" if staff.role == User.ROLE_SUPER_ADMIN else host
+            st_resp = st_client.get(url, HTTP_HOST=st_host)
+            assert st_resp.status_code in (403, 404)

@@ -161,7 +161,9 @@ describe("SetPasswordScreen", () => {
     );
 
     expect(
-      await screen.findByText(/currently being secured with an SSL certificate/i)
+      await screen.findByText(
+        /currently being secured with an SSL certificate/i
+      )
     ).toBeInTheDocument();
   });
 

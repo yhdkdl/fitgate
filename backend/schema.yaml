@@ -990,6 +990,54 @@ paths:
           description: Connection verified successfully
         '400':
           description: Connection verification failed
+  /api/gym/payments/:
+    get:
+      operationId: gym_payments_retrieve
+      description: Filter payments by date range, payment method, status, and member.
+        Returns confirmed revenue total.
+      summary: List gym payments & revenue summary (Owner, Manager)
+      tags:
+      - gym
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: Paginated payment list with confirmed revenue total
+  /api/gym/payments/cash/:
+    post:
+      operationId: gym_payments_cash_create
+      description: Records staff-confirmed cash payment, creates subscription, and
+        generates digital receipt in one transaction.
+      summary: Record manual cash payment (Owner, Manager, Reception)
+      tags:
+      - gym
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RecordCashPaymentRequestRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/RecordCashPaymentRequestRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/RecordCashPaymentRequestRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RecordCashPaymentResponse'
+          description: ''
+        '400':
+          description: Validation error or cross-gym entity
+        '403':
+          description: Unauthorized role or cross-gym staff
+        '404':
+          description: Member or plan not found
   /api/gym/plans/:
     get:
       operationId: gym_plans_list
@@ -1121,6 +1169,29 @@ paths:
       responses:
         '200':
           description: Plan deactivated
+  /api/gym/receipts/{receipt_id}/:
+    get:
+      operationId: gym_receipts_retrieve
+      description: Returns receipt details for staff or the member who owns the payment.
+      summary: Retrieve digital receipt details
+      parameters:
+      - in: path
+        name: receipt_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - gym
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Receipt'
+          description: ''
   /api/gym/settings/:
     get:
       operationId: gym_settings_retrieve
@@ -1607,6 +1678,25 @@ paths:
           description: Online payment disabled or invalid plan
         '502':
           description: Payment gateway initialization failed
+  /api/payments/history/:
+    get:
+      operationId: payments_history_list
+      description: Returns the logged-in member's complete payment history with dates,
+        amounts, and receipt references.
+      summary: View member personal payment history
+      tags:
+      - payments
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/MemberPaymentHistoryItem'
+          description: ''
   /api/platform/audit-logs/:
     get:
       operationId: platform_audit_logs_list
@@ -3294,6 +3384,49 @@ components:
       - phone
       - status
       - waiver_accepted_at
+    MemberPaymentHistoryItem:
+      type: object
+      description: Member self-service view of their own payment history.
+      properties:
+        id:
+          type: string
+          format: uuid
+        created_at:
+          type: string
+          format: date-time
+        plan_name:
+          type: string
+        method:
+          type: string
+        amount_etb:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,10}(?:\.\d{0,2})?$
+        currency:
+          type: string
+        status:
+          type: string
+        receipt_number:
+          type: string
+        subscription_start_date:
+          type: string
+          format: date
+          nullable: true
+        subscription_end_date:
+          type: string
+          format: date
+          nullable: true
+      required:
+      - amount_etb
+      - created_at
+      - currency
+      - id
+      - method
+      - plan_name
+      - receipt_number
+      - status
+      - subscription_end_date
+      - subscription_start_date
     MemberQrTokenErrorResponse:
       type: object
       properties:
@@ -3725,6 +3858,81 @@ components:
       - name
       - price_etb
       - trainer_inclusive
+    Receipt:
+      type: object
+      description: Read-only digital receipt representation.
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        receipt_number:
+          type: string
+          readOnly: true
+        sequence_number:
+          type: integer
+          readOnly: true
+        issued_at:
+          type: string
+          format: date-time
+          readOnly: true
+        issued_by_id:
+          type: string
+          format: uuid
+          nullable: true
+          readOnly: true
+        issued_by_name:
+          type: string
+          readOnly: true
+        amount_etb:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,10}(?:\.\d{0,2})?$
+          readOnly: true
+        currency:
+          type: string
+          readOnly: true
+        payment_method:
+          type: string
+          readOnly: true
+        member_name:
+          type: string
+          readOnly: true
+        member_phone:
+          type: string
+          readOnly: true
+        plan_name:
+          type: string
+          readOnly: true
+        plan_duration:
+          type: string
+          readOnly: true
+        notes:
+          type: string
+          readOnly: true
+        gym_name:
+          type: string
+          readOnly: true
+        gym_subdomain:
+          type: string
+          readOnly: true
+      required:
+      - amount_etb
+      - currency
+      - gym_name
+      - gym_subdomain
+      - id
+      - issued_at
+      - issued_by_id
+      - issued_by_name
+      - member_name
+      - member_phone
+      - notes
+      - payment_method
+      - plan_duration
+      - plan_name
+      - receipt_number
+      - sequence_number
     RecordBodyMetricsRequest:
       type: object
       description: |-
@@ -3761,6 +3969,50 @@ components:
       required:
       - height_cm
       - weight_kg
+    RecordCashPaymentRequestRequest:
+      type: object
+      description: Input serializer for gym staff recording a cash payment.
+      properties:
+        member_id:
+          type: string
+          format: uuid
+        plan_id:
+          type: string
+          format: uuid
+        notes:
+          type: string
+          default: ''
+          maxLength: 500
+        idempotency_key:
+          type: string
+          default: ''
+          maxLength: 64
+      required:
+      - member_id
+      - plan_id
+    RecordCashPaymentResponse:
+      type: object
+      description: Output serializer for cash payment confirmation.
+      properties:
+        payment_id:
+          type: string
+          format: uuid
+        receipt:
+          $ref: '#/components/schemas/Receipt'
+        status:
+          type: string
+        amount_etb:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,10}(?:\.\d{0,2})?$
+        detail:
+          type: string
+      required:
+      - amount_etb
+      - detail
+      - payment_id
+      - receipt
+      - status
     SetPasswordFromInviteRequestRequest:
       type: object
       description: Payload for setting initial password from an invite token.

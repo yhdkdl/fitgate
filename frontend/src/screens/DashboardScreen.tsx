@@ -13,6 +13,7 @@ import { GymBrandingSection } from "../components/owner/GymBrandingSection";
 import { StaffManagementSection } from "../components/owner/StaffManagementSection";
 import { MembershipPlansSection } from "../components/owner/MembershipPlansSection";
 import { PaymentGatewaySection } from "../components/owner/PaymentGatewaySection";
+import { GymPaymentsSection } from "../components/staff/GymPaymentsSection";
 
 import { MemberManagementSection } from "../components/dashboard/MemberManagementSection";
 import { MemberSelfSection } from "../components/dashboard/MemberSelfSection";
@@ -239,6 +240,7 @@ export const DashboardScreen: React.FC = () => {
                 onUpdated={() => setChecklistKey((k) => k + 1)}
               />
 
+              <GymPaymentsSection />
 
               <StaffManagementSection
                 onStaffUpdated={() => setChecklistKey((k) => k + 1)}
@@ -259,6 +261,7 @@ export const DashboardScreen: React.FC = () => {
           {user?.role === "manager" && (
             <div className="space-y-6">
               <MembershipPlansSection />
+              <GymPaymentsSection />
               <StaffManagementSection />
               <AttendanceScannerSection userRole={user?.role} />
               <MemberManagementSection userRole={user?.role} />

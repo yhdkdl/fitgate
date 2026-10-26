@@ -301,8 +301,12 @@ describe("Sprint 7: Member Registration & Body Metrics UI", () => {
       ).toBeInTheDocument();
 
       // Ensure no weight or height inputs exist on staff registration modal
-      expect(screen.queryByPlaceholderText(/weight \(kg\)/i)).not.toBeInTheDocument();
-      expect(screen.queryByPlaceholderText(/height \(cm\)/i)).not.toBeInTheDocument();
+      expect(
+        screen.queryByPlaceholderText(/weight \(kg\)/i)
+      ).not.toBeInTheDocument();
+      expect(
+        screen.queryByPlaceholderText(/height \(cm\)/i)
+      ).not.toBeInTheDocument();
 
       fireEvent.change(screen.getByPlaceholderText(/e\.g\. Kenenisa Bekele/i), {
         target: { value: "Derartu Tulu" },
@@ -395,9 +399,7 @@ describe("Sprint 7: Member Registration & Body Metrics UI", () => {
           name: /current body composition estimates/i,
         })
       ).not.toBeInTheDocument();
-      expect(
-        screen.queryByText(/not measured yet/i)
-      ).not.toBeInTheDocument();
+      expect(screen.queryByText(/not measured yet/i)).not.toBeInTheDocument();
     });
   });
 
@@ -415,7 +417,9 @@ describe("Sprint 7: Member Registration & Body Metrics UI", () => {
     ];
 
     it("allows trainer to search member, view status, and record new measurements", async () => {
-      vi.spyOn(membersApi, "listGymMembers").mockResolvedValue(mockTrainerMembers);
+      vi.spyOn(membersApi, "listGymMembers").mockResolvedValue(
+        mockTrainerMembers
+      );
       vi.spyOn(membersApi, "getMemberMetrics")
         .mockResolvedValueOnce([]) // Initially not measured
         .mockResolvedValueOnce([
@@ -454,7 +458,9 @@ describe("Sprint 7: Member Registration & Body Metrics UI", () => {
 
       // Shows not measured yet
       expect(
-        await screen.findByText("Not measured yet. A trainer records measurements.")
+        await screen.findByText(
+          "Not measured yet. A trainer records measurements."
+        )
       ).toBeInTheDocument();
 
       // Fill in measurements
@@ -472,7 +478,9 @@ describe("Sprint 7: Member Registration & Body Metrics UI", () => {
       });
 
       // Submit recording
-      fireEvent.click(screen.getByRole("button", { name: /record measurements/i }));
+      fireEvent.click(
+        screen.getByRole("button", { name: /record measurements/i })
+      );
 
       await waitFor(() => {
         expect(mockRecord).toHaveBeenCalledWith("mem-dawit", {
@@ -555,7 +563,9 @@ describe("Sprint 7: Member Registration & Body Metrics UI", () => {
       );
 
       expect(
-        await screen.findByText("Not measured yet. A trainer records measurements.")
+        await screen.findByText(
+          "Not measured yet. A trainer records measurements."
+        )
       ).toBeInTheDocument();
       expect(
         screen.queryByRole("button", { name: /record measurements/i })

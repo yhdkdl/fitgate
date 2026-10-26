@@ -326,7 +326,8 @@ export const TrainerMeasurementsSection: React.FC = () => {
                         {latest.recorded_at && (
                           <>
                             {" "}
-                            on {new Date(latest.recorded_at).toLocaleDateString()}
+                            on{" "}
+                            {new Date(latest.recorded_at).toLocaleDateString()}
                           </>
                         )}
                       </span>
@@ -402,15 +403,18 @@ export const TrainerMeasurementsSection: React.FC = () => {
                   </h4>
                   <p className="text-xs text-text-muted">
                     Enter physical measurements. Weight and height are required;
-                    circumferences are optional for US Navy body fat
-                    estimation.
+                    circumferences are optional for US Navy body fat estimation.
                   </p>
                 </div>
 
                 {formSuccess && <Alert variant="success">{formSuccess}</Alert>}
                 {formError && <Alert variant="error">{formError}</Alert>}
 
-                <form onSubmit={handleRecordSubmit} className="space-y-4" noValidate>
+                <form
+                  onSubmit={handleRecordSubmit}
+                  className="space-y-4"
+                  noValidate
+                >
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <FormField
                       label="Weight (kg)"

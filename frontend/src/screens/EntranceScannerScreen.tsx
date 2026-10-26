@@ -481,7 +481,11 @@ export const EntranceScannerScreen: React.FC = () => {
                 </button>
               </div>
 
-              <form onSubmit={handleManualSubmit} className="space-y-4" noValidate>
+              <form
+                onSubmit={handleManualSubmit}
+                className="space-y-4"
+                noValidate
+              >
                 <div className="space-y-1">
                   <label
                     htmlFor="entrance-manual-token"
@@ -497,14 +501,20 @@ export const EntranceScannerScreen: React.FC = () => {
                     onChange={(e) => setManualCode(e.target.value)}
                     placeholder="Paste member token..."
                     aria-invalid={!!manualError}
-                    aria-describedby={manualError ? "entrance-manual-error" : undefined}
+                    aria-describedby={
+                      manualError ? "entrance-manual-error" : undefined
+                    }
                     className="font-mono text-xs min-h-[44px] bg-slate-950 border-slate-700 text-white"
                     autoFocus
                   />
                 </div>
 
                 {manualError && (
-                  <p id="entrance-manual-error" className="text-xs text-rose-400 font-medium flex items-center gap-1.5" role="alert">
+                  <p
+                    id="entrance-manual-error"
+                    className="text-xs text-rose-400 font-medium flex items-center gap-1.5"
+                    role="alert"
+                  >
                     <AlertCircle className="w-3.5 h-3.5 shrink-0" />
                     <span>{manualError}</span>
                   </p>

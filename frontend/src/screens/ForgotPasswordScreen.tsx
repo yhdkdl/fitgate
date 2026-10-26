@@ -40,7 +40,6 @@ export const ForgotPasswordScreen: React.FC = () => {
     }
   };
 
-
   return (
     <div className="min-h-screen bg-bg flex flex-col justify-center items-center p-4">
       <div className="w-full max-w-[400px]">
@@ -106,7 +105,6 @@ export const ForgotPasswordScreen: React.FC = () => {
               >
                 Send Reset Link
               </Button>
-
 
               <div className="text-center pt-2">
                 <Link
