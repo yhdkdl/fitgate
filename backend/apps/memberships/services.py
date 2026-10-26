@@ -59,12 +59,19 @@ def validate_registration_payload(
         normalized_email = ""
     else:
         try:
-            normalized_email = validate_email_address(raw_email)
+            normalized_email = validate_email_address(
+                raw_email,
+                is_public_registration=is_self_service,
+                is_lenient=(not is_self_service),
+            )
             if User.all_objects.filter(email=normalized_email).exists():
                 errors["email"] = ["A user with this email address already exists."]
         except ValidationError as e:
-            errors["email"] = list(e.messages)
+            if is_self_service:
+                errors["email"] = list(e.messages)
             normalized_email = raw_email.strip().lower()
+            if User.all_objects.filter(email=normalized_email).exists():
+                errors["email"] = ["A user with this email address already exists."]
 
     raw_phone = data.get("phone")
     if not raw_phone:

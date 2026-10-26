@@ -104,6 +104,29 @@ The feasibility spike on the real Yegara cPanel host passed all checks:
       ```
     - **Status:** To be verified at staging.
 
+12. **Sprint 9b — Brevo Webhook Configuration & Email Safety Settings**
+    - **What to do:** In the Brevo dashboard (or via Brevo API `POST /webhooks`), create a transactional webhook for bounce, suppression, and complaint events.
+      - **Webhook URL:** `https://fitgate.tebebtech.com/api/webhooks/brevo/` (apex only).
+      - **Event types:** `hardBounce`, `blocked`, `spam`, `invalid` (transactional events).
+      - **Headers / Authentication:** Custom header `X-Webhook-Secret: <BREVO_WEBHOOK_SECRET>` (or query parameter `?secret=<BREVO_WEBHOOK_SECRET>`).
+      - **Click tracking stays off:** Under **Transactional &rarr; Settings &rarr; Configuration**, verify that click tracking is disabled so activation tokens and reset links point directly to FitGate without redirect rewrites.
+    - **Brevo Official Documentation Pages Consulted:**
+      - Overview & Webhook Configuration: `https://developers.brevo.com/docs/webhooks`
+      - Webhooks API Reference: `https://developers.brevo.com/reference/createwebhook`
+      - Transactional Webhook Events & Payload Formats: `https://developers.brevo.com/docs/transactional-webhooks`
+    - **What to paste where:** In `/home/<user>/fitgate_env/.env`:
+      - `EMAIL_STRICT_MODE=True` (required in production; no default in production).
+      - `BREVO_WEBHOOK_SECRET=<generated_secret>` (required in production; constant-time validated).
+      - Optional: `EMAIL_ALLOWED_RECIPIENTS=` (comma-separated list of allowed recipient addresses/domains on staging).
+      - Optional: `EMAIL_HOURLY_CAP_PER_GYM=100` and `EMAIL_HOURLY_CAP_PLATFORM=500`.
+    - **Throw-away domain list updates:** The bundled disposable domain list lives in `backend/apps/accounts/disposable_domains.py`. To add new domains, append them to `DISPOSABLE_EMAIL_DOMAINS` in that file and run the test suite.
+    - **Unverified Accounts Cleanup Cron Job:**
+      - Daily cPanel Cron Job running at 03:00 UTC to mark unverified public registrations older than 7 days as expired:
+      ```bash
+      0 3 * * * /home/<user>/virtualenv/fitgate_backend/3.11/bin/python /home/<user>/fitgate/backend/manage.py cleanup_unverified_members >> /home/<user>/fitgate_logs/cron_cleanup_unverified.log 2>&1
+      ```
+    - **Status:** To be verified at staging.
+
 ---
 
 ## Email & Domain Configuration (Brevo + cPanel)

@@ -253,7 +253,22 @@ Trainer specialization and photo are delivered in the Trainer and storage sprint
 
 - [x] Status: done — merged to develop (tag sprint-9a-done)
 
-9b. **Email safety (Brevo bounce protection)**: MUST be built before Sprint 14, which sends the first automatic emails. Details to be provided by the owner.
+9b. **Email safety (Brevo bounce protection & delivery safeguard)** (Non-gate)
+
+1. Local development never sends real mail (console only); fake addresses keep working.
+2. In staging and production ("strict mode", an explicit EMAIL_STRICT_MODE setting, no default in production) the system never sends to reserved test domains (example.com/.org/.net, .test, .invalid, .localhost, .local); forms refuse them with "Use a real email address"; sends are skipped and logged.
+3. In strict mode the domain must exist and accept mail (DNS lookup, short timeout); a definite "no such domain / no mail server" is refused; if the lookup itself fails, accept and log (never block people because of our DNS).
+4. Throw-away email domains are refused for public self-registration (one bundled list; documented how to update it).
+5. Brevo webhook (hard bounce, blocked, invalid, spam complaint): read Brevo's official documentation for event names and authentication; do not guess; list in docs/MANUAL_STEPS.md which pages you used. The address goes on our suppression list and is never emailed again; the person who typed it sees "Email not delivered" with "Fix the address and resend". Public endpoint on the apex that accepts only requests carrying the secret (BREVO_WEBHOOK_SECRET, required in production, no default, constant-time compare); a wrong or missing secret returns the same response as an unknown event.
+6. The Super Admin types an owner's email twice; staff invitations and front-desk registration show the address back before sending.
+7. Invitations show a status (sent, not delivered, activated); resend limited to 3 per address per day.
+8. Owners, Super Admin and invited staff: strict. Front-desk members: lenient: registration is never blocked by an email problem; the member exists and manual check-in works; the invitation shows "not delivered" until fixed.
+9. Public self-registration: per-IP and per-gym rate limits, only the single verification email until verified, unverified accounts older than 7 days marked expired (management command cleanup_unverified_members plus cron line in MANUAL_STEPS).
+10. Safety caps: a configurable maximum of emails per hour per gym and per platform; beyond it mails are skipped and the user sees "email limit reached".
+11. Optional staging allow-list EMAIL_ALLOWED_RECIPIENTS (addresses or domains): only those get real mail.
+12. "Email not delivered" is visible only to staff of the same gym (Super Admin for owners).
+
+- [ ] Status: in progress — branch feature/sprint-9b-email-safety
 
 - [x] All sprints in this increment complete
 

@@ -293,3 +293,50 @@ class AuditLog(PlatformTenantAwareModel):
     def __str__(self):
         actor_email = self.actor.email if self.actor else "System"
         return f"AuditLog({self.action_type} on {self.affected_record_type}:{self.affected_record_id} by {actor_email})"
+
+
+class EmailDeliveryStatus(PlatformTenantAwareModel):
+    """
+    Unified table for email delivery status, bounce suppression, and rate caps.
+    Platform-level when gym is None (e.g. Super Admin / Owner invites).
+    Tenant-scoped when gym is set.
+    """
+
+    STATUS_SENT = "sent"
+    STATUS_NOT_DELIVERED = "not_delivered"
+    STATUS_SUPPRESSED = "suppressed"
+
+    STATUS_CHOICES = [
+        (STATUS_SENT, "Sent"),
+        (STATUS_NOT_DELIVERED, "Not Delivered"),
+        (STATUS_SUPPRESSED, "Suppressed"),
+    ]
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    email = models.EmailField(db_index=True)
+    status = models.CharField(
+        max_length=30, choices=STATUS_CHOICES, default=STATUS_SENT
+    )
+    reason = models.CharField(max_length=100, blank=True, default="")
+    event_payload = models.JSONField(default=dict, blank=True)
+    resend_count_today = models.PositiveIntegerField(default=0)
+    last_resend_date = models.DateField(null=True, blank=True)
+    last_sent_at = models.DateTimeField(auto_now=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "Email Delivery Status"
+        verbose_name_plural = "Email Delivery Statuses"
+        indexes = [
+            models.Index(fields=["email"]),
+            models.Index(fields=["gym", "status"]),
+        ]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["email"],
+                name="unique_email_delivery_status",
+            )
+        ]
+
+    def __str__(self):
+        return f"{self.email} ({self.status}: {self.reason})"
