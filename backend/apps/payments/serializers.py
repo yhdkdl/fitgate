@@ -110,6 +110,11 @@ class ReceiptSerializer(serializers.ModelSerializer):
     issued_by_name = serializers.SerializerMethodField()
     gym_name = serializers.CharField(source="gym.name", read_only=True)
     gym_subdomain = serializers.CharField(source="gym.subdomain", read_only=True)
+    bank_reference = serializers.CharField(read_only=True, allow_null=True)
+    transfer_channel = serializers.CharField(read_only=True, allow_null=True)
+    is_reversed = serializers.BooleanField(read_only=True)
+    reversed_at = serializers.SerializerMethodField()
+    reversal_reason = serializers.SerializerMethodField()
 
     class Meta:
         from apps.payments.models import Receipt
@@ -125,6 +130,11 @@ class ReceiptSerializer(serializers.ModelSerializer):
             "amount_etb",
             "currency",
             "payment_method",
+            "bank_reference",
+            "transfer_channel",
+            "is_reversed",
+            "reversed_at",
+            "reversal_reason",
             "member_name",
             "member_phone",
             "plan_name",
@@ -141,6 +151,26 @@ class ReceiptSerializer(serializers.ModelSerializer):
                 obj.issued_by.full_name or obj.issued_by.email or str(obj.issued_by.id)
             )
         return "System"
+
+    def get_reversed_at(self, obj):
+        if (
+            hasattr(obj, "payment")
+            and obj.payment
+            and hasattr(obj.payment, "reversal")
+            and obj.payment.reversal
+        ):
+            return obj.payment.reversal.reversed_at
+        return None
+
+    def get_reversal_reason(self, obj):
+        if (
+            hasattr(obj, "payment")
+            and obj.payment
+            and hasattr(obj.payment, "reversal")
+            and obj.payment.reversal
+        ):
+            return obj.payment.reversal.reason
+        return None
 
 
 class PaymentListItemSerializer(serializers.Serializer):
@@ -161,6 +191,13 @@ class PaymentListItemSerializer(serializers.Serializer):
     confirmed_by_name = serializers.CharField(allow_blank=True)
     receipt_number = serializers.CharField(allow_blank=True)
     notes = serializers.CharField(allow_blank=True)
+    bank_reference = serializers.CharField(allow_blank=True, default="")
+    transfer_date = serializers.DateField(allow_null=True, required=False)
+    channel = serializers.CharField(allow_blank=True, default="")
+    is_reconciled = serializers.BooleanField(default=False)
+    reconciled_at = serializers.DateTimeField(allow_null=True, required=False)
+    is_reversed = serializers.BooleanField(default=False)
+    reversed_at = serializers.DateTimeField(allow_null=True, required=False)
 
 
 class MemberPaymentHistoryItemSerializer(serializers.Serializer):
@@ -174,6 +211,9 @@ class MemberPaymentHistoryItemSerializer(serializers.Serializer):
     currency = serializers.CharField()
     status = serializers.CharField()
     receipt_number = serializers.CharField(allow_blank=True)
+    bank_reference = serializers.CharField(allow_blank=True, default="")
+    is_reversed = serializers.BooleanField(default=False)
+    reversed_at = serializers.DateTimeField(allow_null=True, required=False)
     subscription_start_date = serializers.DateField(allow_null=True)
     subscription_end_date = serializers.DateField(allow_null=True)
 
@@ -186,3 +226,64 @@ class RecordCashPaymentResponseSerializer(serializers.Serializer):
     status = serializers.CharField()
     amount_etb = serializers.DecimalField(max_digits=12, decimal_places=2)
     detail = serializers.CharField()
+
+
+class RecordBankTransferPaymentRequestSerializer(serializers.Serializer):
+    """Input serializer to record a bank-transfer payment."""
+
+    member_id = serializers.UUIDField(required=True)
+    plan_id = serializers.UUIDField(required=True)
+    bank_reference = serializers.CharField(required=True, min_length=3, max_length=100)
+    transfer_date = serializers.DateField(required=True)
+    channel = serializers.CharField(
+        required=False, allow_blank=True, default="", max_length=50
+    )
+    notes = serializers.CharField(
+        required=False, allow_blank=True, default="", max_length=1000
+    )
+    idempotency_key = serializers.CharField(
+        required=False, allow_blank=True, default="", max_length=64
+    )
+
+
+class RecordBankTransferResponseSerializer(serializers.Serializer):
+    """Output serializer for bank-transfer payment confirmation."""
+
+    payment_id = serializers.UUIDField()
+    receipt = ReceiptSerializer()
+    status = serializers.CharField()
+    amount_etb = serializers.DecimalField(max_digits=12, decimal_places=2)
+    bank_reference = serializers.CharField()
+    is_reconciled = serializers.BooleanField()
+    detail = serializers.CharField()
+
+
+class UnreconciledBankTransferItemSerializer(serializers.Serializer):
+    """Owner view of an unreconciled bank transfer."""
+
+    id = serializers.UUIDField()
+    transfer_date = serializers.DateField(allow_null=True)
+    created_at = serializers.DateTimeField()
+    bank_reference = serializers.CharField()
+    channel = serializers.CharField(allow_blank=True)
+    amount_etb = serializers.DecimalField(max_digits=12, decimal_places=2)
+    member_id = serializers.UUIDField(allow_null=True)
+    member_name = serializers.CharField()
+    member_phone = serializers.CharField(allow_blank=True)
+    confirmed_by_id = serializers.UUIDField(allow_null=True)
+    confirmed_by_name = serializers.CharField()
+    receipt_number = serializers.CharField()
+
+
+class ReconcileBankTransfersSerializer(serializers.Serializer):
+    """Owner bulk or single reconciliation request."""
+
+    payment_ids = serializers.ListField(
+        child=serializers.UUIDField(), allow_empty=False
+    )
+
+
+class ReverseBankTransferSerializer(serializers.Serializer):
+    """Owner reversal request with mandatory reason."""
+
+    reason = serializers.CharField(min_length=5, max_length=500)

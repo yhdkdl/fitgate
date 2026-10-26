@@ -962,6 +962,70 @@ class TestSpec2PermissionMatrixParametrizedTable:
             "member": False,
             "wired_in_sprint": 11,
         },
+        {
+            "row_name": "Record member bank transfer payment",
+            "spec_super_admin": "—",
+            "spec_owner": "Yes",
+            "spec_manager": "Yes",
+            "spec_trainer": "No",
+            "spec_reception": "Yes",
+            "spec_member": "No",
+            "super_admin": False,
+            "owner": True,
+            "manager": True,
+            "trainer": False,
+            "reception": True,
+            "member": False,
+            "wired_in_sprint": 12,
+        },
+        {
+            "row_name": "View unreconciled bank transfers",
+            "spec_super_admin": "—",
+            "spec_owner": "Yes",
+            "spec_manager": "No",
+            "spec_trainer": "No",
+            "spec_reception": "No",
+            "spec_member": "No",
+            "super_admin": False,
+            "owner": True,
+            "manager": False,
+            "trainer": False,
+            "reception": False,
+            "member": False,
+            "wired_in_sprint": 12,
+        },
+        {
+            "row_name": "Reconcile bank transfers",
+            "spec_super_admin": "—",
+            "spec_owner": "Yes",
+            "spec_manager": "No",
+            "spec_trainer": "No",
+            "spec_reception": "No",
+            "spec_member": "No",
+            "super_admin": False,
+            "owner": True,
+            "manager": False,
+            "trainer": False,
+            "reception": False,
+            "member": False,
+            "wired_in_sprint": 12,
+        },
+        {
+            "row_name": "Reverse bank transfer",
+            "spec_super_admin": "—",
+            "spec_owner": "Yes",
+            "spec_manager": "No",
+            "spec_trainer": "No",
+            "spec_reception": "No",
+            "spec_member": "No",
+            "super_admin": False,
+            "owner": True,
+            "manager": False,
+            "trainer": False,
+            "reception": False,
+            "member": False,
+            "wired_in_sprint": 12,
+        },
     ]
 
     MATRIX_TEST_CASES = []
@@ -1291,6 +1355,97 @@ class TestSpec2PermissionMatrixParametrizedTable:
                 assert resp.status_code == 200
             else:
                 assert resp.status_code in (403, 404)
+        elif row_name == "Record member bank transfer payment":
+            import secrets
+
+            from django.utils import timezone
+
+            from apps.memberships.models import Member, MembershipPlan
+
+            plan = MembershipPlan.objects.filter(gym=gym_tenant, is_active=True).first()
+            if not plan:
+                plan = MembershipPlan.objects.create(
+                    gym=gym_tenant,
+                    name="RBAC Matrix Bank Plan",
+                    duration_value=1,
+                    duration_unit="months",
+                    price_etb=1500,
+                )
+            member = Member.all_objects.filter(gym=gym_tenant).first()
+            if not member:
+                member_u = User.all_objects.create_user(
+                    email=f"matrix_bank_mem_{role}_{secrets.token_hex(4)}@bolehub.com",
+                    full_name="Bank Member",
+                    role=User.ROLE_MEMBER,
+                    gym=gym_tenant,
+                )
+                member = Member.all_objects.create(
+                    gym=gym_tenant,
+                    user=member_u,
+                    full_name="Bank Member",
+                    phone=f"+251911{secrets.randbelow(899999) + 100000}",
+                )
+            url = "/api/gym/payments/bank-transfer/"
+            host = (
+                "localhost"
+                if role == User.ROLE_SUPER_ADMIN
+                else f"{gym_tenant.subdomain}.localhost"
+            )
+            payload = {
+                "member_id": str(member.id),
+                "plan_id": str(plan.id),
+                "bank_reference": f"TX-MAT-{role}-{secrets.token_hex(4)}",
+                "transfer_date": str(timezone.localdate()),
+                "channel": "CBE",
+                "notes": f"Matrix bank test for role {role}",
+            }
+            resp = client.post(url, payload, format="json", HTTP_HOST=host)
+            if expected_allowed:
+                assert resp.status_code == 201
+            else:
+                assert resp.status_code in (401, 403, 404)
+        elif row_name == "View unreconciled bank transfers":
+            url = "/api/gym/payments/bank-transfers/unreconciled/"
+            host = (
+                "localhost"
+                if role == User.ROLE_SUPER_ADMIN
+                else f"{gym_tenant.subdomain}.localhost"
+            )
+            resp = client.get(url, HTTP_HOST=host)
+            if expected_allowed:
+                assert resp.status_code == 200
+            else:
+                assert resp.status_code in (401, 403, 404)
+        elif row_name == "Reconcile bank transfers":
+            import uuid
+
+            url = "/api/gym/payments/bank-transfers/reconcile/"
+            host = (
+                "localhost"
+                if role == User.ROLE_SUPER_ADMIN
+                else f"{gym_tenant.subdomain}.localhost"
+            )
+            payload = {"payment_ids": [str(uuid.uuid4())]}
+            resp = client.post(url, payload, format="json", HTTP_HOST=host)
+            if expected_allowed:
+                assert resp.status_code == 200
+            else:
+                assert resp.status_code in (401, 403, 404)
+        elif row_name == "Reverse bank transfer":
+            import uuid
+
+            url = f"/api/gym/payments/{uuid.uuid4()}/reverse/"
+            host = (
+                "localhost"
+                if role == User.ROLE_SUPER_ADMIN
+                else f"{gym_tenant.subdomain}.localhost"
+            )
+            payload = {"reason": "Owner matrix test reversal reason"}
+            resp = client.post(url, payload, format="json", HTTP_HOST=host)
+            if expected_allowed:
+                assert resp.status_code in (200, 400)
+            else:
+                assert resp.status_code in (401, 403, 404)
 
     def test_chapa_webhook_endpoint_is_public_with_signature_check(self, gym_tenant):
         """Webhook endpoint is public at transport layer and rejects bad payload without JWT."""

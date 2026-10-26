@@ -63,6 +63,9 @@ export interface DigitalReceipt {
   notes: string;
   gym_name: string;
   gym_subdomain: string;
+  is_reversed?: boolean;
+  bank_reference?: string;
+  transfer_channel?: string;
 }
 
 export interface RecordCashPaymentResponse {
@@ -90,6 +93,15 @@ export interface PaymentListItem {
   confirmed_by_name: string;
   receipt_number: string;
   notes: string;
+  bank_reference?: string;
+  channel?: string;
+  transfer_date?: string | null;
+  is_reconciled?: boolean;
+  reconciled_at?: string | null;
+  reconciled_by_name?: string;
+  is_reversed?: boolean;
+  reversed_at?: string | null;
+  reversal_reason?: string;
 }
 
 export interface GymPaymentListResponse {
@@ -109,6 +121,24 @@ export interface MemberPaymentHistoryItem {
   receipt_number: string;
   subscription_start_date: string | null;
   subscription_end_date: string | null;
+  bank_reference?: string;
+  channel?: string;
+  is_reversed?: boolean;
+}
+
+export interface UnreconciledBankTransferItem {
+  id: string;
+  transfer_date: string;
+  created_at: string;
+  bank_reference: string;
+  channel: string;
+  amount_etb: string;
+  member_id: string | null;
+  member_name: string;
+  member_phone: string;
+  confirmed_by_id: string | null;
+  confirmed_by_name: string;
+  receipt_number: string;
 }
 
 export async function recordCashPayment(data: {
@@ -118,6 +148,31 @@ export async function recordCashPayment(data: {
   idempotency_key?: string;
 }): Promise<RecordCashPaymentResponse> {
   return apiFetch<RecordCashPaymentResponse>("/api/gym/payments/cash/", {
+    method: "POST",
+    body: JSON.stringify(data),
+    headers: { "Content-Type": "application/json" },
+  });
+}
+
+export async function recordBankTransferPayment(data: {
+  member_id: string;
+  plan_id: string;
+  bank_reference: string;
+  transfer_date: string;
+  channel?: string;
+  notes?: string;
+  idempotency_key?: string;
+}): Promise<{
+  detail: string;
+  payment_id: string;
+  amount_etb: string;
+  status: string;
+  bank_reference: string;
+  is_reconciled: boolean;
+  receipt: DigitalReceipt;
+  subscription_id: string | null;
+}> {
+  return apiFetch("/api/gym/payments/bank-transfer/", {
     method: "POST",
     body: JSON.stringify(data),
     headers: { "Content-Type": "application/json" },
@@ -155,4 +210,47 @@ export async function getReceiptDetail(
   receiptId: string
 ): Promise<DigitalReceipt> {
   return apiFetch<DigitalReceipt>(`/api/gym/receipts/${receiptId}/`);
+}
+
+export async function getUnreconciledBankTransfers(): Promise<{
+  count: number;
+  results: UnreconciledBankTransferItem[];
+}> {
+  return apiFetch<{
+    count: number;
+    results: UnreconciledBankTransferItem[];
+  }>("/api/gym/payments/bank-transfers/unreconciled/");
+}
+
+export async function reconcileBankTransfers(
+  payment_ids: string[]
+): Promise<{ detail: string; cleared_count: number }> {
+  return apiFetch<{ detail: string; cleared_count: number }>(
+    "/api/gym/payments/bank-transfers/reconcile/",
+    {
+      method: "POST",
+      body: JSON.stringify({ payment_ids }),
+      headers: { "Content-Type": "application/json" },
+    }
+  );
+}
+
+export async function reverseBankTransfer(
+  paymentId: string,
+  reason: string
+): Promise<{
+  detail: string;
+  payment_id: string;
+  status: string;
+  reversal_id: string;
+  reversed_at: string;
+}> {
+  return apiFetch(
+    `/api/gym/payments/${paymentId}/reverse/`,
+    {
+      method: "POST",
+      body: JSON.stringify({ reason }),
+      headers: { "Content-Type": "application/json" },
+    }
+  );
 }

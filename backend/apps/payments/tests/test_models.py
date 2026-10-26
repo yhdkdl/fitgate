@@ -57,18 +57,19 @@ class TestPaymentModel:
             )
         assert "method" in exc.value.message_dict
 
-    def test_member_payment_rejects_bank_transfer(self, setup_data):
+    def test_member_payment_allows_bank_transfer_with_required_fields(self, setup_data):
         gym = setup_data["gym"]
 
-        with pytest.raises(ValidationError) as exc:
-            Payment.objects.create(
-                gym=gym,
-                payer_type=Payment.PAYER_TYPE_MEMBER,
-                method=Payment.METHOD_BANK_TRANSFER,
-                amount_etb=Decimal("1500.00"),
-                status=Payment.STATUS_PENDING,
-            )
-        assert "method" in exc.value.message_dict
+        payment = Payment.objects.create(
+            gym=gym,
+            payer_type=Payment.PAYER_TYPE_MEMBER,
+            method=Payment.METHOD_BANK_TRANSFER,
+            amount_etb=Decimal("1500.00"),
+            status=Payment.STATUS_PENDING,
+            bank_reference="TX-12345",
+            transfer_date=timezone.now().date(),
+        )
+        assert payment.method == Payment.METHOD_BANK_TRANSFER
 
     def test_confirmed_cash_and_bank_transfer_requires_confirmed_by(self, setup_data):
         gym = setup_data["gym"]

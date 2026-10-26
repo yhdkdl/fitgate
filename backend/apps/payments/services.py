@@ -6,7 +6,7 @@ import json
 import logging
 from datetime import timedelta
 from decimal import Decimal
-from typing import Optional, Tuple
+from typing import Any, Dict, Optional, Tuple
 
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.db import transaction
@@ -16,9 +16,12 @@ from apps.accounts.models import User
 from apps.accounts.notifications import create_notification
 from apps.accounts.services import record_audit_log
 from apps.memberships.models import Member, MembershipPlan, MemberSubscription
-from apps.memberships.services import create_or_renew_subscription
+from apps.memberships.services import (
+    create_or_renew_subscription,
+    update_member_status,
+)
 from apps.payments.chapa_client import ChapaAPIError, ChapaClient
-from apps.payments.models import GymPaymentConfig, Payment, Receipt
+from apps.payments.models import GymPaymentConfig, Payment, PaymentReversal, Receipt
 from apps.tenants.models import GymTenant
 
 logger = logging.getLogger(__name__)
@@ -653,3 +656,582 @@ def record_cash_payment(
             )
 
         return payment, receipt, subscription
+
+
+def record_bank_transfer_payment(
+    gym: GymTenant,
+    member: Member,
+    plan: MembershipPlan,
+    recorded_by: User,
+    bank_reference: str,
+    transfer_date: Any,
+    channel: str = "",
+    notes: str = "",
+    idempotency_key: Optional[str] = None,
+) -> Tuple[Payment, Receipt, MemberSubscription]:
+    """
+    Record and confirm a bank-transfer payment for a gym member.
+    Enforces money and tenancy rules:
+    1. Only Gym Owner, Manager, or Reception of that gym can record.
+    2. Member and plan must belong to the same gym.
+    3. Bank reference (3 to 100 chars) is unique per gym FOREVER (case-insensitive).
+    4. Transfer date cannot be in the future.
+    5. Amount is strictly locked to plan.price_etb at confirmation.
+    6. Double submit with the same idempotency key returns the original receipt.
+    7. Owner recording is auto-reconciled with an audit log; staff starts unreconciled.
+    8. Preserves previous subscription state for exact reversal restoration.
+    9. Activates subscription immediately via single shared create_or_renew_subscription.
+    10. Creates confirmed Payment and sequential immutable Receipt.
+    11. Writes permanent audit log entries and notifies member.
+    """
+    if recorded_by.role not in (
+        User.ROLE_OWNER,
+        User.ROLE_MANAGER,
+        User.ROLE_RECEPTION,
+    ):
+        raise PermissionDenied(
+            "Only gym owner, manager, or reception can record bank-transfer payments."
+        )
+
+    if recorded_by.gym_id != gym.id:
+        raise PermissionDenied("Staff does not belong to this gym.")
+
+    if member.gym_id != gym.id:
+        raise ValidationError("Member does not belong to this gym.")
+
+    if plan.gym_id != gym.id:
+        raise ValidationError("Plan does not belong to this gym.")
+
+    if not plan.is_active:
+        raise ValidationError("Cannot record payment for a deactivated plan.")
+
+    if not bank_reference:
+        raise ValidationError({"bank_reference": ["Bank reference is required."]})
+
+    cleaned_ref = str(bank_reference).strip()
+    if len(cleaned_ref) < 3 or len(cleaned_ref) > 100:
+        raise ValidationError(
+            {"bank_reference": ["Bank reference must be between 3 and 100 characters."]}
+        )
+    norm_ref = cleaned_ref.lower()
+
+    if isinstance(transfer_date, str):
+        from datetime import date
+
+        try:
+            transfer_date = date.fromisoformat(transfer_date)
+        except Exception:
+            raise ValidationError({"transfer_date": ["Invalid transfer date format."]})
+
+    if not transfer_date:
+        raise ValidationError({"transfer_date": ["Transfer date is required."]})
+
+    if transfer_date > timezone.localdate():
+        raise ValidationError(
+            {"transfer_date": ["Transfer date cannot be in the future."]}
+        )
+
+    # Idempotency key pre-check
+    if idempotency_key:
+        existing = (
+            Payment.all_objects.select_related("receipt", "subscription")
+            .filter(gym=gym, idempotency_key=idempotency_key)
+            .first()
+        )
+        if existing and existing.status == Payment.STATUS_CONFIRMED:
+            if existing.member_id != member.id or existing.plan_id != plan.id:
+                raise ValidationError(
+                    "Idempotency key has already been used for a different member or plan."
+                )
+            logger.info(
+                "Idempotent bank transfer payment detected with key '%s'. Returning existing record.",
+                idempotency_key,
+            )
+            return (
+                existing,
+                getattr(existing, "receipt", None),
+                existing.subscription,
+            )
+
+    # Database-level unique constraint pre-check with plain message
+    if Payment.all_objects.filter(gym=gym, bank_reference_normalized=norm_ref).exists():
+        raise ValidationError("This bank transaction reference has already been used.")
+
+    with transaction.atomic():
+        # 1. Lock gym tenant row for receipt sequence and uniqueness concurrency
+        GymTenant.objects.select_for_update().get(id=gym.id)
+
+        # 2. Lock member row for subscription concurrency
+        locked_member = Member.all_objects.select_for_update().get(id=member.id)
+
+        # 3. Double-check idempotency key and reference under lock
+        if idempotency_key:
+            existing = (
+                Payment.all_objects.select_related("receipt", "subscription")
+                .filter(gym=gym, idempotency_key=idempotency_key)
+                .first()
+            )
+            if existing and existing.status == Payment.STATUS_CONFIRMED:
+                if existing.member_id != member.id or existing.plan_id != plan.id:
+                    raise ValidationError(
+                        "Idempotency key has already been used for a different member or plan."
+                    )
+                return (
+                    existing,
+                    getattr(existing, "receipt", None),
+                    existing.subscription,
+                )
+
+        if Payment.all_objects.filter(
+            gym=gym, bank_reference_normalized=norm_ref
+        ).exists():
+            raise ValidationError(
+                "This bank transaction reference has already been used."
+            )
+
+        # 4. Capture previous subscription state before activation
+        last_sub = (
+            MemberSubscription.all_objects.filter(gym=gym, member=locked_member)
+            .order_by("-end_date", "-created_at")
+            .first()
+        )
+        if last_sub is None:
+            prev_sub_state = {
+                "was_first_purchase": True,
+                "previous_member_status": locked_member.status,
+            }
+        else:
+            prev_sub_state = {
+                "was_first_purchase": False,
+                "previous_subscription_id": str(last_sub.id),
+                "previous_start_date": last_sub.start_date.isoformat(),
+                "previous_end_date": last_sub.end_date.isoformat(),
+                "previous_status": last_sub.status,
+                "previous_member_status": locked_member.status,
+            }
+
+        # 5. Activate subscription immediately via shared service
+        subscription = create_or_renew_subscription(
+            member=locked_member,
+            plan=plan,
+            actor=recorded_by,
+        )
+
+        # 6. Auto-reconcile if recorded by Owner
+        is_owner = recorded_by.role == User.ROLE_OWNER
+        is_reconciled = is_owner
+        reconciled_at = timezone.now() if is_owner else None
+        reconciled_by = recorded_by if is_owner else None
+
+        # 7. Create Payment record
+        payment = Payment.all_objects.create(
+            gym=gym,
+            payer_type=Payment.PAYER_TYPE_MEMBER,
+            member=locked_member,
+            plan=plan,
+            subscription=subscription,
+            method=Payment.METHOD_BANK_TRANSFER,
+            amount_etb=plan.price_etb,
+            currency="ETB",
+            bank_reference=cleaned_ref,
+            bank_reference_normalized=norm_ref,
+            transfer_date=transfer_date,
+            channel=str(channel or "").strip(),
+            is_reconciled=is_reconciled,
+            reconciled_at=reconciled_at,
+            reconciled_by=reconciled_by,
+            previous_subscription_state=prev_sub_state,
+            status=Payment.STATUS_CONFIRMED,
+            confirmed_by=recorded_by,
+            idempotency_key=idempotency_key or None,
+            metadata={
+                "notes": notes,
+                "recorded_by": recorded_by.email,
+                "channel": str(channel or "").strip(),
+            },
+        )
+
+        # 8. Generate sequential digital Receipt unique per gym
+        last_receipt = (
+            Receipt.all_objects.filter(gym=gym).order_by("-sequence_number").first()
+        )
+        sequence = (last_receipt.sequence_number + 1) if last_receipt else 1
+        receipt_number = f"REC-{sequence:06d}"
+        duration_str = f"{plan.duration_value} {plan.duration_unit}"
+
+        receipt = Receipt.all_objects.create(
+            gym=gym,
+            payment=payment,
+            receipt_number=receipt_number,
+            sequence_number=sequence,
+            issued_by=recorded_by,
+            amount_etb=payment.amount_etb,
+            currency="ETB",
+            payment_method=Payment.METHOD_BANK_TRANSFER,
+            member_name=locked_member.full_name,
+            member_phone=locked_member.phone or "",
+            plan_name=plan.name,
+            plan_duration=duration_str,
+            notes=notes,
+        )
+
+        # 9. Audit log for bank transfer confirmation
+        record_audit_log(
+            actor=recorded_by,
+            gym=gym,
+            action_type="bank_transfer_payment_confirmed",
+            affected_record_type="Payment",
+            affected_record_id=str(payment.id),
+            metadata={
+                "member_id": str(locked_member.id),
+                "member_name": locked_member.full_name,
+                "plan_id": str(plan.id),
+                "plan_name": plan.name,
+                "amount_etb": str(payment.amount_etb),
+                "bank_reference": cleaned_ref,
+                "transfer_date": str(transfer_date),
+                "channel": str(channel or "").strip(),
+                "receipt_number": receipt.receipt_number,
+                "is_reconciled": is_reconciled,
+                "notes": notes,
+            },
+        )
+
+        if is_owner:
+            record_audit_log(
+                actor=recorded_by,
+                gym=gym,
+                action_type="bank_transfer_auto_reconciled",
+                affected_record_type="Payment",
+                affected_record_id=str(payment.id),
+                metadata={
+                    "bank_reference": cleaned_ref,
+                    "amount_etb": str(payment.amount_etb),
+                    "receipt_number": receipt.receipt_number,
+                },
+            )
+
+        # 10. Member notification
+        if locked_member.user:
+            create_notification(
+                recipient=locked_member.user,
+                notification_type="payment_confirmed",
+                message=(
+                    f"Your bank transfer payment of {payment.amount_etb} ETB (Ref: {cleaned_ref}) for {plan.name} was confirmed "
+                    f"by {recorded_by.full_name or recorded_by.email}. "
+                    f"Receipt #{receipt.receipt_number}. "
+                    f"Your subscription is active until {subscription.end_date}."
+                ),
+                gym=gym,
+            )
+
+        return payment, receipt, subscription
+
+
+def reconcile_bank_transfers(
+    payment_ids: list[str],
+    cleared_by: User,
+    gym: GymTenant,
+) -> int:
+    """
+    Clear/reconcile bank transfers against bank statement.
+    Owner only. Reconciles single transfer or bulk list.
+    """
+    if cleared_by.role != User.ROLE_OWNER:
+        raise PermissionDenied("Only the gym owner can reconcile bank transfers.")
+
+    if cleared_by.gym_id != gym.id:
+        raise PermissionDenied("Owner does not belong to this gym.")
+
+    if not payment_ids:
+        return 0
+
+    with transaction.atomic():
+        payments = list(
+            Payment.all_objects.select_for_update().filter(
+                gym=gym,
+                id__in=payment_ids,
+                method=Payment.METHOD_BANK_TRANSFER,
+                status=Payment.STATUS_CONFIRMED,
+                is_reconciled=False,
+            )
+        )
+        now = timezone.now()
+        count = 0
+        for p in payments:
+            p.is_reconciled = True
+            p.reconciled_at = now
+            p.reconciled_by = cleared_by
+            p.save(update_fields=["is_reconciled", "reconciled_at", "reconciled_by"])
+            record_audit_log(
+                actor=cleared_by,
+                gym=gym,
+                action_type="bank_transfer_reconciled",
+                affected_record_type="Payment",
+                affected_record_id=str(p.id),
+                metadata={
+                    "bank_reference": p.bank_reference,
+                    "amount_etb": str(p.amount_etb),
+                    "member_id": str(p.member_id) if p.member_id else None,
+                },
+            )
+            count += 1
+
+        return count
+
+
+def reverse_bank_transfer_payment(
+    payment_id: str,
+    reversed_by: User,
+    reason: str,
+    gym: GymTenant,
+) -> Tuple[Payment, PaymentReversal]:
+    """
+    Reverse an unreconciled bank-transfer payment (Owner only).
+    Enforces rules:
+    - Only Owner of that gym can reverse.
+    - Only unreconciled bank transfers can be reversed.
+    - Reversal reason must be between 5 and 500 characters.
+    - Refused if member has had subsequent payment, freeze, or subscription change.
+    - Restores member subscription to exact state before this payment:
+      - First purchase: pending status, no active period.
+      - Renewal: previous end date and previous status restored.
+    - Runs through shared update_member_status function.
+    - Payment status set to 'reversed' and excluded from revenue totals.
+    - Creates immutable PaymentReversal record.
+    - Writes permanent audit log and member notification.
+    - Reversed payments cannot be reversed again.
+    """
+    if reversed_by.role != User.ROLE_OWNER:
+        raise PermissionDenied("Only the gym owner can reverse bank transfers.")
+
+    if reversed_by.gym_id != gym.id:
+        raise PermissionDenied("Owner does not belong to this gym.")
+
+    if not reason:
+        raise ValidationError({"reason": ["Reversal reason is required."]})
+
+    cleaned_reason = reason.strip()
+    if len(cleaned_reason) < 5 or len(cleaned_reason) > 500:
+        raise ValidationError(
+            {"reason": ["Reversal reason must be between 5 and 500 characters."]}
+        )
+
+    with transaction.atomic():
+        payment = (
+            Payment.all_objects.select_for_update()
+            .filter(gym=gym, id=payment_id)
+            .first()
+        )
+        if not payment:
+            raise ValidationError("Payment not found.")
+
+        if payment.method != Payment.METHOD_BANK_TRANSFER:
+            raise ValidationError("Only bank transfer payments can be reversed.")
+
+        if payment.status == Payment.STATUS_REVERSED:
+            raise ValidationError("Payment has already been reversed.")
+
+        if payment.status != Payment.STATUS_CONFIRMED:
+            raise ValidationError("Only confirmed payments can be reversed.")
+
+        if payment.is_reconciled:
+            raise ValidationError(
+                "Only unreconciled bank transfer payments can be reversed."
+            )
+
+        # Check subsequent payments
+        has_later_payments = Payment.all_objects.filter(
+            gym=gym,
+            member_id=payment.member_id,
+            created_at__gt=payment.created_at,
+            status=Payment.STATUS_CONFIRMED,
+        ).exists()
+        if has_later_payments:
+            raise ValidationError(
+                "Payment cannot be reversed because a later payment exists for this member."
+            )
+
+        # Check freeze
+        has_freeze = MemberSubscription.all_objects.filter(
+            gym=gym,
+            member_id=payment.member_id,
+            frozen_days_total__gt=0,
+        ).exists()
+        if has_freeze:
+            raise ValidationError(
+                "Payment cannot be reversed because a freeze has been applied to this member's subscription."
+            )
+
+        # Check subsequent subscription changes
+        if payment.subscription_id:
+            has_later_subs = MemberSubscription.all_objects.filter(
+                gym=gym,
+                member_id=payment.member_id,
+                created_at__gt=payment.subscription.created_at,
+            ).exists()
+            if has_later_subs:
+                raise ValidationError(
+                    "Payment cannot be reversed because subsequent subscription changes exist for this member."
+                )
+
+        locked_member = Member.all_objects.select_for_update().get(id=payment.member_id)
+        prev_state = payment.previous_subscription_state or {}
+
+        # Restore subscription to exact state before this payment
+        from datetime import date
+
+        if prev_state.get("was_first_purchase"):
+            if payment.subscription:
+                sub_to_delete = payment.subscription
+                payment.subscription = None
+                payment.save(update_fields=["subscription"])
+                sub_to_delete.delete()
+        else:
+            prev_sub_id = prev_state.get("previous_subscription_id")
+            if payment.subscription:
+                sub_to_delete = payment.subscription
+                payment.subscription = None
+                payment.save(update_fields=["subscription"])
+                sub_to_delete.delete()
+
+            if prev_sub_id:
+                prev_sub = MemberSubscription.all_objects.filter(
+                    id=prev_sub_id, gym=gym
+                ).first()
+                if prev_sub:
+                    if "previous_end_date" in prev_state:
+                        prev_sub.end_date = date.fromisoformat(
+                            prev_state["previous_end_date"]
+                        )
+                    if "previous_status" in prev_state:
+                        prev_sub.status = prev_state["previous_status"]
+                    prev_sub.save(update_fields=["end_date", "status"])
+
+        # Update member status via single shared status function
+        update_member_status(locked_member)
+
+        # Update payment status to reversed
+        payment.status = Payment.STATUS_REVERSED
+        payment.save(update_fields=["status"])
+
+        # Create immutable reversal record
+        reversal = PaymentReversal.objects.create(
+            gym=gym,
+            payment=payment,
+            reversed_by=reversed_by,
+            reason=cleaned_reason,
+        )
+
+        # Record audit log
+        record_audit_log(
+            actor=reversed_by,
+            gym=gym,
+            action_type="bank_transfer_payment_reversed",
+            affected_record_type="Payment",
+            affected_record_id=str(payment.id),
+            metadata={
+                "member_id": str(locked_member.id),
+                "member_name": locked_member.full_name,
+                "amount_etb": str(payment.amount_etb),
+                "bank_reference": payment.bank_reference,
+                "reversal_reason": cleaned_reason,
+                "reversal_id": str(reversal.id),
+            },
+        )
+
+        # Member notification
+        if locked_member.user:
+            create_notification(
+                recipient=locked_member.user,
+                notification_type="payment_reversed",
+                message=(
+                    f"Your bank transfer payment of {payment.amount_etb} ETB (Ref: {payment.bank_reference}) "
+                    f"has been reversed by gym management. Reason: {cleaned_reason}."
+                ),
+                gym=gym,
+            )
+
+        return payment, reversal
+
+
+def flag_unreconciled_transfers(days: int = 7) -> Dict[str, int]:
+    """
+    Flags unreconciled bank-transfer payments older than `days` (default 7).
+    - Sets `flagged_unreconciled_at` once per payment (never twice).
+    - Sends the gym Owner ONE notification per run per gym with the count.
+    - Writes an audit log entry per payment naming confirming staff member.
+    - Nothing changes for the member automatically.
+    """
+    from datetime import timedelta
+    from typing import Dict
+
+    cutoff = timezone.now() - timedelta(days=days)
+    flagged_per_gym: Dict[str, int] = {}
+
+    with transaction.atomic():
+        unreconciled_payments = list(
+            Payment.all_objects.select_for_update().filter(
+                method=Payment.METHOD_BANK_TRANSFER,
+                status=Payment.STATUS_CONFIRMED,
+                is_reconciled=False,
+                flagged_unreconciled_at__isnull=True,
+                created_at__lte=cutoff,
+            )
+        )
+
+        now = timezone.now()
+        for p in unreconciled_payments:
+            p.flagged_unreconciled_at = now
+            p.save(update_fields=["flagged_unreconciled_at"])
+
+            gym = p.gym
+            gym_id_str = str(gym.id)
+            flagged_per_gym[gym_id_str] = flagged_per_gym.get(gym_id_str, 0) + 1
+
+            confirming_staff_name = (
+                p.confirmed_by.full_name or p.confirmed_by.email
+                if p.confirmed_by
+                else "Unknown Staff"
+            )
+
+            record_audit_log(
+                actor=None,
+                gym=gym,
+                action_type="bank_transfer_unreconciled_flagged",
+                affected_record_type="Payment",
+                affected_record_id=str(p.id),
+                metadata={
+                    "payment_id": str(p.id),
+                    "bank_reference": p.bank_reference,
+                    "amount_etb": str(p.amount_etb),
+                    "confirmed_by_id": (
+                        str(p.confirmed_by_id) if p.confirmed_by_id else None
+                    ),
+                    "confirmed_by_name": confirming_staff_name,
+                    "created_at": p.created_at.isoformat(),
+                    "flagged_at": now.isoformat(),
+                },
+            )
+
+        # Notify Owner ONE notification per gym per run
+        for gym_id_str, count in flagged_per_gym.items():
+            owner = (
+                User.all_objects.filter(
+                    gym_id=gym_id_str, role=User.ROLE_OWNER, is_active=True
+                )
+                .order_by("created_at")
+                .first()
+            )
+            if owner:
+                create_notification(
+                    recipient=owner,
+                    notification_type="unreconciled_transfers_flagged",
+                    message=(
+                        f"Daily reconciliation check: {count} bank transfer payment(s) remain unreconciled "
+                        f"after 7 days and require your review."
+                    ),
+                    gym=owner.gym,
+                )
+
+    return flagged_per_gym

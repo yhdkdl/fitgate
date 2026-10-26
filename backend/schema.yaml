@@ -1003,6 +1003,114 @@ paths:
       responses:
         '200':
           description: Paginated payment list with confirmed revenue total
+  /api/gym/payments/{payment_id}/reverse/:
+    post:
+      operationId: gym_payments_reverse_create
+      description: Reverses an unreconciled bank transfer, restores subscription state,
+        and creates immutable reversal record. Owner only.
+      summary: Reverse bank transfer payment
+      parameters:
+      - in: path
+        name: payment_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - gym
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReverseBankTransferRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/ReverseBankTransferRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/ReverseBankTransferRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: Reversal result
+  /api/gym/payments/bank-transfer/:
+    post:
+      operationId: gym_payments_bank_transfer_create
+      description: Records a bank-transfer payment for a member with bank reference,
+        transfer date, and channel.
+      summary: Record member bank-transfer payment
+      tags:
+      - gym
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RecordBankTransferPaymentRequestRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/RecordBankTransferPaymentRequestRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/RecordBankTransferPaymentRequestRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RecordBankTransferResponse'
+          description: ''
+        '400':
+          description: Validation error or duplicate reference
+        '403':
+          description: Permission denied
+  /api/gym/payments/bank-transfers/reconcile/:
+    post:
+      operationId: gym_payments_bank_transfers_reconcile_create
+      description: Marks bank transfers as reconciled. Owner only.
+      summary: Reconcile bank transfers
+      tags:
+      - gym
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReconcileBankTransfersRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/ReconcileBankTransfersRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/ReconcileBankTransfersRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: Reconciliation result
+  /api/gym/payments/bank-transfers/unreconciled/:
+    get:
+      operationId: gym_payments_bank_transfers_unreconciled_list
+      description: Returns unreconciled bank transfers for owner reconciliation. Owner
+        only.
+      summary: List unreconciled bank transfers
+      tags:
+      - gym
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/UnreconciledBankTransferItem'
+          description: ''
   /api/gym/payments/cash/:
     post:
       operationId: gym_payments_cash_create
@@ -3408,6 +3516,16 @@ components:
           type: string
         receipt_number:
           type: string
+        bank_reference:
+          type: string
+          default: ''
+        is_reversed:
+          type: boolean
+          default: false
+        reversed_at:
+          type: string
+          format: date-time
+          nullable: true
         subscription_start_date:
           type: string
           format: date
@@ -3895,6 +4013,23 @@ components:
         payment_method:
           type: string
           readOnly: true
+        bank_reference:
+          type: string
+          readOnly: true
+          nullable: true
+        transfer_channel:
+          type: string
+          readOnly: true
+          nullable: true
+        is_reversed:
+          type: boolean
+          readOnly: true
+        reversed_at:
+          type: string
+          readOnly: true
+        reversal_reason:
+          type: string
+          readOnly: true
         member_name:
           type: string
           readOnly: true
@@ -3918,10 +4053,12 @@ components:
           readOnly: true
       required:
       - amount_etb
+      - bank_reference
       - currency
       - gym_name
       - gym_subdomain
       - id
+      - is_reversed
       - issued_at
       - issued_by_id
       - issued_by_name
@@ -3932,7 +4069,84 @@ components:
       - plan_duration
       - plan_name
       - receipt_number
+      - reversal_reason
+      - reversed_at
       - sequence_number
+      - transfer_channel
+    ReconcileBankTransfersRequest:
+      type: object
+      description: Owner bulk or single reconciliation request.
+      properties:
+        payment_ids:
+          type: array
+          items:
+            type: string
+            format: uuid
+      required:
+      - payment_ids
+    RecordBankTransferPaymentRequestRequest:
+      type: object
+      description: Input serializer to record a bank-transfer payment.
+      properties:
+        member_id:
+          type: string
+          format: uuid
+        plan_id:
+          type: string
+          format: uuid
+        bank_reference:
+          type: string
+          minLength: 3
+          maxLength: 100
+        transfer_date:
+          type: string
+          format: date
+        channel:
+          type: string
+          default: ''
+          maxLength: 50
+        notes:
+          type: string
+          default: ''
+          maxLength: 1000
+        idempotency_key:
+          type: string
+          default: ''
+          maxLength: 64
+      required:
+      - bank_reference
+      - member_id
+      - plan_id
+      - transfer_date
+    RecordBankTransferResponse:
+      type: object
+      description: Output serializer for bank-transfer payment confirmation.
+      properties:
+        payment_id:
+          type: string
+          format: uuid
+        receipt:
+          $ref: '#/components/schemas/Receipt'
+        status:
+          type: string
+        amount_etb:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,10}(?:\.\d{0,2})?$
+        bank_reference:
+          type: string
+        is_reconciled:
+          type: boolean
+        detail:
+          type: string
+      required:
+      - amount_etb
+      - bank_reference
+      - detail
+      - is_reconciled
+      - payment_id
+      - receipt
+      - status
     RecordBodyMetricsRequest:
       type: object
       description: |-
@@ -3982,7 +4196,7 @@ components:
         notes:
           type: string
           default: ''
-          maxLength: 500
+          maxLength: 1000
         idempotency_key:
           type: string
           default: ''
@@ -4013,6 +4227,16 @@ components:
       - payment_id
       - receipt
       - status
+    ReverseBankTransferRequest:
+      type: object
+      description: Owner reversal request with mandatory reason.
+      properties:
+        reason:
+          type: string
+          minLength: 5
+          maxLength: 500
+      required:
+      - reason
     SetPasswordFromInviteRequestRequest:
       type: object
       description: Payload for setting initial password from an invite token.
@@ -4234,6 +4458,57 @@ components:
           type: string
       required:
       - access
+    UnreconciledBankTransferItem:
+      type: object
+      description: Owner view of an unreconciled bank transfer.
+      properties:
+        id:
+          type: string
+          format: uuid
+        transfer_date:
+          type: string
+          format: date
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+        bank_reference:
+          type: string
+        channel:
+          type: string
+        amount_etb:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,10}(?:\.\d{0,2})?$
+        member_id:
+          type: string
+          format: uuid
+          nullable: true
+        member_name:
+          type: string
+        member_phone:
+          type: string
+        confirmed_by_id:
+          type: string
+          format: uuid
+          nullable: true
+        confirmed_by_name:
+          type: string
+        receipt_number:
+          type: string
+      required:
+      - amount_etb
+      - bank_reference
+      - channel
+      - confirmed_by_id
+      - confirmed_by_name
+      - created_at
+      - id
+      - member_id
+      - member_name
+      - member_phone
+      - receipt_number
+      - transfer_date
     UploadGymLogoRequest:
       type: object
       description: Upload serializer for gym logo.
