@@ -529,15 +529,13 @@ class RecordCashPaymentView(APIView):
 
 class CanViewGymPaymentHistory(BasePermission):
     """
-    Staff payment history and revenue summary can be viewed by Owner, Manager, or Super Admin.
-    Reception, Trainer, and Member are denied (403).
+    Staff payment history and revenue summary can be viewed by Owner or Manager of that gym.
+    Super Admin, Reception, Trainer, and Member are denied (403).
     """
 
     def has_permission(self, request, view):
         if not request.user or not request.user.is_authenticated:
             return False
-        if request.user.role == User.ROLE_SUPER_ADMIN:
-            return True
         tenant = getattr(request, "tenant", None)
         if tenant is None:
             return False
@@ -570,20 +568,14 @@ class GymPaymentListView(APIView):
     )
     def get(self, request, *args, **kwargs):
         tenant = getattr(request, "tenant", None)
-        qs = Payment.all_objects.select_related(
-            "member", "plan", "confirmed_by", "receipt"
-        )
-        if tenant:
-            qs = qs.filter(gym=tenant)
-        elif request.user.role == User.ROLE_SUPER_ADMIN:
-            gym_id = request.query_params.get("gym_id")
-            if gym_id:
-                qs = qs.filter(gym_id=gym_id)
-        else:
+        if not tenant:
             return Response(
                 {"detail": "Gym context missing."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
+        qs = Payment.all_objects.select_related(
+            "member", "plan", "confirmed_by", "receipt"
+        ).filter(gym=tenant)
 
         start_date = request.query_params.get("start_date")
         if start_date:
@@ -750,9 +742,8 @@ class ReceiptDetailView(APIView):
             and receipt.payment.member
             and receipt.payment.member.user_id == user.id
         )
-        is_super_admin = user.role == User.ROLE_SUPER_ADMIN
 
-        if not (is_staff_allowed or is_owner_member or is_super_admin):
+        if not (is_staff_allowed or is_owner_member):
             return Response(
                 {"detail": "You do not have permission to view this receipt."},
                 status=status.HTTP_403_FORBIDDEN,

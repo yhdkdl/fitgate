@@ -533,6 +533,10 @@ def record_cash_payment(
             .first()
         )
         if existing and existing.status == Payment.STATUS_CONFIRMED:
+            if existing.member_id != member.id or existing.plan_id != plan.id:
+                raise ValidationError(
+                    "Idempotency key has already been used for a different member or plan."
+                )
             logger.info(
                 "Idempotent cash payment request detected with key '%s'. Returning existing record.",
                 idempotency_key,
@@ -558,6 +562,10 @@ def record_cash_payment(
                 .first()
             )
             if existing and existing.status == Payment.STATUS_CONFIRMED:
+                if existing.member_id != member.id or existing.plan_id != plan.id:
+                    raise ValidationError(
+                        "Idempotency key has already been used for a different member or plan."
+                    )
                 return (
                     existing,
                     getattr(existing, "receipt", None),

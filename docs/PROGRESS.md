@@ -29,11 +29,11 @@
 - Sprint 10: Membership plans & subscription lifecycle (STRICT) — unified check-in engine (`execute_check_in`), `Attendance.method` single source of truth (`qr`, `manual_override`) enforced via DB `CheckConstraint`, `MemberSubscription` status single source of truth with protected derived `Member.status` (direct write raises `ValueError` on instance save, queryset update, and bulk_update), 5th choice `pending` for new signups, plans CRUD (days/months with accurate month-end calculation), trainer warning on inclusive plans, price change immutability, tenant isolation, public plan listing, member suspend/reactivate actions, subscriptions bound strictly to payment confirmation (no unearned staff creation) (tag `sprint-10-done`).
 
 - Sprint 11: Chapa payment integration (one account per gym) (GATE) — Notification record and shared storage helper, encrypted per-gym credentials, signed mocked webhooks (x-chapa-signature HMAC-SHA256, constant-time validation), member-only online checkout, Chapa payment verification, and atomic subscription extension (`sprint-11-done`).
-- Sprint 12: Manual cash payment, payment history, and the registration-to-payment flow (STRICT) — atomic cash payment recording and confirmation in single DB transaction, sequential immutable digital receipts (`REC-000001`, `REC-000002`) with PostgreSQL triggers (preventing UPDATE and DELETE), double-submit guard via client idempotency keys and row-level locking, plan price immutability, registration-to-payment staff flow (Owner, Manager, Reception), gym payment audit history with confirmed revenue total (Owner, Manager, Super Admin), and member self-service payment history.
+- Sprint 12: Manual cash payment, payment history, and registration-to-payment flow (STRICT) — atomic cash payment recording and confirmation in single DB transaction, sequential immutable digital receipts (`REC-000001`, `REC-000002`) with PostgreSQL triggers (preventing UPDATE and DELETE), double-submit guard via client idempotency keys created on modal open and scoped per gym, plan price immutability, registration-to-payment staff flow (Owner, Manager, Reception), Super Admin denied on member payments/receipts/ledger, receipt notes validation (max 1000) and escaping, gym payment audit history with confirmed revenue total (Owner, Manager), and member self-service payment history (tag `sprint-12-done`).
 
 ## Current
 
-- Sprint 12: Awaiting owner review and decision (STRICT, branch feature/sprint-12-cash-payments unmerged).
+- Sprint 12b: Bank transfer payments with reconciliation and reversal (STRICT).
 
 ## Next
 

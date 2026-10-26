@@ -52,6 +52,7 @@ export const RecordCashPaymentModal: React.FC<Props> = ({
     plans?.[0]?.id ?? ""
   );
   const [notes, setNotes] = useState("");
+  const [idempotencyKey, setIdempotencyKey] = useState<string>("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [confirmedReceipt, setConfirmedReceipt] =
@@ -59,6 +60,12 @@ export const RecordCashPaymentModal: React.FC<Props> = ({
 
   useEffect(() => {
     if (!isOpen) return;
+
+    // Create client idempotency key when payment window opens, scoped per gym tenant
+    const tenantPrefix = window.location.hostname.split(".")[0] || "gym";
+    setIdempotencyKey(
+      `cash-${tenantPrefix}-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`
+    );
 
     if (plans && plans.length > 0) {
       setAvailablePlans(plans);
@@ -119,9 +126,6 @@ export const RecordCashPaymentModal: React.FC<Props> = ({
 
     setIsSubmitting(true);
     setError(null);
-
-    // Client idempotency key to prevent double submits
-    const idempotencyKey = `cash-${selectedMemberId}-${selectedPlanId}-${Date.now()}`;
 
     try {
       const resp: RecordCashPaymentResponse = await recordCashPayment({
@@ -562,6 +566,7 @@ export const RecordCashPaymentModal: React.FC<Props> = ({
                 onChange={(e) => setNotes(e.target.value)}
                 placeholder="e.g. Front desk receipt issued"
                 rows={2}
+                maxLength={1000}
                 style={{
                   width: "100%",
                   backgroundColor: "#0f172a",

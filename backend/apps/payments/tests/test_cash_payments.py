@@ -94,6 +94,7 @@ def super_admin_user(db):
         full_name="FitGate Admin",
         role=User.ROLE_SUPER_ADMIN,
         gym=None,
+        must_change_password=False,
     )
 
 
@@ -650,3 +651,94 @@ class TestPaymentHistoryEndpoints:
         tr_tokens = get_tokens_for_user(trainer_user)
         tr_client.credentials(HTTP_AUTHORIZATION=f"Bearer {tr_tokens['access']}")
         assert tr_client.get(url, HTTP_HOST=host).status_code == 403
+
+    def test_idempotency_key_double_submit_and_mismatch_rejection(
+        self, gym_tenant, standard_plan, cash_member, reception_user
+    ):
+        """
+        Double submit with the same idempotency key returns the original result (same receipt).
+        Same key with a different member or plan is rejected with 400.
+        """
+        client = APIClient()
+        tokens = get_tokens_for_user(reception_user)
+        client.credentials(HTTP_AUTHORIZATION=f"Bearer {tokens['access']}")
+        host = f"{gym_tenant.subdomain}.localhost"
+
+        key = "idemp-test-cash-001"
+        payload = {
+            "member_id": str(cash_member.id),
+            "plan_id": str(standard_plan.id),
+            "notes": "First submission",
+            "idempotency_key": key,
+        }
+
+        # 1. First submission succeeds and creates receipt
+        resp1 = client.post(
+            "/api/gym/payments/cash/", payload, format="json", HTTP_HOST=host
+        )
+        assert resp1.status_code == 201
+        data1 = resp1.json()
+        payment_id_1 = data1["payment_id"]
+        receipt_no_1 = data1["receipt"]["receipt_number"]
+
+        # 2. Second submission with the exact same key returns original receipt
+        resp2 = client.post(
+            "/api/gym/payments/cash/", payload, format="json", HTTP_HOST=host
+        )
+        assert resp2.status_code == 201
+        data2 = resp2.json()
+        assert data2["payment_id"] == payment_id_1
+        assert data2["receipt"]["receipt_number"] == receipt_no_1
+        assert Receipt.all_objects.filter(gym=gym_tenant).count() == 1
+
+        # 3. Submission with same key but different plan is rejected
+        other_plan = MembershipPlan.objects.create(
+            gym=gym_tenant,
+            name="Alternative Plan",
+            duration_value=3,
+            duration_unit="months",
+            price_etb=Decimal("4500.00"),
+        )
+        bad_payload = {
+            "member_id": str(cash_member.id),
+            "plan_id": str(other_plan.id),
+            "notes": "Mismatch attempt",
+            "idempotency_key": key,
+        }
+        resp3 = client.post(
+            "/api/gym/payments/cash/", bad_payload, format="json", HTTP_HOST=host
+        )
+        assert resp3.status_code == 400
+        assert "Idempotency key has already been used" in str(resp3.json())
+
+    def test_super_admin_denied_on_gym_payments_and_receipts(
+        self, gym_tenant, standard_plan, cash_member, reception_user, super_admin_user
+    ):
+        """Super Admin must NOT reach any gym's member payments, receipts, or ledger."""
+        _, receipt, _ = record_cash_payment(
+            gym=gym_tenant,
+            member=cash_member,
+            plan=standard_plan,
+            recorded_by=reception_user,
+        )
+
+        admin_client = APIClient()
+        admin_tokens = get_tokens_for_user(super_admin_user)
+        admin_client.credentials(HTTP_AUTHORIZATION=f"Bearer {admin_tokens['access']}")
+        # Super Admin on apex domain (localhost) gets 403 Forbidden
+        resp_list = admin_client.get(
+            f"/api/gym/payments/?gym_id={gym_tenant.id}", HTTP_HOST="localhost"
+        )
+        assert resp_list.status_code == 403
+
+        # Super Admin denied on receipt detail
+        resp_rcpt = admin_client.get(
+            f"/api/gym/receipts/{receipt.id}/", HTTP_HOST="localhost"
+        )
+        assert resp_rcpt.status_code == 403
+
+        # Super Admin on tenant subdomain is also denied / unauthorized
+        resp_sub = admin_client.get(
+            "/api/gym/payments/", HTTP_HOST=f"{gym_tenant.subdomain}.localhost"
+        )
+        assert resp_sub.status_code in (401, 403)

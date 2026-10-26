@@ -97,7 +97,7 @@ class RecordCashPaymentRequestSerializer(serializers.Serializer):
     member_id = serializers.UUIDField(required=True)
     plan_id = serializers.UUIDField(required=True)
     notes = serializers.CharField(
-        required=False, allow_blank=True, default="", max_length=500
+        required=False, allow_blank=True, default="", max_length=1000
     )
     idempotency_key = serializers.CharField(
         required=False, allow_blank=True, default="", max_length=64
