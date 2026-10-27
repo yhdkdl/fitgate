@@ -381,6 +381,8 @@ class TestTenantSubdomainMiddleware:
             "DEFAULT_FROM_EMAIL": "noreply@fitgate.tebebtech.com",
             "MEDIA_ROOT": "/tmp/fitgate_media",
             "LOG_DIR": "/tmp/fitgate_logs",
+            "EMAIL_STRICT_MODE": "False",
+            "BREVO_WEBHOOK_SECRET": "test-brevo-secret",
         }
         for k, v in prod_env.items():
             monkeypatch.setenv(k, v)
