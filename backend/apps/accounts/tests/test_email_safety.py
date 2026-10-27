@@ -198,3 +198,55 @@ class TestEmailSafetyTenancyVisibility:
         )
         assert serializer_b.data["invitation_status"] == "sent"
         assert serializer_b.data["email_delivery_message"] is None
+
+
+@pytest.mark.django_db
+class TestDatabaseEmailRateCapsWithoutRedis:
+    """
+    Test Item 1: Hourly per-gym and per-platform email caps must work from the database
+    with no fail-open dependency on Redis, blocking when the limit is exceeded.
+    """
+
+    def test_rate_cap_blocks_from_database_when_redis_unavailable(
+        self, monkeypatch, settings
+    ):
+        settings.EMAIL_BACKEND = "django.core.mail.backends.locmem.EmailBackend"
+        settings.EMAIL_HOURLY_CAP_PER_GYM = 2
+        settings.EMAIL_HOURLY_CAP_PLATFORM = 5
+
+        # Completely disable/break Redis cache to verify zero dependency
+        def broken_cache(*args, **kwargs):
+            raise ConnectionError("Redis connection refused")
+
+        monkeypatch.setattr("django.core.cache.cache.get", broken_cache)
+        monkeypatch.setattr("django.core.cache.cache.set", broken_cache)
+
+        gym = GymTenant.objects.create(name="Cap Gym", subdomain="capgym")
+
+        # Send 1st email -> succeeds
+        sent_1 = send_fitgate_email(
+            subject="Test 1",
+            message="Message 1",
+            recipient_list=["user1@capgym.test"],
+            gym=gym,
+        )
+        assert sent_1 == 1
+
+        # Send 2nd email -> succeeds (count becomes 2 == cap)
+        sent_2 = send_fitgate_email(
+            subject="Test 2",
+            message="Message 2",
+            recipient_list=["user2@capgym.test"],
+            gym=gym,
+        )
+        assert sent_2 == 1
+
+        # 3rd email -> exceeds gym cap of 2 -> blocks with ValidationError("email limit reached")
+        with pytest.raises(ValidationError) as exc:
+            send_fitgate_email(
+                subject="Test 3",
+                message="Message 3",
+                recipient_list=["user3@capgym.test"],
+                gym=gym,
+            )
+        assert "email limit reached" in str(exc.value)

@@ -8,10 +8,21 @@ from .hosts import build_allowed_hosts
 DEBUG = env.bool("DEBUG", default=True)
 DOCS_PUBLIC = env.bool("DOCS_PUBLIC", default=True)
 
+DEV_TUNNEL_HOST = env.str("DEV_TUNNEL_HOST", default="").strip().lower()
+if DEV_TUNNEL_HOST.startswith("http://"):
+    DEV_TUNNEL_HOST = DEV_TUNNEL_HOST[7:]
+elif DEV_TUNNEL_HOST.startswith("https://"):
+    DEV_TUNNEL_HOST = DEV_TUNNEL_HOST[8:]
+DEV_TUNNEL_HOST = DEV_TUNNEL_HOST.split("/")[0].split(":")[0].strip()
+
+_extra_hosts = ["localhost", "127.0.0.1", "backend"]
+if DEV_TUNNEL_HOST and DEV_TUNNEL_HOST not in _extra_hosts:
+    _extra_hosts.append(DEV_TUNNEL_HOST)
+
 ALLOWED_HOSTS = build_allowed_hosts(
     DOMAIN,
     env.list("ALLOWED_HOSTS", default=[]),
-    extra=("localhost", "127.0.0.1", "backend"),
+    extra=tuple(_extra_hosts),
 )
 
 TENANT_EXTRA_PLATFORM_HOSTS = ["localhost", "127.0.0.1", "backend", "testserver"]
