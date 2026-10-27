@@ -89,6 +89,17 @@ if EMAIL_USE_TLS and EMAIL_USE_SSL:
 
 DEFAULT_FROM_EMAIL = env("DEFAULT_FROM_EMAIL")
 
+# Email Safety & Brevo Webhook - fails fast with NO defaults in production
+EMAIL_STRICT_MODE = env.bool("EMAIL_STRICT_MODE")
+BREVO_WEBHOOK_SECRET = env("BREVO_WEBHOOK_SECRET")
+EMAIL_ALLOWED_RECIPIENTS = [
+    r.strip().lower()
+    for r in env.list("EMAIL_ALLOWED_RECIPIENTS", default=[])
+    if r.strip()
+]
+EMAIL_HOURLY_CAP_PER_GYM = env.int("EMAIL_HOURLY_CAP_PER_GYM", default=100)
+EMAIL_HOURLY_CAP_PLATFORM = env.int("EMAIL_HOURLY_CAP_PLATFORM", default=500)
+
 # Files & Persistent Storage outside release folder and public_html
 MEDIA_ROOT = Path(env("MEDIA_ROOT"))
 MEDIA_ROOT.mkdir(parents=True, exist_ok=True)

@@ -59,12 +59,33 @@ def validate_registration_payload(
         normalized_email = ""
     else:
         try:
-            normalized_email = validate_email_address(raw_email)
-            if User.all_objects.filter(email=normalized_email).exists():
-                errors["email"] = ["A user with this email address already exists."]
+            normalized_email = validate_email_address(
+                raw_email,
+                is_public_registration=is_self_service,
+                is_lenient=(not is_self_service),
+            )
+            existing_user = User.all_objects.filter(email=normalized_email).first()
+            if existing_user:
+                is_expired_unverified = (
+                    existing_user.role == User.ROLE_MEMBER
+                    and existing_user.email_verified_at is None
+                    and not existing_user.is_active
+                )
+                if not is_expired_unverified:
+                    errors["email"] = ["A user with this email address already exists."]
         except ValidationError as e:
-            errors["email"] = list(e.messages)
+            if is_self_service:
+                errors["email"] = list(e.messages)
             normalized_email = raw_email.strip().lower()
+            existing_user = User.all_objects.filter(email=normalized_email).first()
+            if existing_user:
+                is_expired_unverified = (
+                    existing_user.role == User.ROLE_MEMBER
+                    and existing_user.email_verified_at is None
+                    and not existing_user.is_active
+                )
+                if not is_expired_unverified:
+                    errors["email"] = ["A user with this email address already exists."]
 
     raw_phone = data.get("phone")
     if not raw_phone:
@@ -73,10 +94,19 @@ def validate_registration_payload(
     else:
         try:
             normalized_phone = validate_and_normalize_phone(str(raw_phone))
-            if Member.all_objects.filter(gym=gym, phone=normalized_phone).exists():
-                errors["phone"] = [
-                    "A member with this phone number already exists in this gym."
-                ]
+            existing_member = Member.all_objects.filter(
+                gym=gym, phone=normalized_phone
+            ).first()
+            if existing_member:
+                is_expired_unverified = (
+                    existing_member.user.role == User.ROLE_MEMBER
+                    and existing_member.user.email_verified_at is None
+                    and not existing_member.user.is_active
+                )
+                if not is_expired_unverified:
+                    errors["phone"] = [
+                        "A member with this phone number already exists in this gym."
+                    ]
         except ValidationError as e:
             errors["phone"] = list(e.messages)
             normalized_phone = str(raw_phone).strip()
@@ -151,31 +181,76 @@ def register_member_self_service(
     raw_password = data["password"]
 
     with transaction.atomic():
-        user = User.objects.create(
+        # If an expired unverified member account already exists with this email, reuse and reactivate it
+        stale_user = User.all_objects.filter(
             email=validated["email"],
             role=User.ROLE_MEMBER,
-            gym=gym,
-            full_name=validated["full_name"],
-            phone=validated["phone"],
-            is_active=True,
-            email_verified_at=None,
-            must_change_password=False,
-        )
-        user.set_password(raw_password)
-        user.save()
+            email_verified_at__isnull=True,
+            is_active=False,
+        ).first()
 
-        member = Member.objects.create(
-            gym=gym,
-            user=user,
-            full_name=validated["full_name"],
-            phone=validated["phone"],
-            date_of_birth=validated["date_of_birth"],
-            gender=validated["gender"],
-            emergency_contact=validated["emergency_contact"],
-            referral_source=validated["referral_source"],
-            status=Member.STATUS_PENDING,
-            waiver_accepted_at=timezone.now(),
-        )
+        if stale_user:
+            user = stale_user
+            user.is_active = True
+            user.full_name = validated["full_name"]
+            user.phone = validated["phone"]
+            user.set_password(raw_password)
+            user.save()
+
+            member = Member.all_objects.filter(user=user).first()
+            if member:
+                member.full_name = validated["full_name"]
+                member.phone = validated["phone"]
+                member.date_of_birth = validated["date_of_birth"]
+                member.gender = validated["gender"]
+                member.emergency_contact = validated["emergency_contact"]
+                member.referral_source = validated["referral_source"]
+                member.status = Member.STATUS_PENDING
+                member.waiver_accepted_at = timezone.now()
+                member._status_update_allowed = True
+                try:
+                    member.save()
+                finally:
+                    member._status_update_allowed = False
+            else:
+                member = Member.objects.create(
+                    gym=gym,
+                    user=user,
+                    full_name=validated["full_name"],
+                    phone=validated["phone"],
+                    date_of_birth=validated["date_of_birth"],
+                    gender=validated["gender"],
+                    emergency_contact=validated["emergency_contact"],
+                    referral_source=validated["referral_source"],
+                    status=Member.STATUS_PENDING,
+                    waiver_accepted_at=timezone.now(),
+                )
+        else:
+            user = User.objects.create(
+                email=validated["email"],
+                role=User.ROLE_MEMBER,
+                gym=gym,
+                full_name=validated["full_name"],
+                phone=validated["phone"],
+                is_active=True,
+                email_verified_at=None,
+                must_change_password=False,
+            )
+            user.set_password(raw_password)
+            user.save()
+
+            member = Member.objects.create(
+                gym=gym,
+                user=user,
+                full_name=validated["full_name"],
+                phone=validated["phone"],
+                date_of_birth=validated["date_of_birth"],
+                gender=validated["gender"],
+                emergency_contact=validated["emergency_contact"],
+                referral_source=validated["referral_source"],
+                status=Member.STATUS_PENDING,
+                waiver_accepted_at=timezone.now(),
+            )
 
         raw_token = secrets.token_urlsafe(32)
         token_hash = hashlib.sha256(raw_token.encode("utf-8")).hexdigest()

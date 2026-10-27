@@ -53,7 +53,11 @@ from apps.memberships.services import (
     suspend_member,
     verify_member_email,
 )
-from apps.memberships.throttling import MemberRegistrationRateThrottle
+from apps.memberships.throttling import (
+    MemberRegistrationGymRateThrottle,
+    MemberRegistrationIpRateThrottle,
+    MemberRegistrationRateThrottle,
+)
 
 
 class PublicMemberRegistrationView(APIView):
@@ -64,7 +68,11 @@ class PublicMemberRegistrationView(APIView):
 
     permission_classes = [AllowAny]
     authentication_classes = []
-    throttle_classes = [MemberRegistrationRateThrottle]
+    throttle_classes = [
+        MemberRegistrationRateThrottle,
+        MemberRegistrationIpRateThrottle,
+        MemberRegistrationGymRateThrottle,
+    ]
 
     @extend_schema(
         summary="Self-service member registration",

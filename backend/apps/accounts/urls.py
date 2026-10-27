@@ -3,11 +3,15 @@
 from django.urls import path
 
 from apps.accounts.views import (
+    BrevoWebhookView,
     ChangePasswordView,
     CreateSuperAdminView,
     GymAuditLogListView,
     LoginView,
     LogoutView,
+    NotificationListView,
+    NotificationMarkAllReadView,
+    NotificationMarkReadView,
     PasswordResetConfirmView,
     PasswordResetRequestView,
     PlatformAuditLogListView,
@@ -15,6 +19,7 @@ from apps.accounts.views import (
     StaffDeactivateView,
     StaffListCreateView,
     StaffReactivateView,
+    StaffResendInviteView,
     TokenRefreshView,
     UserProfileView,
 )
@@ -64,6 +69,17 @@ urlpatterns = [
         StaffReactivateView.as_view(),
         name="gym-staff-reactivate",
     ),
+    path(
+        "api/gym/staff/<uuid:user_id>/resend-invite/",
+        StaffResendInviteView.as_view(),
+        name="gym-staff-resend-invite",
+    ),
+    # Brevo Webhook (Sprint 9b)
+    path(
+        "api/webhooks/brevo/",
+        BrevoWebhookView.as_view(),
+        name="brevo-webhook",
+    ),
     # Audit Log Viewer (Sprint 9a)
     path(
         "api/gym/audit-logs/",
@@ -74,5 +90,21 @@ urlpatterns = [
         "api/platform/audit-logs/",
         PlatformAuditLogListView.as_view(),
         name="platform-audit-logs",
+    ),
+    # Notification Center (Sprint 15)
+    path(
+        "api/notifications/",
+        NotificationListView.as_view(),
+        name="notification-list",
+    ),
+    path(
+        "api/notifications/<uuid:pk>/read/",
+        NotificationMarkReadView.as_view(),
+        name="notification-mark-read",
+    ),
+    path(
+        "api/notifications/mark-all-read/",
+        NotificationMarkAllReadView.as_view(),
+        name="notification-mark-all-read",
     ),
 ]

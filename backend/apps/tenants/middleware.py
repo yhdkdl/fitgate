@@ -29,12 +29,24 @@ class TenantSubdomainMiddleware:
         host = request.get_host().split(":")[0].strip().lower().rstrip(".")
         domain = settings.DOMAIN.strip().lower().rstrip(".")
         extra_platform_hosts = set(getattr(settings, "TENANT_EXTRA_PLATFORM_HOSTS", []))
+        dev_tunnel_host = getattr(settings, "DEV_TUNNEL_HOST", "") or ""
+        dev_tunnel_host = dev_tunnel_host.split(":")[0].strip().lower().rstrip(".")
 
         tenant: Optional[GymTenant] = None
         subdomain: Optional[str] = None
 
+        # 0. Development tunnel host (development only, restricted strictly to webhook endpoints)
+        if dev_tunnel_host and host == dev_tunnel_host:
+            path = (request.path_info or request.path or "").rstrip("/")
+            if path == "/api/webhooks/chapa":
+                tenant = None
+            else:
+                return JsonResponse(
+                    {"detail": "Tunnel host only permitted for payment webhooks."},
+                    status=403,
+                )
         # 1. Apex domain or extra platform hosts
-        if host == domain or host in extra_platform_hosts:
+        elif host == domain or host in extra_platform_hosts:
             tenant = None
         # 2. Suffix match against configured DOMAIN
         elif domain and host.endswith(f".{domain}"):

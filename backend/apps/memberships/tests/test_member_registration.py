@@ -21,6 +21,7 @@ from datetime import timedelta
 from io import BytesIO
 
 import pytest
+from django.core.cache import cache
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.utils import timezone
 from PIL import Image
@@ -31,6 +32,11 @@ from apps.accounts.tokens import get_tokens_for_user
 from apps.memberships.models import BodyMetrics, Member
 from apps.tenants.models import GymTenant
 from apps.tenants.services import get_first_run_checklist
+
+
+@pytest.fixture(autouse=True)
+def clear_throttle_cache():
+    cache.clear()
 
 
 @pytest.fixture

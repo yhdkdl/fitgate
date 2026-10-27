@@ -420,3 +420,28 @@ All tables carry `id` (uuid, PK) unless noted. Every gym-scoped table carries `g
 | Member status (active, expired, frozen, suspended)                                                                                                                                                    | Adds fifth state `pending`; MemberSubscription is single source of truth; Member.status is derived and check-in verifies dates directly             | Distinguishes newly registered members from active subscriptions with clear gate messages                                      |
 
 - Name and phone for every role live on User so profile editing is one code path; the Member table does not duplicate full_name/phone (the Member sprint reads them from User); Trainer specialization and the profile photo are delivered in the sprints that create the Trainer model and the Cloudinary storage layer.
+
+## 12. Email Safety Architecture (Sprint 9b)
+
+To protect domain reputation, prevent sender blacklisting, and ensure reliable delivery of transactional emails via Brevo:
+
+1. **Centralized Send Pipeline (`send_fitgate_email`):** Every email sent by the platform routes through one central helper. No raw `send_mail` calls bypass it.
+2. **Delivery & Suppression Table (`EmailDeliveryStatus`):** Stores suppressed addresses, delivery statuses (`sent`, `not_delivered`, `suppressed`), suppression reasons (`hardBounce`, `blocked`, `spam`, `invalid`), timestamps, and resend rate limits.
+3. **Local Dev & Staging Safeguards:**
+   - Local dev uses console backend only; test addresses work without DNS or suppression blocks.
+   - Strict mode (`EMAIL_STRICT_MODE` setting, required in production): blocks reserved test domains (`example.com/.org/.net`, `.test`, `.invalid`, `.localhost`, `.local`) with `"Use a real email address"`, performs fast DNS lookups (accepting and logging if DNS lookup itself fails).
+   - Optional staging allow-list (`EMAIL_ALLOWED_RECIPIENTS`): restricts delivery on staging to explicitly approved recipients or domains.
+4. **Disposable Email Blocking:** Bundled list of throw-away domains blocked during public self-registration.
+5. **Brevo Webhook Integration:**
+   - Apex endpoint `POST /api/webhooks/brevo/` accepts Brevo events: `hardBounce`, `blocked`, `spam`, `invalid`.
+   - Authenticated via `BREVO_WEBHOOK_SECRET` with constant-time comparison. Missing or invalid secrets return identical responses to unknown events.
+   - Suppressed addresses are permanently blocked from future sends.
+6. **Rate Caps & Abuse Prevention:**
+   - Per-gym hourly cap (`EMAIL_HOURLY_CAP_PER_GYM`) and platform-wide hourly cap (`EMAIL_HOURLY_CAP_PLATFORM`).
+   - Public self-registration throttling per IP and per gym.
+   - Daily limit of 3 invitation resends per address.
+   - Nightly sweep (`cleanup_unverified_members`) expires unverified accounts older than 7 days.
+7. **Role-Tailored Validation & Tenancy:**
+   - Super Admin types Owner email twice with confirmation match.
+   - Front-desk member registration is lenient: member creation and check-in are never blocked by email failures; invitation status shows "Email not delivered" until corrected.
+   - "Email not delivered" statuses are visible strictly to staff of the same gym (and Super Admin for owners).

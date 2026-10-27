@@ -118,13 +118,95 @@ def validate_name(value: str, field_name: str = "Name") -> str:
     return trimmed
 
 
+RESERVED_TEST_DOMAINS = {
+    "example.com",
+    "example.org",
+    "example.net",
+    "example.edu",
+    "localhost",
+    "invalid",
+    "test",
+    "local",
+}
+
+RESERVED_TEST_TLDS = (
+    ".test",
+    ".invalid",
+    ".localhost",
+    ".local",
+    ".example",
+)
+
+
+def is_reserved_test_domain(domain: str) -> bool:
+    """Return True if domain is an RFC-reserved test or documentation domain."""
+    d = domain.strip().lower()
+    if d in RESERVED_TEST_DOMAINS:
+        return True
+    return any(d.endswith(tld) for tld in RESERVED_TEST_TLDS)
+
+
+def check_domain_dns_accepts_mail(domain: str, timeout: float = 2.0) -> None:
+    """
+    Checks if domain exists in DNS with a short timeout.
+    Definite non-existence (NXDOMAIN) raises ValidationError.
+    If lookup itself times out or has a network/DNS error, log warning and accept.
+    """
+    import logging
+    import socket
+
+    logger = logging.getLogger(__name__)
+
+    try:
+        orig_timeout = socket.getdefaulttimeout()
+        socket.setdefaulttimeout(timeout)
+        try:
+            socket.getaddrinfo(domain, None)
+        finally:
+            socket.setdefaulttimeout(orig_timeout)
+    except socket.gaierror as e:
+        err_msg = str(e).lower()
+        if (
+            (hasattr(socket, "EAI_NONAME") and e.errno == socket.EAI_NONAME)
+            or "name or service not known" in err_msg
+            or "nodename nor servname provided" in err_msg
+            or "getaddrinfo failed" in err_msg
+            or e.errno in (-2, 11001, 8)
+        ):
+            raise ValidationError("Domain does not exist or cannot accept mail.")
+        logger.warning(
+            "DNS lookup failed for domain %s (network error), accepting without blocking: %s",
+            domain,
+            e,
+        )
+    except (socket.timeout, TimeoutError, OSError) as e:
+        logger.warning(
+            "DNS lookup timed out or had network error for domain %s, accepting without blocking: %s",
+            domain,
+            e,
+        )
+
+
 _email_validator = EmailValidator(message="Enter a valid email address.")
 
 
-def validate_email_address(value: str) -> str:
+def validate_email_address(
+    value: str,
+    is_public_registration: bool = False,
+    is_lenient: bool = False,
+) -> str:
     """
     Validate email address format, length up to 254 chars, and store lowercase.
+
+    Under EMAIL_STRICT_MODE:
+    - Blocks reserved test domains with 'Use a real email address'.
+    - Blocks disposable domains for public registration.
+    - Performs fast DNS check (unless is_lenient is True).
     """
+    from django.conf import settings
+
+    from apps.accounts.disposable_domains import DISPOSABLE_EMAIL_DOMAINS
+
     if not value or not isinstance(value, str):
         raise ValidationError("Email address is required.")
 
@@ -133,6 +215,27 @@ def validate_email_address(value: str) -> str:
         raise ValidationError("Email address cannot exceed 254 characters.")
 
     _email_validator(trimmed)
+
+    domain = trimmed.split("@")[-1].strip()
+    strict_mode = getattr(settings, "EMAIL_STRICT_MODE", False)
+
+    if strict_mode:
+        if is_reserved_test_domain(domain):
+            raise ValidationError("Use a real email address")
+
+        if is_public_registration and domain in DISPOSABLE_EMAIL_DOMAINS:
+            raise ValidationError(
+                "Disposable email addresses are not allowed. Please use a permanent email address."
+            )
+
+        if not is_lenient:
+            check_domain_dns_accepts_mail(domain)
+    else:
+        if is_public_registration and domain in DISPOSABLE_EMAIL_DOMAINS:
+            raise ValidationError(
+                "Disposable email addresses are not allowed. Please use a permanent email address."
+            )
+
     return trimmed
 
 

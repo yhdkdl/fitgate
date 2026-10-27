@@ -5,7 +5,9 @@
 import { apiFetch } from "./client";
 import type { components } from "../types/api";
 
-export type CreateGymRequest = components["schemas"]["CreateGymRequestRequest"];
+export type CreateGymRequest = components["schemas"]["CreateGymRequestRequest"] & {
+  owner_email_confirm?: string;
+};
 export type CreateGymResponse = components["schemas"]["CreateGymResponse"] & {
   gym_url?: string;
   invite_link?: string;

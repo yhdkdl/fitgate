@@ -49,6 +49,7 @@ PUBLIC_PORT = env.str("PUBLIC_PORT", default="")
 
 # Multi-tenancy platform hosts (empty by default in production)
 TENANT_EXTRA_PLATFORM_HOSTS: list[str] = []
+DEV_TUNNEL_HOST: str = ""
 
 # Allowed hosts derived from DOMAIN without wildcard
 ALLOWED_HOSTS = build_allowed_hosts(DOMAIN)
@@ -218,3 +219,14 @@ SPECTACULAR_SETTINGS = {
 
 # API documentation permissions (overridden in local.py / prod.py)
 DOCS_PUBLIC = False
+
+# Email Safety & Delivery Settings (Sprint 9b)
+EMAIL_STRICT_MODE = env.bool("EMAIL_STRICT_MODE", default=False)
+BREVO_WEBHOOK_SECRET = env.str("BREVO_WEBHOOK_SECRET", default="")
+EMAIL_ALLOWED_RECIPIENTS = [
+    r.strip().lower()
+    for r in env.list("EMAIL_ALLOWED_RECIPIENTS", default=[])
+    if r.strip()
+]
+EMAIL_HOURLY_CAP_PER_GYM = env.int("EMAIL_HOURLY_CAP_PER_GYM", default=100)
+EMAIL_HOURLY_CAP_PLATFORM = env.int("EMAIL_HOURLY_CAP_PLATFORM", default=500)

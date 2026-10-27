@@ -63,17 +63,38 @@ The feasibility spike on the real Yegara cPanel host passed all checks:
    - **Fallback in use:** `http://localhost:5173`.
    - **Status:** To be verified at staging.
 
-7. **Sprint 11 — Chapa Test Keys & Online Payment Verification**
-   - **What to do:** Obtain Chapa test merchant credentials (public key, secret key, webhook secret) from `chapa.et` dashboard and enter them into gym settings (`GymPaymentConfig`) on the staging host once deployed and secured with HTTPS.
-   - **What to paste where:** In gym Owner settings under Payment Settings (stored encrypted in the database using `TENANT_CREDENTIALS_KEY`). In `/home/<user>/fitgate_env/.env`, set `TENANT_CREDENTIALS_KEY=<key>` generated via `docker compose exec backend python manage.py generate_tenant_credentials_key`. Outside test environments, the backend refuses to encrypt or decrypt credentials if this variable is missing or empty.
-   - **Fallback in use:** Signed mocked webhooks and simulated checkout in automated tests and local dev.
-   - **Live Test Checklist (to run later with real TEST keys on staging):**
-     1. Confirm the real webhook arrives with the header `x-chapa-signature`.
-     2. Confirm our HMAC check matches Chapa's real signature (Chapa's own documentation example hashes the re-serialized JSON body while our implementation hashes the raw request body, so check and verify this against live deliveries).
-     3. Confirm the field names in the real webhook and verification responses match the mock (`tx_ref` reference field, `status`, `amount`, `currency`).
-     4. Confirm the server-side verify call (`GET /transaction/verify/{tx_ref}`) and connection test (`GET /banks`) work with real keys.
-     5. Confirm abandoned payments (after 30-minute timeout) and failed payments behave properly without activating subscriptions.
-   - **Status:** Skipped for Increment 2 preflight per owner decision; feature marked "not verified against the real service".
+7. **Sprint 11 — Local & Staging Chapa Test with ngrok (Payment Gateway Verification)**
+   - **Overview:** Test real Chapa transactions locally on your laptop using ngrok to route incoming Chapa payment webhooks to your local Django backend.
+   - **Chapa Official Documentation Pages:**
+     - Base URL: `https://api.chapa.co/v1/`
+     - Accept Payments (Initialize): `https://developer.chapa.co/docs/accept-payments/`
+     - Verify Payments: `https://developer.chapa.co/docs/verify-payments/`
+     - Webhooks: `https://developer.chapa.co/docs/webhooks/`
+     - Banks: `https://developer.chapa.co/docs/banks/`
+   - **Plain Steps for Owner (Local Chapa Test via ngrok):**
+     1. Install ngrok on Windows, sign up for a free account at `https://dashboard.ngrok.com/signup`, and register the account's authtoken once on the laptop via `ngrok config add-authtoken <token>` (never paste the authtoken in chat, in a file, or in git).
+     2. Start the local app with the Chapa mock off (`CHAPA_USE_MOCK=False` in `.env`).
+     3. Run ngrok pointing at the port the local BACKEND listens on (port 8000, not the frontend port 5173): `ngrok http 8000`.
+     4. Copy the https address ngrok prints (e.g., `https://abcdef123456.ngrok-free.app`). Put its host name only (no `https://`, no port) in the local `.env` as `DEV_TUNNEL_HOST=abcdef123456.ngrok-free.app` and restart the backend container (`docker compose restart backend`).
+     5. In the Chapa test dashboard (`https://dashboard.chapa.co`), paste `<ngrok address>/api/webhooks/chapa/` (e.g. `https://abcdef123456.ngrok-free.app/api/webhooks/chapa/`) as the webhook URL and enter a webhook secret of the owner's choice.
+     6. As Owner, sign in to the local gym, enter the three test keys (`CHAPUBK_TEST-xxxx`, `CHASECK_TEST-xxxx`, and the same webhook secret) in the local gym's payment settings, then press **Test connection**.
+     7. As a member, pay a plan with a Chapa test card or test phone number. What the owner should see: subscription active, a digital receipt, and an in-app notification.
+     8. **Static vs. Dynamic Address:** If the owner's ngrok account can reserve a free fixed address (under Cloud Edge &rarr; Domains in the ngrok dashboard, e.g. `ngrok http --domain=my-fixed-name.ngrok-free.app 8000`), use it so `DEV_TUNNEL_HOST` and the Chapa dashboard address stay the same permanently; otherwise both `DEV_TUNNEL_HOST` in `.env` and the Chapa dashboard webhook URL must be updated every time ngrok restarts.
+   - **Troubleshooting List:**
+     - **401 on the webhook:** Webhook secret in gym payment settings does not match the secret in the Chapa dashboard, or the HMAC signature check failed.
+     - **ngrok address changed:** ngrok restarted without a reserved static domain; update `DEV_TUNNEL_HOST` in `.env`, restart the backend, and update the Chapa dashboard webhook URL.
+     - **Keys mixed between test and live:** Public or secret keys have the wrong prefix (`CHAPUBK_LIVE-` / `CHASECK_LIVE-` instead of `_TEST-`), or test keys were generated on a different account.
+     - **Webhook arrives but nothing activates:** Check `docker compose logs backend --tail=100`. Verify `tx_ref` matched a pending payment record, server-side verify returned `success`, and member/gym status is active.
+     - **ngrok warning page or blocked host:** Free ngrok accounts show a browser interstitial for GET requests in browsers; server-to-server POST webhooks bypass this automatically. If testing via curl, pass `-H "ngrok-skip-browser-warning: true"`. If Django returns 400 Bad Request, ensure the host is in `ALLOWED_HOSTS` via `DEV_TUNNEL_HOST`.
+     - **Wrong port:** ngrok pointed to port 5173 (frontend) instead of 8000 (backend). Ensure you run `ngrok http 8000`.
+   - **What to Compare with the Mock Checklist:**
+     - Webhook HMAC SHA-256 signature verification over raw request body matching `x-chapa-signature`.
+     - Webhook payload structure and field names (`tx_ref`, `status`, `amount`, `currency`).
+     - Server-side verification response structure (`GET https://api.chapa.co/v1/transaction/verify/{tx_ref}`).
+     - Bank list retrieval structure (`GET https://api.chapa.co/v1/banks`).
+     - Idempotent delivery behavior (no duplicate subscriptions or payments when webhook delivers multiple times).
+     - Failed or abandoned checkout behavior (status marked `failed`, no subscription extension).
+   - **Status:** Documented with plain steps; ready for owner local testing.
 
 8. **Sprint 10 — Manual Subscription Activation on Staging Before Sprint 12**
    - **What to do:** Because staff cannot create subscriptions without payments and cash payment arrives in Sprint 12, to manually assign an active subscription for check-in testing on staging before Sprint 12, run in cPanel Web Terminal:
@@ -103,6 +124,53 @@ The feasibility spike on the real Yegara cPanel host passed all checks:
       */5 * * * * /home/<user>/virtualenv/fitgate_backend/3.11/bin/python /home/<user>/fitgate/backend/manage.py process_unfreezes >> /home/<user>/fitgate_logs/cron_unfreeze.log 2>&1
       ```
     - **Status:** To be verified at staging.
+
+12. **Sprint 9b — Brevo Webhook Configuration & Email Safety Settings**
+    - **What to do:** In the Brevo dashboard (or via Brevo API `POST /webhooks`), create a transactional webhook for bounce, suppression, and complaint events.
+      - **Webhook URL:** `https://fitgate.tebebtech.com/api/webhooks/brevo/` (apex only).
+      - **Event types:** `hardBounce`, `blocked`, `spam`, `invalid` (transactional events).
+      - **Headers / Authentication:** Custom header `X-Webhook-Secret: <BREVO_WEBHOOK_SECRET>` (or query parameter `?secret=<BREVO_WEBHOOK_SECRET>`).
+      - **Click tracking stays off:** Under **Transactional &rarr; Settings &rarr; Configuration**, verify that click tracking is disabled so activation tokens and reset links point directly to FitGate without redirect rewrites.
+    - **Brevo Official Documentation Pages Consulted:**
+      - Overview & Webhook Configuration: `https://developers.brevo.com/docs/webhooks`
+      - Webhooks API Reference: `https://developers.brevo.com/reference/createwebhook`
+      - Transactional Webhook Events & Payload Formats: `https://developers.brevo.com/docs/transactional-webhooks`
+      - Webhook Authentication: `https://developers.brevo.com/docs/webhook-authentication`
+    - **Silent Security Response:** Requests with wrong or missing webhook secret return the exact same response as an unknown event (`{"status": "ignored"}` with HTTP 200 OK) to prevent secret probing.
+    - **What to paste where:** In `/home/<user>/fitgate_env/.env`:
+      - `EMAIL_STRICT_MODE=True` (required in production; no default in production).
+      - `BREVO_WEBHOOK_SECRET=<generated_secret>` (required in production; constant-time validated).
+      - Optional: `EMAIL_ALLOWED_RECIPIENTS=` (comma-separated list of allowed recipient addresses/domains on staging).
+      - Optional: `EMAIL_HOURLY_CAP_PER_GYM=100` and `EMAIL_HOURLY_CAP_PLATFORM=500`.
+    - **Throw-away domain list updates:** The bundled disposable domain list lives in `backend/apps/accounts/disposable_domains.py`. To add new domains, append them to `DISPOSABLE_EMAIL_DOMAINS` in that file and run the test suite.
+    - **Unverified Accounts Cleanup Cron Job:**
+      - Daily cPanel Cron Job running at 03:00 UTC to mark unverified public registrations older than 7 days as expired:
+      ```bash
+      0 3 * * * /home/<user>/virtualenv/fitgate_backend/3.11/bin/python /home/<user>/fitgate/backend/manage.py cleanup_unverified_members >> /home/<user>/fitgate_logs/cron_cleanup_unverified.log 2>&1
+      ```
+    - **Status:** To be verified at staging.
+
+13. **Step 13 — Sprint 14: Scheduled Jobs & Nightly Membership Sweep Cron Job**
+    - **Nightly Membership Sweep Cron Job:**
+      - Runs daily at 01:00 UTC: expires past member subscriptions, derives member status via `update_member_status()`, checks gym suspension/grace period, dispatches member renewal reminder notices and platform renewal notices strictly through `send_fitgate_email`, reactivates completed freezes via `process_unfreezes`, and runs payments housekeeping:
+      ```bash
+      0 1 * * * /home/<user>/virtualenv/fitgate_backend/3.11/bin/python /home/<user>/fitgate/backend/manage.py daily_membership_sweep >> /home/<user>/fitgate_logs/cron_daily_sweep.log 2>&1
+      ```
+    - **Status:** To be verified at staging.
+
+---
+
+## Scheduled Cron Jobs Summary (Single Reference Table)
+
+The table below lists every recurring cron job required by the FitGate production deployment. Each command is executed via `/home/<user>/virtualenv/fitgate_backend/3.11/bin/python /home/<user>/fitgate/backend/manage.py <command> >> /home/<user>/fitgate_logs/<log_file>.log 2>&1`.
+
+| Command                            | Schedule                         | Purpose                                                                                                  | Overlap & Concurrency Notes                                                                             |
+| :--------------------------------- | :------------------------------- | :------------------------------------------------------------------------------------------------------- | :------------------------------------------------------------------------------------------------------ |
+| `sweep_unfinished_payments`        | `*/5 * * * *` (Every 5 minutes)  | Marks pending online checkouts older than 30 mins as abandoned                                           | Safe. Fast execution. Row-level locking on payment records prevents duplicate status transitions.       |
+| `process_unfreezes`                | `*/5 * * * *` (Every 5 minutes)  | Reactivates subscriptions for ended freezes and activates pending freezes for today                      | Safe. Idempotent date checks; handles today's unfreezes once.                                           |
+| `daily_membership_sweep`           | `0 1 * * *` (Daily at 01:00 UTC) | Expires ended subscriptions, sends renewal reminder emails (7d, 3d), logs platform grace-period warnings | Daily run. Strictly idempotent: never double-expires or sends duplicate renewal emails on the same day. |
+| `flag_unreconciled_bank_transfers` | `0 2 * * *` (Daily at 02:00 UTC) | Flags manual bank transfers pending reconciliation > 7 days and alerts gym owner                         | Daily run. Idempotent single daily summary notification.                                                |
+| `cleanup_unverified_members`       | `0 3 * * *` (Daily at 03:00 UTC) | Marks unverified self-registered accounts older than 7 days as `EXPIRED` (`is_active=False`)             | Daily run. Idempotent bulk query; leaves user records inactive and member status `expired`.             |
 
 ---
 

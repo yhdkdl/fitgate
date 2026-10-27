@@ -1,8 +1,8 @@
-"""Serializers for authentication and user endpoints."""
+from typing import Optional
 
 from rest_framework import serializers
 
-from apps.accounts.models import AuditLog, User
+from apps.accounts.models import AuditLog, Notification, User
 from apps.core.validators import (
     validate_and_normalize_phone,
     validate_email_address,
@@ -214,7 +214,8 @@ class SetPasswordFromInviteResponseSerializer(serializers.Serializer):
 class StaffMemberSerializer(serializers.ModelSerializer):
     """Serializer representing a staff member in the gym tenant."""
 
-    gym_id = serializers.UUIDField(allow_null=True, source="gym.id", read_only=True)
+    invitation_status = serializers.SerializerMethodField()
+    email_delivery_message = serializers.SerializerMethodField()
 
     class Meta:
         model = User
@@ -228,8 +229,63 @@ class StaffMemberSerializer(serializers.ModelSerializer):
             "is_active",
             "email_verified_at",
             "created_at",
+            "invitation_status",
+            "email_delivery_message",
         ]
         read_only_fields = fields
+
+    def get_invitation_status(self, obj) -> str:
+        if obj.has_usable_password():
+            return "activated"
+
+        request = self.context.get("request")
+        user = getattr(request, "user", None) if request else None
+
+        # Tenancy check: Item 12 - "Email not delivered" is visible only to staff of the same gym (Super Admin for owners)
+        is_same_gym_staff = bool(
+            user
+            and user.is_authenticated
+            and (
+                (
+                    user.role == User.ROLE_SUPER_ADMIN
+                    and (obj.gym_id is None or obj.role == User.ROLE_OWNER)
+                )
+                or (
+                    user.gym_id
+                    and obj.gym_id
+                    and user.gym_id == obj.gym_id
+                    and user.role
+                    in (User.ROLE_OWNER, User.ROLE_MANAGER, User.ROLE_RECEPTION)
+                )
+            )
+        )
+        if not is_same_gym_staff:
+            return "sent"
+
+        from apps.accounts.models import EmailDeliveryStatus
+
+        record = EmailDeliveryStatus.all_objects.filter(
+            email=obj.email.strip().lower(),
+            gym_id=obj.gym_id,
+        ).first()
+        if not record and (obj.gym_id is None or obj.role == User.ROLE_OWNER):
+            record = EmailDeliveryStatus.all_objects.filter(
+                email=obj.email.strip().lower(),
+                gym__isnull=True,
+            ).first()
+
+        if record and record.status in (
+            EmailDeliveryStatus.STATUS_NOT_DELIVERED,
+            EmailDeliveryStatus.STATUS_SUPPRESSED,
+        ):
+            return "not_delivered"
+
+        return "sent"
+
+    def get_email_delivery_message(self, obj) -> Optional[str]:
+        if self.get_invitation_status(obj) == "not_delivered":
+            return "Fix the address and resend"
+        return None
 
 
 class InviteStaffRequestSerializer(serializers.Serializer):
@@ -309,5 +365,20 @@ class AuditLogSerializer(serializers.ModelSerializer):
             "affected_record_id",
             "timestamp",
             "metadata",
+        ]
+        read_only_fields = fields
+
+
+class NotificationSerializer(serializers.ModelSerializer):
+    """Read-only representation of an in-app user notification."""
+
+    class Meta:
+        model = Notification
+        fields = [
+            "id",
+            "type",
+            "message",
+            "is_read",
+            "created_at",
         ]
         read_only_fields = fields

@@ -68,6 +68,7 @@ export const GymManagementSection: React.FC<GymManagementSectionProps> = ({
   const [contactEmail, setContactEmail] = useState("");
   const [ownerName, setOwnerName] = useState("");
   const [ownerEmail, setOwnerEmail] = useState("");
+  const [ownerEmailConfirm, setOwnerEmailConfirm] = useState("");
   const [paymentAmount, setPaymentAmount] = useState("12000.00");
   const [paymentReference, setPaymentReference] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -85,6 +86,7 @@ export const GymManagementSection: React.FC<GymManagementSectionProps> = ({
       if (prefillData.contact_email) {
         setContactEmail(prefillData.contact_email);
         setOwnerEmail(prefillData.contact_email);
+        setOwnerEmailConfirm(prefillData.contact_email);
       }
       if (prefillData.location) setLocation(prefillData.location);
       if (prefillData.demo_request_id)
@@ -169,6 +171,14 @@ export const GymManagementSection: React.FC<GymManagementSectionProps> = ({
     const oEmailErr = validateEmail(ownerEmail, true);
     if (oEmailErr) errors.owner_email = oEmailErr;
 
+    if (!ownerEmailConfirm.trim()) {
+      errors.owner_email_confirm = "Please confirm the owner email address.";
+    } else if (
+      ownerEmailConfirm.trim().toLowerCase() !== ownerEmail.trim().toLowerCase()
+    ) {
+      errors.owner_email_confirm = "Owner email confirmation does not match.";
+    }
+
     const payErr = validatePaymentAmount(paymentAmount);
     if (payErr) errors.payment_amount = payErr;
 
@@ -199,6 +209,7 @@ export const GymManagementSection: React.FC<GymManagementSectionProps> = ({
         contact_email: contactEmail.trim().toLowerCase(),
         owner_name: ownerName.trim(),
         owner_email: ownerEmail.trim().toLowerCase(),
+        owner_email_confirm: ownerEmailConfirm.trim().toLowerCase(),
         payment_amount: paymentAmount.trim(),
         payment_reference: paymentReference.trim(),
         payment_method: "bank_transfer",
@@ -218,6 +229,7 @@ export const GymManagementSection: React.FC<GymManagementSectionProps> = ({
       setContactEmail("");
       setOwnerName("");
       setOwnerEmail("");
+      setOwnerEmailConfirm("");
       setPaymentReference("");
       setFieldErrors({});
       fetchGyms();
@@ -588,6 +600,24 @@ export const GymManagementSection: React.FC<GymManagementSectionProps> = ({
                       placeholder="owner@example.com"
                       maxLength={254}
                       error={fieldErrors.owner_email}
+                      required
+                    />
+                  </FormField>
+
+                  <FormField
+                    label="Confirm Owner Email"
+                    htmlFor="gym-owner-email-confirm"
+                    required
+                    error={fieldErrors.owner_email_confirm}
+                  >
+                    <Input
+                      id="gym-owner-email-confirm"
+                      type="email"
+                      value={ownerEmailConfirm}
+                      onChange={(e) => setOwnerEmailConfirm(e.target.value)}
+                      placeholder="owner@example.com"
+                      maxLength={254}
+                      error={fieldErrors.owner_email_confirm}
                       required
                     />
                   </FormField>
