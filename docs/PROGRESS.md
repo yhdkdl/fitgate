@@ -37,10 +37,11 @@
 - Sprint 9b: Email safety (Brevo bounce protection & delivery safeguard) — Brevo webhook suppression recording (`hardBounce`, `blocked`, `spam`, `invalid`), suppression check prior to send, strict mode gate for reserved test domains and NXDOMAINs, disposable domain block on public registration with lenient front-desk entry, rate caps (100/hr per gym, 500/hr platform), confirmation of owner email on gym creation, 3-resend daily cap per recipient, tenant-isolated invitation delivery status, and unverified member cleanup command (tag `sprint-9b-done`).
 - Sprint 14: Scheduled jobs (automated daily maintenance tasks) — Idempotent nightly sweep command (`daily_membership_sweep`), expiring past subscriptions strictly via shared `update_member_status()`, sending renewal reminders via `send_fitgate_email` based on gym reminder settings, tenant-isolated reminders with suspended and past-grace gyms sending nothing, unfreezing completed freezes via `process_unfreezes`, and flagging unresolved payments and unreconciled bank transfers (tag `sprint-14-done`).
 - Sprint 15: Notification center UI (in-app screens) — Accessible header notification bell with live unread count badge, unread notices prioritized first, mark as read and mark all read endpoints, tenant isolation and platform alert isolation for Super Admin (tag `sprint-15-done`).
+- Increment 2 Complete: Sprints 10, 11, 12, 12b, 13, 9b, 14, 15, and Increment 2 follow-up fixes all completed, verified, and documented with end-to-end testing script (`docs/INCREMENT_2_TEST.md`).
 
 ## Current
 
-- Increment 2 report and manual verification walkthrough script (`docs/INCREMENT_2_TEST.md`).
+- Increment 2 review and acceptance.
 
 ## Next
 
