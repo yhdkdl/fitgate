@@ -2,7 +2,7 @@ from typing import Optional
 
 from rest_framework import serializers
 
-from apps.accounts.models import AuditLog, User
+from apps.accounts.models import AuditLog, Notification, User
 from apps.core.validators import (
     validate_and_normalize_phone,
     validate_email_address,
@@ -365,5 +365,20 @@ class AuditLogSerializer(serializers.ModelSerializer):
             "affected_record_id",
             "timestamp",
             "metadata",
+        ]
+        read_only_fields = fields
+
+
+class NotificationSerializer(serializers.ModelSerializer):
+    """Read-only representation of an in-app user notification."""
+
+    class Meta:
+        model = Notification
+        fields = [
+            "id",
+            "type",
+            "message",
+            "is_read",
+            "created_at",
         ]
         read_only_fields = fields

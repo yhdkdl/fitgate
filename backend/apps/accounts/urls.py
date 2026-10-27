@@ -9,6 +9,9 @@ from apps.accounts.views import (
     GymAuditLogListView,
     LoginView,
     LogoutView,
+    NotificationListView,
+    NotificationMarkAllReadView,
+    NotificationMarkReadView,
     PasswordResetConfirmView,
     PasswordResetRequestView,
     PlatformAuditLogListView,
@@ -87,5 +90,21 @@ urlpatterns = [
         "api/platform/audit-logs/",
         PlatformAuditLogListView.as_view(),
         name="platform-audit-logs",
+    ),
+    # Notification Center (Sprint 15)
+    path(
+        "api/notifications/",
+        NotificationListView.as_view(),
+        name="notification-list",
+    ),
+    path(
+        "api/notifications/<uuid:pk>/read/",
+        NotificationMarkReadView.as_view(),
+        name="notification-mark-read",
+    ),
+    path(
+        "api/notifications/mark-all-read/",
+        NotificationMarkAllReadView.as_view(),
+        name="notification-mark-all-read",
     ),
 ]

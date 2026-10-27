@@ -24,7 +24,13 @@ from rest_framework_simplejwt.exceptions import TokenError
 from rest_framework_simplejwt.tokens import RefreshToken
 
 from apps.accounts.dashboards import dashboard_config_for
-from apps.accounts.models import AuditLog, AuthToken, EmailDeliveryStatus, User
+from apps.accounts.models import (
+    AuditLog,
+    AuthToken,
+    EmailDeliveryStatus,
+    Notification,
+    User,
+)
 from apps.accounts.notifications import notify_account_locked, send_staff_invite_email
 from apps.accounts.pagination import AuditLogPagination
 from apps.accounts.permissions import (
@@ -42,6 +48,7 @@ from apps.accounts.serializers import (
     LoginRequestSerializer,
     LoginResponseSerializer,
     LogoutRequestSerializer,
+    NotificationSerializer,
     PasswordResetConfirmRequestSerializer,
     PasswordResetConfirmResponseSerializer,
     PasswordResetRequestSerializer,
@@ -1331,3 +1338,123 @@ class BrevoWebhookView(APIView):
         if processed_any:
             return Response({"status": "processed"}, status=status.HTTP_200_OK)
         return Response({"status": "ignored"}, status=status.HTTP_200_OK)
+
+
+class NotificationListView(APIView):
+    """
+    List notifications for the authenticated user.
+    Enforces:
+    - User sees only their own notifications (recipient=request.user).
+    - Inside gym: scoped to current tenant via PlatformTenantAwareModel.
+    - At apex (Super Admin): platform notifications where gym is None.
+    - Ordered unread first, then newest first.
+    """
+
+    permission_classes = [IsAuthenticated, RequirePasswordChanged]
+
+    @extend_schema(
+        summary="List user notifications",
+        description="Returns list of in-app notifications for the authenticated user with unread count.",
+        responses={
+            200: NotificationSerializer(many=True),
+            401: OpenApiResponse(description="Authentication required"),
+        },
+    )
+    def get(self, request, *args, **kwargs):
+        if request.tenant is None:
+            qs = Notification.all_objects.filter(
+                recipient=request.user,
+                gym__isnull=True,
+            )
+        else:
+            qs = Notification.objects.filter(recipient=request.user)
+
+        qs = qs.order_by("is_read", "-created_at")
+        unread_count = qs.filter(is_read=False).count()
+        serializer = NotificationSerializer(qs, many=True)
+        return Response(
+            {
+                "unread_count": unread_count,
+                "results": serializer.data,
+            },
+            status=status.HTTP_200_OK,
+        )
+
+
+class NotificationMarkReadView(APIView):
+    """
+    Mark a single notification as read.
+    User can only mark their own notification.
+    """
+
+    permission_classes = [IsAuthenticated, RequirePasswordChanged]
+
+    @extend_schema(
+        summary="Mark notification as read",
+        description="Marks a single notification as read for the authenticated user.",
+        responses={
+            200: OpenApiResponse(description="Notification marked as read"),
+            401: OpenApiResponse(description="Authentication required"),
+            404: OpenApiResponse(description="Notification not found"),
+        },
+    )
+    def post(self, request, pk, *args, **kwargs):
+        if request.tenant is None:
+            qs = Notification.all_objects.filter(
+                recipient=request.user, gym__isnull=True
+            )
+        else:
+            qs = Notification.objects.filter(recipient=request.user)
+
+        notif = qs.filter(pk=pk).first()
+        if not notif:
+            return Response(
+                {"detail": "Notification not found."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        if not notif.is_read:
+            notif.is_read = True
+            notif.save(update_fields=["is_read"])
+
+        return Response(
+            {
+                "detail": "Notification marked as read.",
+                "id": str(notif.id),
+                "is_read": True,
+            },
+            status=status.HTTP_200_OK,
+        )
+
+
+class NotificationMarkAllReadView(APIView):
+    """
+    Mark all unread notifications for the user as read.
+    """
+
+    permission_classes = [IsAuthenticated, RequirePasswordChanged]
+
+    @extend_schema(
+        summary="Mark all notifications as read",
+        description="Marks all unread notifications as read for the authenticated user.",
+        responses={
+            200: OpenApiResponse(description="All notifications marked as read"),
+            401: OpenApiResponse(description="Authentication required"),
+        },
+    )
+    def post(self, request, *args, **kwargs):
+        if request.tenant is None:
+            qs = Notification.all_objects.filter(
+                recipient=request.user, gym__isnull=True
+            )
+        else:
+            qs = Notification.objects.filter(recipient=request.user)
+
+        updated_count = qs.filter(is_read=False).update(is_read=True)
+        return Response(
+            {
+                "detail": "All notifications marked as read.",
+                "updated_count": updated_count,
+            },
+            status=status.HTTP_200_OK,
+        )
