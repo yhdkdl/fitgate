@@ -357,12 +357,16 @@ Preparation for deploying the Increment 1 milestone to the real Yegara cPanel st
     - Unconfirmed payments lingering past the review window are flagged for staff review.
     - Running the maintenance job multiple times in a row never produces duplicate notifications, flags, or updates.
 
+- [x] Status: done — merged to develop (tag sprint-14-done)
+
 15. **Notification center (in-app screens)** — Notification records and the shared creation helper were built in Sprint 11; Sprint 15 delivers the user-facing screens and mark-as-read interaction. What gym users can do after this sprint:
     - Members and staff can view their own in-app notifications in a dropdown or panel (bell with unread count), organized with unread notices first.
     - Notifications are strictly separated so gym members and staff only see messages for their gym, while platform alerts go exclusively to Super Admin.
     - Users can mark notifications as read, and the read status remains saved when returning.
 
-- [ ] All sprints in this increment complete
+- [x] Status: done — merged to develop (tag sprint-15-done)
+
+- [x] All sprints in this increment complete
 
 ## Increment 3 — Trainer module (non-AI)
 

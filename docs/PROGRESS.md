@@ -36,14 +36,15 @@
 - Followup fixes (Increment 2): Per-gym row-locked receipt counter (`GymReceiptCounter` locked via `select_for_update`) ensuring sequential gapless receipts under concurrency (`REC-000001`, `REC-000002`), and future start date freeze check-in verification with single end date extension (tag `fix-increment-2-followup-done`).
 - Sprint 9b: Email safety (Brevo bounce protection & delivery safeguard) — Brevo webhook suppression recording (`hardBounce`, `blocked`, `spam`, `invalid`), suppression check prior to send, strict mode gate for reserved test domains and NXDOMAINs, disposable domain block on public registration with lenient front-desk entry, rate caps (100/hr per gym, 500/hr platform), confirmation of owner email on gym creation, 3-resend daily cap per recipient, tenant-isolated invitation delivery status, and unverified member cleanup command (tag `sprint-9b-done`).
 - Sprint 14: Scheduled jobs (automated daily maintenance tasks) — Idempotent nightly sweep command (`daily_membership_sweep`), expiring past subscriptions strictly via shared `update_member_status()`, sending renewal reminders via `send_fitgate_email` based on gym reminder settings, tenant-isolated reminders with suspended and past-grace gyms sending nothing, unfreezing completed freezes via `process_unfreezes`, and flagging unresolved payments and unreconciled bank transfers (tag `sprint-14-done`).
+- Sprint 15: Notification center UI (in-app screens) — Accessible header notification bell with live unread count badge, unread notices prioritized first, mark as read and mark all read endpoints, tenant isolation and platform alert isolation for Super Admin (tag `sprint-15-done`).
 
 ## Current
 
-- Sprint 15: Notification center UI — branch `feature/sprint-15-notifications`.
+- Increment 2 report and manual verification walkthrough script (`docs/INCREMENT_2_TEST.md`).
 
 ## Next
 
-- Increment 2 report and manual verification walkthrough script (`docs/INCREMENT_2_TEST.md`).
+- Increment 3: Trainer module (non-AI) — Sprints 16 and 17.
 
 ## Open manual steps
 

@@ -3,6 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { Badge } from "../components/ui/Badge";
 import { Button } from "../components/ui/Button";
 import { Card } from "../components/ui/Card";
+import { NotificationCenter } from "../components/ui/NotificationCenter";
 import {
   GymManagementSection,
   type GymPrefillData,
@@ -80,6 +81,8 @@ export const DashboardScreen: React.FC = () => {
                 <Badge variant="primary">{user?.role}</Badge>
               </div>
             </div>
+
+            <NotificationCenter />
 
             <Link
               to="/profile"
