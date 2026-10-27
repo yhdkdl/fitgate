@@ -108,6 +108,8 @@ class TestAllowedHostsEnforcement:
             "DEFAULT_FROM_EMAIL": "noreply@fitgate.tebebtech.com",
             "MEDIA_ROOT": "/tmp/fitgate_media",
             "LOG_DIR": "/tmp/fitgate_logs",
+            "EMAIL_STRICT_MODE": "False",
+            "BREVO_WEBHOOK_SECRET": "test-brevo-secret",
         }
         with patch.dict("os.environ", mock_env, clear=True):
             import fitgate.settings.prod as prod_settings

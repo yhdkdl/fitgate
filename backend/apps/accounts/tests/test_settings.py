@@ -23,6 +23,8 @@ PROD_BASE_ENV = {
     "EMAIL_USE_SSL": "False",
     "MEDIA_ROOT": "/tmp/fitgate_media",
     "LOG_DIR": "/tmp/fitgate_logs",
+    "EMAIL_STRICT_MODE": "False",
+    "BREVO_WEBHOOK_SECRET": "test-brevo-secret",
 }
 
 
