@@ -40,11 +40,15 @@ from apps.accounts.tokens import get_tokens_for_user
 from apps.attendance.crypto import (
     InvalidTokenError,
     QRTokenCryptoError,
+    compact_id_to_uuid,
     generate_rsa_keypair,
+    get_ed25519_private_key_pem,
+    get_ed25519_public_key_pem,
     get_rsa_private_key_pem,
     get_rsa_public_key_pem,
     hash_token,
     sign_qr_payload,
+    uuid_to_compact_id,
     verify_qr_jwt,
 )
 from apps.attendance.models import Attendance, QRToken
@@ -224,7 +228,7 @@ class TestQRTokenIssuanceAndVerification:
         assert response.status_code == 200
         assert "public_key" in response.data
         assert "BEGIN PUBLIC KEY" in response.data["public_key"]
-        assert response.data["algorithm"] == "RS256"
+        assert response.data["algorithm"] == "EdDSA"
 
     def test_single_line_escaped_key_signs_and_verifies(self, settings):
         """Single-line escaped RSA keys (with literal \\n escapes) sign and verify correctly."""
@@ -290,6 +294,28 @@ class TestQRTokenIssuanceAndVerification:
         ):
             get_rsa_public_key_pem()
 
+    def test_member_qr_token_endpoint_returns_500_on_unconfigured_private_key(
+        self, api_client, gym_tenant, member_user, active_member, settings
+    ):
+        """When QR_JWT_PRIVATE_KEY is unconfigured, member QR token returns clean JSON 500 crypto_error."""
+        settings.QR_JWT_PRIVATE_KEY = ""
+        client = auth_client(api_client, member_user, gym_tenant.subdomain)
+        response = client.get("/api/members/me/qr-token/")
+        assert response.status_code == 500
+        assert response.data["reason"] == "crypto_error"
+        assert "QR token service is currently unavailable" in response.data["detail"]
+
+    def test_public_key_endpoint_returns_500_on_unconfigured_public_key(
+        self, api_client, gym_tenant, settings
+    ):
+        """When QR_JWT_PUBLIC_KEY is unconfigured, public key endpoint returns clean JSON 500 crypto_error."""
+        settings.QR_JWT_PUBLIC_KEY = ""
+        api_client.defaults["HTTP_HOST"] = f"{gym_tenant.subdomain}.localhost"
+        response = api_client.get("/api/attendance/public-key/")
+        assert response.status_code == 500
+        assert response.data["reason"] == "crypto_error"
+        assert "QR verification public key is not configured" in response.data["detail"]
+
     def test_public_key_endpoint_returns_503_still_securing_on_unconfirmed_tls(
         self, api_client, db
     ):
@@ -320,17 +346,19 @@ class TestQRTokenIssuanceAndVerification:
         assert data["member_id"] == str(active_member.id)
 
         # Verify offline with public key
-        public_key = get_rsa_public_key_pem()
+        public_key = get_ed25519_public_key_pem()
         decoded = jwt.decode(
             data["token"],
             public_key,
-            algorithms=["RS256"],
+            algorithms=["EdDSA"],
             options={"require": ["exp"]},
             leeway=0,
         )
-        assert decoded["sub"] == str(active_member.id)
-        assert decoded["gym_id"] == str(gym_tenant.id)
-        assert decoded["type"] == "qr_checkin"
+        assert compact_id_to_uuid(decoded["m"]) == active_member.id
+        assert compact_id_to_uuid(decoded["g"]) == gym_tenant.id
+        unverified_header = jwt.get_unverified_header(data["token"])
+        assert unverified_header["typ"] == "fg-qr"
+        assert unverified_header["alg"] == "EdDSA"
 
     def test_member_me_qr_token_endpoint_no_subscription_returns_400_expired(
         self, api_client, gym_tenant, member_user, active_member
@@ -420,19 +448,17 @@ class TestQRTokenIssuanceAndVerification:
     def test_validly_signed_token_without_exp_claim_rejected(
         self, api_client, gym_tenant, reception_user, active_member
     ):
-        """A validly signed RS256 token without exp claim is rejected (options={'require': ['exp']})."""
-        now = timezone.now()
+        """A validly signed EdDSA token without exp claim is rejected (options={'require': ['exp']})."""
         payload_no_exp = {
-            "sub": str(active_member.id),
-            "member_id": str(active_member.id),
-            "gym_id": str(gym_tenant.id),
-            "jti": str(uuid.uuid4()),
-            "iat": int(now.timestamp()),
-            "type": "qr_checkin",
+            "m": uuid_to_compact_id(active_member.id),
+            "g": uuid_to_compact_id(gym_tenant.id),
+            "j": "randtok1",
             # NOTE: "exp" claim is intentionally omitted
         }
-        priv_pem = get_rsa_private_key_pem()
-        token_no_exp = jwt.encode(payload_no_exp, priv_pem, algorithm="RS256")
+        priv_pem = get_ed25519_private_key_pem()
+        token_no_exp = jwt.encode(
+            payload_no_exp, priv_pem, algorithm="EdDSA", headers={"typ": "fg-qr"}
+        )
 
         # 1. Direct crypto verify raises InvalidTokenError
         with pytest.raises(InvalidTokenError):
@@ -443,6 +469,61 @@ class TestQRTokenIssuanceAndVerification:
         response = client.post(
             "/api/gym/attendance/scan/",
             {"token": token_no_exp},
+            format="json",
+        )
+        assert response.status_code == 400
+        assert response.data["reason"] == "invalid_token"
+
+    @pytest.mark.parametrize("other_alg", ["RS256", "HS256", "none"])
+    def test_tokens_signed_with_other_algorithm_rejected(
+        self, api_client, gym_tenant, reception_user, active_member, other_alg
+    ):
+        """Tokens signed with another algorithm (RS256, HS256, none) are rejected."""
+        from cryptography.hazmat.primitives import serialization
+        from cryptography.hazmat.primitives.asymmetric import rsa
+
+        now = timezone.now()
+        payload = {
+            "m": uuid_to_compact_id(active_member.id),
+            "g": uuid_to_compact_id(gym_tenant.id),
+            "j": "otheralg",
+            "exp": int((now + timedelta(seconds=90)).timestamp()),
+        }
+
+        if other_alg == "RS256":
+            rsa_key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+            rsa_pem = rsa_key.private_bytes(
+                encoding=serialization.Encoding.PEM,
+                format=serialization.PrivateFormat.PKCS8,
+                encryption_algorithm=serialization.NoEncryption(),
+            ).decode("utf-8")
+            token = jwt.encode(
+                payload, rsa_pem, algorithm="RS256", headers={"typ": "fg-qr"}
+            )
+        elif other_alg == "HS256":
+            token = jwt.encode(
+                payload,
+                "a-secure-32-byte-secret-key-12345",
+                algorithm="HS256",
+                headers={"typ": "fg-qr"},
+            )
+        else:  # "none"
+            token = jwt.encode(
+                payload,
+                key="",
+                algorithm="none",
+                headers={"typ": "fg-qr"},
+            )
+
+        # 1. Direct crypto verify raises InvalidTokenError
+        with pytest.raises(InvalidTokenError):
+            verify_qr_jwt(token)
+
+        # 2. Scan endpoint rejects with 400 invalid_token
+        client = auth_client(api_client, reception_user, gym_tenant.subdomain)
+        response = client.post(
+            "/api/gym/attendance/scan/",
+            {"token": token},
             format="json",
         )
         assert response.status_code == 400
@@ -516,6 +597,7 @@ class TestScanEndpointAndDuplicateHandling:
         assert att.gym == gym_tenant
         assert att.date == timezone.localdate()
         assert not att.is_override
+        assert att.method == Attendance.METHOD_QR
 
     def test_second_scan_same_day_denied_no_second_row_notifies_staff(
         self,
@@ -593,8 +675,10 @@ class TestScanEndpointAndDuplicateHandling:
             "exp": int((now + timedelta(seconds=90)).timestamp()),
             "type": "qr_checkin",
         }
-        priv_pem = get_rsa_private_key_pem()
-        token_str = jwt.encode(payload, priv_pem, algorithm="RS256")
+        priv_pem = get_ed25519_private_key_pem()
+        token_str = jwt.encode(
+            payload, priv_pem, algorithm="EdDSA", headers={"typ": "fg-qr"}
+        )
         token_hex = hash_token(token_str)
 
         QRToken.all_objects.create(
@@ -648,8 +732,10 @@ class TestScanEndpointAndDuplicateHandling:
             "exp": int((now + timedelta(seconds=90)).timestamp()),
             "type": "qr_checkin",
         }
-        priv_pem = get_rsa_private_key_pem()
-        token_str = jwt.encode(payload, priv_pem, algorithm="RS256")
+        priv_pem = get_ed25519_private_key_pem()
+        token_str = jwt.encode(
+            payload, priv_pem, algorithm="EdDSA", headers={"typ": "fg-qr"}
+        )
         token_hex = hash_token(token_str)
 
         qr_row = QRToken.all_objects.create(
@@ -695,8 +781,10 @@ class TestScanEndpointAndDuplicateHandling:
             "exp": int((now + timedelta(seconds=90)).timestamp()),
             "type": "qr_checkin",
         }
-        priv_pem = get_rsa_private_key_pem()
-        token_str = jwt.encode(payload, priv_pem, algorithm="RS256")
+        priv_pem = get_ed25519_private_key_pem()
+        token_str = jwt.encode(
+            payload, priv_pem, algorithm="EdDSA", headers={"typ": "fg-qr"}
+        )
         token_hex = hash_token(token_str)
 
         qr_token = QRToken.all_objects.create(
@@ -747,6 +835,7 @@ class TestScanEndpointAndDuplicateHandling:
         """
         sub = MemberSubscription.all_objects.filter(member=active_member).first()
         if inactive_scenario == "member_suspended":
+            active_member._status_update_allowed = True
             active_member.status = Member.STATUS_SUSPENDED
             active_member.save(update_fields=["status"])
         elif inactive_scenario == "sub_expired":
@@ -769,8 +858,10 @@ class TestScanEndpointAndDuplicateHandling:
             "exp": int((now + timedelta(seconds=90)).timestamp()),
             "type": "qr_checkin",
         }
-        priv_pem = get_rsa_private_key_pem()
-        token_str = jwt.encode(payload, priv_pem, algorithm="RS256")
+        priv_pem = get_ed25519_private_key_pem()
+        token_str = jwt.encode(
+            payload, priv_pem, algorithm="EdDSA", headers={"typ": "fg-qr"}
+        )
         token_hex = hash_token(token_str)
 
         # Deactivated token (is_active=False)
@@ -818,8 +909,10 @@ class TestScanEndpointAndDuplicateHandling:
             "exp": int((now + timedelta(seconds=90)).timestamp()),
             "type": "qr_checkin",
         }
-        priv_pem = get_rsa_private_key_pem()
-        token_str = jwt.encode(payload, priv_pem, algorithm="RS256")
+        priv_pem = get_ed25519_private_key_pem()
+        token_str = jwt.encode(
+            payload, priv_pem, algorithm="EdDSA", headers={"typ": "fg-qr"}
+        )
         token_hex = hash_token(token_str)
 
         QRToken.all_objects.create(
@@ -1106,6 +1199,7 @@ class TestScanEndpointAndDuplicateHandling:
                 "/api/gym/attendance/manual-override/",
                 {"member_id": str(active_member.id), "reason": "reason"},
             ),
+            ("get", "/api/gym/attendance/today/", {}),
             ("get", f"/api/gym/members/{active_member.id}/attendance/", {}),
             ("get", "/api/members/me/attendance/", {}),
         ]
@@ -1117,3 +1211,222 @@ class TestScanEndpointAndDuplicateHandling:
             assert (
                 resp.status_code == 401
             ), f"Expected 401 for anonymous access to {path}, got {resp.status_code}"
+
+
+class TestTodayCheckinsAndDuplicateNotificationMerging:
+    """Tests for GET /api/gym/attendance/today/ and merged duplicate notifications (Sprint 8c)."""
+
+    def test_today_checkins_permissions_and_tenancy(
+        self,
+        api_client,
+        gym_tenant,
+        other_gym_tenant,
+        owner_user,
+        manager_user,
+        reception_user,
+        trainer_user,
+        member_user,
+        super_admin_user,
+        active_member,
+    ):
+        """Owner, Manager, Reception allowed; Trainer, Member, Super Admin, and cross-gym staff denied."""
+        # Create today's attendance for active_member in gym_tenant
+        today = timezone.localdate()
+        att1 = Attendance.all_objects.create(
+            gym=gym_tenant,
+            member=active_member,
+            date=today,
+            checked_in_at=timezone.now(),
+            method=Attendance.METHOD_QR,
+            is_override=False,
+        )
+
+        # 1. Allowed roles: Owner, Manager, Reception -> 200
+        for staff in [owner_user, manager_user, reception_user]:
+            client = APIClient()
+            client.force_authenticate(user=staff)
+            client.defaults["HTTP_HOST"] = f"{gym_tenant.subdomain}.localhost"
+
+            resp = client.get("/api/gym/attendance/today/")
+            assert resp.status_code == 200
+            assert resp.data["total_count"] == 1
+            assert len(resp.data["results"]) == 1
+            entry = resp.data["results"][0]
+            assert entry["id"] == str(att1.id)
+            assert entry["member_id"] == str(active_member.id)
+            assert entry["member_name"] == active_member.full_name
+            assert entry["is_override"] is False
+            assert entry["method"] == "qr"
+
+        # 2. Denied roles: Trainer, Member, Super Admin -> 403
+        for denied_user in [trainer_user, member_user, super_admin_user]:
+            client = APIClient()
+            client.force_authenticate(user=denied_user)
+            client.defaults["HTTP_HOST"] = f"{gym_tenant.subdomain}.localhost"
+
+            resp = client.get("/api/gym/attendance/today/")
+            assert resp.status_code == 403
+
+        # 3. User with must_change_password=True -> 403
+        must_change_user = User.objects.create_user(
+            email="reception-mustchange@bolehub.com",
+            password="Password123!",
+            gym=gym_tenant,
+            role=User.ROLE_RECEPTION,
+            must_change_password=True,
+        )
+        client = APIClient()
+        client.force_authenticate(user=must_change_user)
+        client.defaults["HTTP_HOST"] = f"{gym_tenant.subdomain}.localhost"
+        assert client.get("/api/gym/attendance/today/").status_code == 403
+
+        # 4. Cross-gym isolation: Staff from other_gym_tenant on gym_tenant host -> 403
+        other_staff = User.objects.create_user(
+            email="owner@kazanchis.com",
+            password="OwnerPassword123!",
+            gym=other_gym_tenant,
+            role=User.ROLE_OWNER,
+            must_change_password=False,
+        )
+        client_other = APIClient()
+        client_other.force_authenticate(user=other_staff)
+        client_other.defaults["HTTP_HOST"] = f"{gym_tenant.subdomain}.localhost"
+        assert client_other.get("/api/gym/attendance/today/").status_code == 403
+
+        # 5. On their own host, other gym sees only their check-ins (0 for today)
+        client_other.defaults["HTTP_HOST"] = f"{other_gym_tenant.subdomain}.localhost"
+        resp_own = client_other.get("/api/gym/attendance/today/")
+        assert resp_own.status_code == 200
+        assert resp_own.data["total_count"] == 0
+        assert len(resp_own.data["results"]) == 0
+
+    def test_today_checkins_ordering_and_since_filtering(
+        self,
+        gym_tenant,
+        reception_user,
+    ):
+        """Returns newest first (max 50) and filters by optional 'since' timestamp."""
+        today = timezone.localdate()
+        base_time = timezone.now() - timedelta(hours=2)
+
+        # Create 3 members with attendances at different times
+        members = []
+        for i in range(3):
+            u = User.objects.create_user(
+                email=f"member{i}@bolehub.com",
+                password="Password123!",
+                gym=gym_tenant,
+                role=User.ROLE_MEMBER,
+            )
+            m = Member.all_objects.create(
+                gym=gym_tenant,
+                user=u,
+                full_name=f"Member {i}",
+                phone=f"+25191100000{i}",
+                waiver_accepted_at=timezone.now(),
+            )
+            members.append(m)
+
+        att0 = Attendance.all_objects.create(
+            gym=gym_tenant,
+            member=members[0],
+            date=today,
+            checked_in_at=base_time,
+            method=Attendance.METHOD_QR,
+            is_override=False,
+        )
+        att1 = Attendance.all_objects.create(
+            gym=gym_tenant,
+            member=members[1],
+            date=today,
+            checked_in_at=base_time + timedelta(minutes=30),
+            method=Attendance.METHOD_MANUAL_OVERRIDE,
+            is_override=True,
+            override_reason="Forgotten phone",
+            recorded_by=reception_user,
+        )
+        att2 = Attendance.all_objects.create(
+            gym=gym_tenant,
+            member=members[2],
+            date=today,
+            checked_in_at=base_time + timedelta(minutes=60),
+            method=Attendance.METHOD_QR,
+            is_override=False,
+        )
+
+        client = APIClient()
+        client.force_authenticate(user=reception_user)
+        client.defaults["HTTP_HOST"] = f"{gym_tenant.subdomain}.localhost"
+
+        # Check full list (ordered newest first: att2, att1, att0)
+        resp = client.get("/api/gym/attendance/today/")
+        assert resp.status_code == 200
+        assert resp.data["total_count"] == 3
+        results = resp.data["results"]
+        assert len(results) == 3
+        assert results[0]["id"] == str(att2.id)
+        assert results[1]["id"] == str(att1.id)
+        assert results[1]["is_override"] is True
+        assert results[1]["method"] == "manual_override"
+        assert results[1]["override_reason"] == "Forgotten phone"
+        assert results[1]["recorded_by_name"] == reception_user.full_name
+        assert results[2]["id"] == str(att0.id)
+
+        # Filter with since timestamp (after att1 -> only att2)
+        since_time = (att1.checked_in_at + timedelta(seconds=1)).isoformat()
+        resp_since = client.get(f"/api/gym/attendance/today/?since={since_time}")
+        assert resp_since.status_code == 200
+        assert resp_since.data["total_count"] == 3  # total count remains today's total
+        assert len(resp_since.data["results"]) == 1
+        assert resp_since.data["results"][0]["id"] == str(att2.id)
+
+    def test_repeated_duplicate_scans_merge_staff_notifications(
+        self,
+        gym_tenant,
+        reception_user,
+        owner_user,
+        manager_user,
+        active_member,
+    ):
+        """Repeated duplicate scans on the same day send staff ONE notification set, not many."""
+        today = timezone.localdate()
+        MemberSubscription.all_objects.create(
+            gym=gym_tenant,
+            member=active_member,
+            status=MemberSubscription.STATUS_ACTIVE,
+            start_date=today - timedelta(days=5),
+            end_date=today + timedelta(days=25),
+        )
+
+        client = APIClient()
+        client.force_authenticate(user=reception_user)
+        client.defaults["HTTP_HOST"] = f"{gym_tenant.subdomain}.localhost"
+
+        # 1. First scan succeeds
+        t1, _ = issue_member_qr_token(active_member)
+        r1 = client.post("/api/gym/attendance/scan/", {"token": t1}, format="json")
+        assert r1.status_code == 200
+        t2 = r1.data["next_token"]
+
+        Notification.all_objects.filter(gym=gym_tenant).delete()
+
+        # 2. Second scan same day -> 400 already_checked_in, creates 1 notification per staff
+        r2 = client.post("/api/gym/attendance/scan/", {"token": t2}, format="json")
+        assert r2.status_code == 400
+        assert r2.data["reason"] == "already_checked_in"
+
+        initial_count = Notification.all_objects.filter(
+            gym=gym_tenant, type="duplicate_checkin_alert"
+        ).count()
+        assert initial_count >= 3
+
+        # 3. Third scan same day -> 400 already_checked_in, does NOT create duplicate notifications
+        t3, _ = issue_member_qr_token(active_member)
+        r3 = client.post("/api/gym/attendance/scan/", {"token": t3}, format="json")
+        assert r3.status_code == 400
+        assert r3.data["reason"] == "already_checked_in"
+
+        after_count = Notification.all_objects.filter(
+            gym=gym_tenant, type="duplicate_checkin_alert"
+        ).count()
+        assert after_count == initial_count  # Merged! No new notifications added.

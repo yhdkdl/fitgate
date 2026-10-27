@@ -11,6 +11,10 @@ import { Card } from "../ui/Card";
 import { FormField } from "../ui/FormField";
 import { Input } from "../ui/Input";
 import { Spinner } from "../ui/Spinner";
+import {
+  focusFirstInvalidField,
+  validateHexColor,
+} from "../../utils/validators";
 
 interface GymBrandingSectionProps {
   gymId?: string;
@@ -34,6 +38,7 @@ export const GymBrandingSection: React.FC<GymBrandingSectionProps> = ({
 
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 
   useEffect(() => {
     let isMounted = true;
@@ -96,21 +101,35 @@ export const GymBrandingSection: React.FC<GymBrandingSectionProps> = ({
     e.preventDefault();
     setSuccessMsg(null);
     setErrorMsg(null);
+    setFieldErrors({});
 
-    // Validate hex code format if provided
+    const errors: Record<string, string> = {};
     const trimmedColor = brandColor.trim();
-    if (trimmedColor && !/^#[0-9A-Fa-f]{6}$/.test(trimmedColor)) {
-      setErrorMsg(
-        "Brand color must be a valid 6-character hex code (e.g. #2563EB)."
-      );
-      return;
+    if (trimmedColor) {
+      const colorErr = validateHexColor(trimmedColor, "Brand color");
+      if (colorErr) errors.brand_color_text = colorErr;
     }
 
     // Parse reminder days
-    const reminderDays = memberReminderDays
+    const parts = memberReminderDays
       .split(",")
-      .map((s) => parseInt(s.trim(), 10))
-      .filter((n) => !isNaN(n) && n >= 0);
+      .map((s) => s.trim())
+      .filter(Boolean);
+    const hasInvalidDays = parts.some(
+      (p) => !/^\d+$/.test(p) || parseInt(p, 10) > 365
+    );
+    if (hasInvalidDays) {
+      errors.member_reminder_days =
+        "Reminder days must be comma-separated numbers between 0 and 365.";
+    }
+
+    if (Object.keys(errors).length > 0) {
+      setFieldErrors(errors);
+      focusFirstInvalidField(errors);
+      return;
+    }
+
+    const reminderDays = parts.map((s) => parseInt(s, 10));
 
     try {
       setSaving(true);
@@ -166,9 +185,10 @@ export const GymBrandingSection: React.FC<GymBrandingSectionProps> = ({
           {/* Brand Color */}
           <div className="space-y-3">
             <FormField
-              id="brand_color"
+              id="brand_color_text"
               label="Brand Accent Color (Hex)"
               helpText="Used as a high-contrast accent highlight on your public portal."
+              error={fieldErrors.brand_color_text}
             >
               <div className="flex items-center gap-3">
                 <input
@@ -186,6 +206,8 @@ export const GymBrandingSection: React.FC<GymBrandingSectionProps> = ({
                   value={brandColor}
                   onChange={(e) => setBrandColor(e.target.value)}
                   placeholder="#2563EB"
+                  maxLength={7}
+                  error={fieldErrors.brand_color_text}
                   className="font-mono text-sm"
                 />
               </div>
@@ -253,12 +275,15 @@ export const GymBrandingSection: React.FC<GymBrandingSectionProps> = ({
             id="member_reminder_days"
             label="Member Renewal Reminder Days"
             helpText="Comma-separated days before membership expiry to notify members (default: 7, 2)."
+            error={fieldErrors.member_reminder_days}
           >
             <Input
               id="member_reminder_days"
               value={memberReminderDays}
               onChange={(e) => setMemberReminderDays(e.target.value)}
               placeholder="7, 2"
+              maxLength={50}
+              error={fieldErrors.member_reminder_days}
             />
           </FormField>
 

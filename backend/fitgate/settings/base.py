@@ -1,5 +1,6 @@
 """Base settings for FitGate project."""
 
+import os
 from datetime import timedelta
 from pathlib import Path
 
@@ -13,16 +14,27 @@ BASE_DIR = Path(__file__).resolve().parent.parent.parent
 # Initialize environment parser
 env = environ.Env()
 
-# Look for .env in project root or current working dir if present
-ENV_PATH = BASE_DIR.parent / ".env"
-if ENV_PATH.exists():
-    environ.Env.read_env(str(ENV_PATH))
-elif (BASE_DIR / ".env").exists():
-    environ.Env.read_env(str(BASE_DIR / ".env"))
+# Look for explicit environment file path or standard external locations
+FITGATE_ENV_FILE = os.environ.get("FITGATE_ENV_FILE")
+if FITGATE_ENV_FILE and Path(FITGATE_ENV_FILE).exists():
+    environ.Env.read_env(FITGATE_ENV_FILE)
+else:
+    home_env = Path.home() / "fitgate_env" / ".env"
+    parent_env = BASE_DIR.parent.parent / "fitgate_env" / ".env"
+    if home_env.exists():
+        environ.Env.read_env(str(home_env))
+    elif parent_env.exists():
+        environ.Env.read_env(str(parent_env))
+    elif (BASE_DIR.parent / ".env").exists():
+        environ.Env.read_env(str(BASE_DIR.parent / ".env"))
+    elif (BASE_DIR / ".env").exists():
+        environ.Env.read_env(str(BASE_DIR / ".env"))
 
-SECRET_KEY = env("DJANGO_SECRET_KEY")
+SECRET_KEY = env("SECRET_KEY", default=env.str("DJANGO_SECRET_KEY", default=""))
+if not SECRET_KEY:
+    SECRET_KEY = env("SECRET_KEY")
 DOMAIN = env("DOMAIN")
-JWT_SIGNING_KEY = env("JWT_SIGNING_KEY")
+JWT_SIGNING_KEY = env("JWT_SIGNING_KEY", default=SECRET_KEY)
 
 # JWT Lifetimes & Lockout (configurable settings)
 JWT_ACCESS_TOKEN_LIFETIME = timedelta(minutes=15)
@@ -33,6 +45,7 @@ LOGIN_LOCKOUT_MINUTES = 15
 PASSWORD_RESET_TOKEN_MINUTES = 60
 PASSWORD_RESET_COOLDOWN_SECONDS = 120
 PUBLIC_URL_SCHEME = "https"
+PUBLIC_PORT = env.str("PUBLIC_PORT", default="")
 
 # Multi-tenancy platform hosts (empty by default in production)
 TENANT_EXTRA_PLATFORM_HOSTS: list[str] = []
@@ -69,6 +82,7 @@ INSTALLED_APPS = [
 MIDDLEWARE = [
     "corsheaders.middleware.CorsMiddleware",
     "django.middleware.security.SecurityMiddleware",
+    "whitenoise.middleware.WhiteNoiseMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
     "apps.tenants.middleware.TenantSubdomainMiddleware",
@@ -131,6 +145,9 @@ USE_TZ = True
 # Static & Media files
 STATIC_URL = "static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
+
+FRONTEND_DIST_DIR = BASE_DIR.parent / "frontend" / "dist"
+STATICFILES_DIRS = [FRONTEND_DIST_DIR] if FRONTEND_DIST_DIR.exists() else []
 
 MEDIA_URL = "media/"
 MEDIA_ROOT = BASE_DIR / "media"
@@ -198,3 +215,6 @@ SPECTACULAR_SETTINGS = {
         "UserRoleEnum": "apps.accounts.models.User.ROLE_CHOICES",
     },
 }
+
+# API documentation permissions (overridden in local.py / prod.py)
+DOCS_PUBLIC = False

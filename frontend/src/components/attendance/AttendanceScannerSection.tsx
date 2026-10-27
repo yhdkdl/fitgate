@@ -11,6 +11,8 @@ import {
   Calendar,
   X,
   CheckCircle2,
+  Camera,
+  Maximize2,
 } from "lucide-react";
 import {
   scanQrToken,
@@ -18,13 +20,23 @@ import {
   type ScanResultResponse,
   type ManualOverrideResultResponse,
 } from "../../api/attendance";
+import { listGymMembers, type Member } from "../../api/members";
+import { AuthenticatedImage } from "../ui/AuthenticatedImage";
 import { Card } from "../ui/Card";
 import { Button } from "../ui/Button";
 import { Input } from "../ui/Input";
 import { Badge } from "../ui/Badge";
 import { Alert } from "../ui/Alert";
+import { FormField } from "../ui/FormField";
 import { Spinner } from "../ui/Spinner";
 import { AttendanceLogCard } from "./AttendanceLogCard";
+import { CameraQrScanner } from "./CameraQrScanner";
+import { TodayCheckinsList } from "./TodayCheckinsList";
+
+import {
+  focusFirstInvalidField,
+  validateTextLength,
+} from "../../utils/validators";
 
 interface AttendanceScannerSectionProps {
   userRole?: string;
@@ -34,7 +46,9 @@ export const AttendanceScannerSection: React.FC<
   AttendanceScannerSectionProps
 > = ({ userRole }) => {
   const [tokenInput, setTokenInput] = useState("");
+  const [todayRefreshKey, setTodayRefreshKey] = useState(0);
   const [scanning, setScanning] = useState(false);
+  const [showCameraScanner, setShowCameraScanner] = useState(false);
   const [scanResult, setScanResult] = useState<ScanResultResponse | null>(null);
   const [overrideResult, setOverrideResult] =
     useState<ManualOverrideResultResponse | null>(null);
@@ -50,10 +64,70 @@ export const AttendanceScannerSection: React.FC<
   const [overrideMemberId, setOverrideMemberId] = useState("");
   const [overrideReason, setOverrideReason] = useState("");
   const [overrideSubmitting, setOverrideSubmitting] = useState(false);
+  const [overrideFieldErrors, setOverrideFieldErrors] = useState<
+    Record<string, string>
+  >({});
   const [overrideError, setOverrideError] = useState<{
     detail: string;
     reason: string;
   } | null>(null);
+
+  // Manual Override member search state
+  const [overrideSearch, setOverrideSearch] = useState("");
+  const [overrideSearchResults, setOverrideSearchResults] = useState<Member[]>(
+    []
+  );
+  const [isSearchingMembers, setIsSearchingMembers] = useState(false);
+  const [selectedOverrideMember, setSelectedOverrideMember] =
+    useState<Member | null>(null);
+
+  // Search gym members when staff types name, email, or phone (max 10 results)
+  React.useEffect(() => {
+    if (!showOverrideModal) return;
+    const query = overrideSearch.trim();
+    if (!query) {
+      setOverrideSearchResults([]);
+      return;
+    }
+
+    let isCurrent = true;
+    const timer = setTimeout(async () => {
+      setIsSearchingMembers(true);
+      try {
+        const results = await listGymMembers({ search: query, limit: 10 });
+        if (isCurrent) {
+          setOverrideSearchResults(results.slice(0, 10));
+        }
+      } catch {
+        if (isCurrent) {
+          setOverrideSearchResults([]);
+        }
+      } finally {
+        if (isCurrent) {
+          setIsSearchingMembers(false);
+        }
+      }
+    }, 200);
+
+    return () => {
+      isCurrent = false;
+      clearTimeout(timer);
+    };
+  }, [overrideSearch, showOverrideModal]);
+
+  const handleSelectMember = (member: Member) => {
+    setSelectedOverrideMember(member);
+    setOverrideMemberId(member.id);
+    setOverrideSearch("");
+    setOverrideSearchResults([]);
+  };
+
+  const handleClearSelectedMember = () => {
+    setSelectedOverrideMember(null);
+    setOverrideMemberId("");
+    setOverrideSearch("");
+    setOverrideSearchResults([]);
+  };
 
   // Attendance history modal state
   const [selectedMemberForHistory, setSelectedMemberForHistory] = useState<{
@@ -61,9 +135,8 @@ export const AttendanceScannerSection: React.FC<
     name: string;
   } | null>(null);
 
-  const handleScanSubmit = async (e?: React.FormEvent) => {
-    if (e) e.preventDefault();
-    if (!tokenInput.trim()) return;
+  const processScanToken = async (rawToken: string) => {
+    if (!rawToken.trim()) return;
 
     setScanning(true);
     setScanResult(null);
@@ -71,9 +144,10 @@ export const AttendanceScannerSection: React.FC<
     setScanError(null);
 
     try {
-      const result = await scanQrToken({ token: tokenInput.trim() });
+      const result = await scanQrToken({ token: rawToken.trim() });
       setScanResult(result);
       setTokenInput("");
+      setTodayRefreshKey((k) => k + 1);
     } catch (err: unknown) {
       const errorObj = err as {
         data?: {
@@ -96,18 +170,43 @@ export const AttendanceScannerSection: React.FC<
     }
   };
 
+  const handleScanSubmit = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    await processScanToken(tokenInput);
+  };
+
+  const handleCameraScan = (scannedToken: string) => {
+    setTokenInput(scannedToken);
+    processScanToken(scannedToken);
+  };
+
   const handleOverrideSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!overrideMemberId.trim() || !overrideReason.trim()) {
-      setOverrideError({
-        detail: "Member ID and a non-empty reason are required.",
-        reason: "validation_error",
-      });
+    setOverrideError(null);
+    setOverrideFieldErrors({});
+
+    const errors: Record<string, string> = {};
+    if (!overrideMemberId.trim()) {
+      errors["override-search"] = "Please select a member for manual override.";
+    }
+
+    const reasonErr = validateTextLength(
+      overrideReason,
+      "Override reason",
+      5,
+      500
+    );
+    if (reasonErr) {
+      errors["override-reason"] = reasonErr;
+    }
+
+    if (Object.keys(errors).length > 0) {
+      setOverrideFieldErrors(errors);
+      focusFirstInvalidField(errors);
       return;
     }
 
     setOverrideSubmitting(true);
-    setOverrideError(null);
 
     try {
       const result = await manualAttendanceOverride({
@@ -115,11 +214,16 @@ export const AttendanceScannerSection: React.FC<
         reason: overrideReason.trim(),
       });
       setOverrideResult(result);
+      setTodayRefreshKey((k) => k + 1);
       setScanResult(null);
       setScanError(null);
       setShowOverrideModal(false);
       setOverrideReason("");
       setOverrideMemberId("");
+      setSelectedOverrideMember(null);
+      setOverrideSearch("");
+      setOverrideSearchResults([]);
+      setOverrideFieldErrors({});
     } catch (err: unknown) {
       const errorObj = err as {
         data?: { detail?: string; reason?: string };
@@ -208,7 +312,28 @@ export const AttendanceScannerSection: React.FC<
             </p>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <a
+              href="/attendance/scanner"
+              className="inline-flex items-center justify-center min-h-[44px] px-3 py-1.5 rounded-input border border-border bg-surface-2 text-text hover:bg-border/60 gap-2 text-xs font-semibold focus:ring-2 focus:ring-primary focus:outline-none transition-colors"
+              aria-label="Open Entrance Scanner tablet page"
+            >
+              <Maximize2 className="w-4 h-4 text-primary" />
+              Entrance Scanner
+            </a>
+            <Button
+              type="button"
+              variant={showCameraScanner ? "primary" : "secondary"}
+              size="sm"
+              onClick={() => setShowCameraScanner((prev) => !prev)}
+              className="min-h-[44px] flex items-center gap-2 text-xs font-semibold focus:ring-2 focus:ring-primary focus:outline-none"
+              aria-label={
+                showCameraScanner ? "Close camera" : "Scan with camera"
+              }
+            >
+              <Camera className="w-4 h-4" />
+              {showCameraScanner ? "Close Camera" : "Scan with camera"}
+            </Button>
             <Button
               variant="secondary"
               size="sm"
@@ -224,6 +349,17 @@ export const AttendanceScannerSection: React.FC<
           </div>
         </div>
 
+        {/* Live Camera Scanner View */}
+        {showCameraScanner && (
+          <div className="mb-6">
+            <CameraQrScanner
+              onScan={handleCameraScan}
+              onClose={() => setShowCameraScanner(false)}
+              isProcessing={scanning}
+            />
+          </div>
+        )}
+
         {/* Scan Input Form */}
         <form onSubmit={handleScanSubmit} className="space-y-4">
           <div className="flex flex-col sm:flex-row gap-3">
@@ -233,6 +369,7 @@ export const AttendanceScannerSection: React.FC<
                 placeholder="Scan QR token or paste token JWT..."
                 value={tokenInput}
                 onChange={(e) => setTokenInput(e.target.value)}
+                maxLength={2048}
                 disabled={scanning}
                 className="font-mono text-xs pr-10 min-h-[44px]"
                 autoFocus
@@ -265,17 +402,13 @@ export const AttendanceScannerSection: React.FC<
         {activeMember && activeAttendance && (
           <div className="mt-6 p-4 rounded-xl border border-emerald-500/30 bg-emerald-500/10 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 animate-in fade-in duration-300">
             <div className="flex items-center gap-4">
-              {activeMember.photo_url ? (
-                <img
-                  src={activeMember.photo_url}
-                  alt={activeMember.full_name}
-                  className="w-16 h-16 rounded-full object-cover border-2 border-emerald-500 shadow-sm"
-                />
-              ) : (
-                <div className="w-16 h-16 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 flex items-center justify-center font-bold text-xl">
-                  {activeMember.full_name.charAt(0)}
-                </div>
-              )}
+              <AuthenticatedImage
+                src={activeMember.photo_url}
+                alt={activeMember.full_name}
+                fallbackInitials={activeMember.full_name}
+                className="w-16 h-16 rounded-full object-cover border-2 border-emerald-500 shadow-sm"
+                placeholderClassName="w-16 h-16 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 flex items-center justify-center font-bold text-xl"
+              />
 
               <div>
                 <div className="flex items-center gap-2">
@@ -377,6 +510,9 @@ export const AttendanceScannerSection: React.FC<
         )}
       </Card>
 
+      {/* Live Today's Check-ins List (Criteria 12-14) */}
+      <TodayCheckinsList refreshTrigger={todayRefreshKey} />
+
       {/* Selected Member Attendance History Modal / Section */}
       {selectedMemberForHistory && (
         <div className="space-y-4">
@@ -437,33 +573,131 @@ export const AttendanceScannerSection: React.FC<
               </Alert>
             )}
 
-            <form onSubmit={handleOverrideSubmit} className="space-y-4">
-              <div>
-                <label className="block text-xs font-semibold text-text-muted mb-1">
-                  Member UUID
-                </label>
-                <Input
-                  type="text"
-                  placeholder="e.g. 3cd1c4f9-704d-4d1e-af75-76e8fa2ba5de"
-                  value={overrideMemberId}
-                  onChange={(e) => setOverrideMemberId(e.target.value)}
-                  className="font-mono text-xs min-h-[44px]"
-                  required
-                />
-              </div>
+            <form
+              onSubmit={handleOverrideSubmit}
+              className="space-y-4"
+              noValidate
+            >
+              <FormField
+                label="Member"
+                htmlFor="override-search"
+                required
+                error={overrideFieldErrors["override-search"]}
+              >
+                {selectedOverrideMember ? (
+                  <div className="p-3 bg-surface-2 border border-primary/30 rounded-input flex items-center justify-between gap-3">
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className="font-bold text-sm text-text truncate">
+                          {selectedOverrideMember.full_name}
+                        </span>
+                        <Badge variant="primary">
+                          {selectedOverrideMember.status.toUpperCase()}
+                        </Badge>
+                      </div>
+                      <p className="text-xs text-text-muted truncate mt-0.5">
+                        {selectedOverrideMember.email}
+                        {selectedOverrideMember.phone &&
+                          ` • ${selectedOverrideMember.phone}`}
+                      </p>
+                    </div>
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      size="sm"
+                      onClick={handleClearSelectedMember}
+                      className="min-h-[36px] text-xs shrink-0"
+                    >
+                      Change
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    <div className="relative">
+                      <Input
+                        id="override-search"
+                        type="text"
+                        placeholder="Search member by name, email, or phone..."
+                        maxLength={100}
+                        value={overrideSearch}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setOverrideSearch(val);
+                          // Also allow direct paste of member UUID
+                          if (
+                            val.trim().length === 36 &&
+                            val.trim().includes("-")
+                          ) {
+                            setOverrideMemberId(val.trim());
+                          }
+                        }}
+                        className="text-xs min-h-[44px] pr-8"
+                        autoFocus
+                      />
+                      {isSearchingMembers && (
+                        <div className="absolute right-3 top-3.5 pointer-events-none">
+                          <Spinner size="sm" />
+                        </div>
+                      )}
+                    </div>
 
-              <div>
-                <label className="block text-xs font-semibold text-text-muted mb-1">
-                  Override Reason (Required)
-                </label>
+                    {overrideSearchResults.length > 0 && (
+                      <div className="max-h-48 overflow-y-auto bg-surface-2 border border-border rounded-input divide-y divide-border/60 shadow-lg">
+                        {overrideSearchResults.map((m) => (
+                          <button
+                            key={m.id}
+                            type="button"
+                            onClick={() => handleSelectMember(m)}
+                            className="w-full text-left p-2.5 hover:bg-surface transition-colors flex items-center justify-between gap-2 min-h-[44px]"
+                          >
+                            <div className="min-w-0">
+                              <p className="font-semibold text-xs text-text truncate">
+                                {m.full_name}
+                              </p>
+                              <p className="text-[11px] text-text-muted truncate">
+                                {m.email} {m.phone && `• ${m.phone}`}
+                              </p>
+                            </div>
+                            <Badge
+                              variant={
+                                m.status === "active" ? "primary" : "secondary"
+                              }
+                            >
+                              {m.status.toUpperCase()}
+                            </Badge>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+
+                    {overrideSearch.trim() &&
+                      !isSearchingMembers &&
+                      overrideSearchResults.length === 0 && (
+                        <p className="text-xs text-text-muted italic px-1">
+                          No members found matching &quot;{overrideSearch}
+                          &quot;.
+                        </p>
+                      )}
+                  </div>
+                )}
+              </FormField>
+
+              <FormField
+                label="Override Reason (5 to 500 characters)"
+                htmlFor="override-reason"
+                required
+                error={overrideFieldErrors["override-reason"]}
+              >
                 <textarea
+                  id="override-reason"
                   placeholder="Explain why manual override was needed (e.g. phone died, camera broken)..."
+                  maxLength={500}
                   value={overrideReason}
                   onChange={(e) => setOverrideReason(e.target.value)}
                   className="w-full bg-surface-2 border border-border rounded-input p-3 text-xs text-text focus:outline-none focus:ring-1 focus:ring-primary min-h-[80px]"
                   required
                 />
-              </div>
+              </FormField>
 
               <div className="flex gap-3 pt-2">
                 <Button

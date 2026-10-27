@@ -15,46 +15,42 @@ export const VerifyEmailScreen: React.FC = () => {
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    // Strip token from URL immediately to prevent token exposure in address bar
-    if (tokenFromUrl) {
-      window.history.replaceState({}, document.title, window.location.pathname);
-    }
+  const hasExecutedRef = React.useRef(false);
 
-    if (!tokenFromUrl) {
+  useEffect(() => {
+    if (hasExecutedRef.current) return;
+
+    // Retrieve token from search params or URL query string
+    const params = new URLSearchParams(window.location.search);
+    const token = tokenFromUrl || params.get("token");
+
+    if (!token) {
       setLoading(false);
       setError("No verification token was provided.");
       return;
     }
 
-    let isMounted = true;
+    hasExecutedRef.current = true;
+
+    // Strip token from address bar to prevent browser history leaks
+    window.history.replaceState({}, document.title, window.location.pathname);
 
     async function executeVerification() {
       try {
-        await verifyMemberEmail(tokenFromUrl);
-        if (isMounted) {
-          setSuccess(true);
-        }
+        await verifyMemberEmail(token as string);
+        setSuccess(true);
       } catch (err: unknown) {
-        if (isMounted) {
-          const message =
-            err instanceof Error
-              ? err.message
-              : "Email verification failed. The link may have expired or already been used.";
-          setError(message);
-        }
+        const message =
+          err instanceof Error
+            ? err.message
+            : "Email verification failed. The link may have expired or already been used.";
+        setError(message);
       } finally {
-        if (isMounted) {
-          setLoading(false);
-        }
+        setLoading(false);
       }
     }
 
     executeVerification();
-
-    return () => {
-      isMounted = false;
-    };
   }, [tokenFromUrl]);
 
   return (

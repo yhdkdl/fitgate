@@ -1,0 +1,11 @@
+-r prod.txt
+
+# Testing & Quality Assurance
+pytest==9.1.1
+pytest-django==4.14.0
+freezegun==1.5.5
+ruff==0.17.1
+black==26.10.1
+iniconfig==2.3.1
+pluggy==1.7.0
+packaging==26.3

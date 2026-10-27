@@ -6,11 +6,26 @@ import { apiFetch } from "./client";
 import type { components } from "../types/api";
 
 export type CreateGymRequest = components["schemas"]["CreateGymRequestRequest"];
-export type CreateGymResponse = components["schemas"]["CreateGymResponse"];
-export type GymTenantSummary = components["schemas"]["GymTenantSummary"];
+export type CreateGymResponse = components["schemas"]["CreateGymResponse"] & {
+  gym_url?: string;
+  invite_link?: string;
+};
+export type GymTenantSummary = components["schemas"]["GymTenantSummary"] & {
+  url?: string;
+};
 export type ConfirmTLSResponse = components["schemas"]["ConfirmTLSResponse"];
 export type GymPublicEntryResponse =
-  components["schemas"]["GymPublicEntryResponse"];
+  components["schemas"]["GymPublicEntryResponse"] & {
+    plans?: Array<{
+      id: string;
+      name: string;
+      description?: string;
+      duration_value: number;
+      duration_unit: string;
+      price_etb: string;
+      trainer_inclusive: boolean;
+    }>;
+  };
 export type FirstRunChecklistResponse =
   components["schemas"]["FirstRunChecklistResponse"];
 export type GymConfig = components["schemas"]["GymConfig"];

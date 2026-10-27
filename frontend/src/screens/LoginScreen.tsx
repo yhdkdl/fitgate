@@ -7,10 +7,15 @@ import { FormField } from "../components/ui/FormField";
 import { Input } from "../components/ui/Input";
 import { useAuth } from "../context/AuthContext";
 import { getTenantFromHostname } from "../utils/tenant";
+import { focusFirstInvalidField, validateEmail } from "../utils/validators";
 
 export const LoginScreen: React.FC = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [fieldErrors, setFieldErrors] = useState<{
+    email?: string;
+    password?: string;
+  }>({});
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -21,27 +26,49 @@ export const LoginScreen: React.FC = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMessage(null);
+
+    const errors: { email?: string; password?: string } = {};
+    const emailErr = validateEmail(email);
+    if (emailErr) {
+      errors.email = emailErr;
+    }
+    if (!password) {
+      errors.password = "Password is required.";
+    }
+
+    if (Object.keys(errors).length > 0) {
+      setFieldErrors(errors);
+      focusFirstInvalidField(
+        errors.email ? ["login-email", "login-password"] : ["login-password"]
+      );
+      return;
+    }
+
+    setFieldErrors({});
     setIsSubmitting(true);
 
     try {
-      await login({ email, password });
+      await login({ email: email.trim().toLowerCase(), password });
       navigate("/dashboard");
     } catch (err: unknown) {
       const errorObj = err as {
+        status?: number;
         response?: { status?: number; data?: { detail?: string } };
+        data?: { detail?: string };
       };
-      if (
-        errorObj.response?.status === 503 &&
-        errorObj.response?.data?.detail === "still_securing"
-      ) {
+      const status = errorObj.status ?? errorObj.response?.status;
+      const detail = errorObj.data?.detail ?? errorObj.response?.data?.detail;
+
+      if (status === 503 && detail === "still_securing") {
         setErrorMessage(
           "This gym domain is currently being secured with an SSL certificate. Please check back shortly once security verification completes."
         );
-      } else {
-        // Every other login failure returns the exact same generic message without field hints
+      } else if (status === 401) {
         setErrorMessage(
           "Invalid email or password. Please check your credentials and try again."
         );
+      } else {
+        setErrorMessage("Server error, please try again");
       }
     } finally {
       setIsSubmitting(false);
@@ -83,28 +110,51 @@ export const LoginScreen: React.FC = () => {
           )}
 
           <form onSubmit={handleSubmit} className="space-y-4" noValidate>
-            <FormField label="Email address" htmlFor="login-email" required>
+            <FormField
+              label="Email address"
+              htmlFor="login-email"
+              required
+              error={fieldErrors.email}
+            >
               <Input
                 id="login-email"
                 type="email"
                 autoComplete="email"
                 placeholder="name@example.com"
                 value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                onChange={(e) => {
+                  setEmail(e.target.value);
+                  if (fieldErrors.email)
+                    setFieldErrors((prev) => ({ ...prev, email: undefined }));
+                }}
                 required
+                error={fieldErrors.email}
                 disabled={isSubmitting}
               />
             </FormField>
 
-            <FormField label="Password" htmlFor="login-password" required>
+            <FormField
+              label="Password"
+              htmlFor="login-password"
+              required
+              error={fieldErrors.password}
+            >
               <Input
                 id="login-password"
                 type="password"
                 autoComplete="current-password"
                 placeholder="••••••••••••"
                 value={password}
-                onChange={(e) => setPassword(e.target.value)}
+                onChange={(e) => {
+                  setPassword(e.target.value);
+                  if (fieldErrors.password)
+                    setFieldErrors((prev) => ({
+                      ...prev,
+                      password: undefined,
+                    }));
+                }}
                 required
+                error={fieldErrors.password}
                 disabled={isSubmitting}
               />
             </FormField>

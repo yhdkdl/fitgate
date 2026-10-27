@@ -146,11 +146,11 @@ class TestUserProfileEndpoint:
         assert response.status_code == 200
         data = response.json()
         assert data["full_name"] == "Abebe Bikila"
-        assert data["phone"] == "+251 91 123 4567"
+        assert data["phone"] == "+251911234567"
 
         user.refresh_from_db()
         assert user.full_name == "Abebe Bikila"
-        assert user.phone == "+251 91 123 4567"
+        assert user.phone == "+251911234567"
 
         # Also verify blank phone clears it
         clear_resp = client.patch("/api/auth/me/", {"phone": ""}, HTTP_HOST=host)

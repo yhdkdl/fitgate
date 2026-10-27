@@ -1,13 +1,32 @@
-import { getAccessToken } from "./client";
+import { ApiError, getAccessToken, parseResponseBody } from "./client";
+export { ApiError } from "./client";
 
 function getAuthHeader(): Record<string, string> {
   const token = getAccessToken();
   return token ? { Authorization: `Bearer ${token}` } : {};
 }
 
-export interface ApiError extends Error {
-  status?: number;
-  data?: unknown;
+async function handleResponse<T>(
+  res: Response,
+  fallbackMessage: string
+): Promise<T> {
+  if (!res.ok) {
+    const errorData = await parseResponseBody(res);
+    const detail =
+      typeof errorData === "object" &&
+      errorData !== null &&
+      "detail" in errorData
+        ? String((errorData as { detail: unknown }).detail)
+        : typeof errorData === "string" && errorData.trim() !== ""
+          ? errorData
+          : fallbackMessage;
+    throw new ApiError(res.status, detail, errorData);
+  }
+  if (res.status === 204) {
+    return undefined as T;
+  }
+  const data = await parseResponseBody(res);
+  return data as T;
 }
 
 export interface BodyMetrics {
@@ -16,6 +35,9 @@ export interface BodyMetrics {
   height_cm?: number | string | null;
   measurements?: Record<string, unknown>;
   recorded_at?: string;
+  recorded_by?: string | null;
+  trainer_name?: string;
+  recorded_by_name?: string;
   estimated_bmi?: number | null;
   estimated_body_fat_percentage?: number | null;
   bmi_label?: string;
@@ -32,7 +54,7 @@ export interface Member {
   emergency_contact?: string;
   referral_source?: string;
   photo_url?: string;
-  status: "active" | "expired" | "frozen" | "suspended";
+  status: "pending" | "active" | "expired" | "frozen" | "suspended";
   joined_at: string;
   waiver_accepted_at: string;
   latest_metrics?: BodyMetrics | null;
@@ -49,9 +71,7 @@ export interface PublicMemberRegistrationPayload {
   gender?: string;
   emergency_contact?: string;
   referral_source?: string;
-  weight_kg?: number | null;
-  height_cm?: number | null;
-  measurements?: Record<string, unknown>;
+  photo_url?: string;
 }
 
 export interface StaffMemberRegistrationPayload {
@@ -63,9 +83,7 @@ export interface StaffMemberRegistrationPayload {
   gender?: string;
   emergency_contact?: string;
   referral_source?: string;
-  weight_kg?: number | null;
-  height_cm?: number | null;
-  measurements?: Record<string, unknown>;
+  photo_url?: string;
 }
 
 export interface MemberRegistrationResponse {
@@ -87,21 +105,10 @@ export async function registerMemberSelfService(
     body: JSON.stringify(payload),
   });
 
-  if (!res.ok) {
-    const errorData = (await res.json().catch(() => ({}))) as Record<
-      string,
-      unknown
-    >;
-    const err = new Error(
-      (errorData.detail as string) ||
-        "Registration failed. Please check your inputs."
-    ) as ApiError;
-    err.status = res.status;
-    err.data = errorData;
-    throw err;
-  }
-
-  return res.json();
+  return handleResponse<MemberRegistrationResponse>(
+    res,
+    "Registration failed. Please check your inputs."
+  );
 }
 
 /**
@@ -118,21 +125,10 @@ export async function verifyMemberEmail(
     body: JSON.stringify({ token }),
   });
 
-  if (!res.ok) {
-    const errorData = (await res.json().catch(() => ({}))) as Record<
-      string,
-      unknown
-    >;
-    const err = new Error(
-      (errorData.detail as string) ||
-        "Email verification failed. The link may have expired."
-    ) as ApiError;
-    err.status = res.status;
-    err.data = errorData;
-    throw err;
-  }
-
-  return res.json();
+  return handleResponse<{ detail: string }>(
+    res,
+    "Email verification failed. The link may have expired."
+  );
 }
 
 /**
@@ -141,10 +137,12 @@ export async function verifyMemberEmail(
 export async function listGymMembers(params?: {
   search?: string;
   status?: string;
+  limit?: number;
 }): Promise<Member[]> {
   const query = new URLSearchParams();
   if (params?.search) query.set("search", params.search);
   if (params?.status) query.set("status", params.status);
+  if (params?.limit) query.set("limit", String(params.limit));
 
   const url = `/api/gym/members/${query.toString() ? `?${query.toString()}` : ""}`;
   const res = await fetch(url, {
@@ -153,20 +151,7 @@ export async function listGymMembers(params?: {
     },
   });
 
-  if (!res.ok) {
-    const errorData = (await res.json().catch(() => ({}))) as Record<
-      string,
-      unknown
-    >;
-    const err = new Error(
-      (errorData.detail as string) || "Failed to load members."
-    ) as ApiError;
-    err.status = res.status;
-    err.data = errorData;
-    throw err;
-  }
-
-  return res.json();
+  return handleResponse<Member[]>(res, "Failed to load members.");
 }
 
 /**
@@ -184,20 +169,10 @@ export async function registerMemberStaffAssisted(
     body: JSON.stringify(payload),
   });
 
-  if (!res.ok) {
-    const errorData = (await res.json().catch(() => ({}))) as Record<
-      string,
-      unknown
-    >;
-    const err = new Error(
-      (errorData.detail as string) || "Staff member registration failed."
-    ) as ApiError;
-    err.status = res.status;
-    err.data = errorData;
-    throw err;
-  }
-
-  return res.json();
+  return handleResponse<MemberRegistrationResponse>(
+    res,
+    "Staff member registration failed."
+  );
 }
 
 /**
@@ -210,30 +185,35 @@ export async function getGymMemberDetail(memberId: string): Promise<Member> {
     },
   });
 
-  if (!res.ok) {
-    const errorData = (await res.json().catch(() => ({}))) as Record<
-      string,
-      unknown
-    >;
-    const err = new Error(
-      (errorData.detail as string) || "Member not found."
-    ) as ApiError;
-    err.status = res.status;
-    err.data = errorData;
-    throw err;
-  }
-
-  return res.json();
+  return handleResponse<Member>(res, "Member not found.");
 }
 
 /**
- * Record body metrics for a member by staff.
+ * Get body metrics history for a gym member (Trainer, Owner, Manager).
+ */
+export async function getMemberMetrics(
+  memberId: string
+): Promise<BodyMetrics[]> {
+  const res = await fetch(`/api/gym/members/${memberId}/metrics/`, {
+    headers: {
+      ...getAuthHeader(),
+    },
+  });
+
+  return handleResponse<BodyMetrics[]>(res, "Failed to load member metrics.");
+}
+
+/**
+ * Record body metrics for a member by a Trainer.
  */
 export async function recordMemberMetrics(
   memberId: string,
   payload: {
-    weight_kg?: number | null;
-    height_cm?: number | null;
+    weight_kg: number;
+    height_cm: number;
+    waist_cm?: number | null;
+    neck_cm?: number | null;
+    hip_cm?: number | null;
     measurements?: Record<string, unknown>;
   }
 ): Promise<BodyMetrics> {
@@ -246,20 +226,7 @@ export async function recordMemberMetrics(
     body: JSON.stringify(payload),
   });
 
-  if (!res.ok) {
-    const errorData = (await res.json().catch(() => ({}))) as Record<
-      string,
-      unknown
-    >;
-    const err = new Error(
-      (errorData.detail as string) || "Failed to record body metrics."
-    ) as ApiError;
-    err.status = res.status;
-    err.data = errorData;
-    throw err;
-  }
-
-  return res.json();
+  return handleResponse<BodyMetrics>(res, "Failed to record body metrics.");
 }
 
 /**
@@ -272,20 +239,7 @@ export async function getMemberProfileMe(): Promise<Member> {
     },
   });
 
-  if (!res.ok) {
-    const errorData = (await res.json().catch(() => ({}))) as Record<
-      string,
-      unknown
-    >;
-    const err = new Error(
-      (errorData.detail as string) || "Failed to load profile."
-    ) as ApiError;
-    err.status = res.status;
-    err.data = errorData;
-    throw err;
-  }
-
-  return res.json();
+  return handleResponse<Member>(res, "Failed to load profile.");
 }
 
 /**
@@ -305,20 +259,7 @@ export async function recordMemberMetricsMe(payload: {
     body: JSON.stringify(payload),
   });
 
-  if (!res.ok) {
-    const errorData = (await res.json().catch(() => ({}))) as Record<
-      string,
-      unknown
-    >;
-    const err = new Error(
-      (errorData.detail as string) || "Failed to record body metrics."
-    ) as ApiError;
-    err.status = res.status;
-    err.data = errorData;
-    throw err;
-  }
-
-  return res.json();
+  return handleResponse<BodyMetrics>(res, "Failed to record body metrics.");
 }
 
 /**
@@ -343,18 +284,50 @@ export async function uploadMemberPhoto(
     body: formData,
   });
 
-  if (!res.ok) {
-    const errorData = (await res.json().catch(() => ({}))) as Record<
-      string,
-      unknown
-    >;
-    const err = new Error(
-      (errorData.detail as string) || "Failed to upload member photo."
-    ) as ApiError;
-    err.status = res.status;
-    err.data = errorData;
-    throw err;
-  }
+  return handleResponse<{ file_path: string; filename: string; url: string }>(
+    res,
+    "Failed to upload member photo."
+  );
+}
 
-  return res.json();
+/**
+ * Suspend a gym member (Owner/Manager).
+ */
+export async function suspendMember(
+  memberId: string,
+  reason: string
+): Promise<{ detail: string; status: string; member: Member }> {
+  const res = await fetch(`/api/gym/members/${memberId}/suspend/`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...getAuthHeader(),
+    },
+    body: JSON.stringify({ reason }),
+  });
+
+  return handleResponse<{ detail: string; status: string; member: Member }>(
+    res,
+    "Failed to suspend member."
+  );
+}
+
+/**
+ * Reactivate a suspended gym member (Owner/Manager).
+ */
+export async function reactivateMember(
+  memberId: string
+): Promise<{ detail: string; status: string; member: Member }> {
+  const res = await fetch(`/api/gym/members/${memberId}/reactivate/`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...getAuthHeader(),
+    },
+  });
+
+  return handleResponse<{ detail: string; status: string; member: Member }>(
+    res,
+    "Failed to reactivate member."
+  );
 }

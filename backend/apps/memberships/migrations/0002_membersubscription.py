@@ -7,7 +7,6 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
         ("memberships", "0001_initial"),
         ("tenants", "0004_gymconfig_brand_color_and_more"),

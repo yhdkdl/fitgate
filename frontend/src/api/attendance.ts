@@ -11,6 +11,7 @@ export interface AttendanceRecord {
   id: string;
   date: string;
   checked_in_at: string;
+  method?: "qr" | "manual_override";
   is_override: boolean;
   override_reason?: string;
 }
@@ -19,7 +20,7 @@ export interface ScanResultMember {
   id: string;
   full_name: string;
   photo_url?: string;
-  status: "active" | "expired" | "frozen" | "suspended" | string;
+  status: "pending" | "active" | "expired" | "frozen" | "suspended" | string;
   phone?: string;
 }
 
@@ -34,6 +35,7 @@ export interface ScanResultResponse {
 export interface ScanErrorResponse {
   detail: string;
   reason:
+    | "pending"
     | "expired"
     | "frozen"
     | "suspended"
@@ -59,6 +61,7 @@ export interface DailyAttendanceItem {
   symbol: string;
   attended: boolean;
   checked_in_at?: string | null;
+  method?: "qr" | "manual_override";
   is_override?: boolean;
 }
 
@@ -145,4 +148,31 @@ export async function getAttendanceLog(params?: {
   return apiFetch<AttendanceLogResponse>(
     `/api/members/me/attendance/${queryString}`
   );
+}
+
+export interface TodayCheckinItem {
+  id: string;
+  member_id: string;
+  member_name: string;
+  member_photo_url: string | null;
+  checked_in_at: string;
+  method?: "qr" | "manual_override";
+  is_override: boolean;
+  override_reason: string;
+  recorded_by_name: string | null;
+}
+
+export interface TodayCheckinsResponse {
+  total_count: number;
+  results: TodayCheckinItem[];
+}
+
+/**
+ * Fetch live today's check-ins list and count for staff dashboard.
+ */
+export async function getTodayCheckins(
+  since?: string
+): Promise<TodayCheckinsResponse> {
+  const query = since ? `?since=${encodeURIComponent(since)}` : "";
+  return apiFetch<TodayCheckinsResponse>(`/api/gym/attendance/today/${query}`);
 }

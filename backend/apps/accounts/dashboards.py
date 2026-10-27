@@ -41,6 +41,7 @@ def dashboard_config_for(user: User) -> dict:
             ],
             "navigation": [
                 {"label": "Overview", "path": "/dashboard"},
+                {"label": "Entrance scanner", "path": "/attendance/scanner"},
                 {"label": "Members", "path": "/members"},
                 {"label": "Staff", "path": "/staff"},
                 {"label": "Plans", "path": "/plans"},
@@ -58,6 +59,7 @@ def dashboard_config_for(user: User) -> dict:
             ],
             "navigation": [
                 {"label": "Overview", "path": "/dashboard"},
+                {"label": "Entrance scanner", "path": "/attendance/scanner"},
                 {"label": "Members", "path": "/members"},
                 {"label": "Staff", "path": "/staff"},
                 {"label": "Plans", "path": "/plans"},
@@ -71,8 +73,11 @@ def dashboard_config_for(user: User) -> dict:
                 {"id": "assigned_clients", "title": "Assigned Clients"},
                 {"id": "pending_plans", "title": "Pending Plan Reviews"},
                 {"id": "today_schedule", "title": "Today's Schedule"},
+                {"id": "member_measurements", "title": "Member Measurements"},
             ],
             "navigation": [
+                {"label": "Overview", "path": "/dashboard"},
+                {"label": "Member measurements", "path": "/measurements"},
                 {"label": "Clients", "path": "/clients"},
                 {"label": "Training Plans", "path": "/plans"},
                 {"label": "Availability", "path": "/availability"},
@@ -88,6 +93,8 @@ def dashboard_config_for(user: User) -> dict:
                 {"id": "recent_cash_payments", "title": "Recent Payments"},
             ],
             "navigation": [
+                {"label": "Overview", "path": "/dashboard"},
+                {"label": "Entrance scanner", "path": "/attendance/scanner"},
                 {"label": "Check-in", "path": "/checkin"},
                 {"label": "Register Member", "path": "/members/register"},
                 {"label": "Payments", "path": "/payments"},

@@ -21,40 +21,6 @@ paths:
               schema:
                 $ref: '#/components/schemas/AttendancePublicKeyResponse'
           description: ''
-  /api/audit-logs/:
-    get:
-      operationId: audit_logs_list
-      description: Unified endpoint for viewing audit logs according to role and tenant
-        context.
-      summary: List audit logs
-      parameters:
-      - name: page
-        required: false
-        in: query
-        description: A page number within the paginated result set.
-        schema:
-          type: integer
-      - name: page_size
-        required: false
-        in: query
-        description: Number of results to return per page.
-        schema:
-          type: integer
-      tags:
-      - audit-logs
-      security:
-      - jwtAuth: []
-      responses:
-        '200':
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/PaginatedAuditLogList'
-          description: ''
-        '401':
-          description: Authentication required
-        '403':
-          description: Forbidden
   /api/auth/change-password/:
     post:
       operationId: auth_change_password_create
@@ -414,6 +380,29 @@ paths:
               schema:
                 $ref: '#/components/schemas/AttendanceScanErrorResponse'
           description: ''
+  /api/gym/attendance/today/:
+    get:
+      operationId: gym_attendance_today_retrieve
+      description: Returns today's attendance check-in list ordered newest first (max
+        50) and total count. Supports optional 'since' parameter.
+      summary: List Today's Check-ins
+      parameters:
+      - in: query
+        name: since
+        schema:
+          type: string
+        description: Optional ISO timestamp to filter check-ins newer than this time.
+      tags:
+      - gym
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AttendanceTodayListResponse'
+          description: ''
   /api/gym/audit-logs/:
     get:
       operationId: gym_audit_logs_list
@@ -657,9 +646,38 @@ paths:
                 $ref: '#/components/schemas/AttendanceLogResponse'
           description: ''
   /api/gym/members/{id}/metrics/:
+    get:
+      operationId: gym_members_metrics_list
+      description: Retrieves body metrics history for a member. Allowed for Trainer,
+        Owner, Manager.
+      summary: List member body metrics
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - gym
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/BodyMetrics'
+          description: ''
+        '403':
+          description: Forbidden
+        '404':
+          description: Member not found
     post:
       operationId: gym_members_metrics_create
-      description: Records new weight, height, and circumferences for a member.
+      description: Records new measurements for a member. Allowed for Trainer ONLY.
       summary: Record member body metrics
       parameters:
       - in: path
@@ -681,6 +699,7 @@ paths:
           multipart/form-data:
             schema:
               $ref: '#/components/schemas/RecordBodyMetricsRequest'
+        required: true
       security:
       - jwtAuth: []
       responses:
@@ -692,8 +711,595 @@ paths:
           description: ''
         '400':
           description: Validation error
+        '403':
+          description: Forbidden - Trainer only
         '404':
           description: Member not found
+  /api/gym/members/{id}/reactivate/:
+    post:
+      operationId: gym_members_reactivate_create
+      description: Owner or Manager reactivates a suspended member.
+      summary: Reactivate a suspended member
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - gym
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: Member reactivated
+  /api/gym/members/{id}/suspend/:
+    post:
+      operationId: gym_members_suspend_create
+      description: Owner or Manager suspends a member. Moves subscription status to
+        suspended.
+      summary: Suspend a member
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - gym
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MemberSuspendRequestRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/MemberSuspendRequestRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/MemberSuspendRequestRequest'
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: Member suspended
+  /api/gym/membership-plans/:
+    get:
+      operationId: gym_membership_plans_list
+      description: Returns all membership plans configured for the gym.
+      summary: List gym membership plans
+      tags:
+      - gym
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/MembershipPlan'
+          description: ''
+    post:
+      operationId: gym_membership_plans_create
+      description: Owner or Manager creates a new membership plan. Warns if trainer-inclusive
+        with no trainers.
+      summary: Create gym membership plan
+      tags:
+      - gym
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MembershipPlanRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/MembershipPlanRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/MembershipPlanRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MembershipPlan'
+          description: ''
+        '400':
+          description: Validation error
+        '403':
+          description: Forbidden
+  /api/gym/membership-plans/{id}/:
+    get:
+      operationId: gym_membership_plans_retrieve
+      description: |-
+        Retrieve, update, or deactivate a membership plan.
+        Read: Gym Staff.
+        Write/Deactivate: Owner and Manager only.
+      summary: Retrieve membership plan details
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - gym
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MembershipPlan'
+          description: ''
+    patch:
+      operationId: gym_membership_plans_partial_update
+      description: Owner or Manager updates a plan. Price changes do not affect past
+        payments or existing subscriptions.
+      summary: Update membership plan
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - gym
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedMembershipPlanRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedMembershipPlanRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedMembershipPlanRequest'
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MembershipPlan'
+          description: ''
+        '403':
+          description: Forbidden
+    delete:
+      operationId: gym_membership_plans_destroy
+      description: Owner or Manager deactivates plan. Existing subscriptions remain
+        intact.
+      summary: Deactivate membership plan
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - gym
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: Plan deactivated
+  /api/gym/membership-plans/public/:
+    get:
+      operationId: gym_membership_plans_public_list
+      description: Visitors can view all active plans and prices without logging in.
+      summary: List active plans publicly
+      tags:
+      - gym
+      security:
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/PublicPlan'
+          description: ''
+  /api/gym/payment-config/:
+    get:
+      operationId: gym_payment_config_retrieve
+      description: Returns masked configuration state. Plaintext secrets are never
+        returned.
+      summary: Retrieve gym payment gateway configuration (masked)
+      tags:
+      - gym
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GymPaymentConfig'
+          description: ''
+    put:
+      operationId: gym_payment_config_update
+      description: |-
+        Manage payment gateway credentials for the active gym.
+        Restricted strictly to the Gym Owner of the active tenant.
+        Super Admins, Managers, Receptionists, and Members are blocked.
+      tags:
+      - gym
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GymPaymentConfig'
+          description: ''
+    patch:
+      operationId: gym_payment_config_partial_update
+      description: Encrypts keys at rest using TENANT_CREDENTIALS_KEY and records
+        an audit log.
+      summary: Update gym payment credentials
+      tags:
+      - gym
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedGymPaymentConfigUpdateRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedGymPaymentConfigUpdateRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedGymPaymentConfigUpdateRequest'
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GymPaymentConfig'
+          description: ''
+  /api/gym/payment-config/test/:
+    post:
+      operationId: gym_payment_config_test_create
+      description: Performs an external verification call against Chapa API. Sets
+        is_verified flag.
+      summary: Test Chapa payment credentials
+      tags:
+      - gym
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: Connection verified successfully
+        '400':
+          description: Connection verification failed
+  /api/gym/payments/:
+    get:
+      operationId: gym_payments_retrieve
+      description: Filter payments by date range, payment method, status, and member.
+        Returns confirmed revenue total.
+      summary: List gym payments & revenue summary (Owner, Manager)
+      tags:
+      - gym
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: Paginated payment list with confirmed revenue total
+  /api/gym/payments/{payment_id}/reverse/:
+    post:
+      operationId: gym_payments_reverse_create
+      description: Reverses an unreconciled bank transfer, restores subscription state,
+        and creates immutable reversal record. Owner only.
+      summary: Reverse bank transfer payment
+      parameters:
+      - in: path
+        name: payment_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - gym
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReverseBankTransferRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/ReverseBankTransferRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/ReverseBankTransferRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: Reversal result
+  /api/gym/payments/bank-transfer/:
+    post:
+      operationId: gym_payments_bank_transfer_create
+      description: Records a bank-transfer payment for a member with bank reference,
+        transfer date, and channel.
+      summary: Record member bank-transfer payment
+      tags:
+      - gym
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RecordBankTransferPaymentRequestRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/RecordBankTransferPaymentRequestRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/RecordBankTransferPaymentRequestRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RecordBankTransferResponse'
+          description: ''
+        '400':
+          description: Validation error or duplicate reference
+        '403':
+          description: Permission denied
+  /api/gym/payments/bank-transfers/reconcile/:
+    post:
+      operationId: gym_payments_bank_transfers_reconcile_create
+      description: Marks bank transfers as reconciled. Owner only.
+      summary: Reconcile bank transfers
+      tags:
+      - gym
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReconcileBankTransfersRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/ReconcileBankTransfersRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/ReconcileBankTransfersRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: Reconciliation result
+  /api/gym/payments/bank-transfers/unreconciled/:
+    get:
+      operationId: gym_payments_bank_transfers_unreconciled_list
+      description: Returns unreconciled bank transfers for owner reconciliation. Owner
+        only.
+      summary: List unreconciled bank transfers
+      tags:
+      - gym
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/UnreconciledBankTransferItem'
+          description: ''
+  /api/gym/payments/cash/:
+    post:
+      operationId: gym_payments_cash_create
+      description: Records staff-confirmed cash payment, creates subscription, and
+        generates digital receipt in one transaction.
+      summary: Record manual cash payment (Owner, Manager, Reception)
+      tags:
+      - gym
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RecordCashPaymentRequestRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/RecordCashPaymentRequestRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/RecordCashPaymentRequestRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RecordCashPaymentResponse'
+          description: ''
+        '400':
+          description: Validation error or cross-gym entity
+        '403':
+          description: Unauthorized role or cross-gym staff
+        '404':
+          description: Member or plan not found
+  /api/gym/plans/:
+    get:
+      operationId: gym_plans_list
+      description: Returns all membership plans configured for the gym.
+      summary: List gym membership plans
+      tags:
+      - gym
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/MembershipPlan'
+          description: ''
+    post:
+      operationId: gym_plans_create
+      description: Owner or Manager creates a new membership plan. Warns if trainer-inclusive
+        with no trainers.
+      summary: Create gym membership plan
+      tags:
+      - gym
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MembershipPlanRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/MembershipPlanRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/MembershipPlanRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MembershipPlan'
+          description: ''
+        '400':
+          description: Validation error
+        '403':
+          description: Forbidden
+  /api/gym/plans/{id}/:
+    get:
+      operationId: gym_plans_retrieve
+      description: |-
+        Retrieve, update, or deactivate a membership plan.
+        Read: Gym Staff.
+        Write/Deactivate: Owner and Manager only.
+      summary: Retrieve membership plan details
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - gym
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MembershipPlan'
+          description: ''
+    patch:
+      operationId: gym_plans_partial_update
+      description: Owner or Manager updates a plan. Price changes do not affect past
+        payments or existing subscriptions.
+      summary: Update membership plan
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - gym
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedMembershipPlanRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedMembershipPlanRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedMembershipPlanRequest'
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MembershipPlan'
+          description: ''
+        '403':
+          description: Forbidden
+    delete:
+      operationId: gym_plans_destroy
+      description: Owner or Manager deactivates plan. Existing subscriptions remain
+        intact.
+      summary: Deactivate membership plan
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - gym
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: Plan deactivated
+  /api/gym/receipts/{receipt_id}/:
+    get:
+      operationId: gym_receipts_retrieve
+      description: Returns receipt details for staff or the member who owns the payment.
+      summary: Retrieve digital receipt details
+      parameters:
+      - in: path
+        name: receipt_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - gym
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Receipt'
+          description: ''
   /api/gym/settings/:
     get:
       operationId: gym_settings_retrieve
@@ -1093,32 +1699,15 @@ paths:
           description: ''
     post:
       operationId: members_me_metrics_create
-      description: Records new measurements for the logged-in member.
+      description: Refused - members cannot enter or edit measurements.
       summary: Record own body metrics
       tags:
       - members
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/RecordBodyMetricsRequest'
-          application/x-www-form-urlencoded:
-            schema:
-              $ref: '#/components/schemas/RecordBodyMetricsRequest'
-          multipart/form-data:
-            schema:
-              $ref: '#/components/schemas/RecordBodyMetricsRequest'
       security:
       - jwtAuth: []
       responses:
-        '201':
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/BodyMetrics'
-          description: ''
-        '400':
-          description: Validation error
+        '403':
+          description: Forbidden
   /api/members/me/qr-token/:
     get:
       operationId: members_me_qr_token_retrieve
@@ -1162,6 +1751,59 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/MemberQrTokenErrorResponse'
+          description: ''
+  /api/payments/checkout/chapa/:
+    post:
+      operationId: payments_checkout_chapa_create
+      description: |-
+        Initiate an online Chapa checkout session for a membership plan.
+        Requires verified gym credentials; otherwise refuses and prompts front-desk cash payment.
+      summary: Initiate online Chapa checkout session
+      tags:
+      - payments
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChapaCheckoutRequestRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/ChapaCheckoutRequestRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/ChapaCheckoutRequestRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChapaCheckoutResponse'
+          description: ''
+        '400':
+          description: Online payment disabled or invalid plan
+        '502':
+          description: Payment gateway initialization failed
+  /api/payments/history/:
+    get:
+      operationId: payments_history_list
+      description: Returns the logged-in member's complete payment history with dates,
+        amounts, and receipt references.
+      summary: View member personal payment history
+      tags:
+      - payments
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/MemberPaymentHistoryItem'
           description: ''
   /api/platform/audit-logs/:
     get:
@@ -1519,6 +2161,30 @@ paths:
           description: Gym not found
         '403':
           description: Forbidden
+  /api/platform/gyms/{gym_id}/payment-status/:
+    get:
+      operationId: platform_gyms_payment_status_retrieve
+      description: Returns whether the gym is running in test or live mode. Never
+        exposes keys.
+      summary: View gym payment mode (Super Admin)
+      parameters:
+      - in: path
+        name: gym_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - platform
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuperAdminGymPaymentStatus'
+          description: ''
   /api/platform/gyms/propose-subdomain/:
     get:
       operationId: platform_gyms_propose_subdomain_retrieve
@@ -1620,6 +2286,43 @@ paths:
           description: Validation error, missing waiver, or duplicate email/phone
         '404':
           description: Gym tenant not found
+  /api/public/plans/:
+    get:
+      operationId: public_plans_list
+      description: Visitors can view all active plans and prices without logging in.
+      summary: List active plans publicly
+      tags:
+      - public
+      security:
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/PublicPlan'
+          description: ''
+  /api/webhooks/chapa/:
+    post:
+      operationId: webhooks_chapa_create
+      description: Processes Chapa webhook notifications with HMAC verification and
+        idempotency.
+      summary: Chapa payment webhook notification
+      tags:
+      - webhooks
+      security:
+      - {}
+      responses:
+        '200':
+          description: Payment confirmed or already handled
+        '400':
+          description: Invalid payload or verification failure
+        '401':
+          description: Invalid signature
+        '502':
+          description: Gateway verification failure
 components:
   schemas:
     AttendanceLogResponse:
@@ -1661,8 +2364,8 @@ components:
           description: UUID of the member to check in.
         reason:
           type: string
-          minLength: 1
-          description: Non-empty explanation for manual override.
+          minLength: 5
+          description: Explanation for manual override (5 to 500 characters).
           maxLength: 500
         branch_id:
           type: string
@@ -1695,10 +2398,10 @@ components:
       properties:
         public_key:
           type: string
-          description: PEM-encoded RSA public key for offline QR signature verification.
+          description: PEM-encoded Ed25519 public key for offline QR signature verification.
         algorithm:
           type: string
-          default: RS256
+          default: EdDSA
       required:
       - public_key
     AttendanceRecord:
@@ -1714,6 +2417,8 @@ components:
         checked_in_at:
           type: string
           format: date-time
+        method:
+          type: string
         is_override:
           type: boolean
         override_reason:
@@ -1723,6 +2428,7 @@ components:
       - date
       - id
       - is_override
+      - method
     AttendanceScanErrorResponse:
       type: object
       properties:
@@ -1742,7 +2448,8 @@ components:
         token:
           type: string
           minLength: 1
-          description: Scanned QR token string (RS256 JWT).
+          description: Scanned QR token string (EdDSA JWT).
+          maxLength: 2048
         branch_id:
           type: string
           format: uuid
@@ -1791,6 +2498,54 @@ components:
       - id
       - photo_url
       - status
+    AttendanceTodayItem:
+      type: object
+      description: Entry in Today's Check-ins list.
+      properties:
+        id:
+          type: string
+          format: uuid
+        member_id:
+          type: string
+          format: uuid
+        member_name:
+          type: string
+        member_photo_url:
+          type: string
+        checked_in_at:
+          type: string
+          format: date-time
+        method:
+          type: string
+        is_override:
+          type: boolean
+        override_reason:
+          type: string
+        recorded_by_name:
+          type: string
+          nullable: true
+      required:
+      - checked_in_at
+      - id
+      - is_override
+      - member_id
+      - member_name
+      - member_photo_url
+      - method
+    AttendanceTodayListResponse:
+      type: object
+      description: Response serializer for live Today's Check-ins list.
+      properties:
+        total_count:
+          type: integer
+          description: Total number of members checked in today.
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/AttendanceTodayItem'
+      required:
+      - results
+      - total_count
     AuditLog:
       type: object
       description: Read-only representation of an AuditLog entry.
@@ -1869,7 +2624,8 @@ components:
       type: object
       description: |-
         Serializer for member body composition metrics.
-        Exposes BMI and US Navy body-fat estimates, explicitly labeled as estimates.
+        Exposes BMI and US Navy body-fat estimates, explicitly labeled as estimates,
+        along with recording trainer information.
       properties:
         id:
           type: string
@@ -1889,6 +2645,17 @@ components:
         recorded_at:
           type: string
           format: date-time
+          readOnly: true
+        recorded_by:
+          type: string
+          format: uuid
+          readOnly: true
+          nullable: true
+        trainer_name:
+          type: string
+          readOnly: true
+        recorded_by_name:
+          type: string
           readOnly: true
         estimated_bmi:
           type: number
@@ -1911,6 +2678,9 @@ components:
       - estimated_body_fat_percentage
       - id
       - recorded_at
+      - recorded_by
+      - recorded_by_name
+      - trainer_name
     ChangePasswordRequestRequest:
       type: object
       description: Payload for changing user password.
@@ -1940,6 +2710,31 @@ components:
       - access
       - refresh
       - user
+    ChapaCheckoutRequestRequest:
+      type: object
+      description: Input serializer for initiating online subscription checkout.
+      properties:
+        plan_id:
+          type: string
+          format: uuid
+      required:
+      - plan_id
+    ChapaCheckoutResponse:
+      type: object
+      description: Output serializer for online subscription checkout session.
+      properties:
+        checkout_url:
+          type: string
+          format: uri
+        tx_ref:
+          type: string
+        payment_id:
+          type: string
+          format: uuid
+      required:
+      - checkout_url
+      - payment_id
+      - tx_ref
     ChecklistItem:
       type: object
       description: Item in first-run onboarding checklist.
@@ -1987,7 +2782,7 @@ components:
         contact_phone:
           type: string
           default: ''
-          maxLength: 20
+          maxLength: 50
         contact_email:
           oneOf:
           - type: string
@@ -2040,6 +2835,8 @@ components:
         payment_id:
           type: string
           format: uuid
+        gym_url:
+          type: string
       required:
       - config
       - gym
@@ -2084,6 +2881,8 @@ components:
           type: string
           format: date-time
           nullable: true
+        method:
+          type: string
         is_override:
           type: boolean
       required:
@@ -2212,6 +3011,14 @@ components:
       required:
       - dismissed_at
       - is_dismissed
+    DurationUnitEnum:
+      enum:
+      - days
+      - months
+      type: string
+      description: |-
+        * `days` - Days
+        * `months` - Months
     FirstRunChecklistResponse:
       type: object
       description: First-run onboarding checklist progress for gym Owner.
@@ -2314,6 +3121,41 @@ components:
       required:
       - config
       - gym
+    GymPaymentConfig:
+      type: object
+      description: Safe read-only representation of gym payment configuration.
+      properties:
+        is_configured:
+          type: boolean
+          readOnly: true
+        is_test_mode:
+          type: boolean
+          readOnly: true
+        is_verified:
+          type: boolean
+          readOnly: true
+        verified_at:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+        masked_public_key:
+          type: string
+          readOnly: true
+        has_secret_key:
+          type: boolean
+          readOnly: true
+        has_webhook_secret:
+          type: boolean
+          readOnly: true
+      required:
+      - has_secret_key
+      - has_webhook_secret
+      - is_configured
+      - is_test_mode
+      - is_verified
+      - masked_public_key
+      - verified_at
     GymPublicEntryResponse:
       type: object
       description: Public details returned on the gym subdomain entry page.
@@ -2368,6 +3210,9 @@ components:
           type: string
           readOnly: true
         subdomain:
+          type: string
+          readOnly: true
+        url:
           type: string
           readOnly: true
         status:
@@ -2427,6 +3272,7 @@ components:
       - tier
       - tls_confirmed_at
       - updated_at
+      - url
     HealthCheckResponse:
       type: object
       properties:
@@ -2453,7 +3299,7 @@ components:
         phone:
           type: string
           default: ''
-          maxLength: 20
+          maxLength: 50
       required:
       - email
       - role
@@ -2556,7 +3402,9 @@ components:
           type: string
           maxLength: 255
         status:
-          $ref: '#/components/schemas/StatusBa9Enum'
+          allOf:
+          - $ref: '#/components/schemas/Status1d7Enum'
+          readOnly: true
         joined_at:
           type: string
           format: date-time
@@ -2576,6 +3424,7 @@ components:
       - joined_at
       - latest_metrics
       - phone
+      - status
       - waiver_accepted_at
     MemberDetail:
       type: object
@@ -2613,7 +3462,9 @@ components:
           type: string
           maxLength: 255
         status:
-          $ref: '#/components/schemas/StatusBa9Enum'
+          allOf:
+          - $ref: '#/components/schemas/Status1d7Enum'
+          readOnly: true
         joined_at:
           type: string
           format: date-time
@@ -2639,7 +3490,61 @@ components:
       - joined_at
       - latest_metrics
       - phone
+      - status
       - waiver_accepted_at
+    MemberPaymentHistoryItem:
+      type: object
+      description: Member self-service view of their own payment history.
+      properties:
+        id:
+          type: string
+          format: uuid
+        created_at:
+          type: string
+          format: date-time
+        plan_name:
+          type: string
+        method:
+          type: string
+        amount_etb:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,10}(?:\.\d{0,2})?$
+        currency:
+          type: string
+        status:
+          type: string
+        receipt_number:
+          type: string
+        bank_reference:
+          type: string
+          default: ''
+        is_reversed:
+          type: boolean
+          default: false
+        reversed_at:
+          type: string
+          format: date-time
+          nullable: true
+        subscription_start_date:
+          type: string
+          format: date
+          nullable: true
+        subscription_end_date:
+          type: string
+          format: date
+          nullable: true
+      required:
+      - amount_etb
+      - created_at
+      - currency
+      - id
+      - method
+      - plan_name
+      - receipt_number
+      - status
+      - subscription_end_date
+      - subscription_start_date
     MemberQrTokenErrorResponse:
       type: object
       properties:
@@ -2656,7 +3561,7 @@ components:
       properties:
         token:
           type: string
-          description: Signed RS256 JWT QR token.
+          description: Signed EdDSA JWT QR token.
         expires_at:
           type: string
           format: date-time
@@ -2672,6 +3577,93 @@ components:
       - expires_at
       - member_id
       - token
+    MemberSuspendRequestRequest:
+      type: object
+      description: Request serializer for suspending a member.
+      properties:
+        reason:
+          type: string
+          description: Optional reason for suspending member.
+          maxLength: 500
+    MembershipPlan:
+      type: object
+      description: Serializer for gym membership plans.
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        name:
+          type: string
+          maxLength: 100
+        description:
+          type: string
+        duration_value:
+          type: integer
+          maximum: 2147483647
+          minimum: 0
+        duration_unit:
+          $ref: '#/components/schemas/DurationUnitEnum'
+        price_etb:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+        trainer_inclusive:
+          type: boolean
+        is_active:
+          type: boolean
+        warning:
+          type: string
+          readOnly: true
+        has_no_trainers_warning:
+          type: boolean
+          readOnly: true
+          default: false
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - created_at
+      - duration_value
+      - has_no_trainers_warning
+      - id
+      - name
+      - price_etb
+      - updated_at
+      - warning
+    MembershipPlanRequest:
+      type: object
+      description: Serializer for gym membership plans.
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+        description:
+          type: string
+        duration_value:
+          type: integer
+          maximum: 2147483647
+          minimum: 0
+        duration_unit:
+          $ref: '#/components/schemas/DurationUnitEnum'
+        price_etb:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+        trainer_inclusive:
+          type: boolean
+        is_active:
+          type: boolean
+      required:
+      - duration_value
+      - name
+      - price_etb
     PaginatedAuditLogList:
       type: object
       required:
@@ -2743,6 +3735,22 @@ components:
           $ref: '#/components/schemas/DemoRequestStatusEnum'
         notes:
           type: string
+    PatchedGymPaymentConfigUpdateRequest:
+      type: object
+      description: Input serializer for gym owner configuring Chapa credentials.
+      properties:
+        public_key:
+          type: string
+          writeOnly: true
+          maxLength: 255
+        secret_key:
+          type: string
+          writeOnly: true
+          maxLength: 255
+        webhook_secret:
+          type: string
+          writeOnly: true
+          maxLength: 255
     PatchedGymSettingsUpdateRequest:
       type: object
       description: |-
@@ -2792,8 +3800,30 @@ components:
         photo_url:
           type: string
           maxLength: 255
-        status:
-          $ref: '#/components/schemas/StatusBa9Enum'
+    PatchedMembershipPlanRequest:
+      type: object
+      description: Serializer for gym membership plans.
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+        description:
+          type: string
+        duration_value:
+          type: integer
+          maximum: 2147483647
+          minimum: 0
+        duration_unit:
+          $ref: '#/components/schemas/DurationUnitEnum'
+        price_etb:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+        trainer_inclusive:
+          type: boolean
+        is_active:
+          type: boolean
     PatchedUserProfileUpdateRequest:
       type: object
       description: Payload for updating user profile (full_name and phone only).
@@ -2803,7 +3833,7 @@ components:
           maxLength: 150
         phone:
           type: string
-          maxLength: 20
+          maxLength: 50
     ProposeSubdomainResponse:
       type: object
       description: Response containing proposed candidate subdomain.
@@ -2864,7 +3894,7 @@ components:
       type: object
       description: |-
         Serializer for public self-service registration on gym subdomains.
-        Requires health waiver acceptance and password.
+        Requires health waiver acceptance and password. Registration captures no body measurements.
       properties:
         full_name:
           type: string
@@ -2878,7 +3908,7 @@ components:
         phone:
           type: string
           minLength: 1
-          maxLength: 20
+          maxLength: 50
         password:
           type: string
           writeOnly: true
@@ -2903,12 +3933,245 @@ components:
         photo_url:
           type: string
           maxLength: 255
+      required:
+      - email
+      - full_name
+      - password
+      - phone
+      - waiver_accepted
+    PublicPlan:
+      type: object
+      description: Public read-only serializer for active membership plans.
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        name:
+          type: string
+          readOnly: true
+        description:
+          type: string
+          readOnly: true
+        duration_value:
+          type: integer
+          readOnly: true
+        duration_unit:
+          allOf:
+          - $ref: '#/components/schemas/DurationUnitEnum'
+          readOnly: true
+        price_etb:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+          readOnly: true
+        trainer_inclusive:
+          type: boolean
+          readOnly: true
+      required:
+      - description
+      - duration_unit
+      - duration_value
+      - id
+      - name
+      - price_etb
+      - trainer_inclusive
+    Receipt:
+      type: object
+      description: Read-only digital receipt representation.
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        receipt_number:
+          type: string
+          readOnly: true
+        sequence_number:
+          type: integer
+          readOnly: true
+        issued_at:
+          type: string
+          format: date-time
+          readOnly: true
+        issued_by_id:
+          type: string
+          format: uuid
+          nullable: true
+          readOnly: true
+        issued_by_name:
+          type: string
+          readOnly: true
+        amount_etb:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,10}(?:\.\d{0,2})?$
+          readOnly: true
+        currency:
+          type: string
+          readOnly: true
+        payment_method:
+          type: string
+          readOnly: true
+        bank_reference:
+          type: string
+          readOnly: true
+          nullable: true
+        transfer_channel:
+          type: string
+          readOnly: true
+          nullable: true
+        is_reversed:
+          type: boolean
+          readOnly: true
+        reversed_at:
+          type: string
+          readOnly: true
+        reversal_reason:
+          type: string
+          readOnly: true
+        member_name:
+          type: string
+          readOnly: true
+        member_phone:
+          type: string
+          readOnly: true
+        plan_name:
+          type: string
+          readOnly: true
+        plan_duration:
+          type: string
+          readOnly: true
+        notes:
+          type: string
+          readOnly: true
+        gym_name:
+          type: string
+          readOnly: true
+        gym_subdomain:
+          type: string
+          readOnly: true
+      required:
+      - amount_etb
+      - bank_reference
+      - currency
+      - gym_name
+      - gym_subdomain
+      - id
+      - is_reversed
+      - issued_at
+      - issued_by_id
+      - issued_by_name
+      - member_name
+      - member_phone
+      - notes
+      - payment_method
+      - plan_duration
+      - plan_name
+      - receipt_number
+      - reversal_reason
+      - reversed_at
+      - sequence_number
+      - transfer_channel
+    ReconcileBankTransfersRequest:
+      type: object
+      description: Owner bulk or single reconciliation request.
+      properties:
+        payment_ids:
+          type: array
+          items:
+            type: string
+            format: uuid
+      required:
+      - payment_ids
+    RecordBankTransferPaymentRequestRequest:
+      type: object
+      description: Input serializer to record a bank-transfer payment.
+      properties:
+        member_id:
+          type: string
+          format: uuid
+        plan_id:
+          type: string
+          format: uuid
+        bank_reference:
+          type: string
+          minLength: 3
+          maxLength: 100
+        transfer_date:
+          type: string
+          format: date
+        channel:
+          type: string
+          default: ''
+          maxLength: 50
+        notes:
+          type: string
+          default: ''
+          maxLength: 1000
+        idempotency_key:
+          type: string
+          default: ''
+          maxLength: 64
+      required:
+      - bank_reference
+      - member_id
+      - plan_id
+      - transfer_date
+    RecordBankTransferResponse:
+      type: object
+      description: Output serializer for bank-transfer payment confirmation.
+      properties:
+        payment_id:
+          type: string
+          format: uuid
+        receipt:
+          $ref: '#/components/schemas/Receipt'
+        status:
+          type: string
+        amount_etb:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,10}(?:\.\d{0,2})?$
+        bank_reference:
+          type: string
+        is_reconciled:
+          type: boolean
+        detail:
+          type: string
+      required:
+      - amount_etb
+      - bank_reference
+      - detail
+      - is_reconciled
+      - payment_id
+      - receipt
+      - status
+    RecordBodyMetricsRequest:
+      type: object
+      description: |-
+        Serializer for recording a new body metrics entry by a Trainer.
+        Weight (kg) and height (cm) are required; waist, neck and hip are optional.
+      properties:
         weight_kg:
           type: string
           format: decimal
           pattern: ^-?\d{0,3}(?:\.\d{0,2})?$
-          nullable: true
         height_cm:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,3}(?:\.\d{0,2})?$
+        waist_cm:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,3}(?:\.\d{0,2})?$
+          nullable: true
+        neck_cm:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,3}(?:\.\d{0,2})?$
+          nullable: true
+        hip_cm:
           type: string
           format: decimal
           pattern: ^-?\d{0,3}(?:\.\d{0,2})?$
@@ -2918,29 +4181,62 @@ components:
           additionalProperties: {}
           nullable: true
       required:
-      - email
-      - full_name
-      - password
-      - phone
-      - waiver_accepted
-    RecordBodyMetricsRequest:
+      - height_cm
+      - weight_kg
+    RecordCashPaymentRequestRequest:
       type: object
-      description: Serializer for recording a new body metrics entry.
+      description: Input serializer for gym staff recording a cash payment.
       properties:
-        weight_kg:
+        member_id:
+          type: string
+          format: uuid
+        plan_id:
+          type: string
+          format: uuid
+        notes:
+          type: string
+          default: ''
+          maxLength: 1000
+        idempotency_key:
+          type: string
+          default: ''
+          maxLength: 64
+      required:
+      - member_id
+      - plan_id
+    RecordCashPaymentResponse:
+      type: object
+      description: Output serializer for cash payment confirmation.
+      properties:
+        payment_id:
+          type: string
+          format: uuid
+        receipt:
+          $ref: '#/components/schemas/Receipt'
+        status:
+          type: string
+        amount_etb:
           type: string
           format: decimal
-          pattern: ^-?\d{0,3}(?:\.\d{0,2})?$
-          nullable: true
-        height_cm:
+          pattern: ^-?\d{0,10}(?:\.\d{0,2})?$
+        detail:
           type: string
-          format: decimal
-          pattern: ^-?\d{0,3}(?:\.\d{0,2})?$
-          nullable: true
-        measurements:
-          type: object
-          additionalProperties: {}
-          nullable: true
+      required:
+      - amount_etb
+      - detail
+      - payment_id
+      - receipt
+      - status
+    ReverseBankTransferRequest:
+      type: object
+      description: Owner reversal request with mandatory reason.
+      properties:
+        reason:
+          type: string
+          minLength: 5
+          maxLength: 500
+      required:
+      - reason
     SetPasswordFromInviteRequestRequest:
       type: object
       description: Payload for setting initial password from an invite token.
@@ -3028,6 +4324,7 @@ components:
       description: |-
         Serializer for staff-assisted member registration (Owner, Manager, Reception).
         Does not require a password; generates set-password invite link instead.
+        Registration captures no body measurements.
       properties:
         full_name:
           type: string
@@ -3041,7 +4338,7 @@ components:
         phone:
           type: string
           minLength: 1
-          maxLength: 20
+          maxLength: 50
         waiver_accepted:
           type: boolean
         date_of_birth:
@@ -3061,37 +4358,50 @@ components:
         photo_url:
           type: string
           maxLength: 255
-        weight_kg:
-          type: string
-          format: decimal
-          pattern: ^-?\d{0,3}(?:\.\d{0,2})?$
-          nullable: true
-        height_cm:
-          type: string
-          format: decimal
-          pattern: ^-?\d{0,3}(?:\.\d{0,2})?$
-          nullable: true
-        measurements:
-          type: object
-          additionalProperties: {}
-          nullable: true
       required:
       - email
       - full_name
       - phone
       - waiver_accepted
-    StatusBa9Enum:
+    Status1d7Enum:
       enum:
+      - pending
       - active
       - expired
       - frozen
       - suspended
       type: string
       description: |-
+        * `pending` - Pending
         * `active` - Active
         * `expired` - Expired
         * `frozen` - Frozen
         * `suspended` - Suspended
+    SuperAdminGymPaymentStatus:
+      type: object
+      description: Platform administration view of gym payment mode (test vs live)
+        without exposing keys.
+      properties:
+        gym_id:
+          type: string
+          format: uuid
+        gym_name:
+          type: string
+        subdomain:
+          type: string
+        is_configured:
+          type: boolean
+        is_test_mode:
+          type: boolean
+        is_verified:
+          type: boolean
+      required:
+      - gym_id
+      - gym_name
+      - is_configured
+      - is_test_mode
+      - is_verified
+      - subdomain
     SuperAdminResponse:
       type: object
       description: Response for created Super Admin.
@@ -3148,6 +4458,57 @@ components:
           type: string
       required:
       - access
+    UnreconciledBankTransferItem:
+      type: object
+      description: Owner view of an unreconciled bank transfer.
+      properties:
+        id:
+          type: string
+          format: uuid
+        transfer_date:
+          type: string
+          format: date
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+        bank_reference:
+          type: string
+        channel:
+          type: string
+        amount_etb:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,10}(?:\.\d{0,2})?$
+        member_id:
+          type: string
+          format: uuid
+          nullable: true
+        member_name:
+          type: string
+        member_phone:
+          type: string
+        confirmed_by_id:
+          type: string
+          format: uuid
+          nullable: true
+        confirmed_by_name:
+          type: string
+        receipt_number:
+          type: string
+      required:
+      - amount_etb
+      - bank_reference
+      - channel
+      - confirmed_by_id
+      - confirmed_by_name
+      - created_at
+      - id
+      - member_id
+      - member_name
+      - member_phone
+      - receipt_number
+      - transfer_date
     UploadGymLogoRequest:
       type: object
       description: Upload serializer for gym logo.

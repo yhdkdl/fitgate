@@ -5,6 +5,7 @@ from decimal import Decimal
 from unittest.mock import patch
 
 import pytest
+from django.conf import settings
 from django.core import mail
 from django.core.exceptions import ValidationError
 from django.urls import reverse
@@ -199,7 +200,10 @@ class TestCreateGymSuite:
         assert len(mail.outbox) == 1
         email = mail.outbox[0]
         assert email.to == ["owner@emailgym.com"]
-        expected_subdomain_url = f"{settings.PUBLIC_URL_SCHEME}://email-gym.{settings.DOMAIN}/set-password?token={result['raw_invite_token']}"
+        port_suffix = (
+            f":{settings.PUBLIC_PORT}" if getattr(settings, "PUBLIC_PORT", "") else ""
+        )
+        expected_subdomain_url = f"{settings.PUBLIC_URL_SCHEME}://email-gym.{settings.DOMAIN}{port_suffix}/set-password?token={result['raw_invite_token']}"
         assert expected_subdomain_url in email.body
 
         # Clear outbox before failure case
@@ -723,6 +727,8 @@ class TestCreateGymSuite:
         assert response.status_code == 201
         data = response.json()
         assert data["gym"]["subdomain"] == "bole-apex"
+        assert data["gym"]["url"] == f"https://bole-apex.{settings.DOMAIN}/"
+        assert data["gym_url"] == f"https://bole-apex.{settings.DOMAIN}/"
         assert data["config"]["has_multi_branch"] is True
         assert data["owner"]["email"] == "haile@boleapex.com"
         assert "invite_link" not in data

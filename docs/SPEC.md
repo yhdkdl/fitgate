@@ -14,19 +14,21 @@ FitGate is a multi-tenant gym management platform for the Ethiopian market (deve
 
 ## 2. Actors / Roles and Account Provisioning
 
-- **Super Admin** — platform-level, not tied to a gym (`gym_id` is null). Creates gyms, records subscription payments, suspends/reinstates gyms, sets tiers and feature flags, enables/disables roles per gym, handles demo requests, views platform-wide analytics, posts platform notices.
-- **Owner** — one per gym tenant, created by Super Admin when the gym is created. Full control of their gym's operations and settings (not its entitlements).
-- **Manager** — staff role, scoped permission subset of Owner (see the matrix below).
-- **Trainer** — manages assigned members, reviews/approves AI-generated training plans, publishes availability, messages clients.
-- **Reception** — front-desk role: check-in assistance (including manual override), manual cash payment recording, member registration assistance.
-- **Member** — end user of a specific gym; registers, checks in via QR, views their subscription/plan, messages their trainer.
+- **Super Admin** — platform-level, not tied to a gym (`gym_id` is null). Creates gyms, records subscription payments, suspends/reinstates gyms, sets tiers and feature flags, enables/disables roles per gym, handles demo requests, views platform-wide analytics, posts platform notices. Sees no member body measurements.
+- **Owner** — one per gym tenant, created by Super Admin when the gym is created. Full control of their gym's operations and settings (not its entitlements). Can view member measurements and history, but cannot enter or edit them.
+- **Manager** — staff role, scoped permission subset of Owner (see the matrix below). Can view member measurements and history, but cannot enter or edit them.
+- **Trainer** — records body measurements for gym members, manages assigned members, reviews/approves AI-generated training plans, publishes availability (deferred, see §10), messages clients (deferred, see §10).
+- **Reception** — front-desk role: check-in assistance (including manual override), manual cash payment recording, member registration assistance. Sees no measurements anywhere and cannot enter any.
+- **Member** — end user of a specific gym; registers (without entering measurements), checks in via QR, views their subscription/plan, views their own trainer-recorded measurements and history (cannot enter or edit), messages their trainer (deferred, see §10).
+
+**Member status:** `pending` (registered, no subscription yet), `active`, `expired`, `frozen`, `suspended`. A new member starts as `pending`. Check-in refuses pending members with a plain message ("no active plan yet"). `MemberSubscription` is the single source of truth; `Member.status` is a derived indexed column written only by one shared function in the same transaction as every subscription change (bought, renewed, frozen, unfrozen, expired, suspended).
 
 **Provisioning chain** (no single open signup for every role):
 
 - **Super Admin:** no public registration route. The first account is created once, at deployment, by a one-time management command that reads its email and initial password from environment configuration, is idempotent, and forces a password change at first login; it is never exposed through an HTTP endpoint. An existing Super Admin can create more Super Admins from their dashboard (audit-logged, requires re-entering their own password). The last active Super Admin cannot be deactivated.
 - **Gym Owner:** created by Super Admin as part of "Create gym" (§5). The Owner receives a set-password link, never an emailed password.
 - **Manager, Trainer, Reception:** created from inside the gym's own subdomain: Owner creates Managers, Trainers and Reception; Manager creates Trainers and Reception only. Invite email with a set-password link; no public signup form.
-- **Member:** registers at the gym's own subdomain (self-service → email verification → plan selection → payment) or is registered at the front desk by Reception/Manager.
+- **Member:** registers at the gym's own subdomain (self-service → email verification → plan selection → payment) or is registered at the front desk by Reception/Manager. Newly registered members start in `pending` status until a plan is selected and activated.
 
 **Permission matrix** (source Table 3.1a, with entitlements separated from settings):
 
@@ -50,23 +52,23 @@ FitGate is a multi-tenant gym management platform for the Ethiopian market (deve
 
 Tiers: **starter / growth / pro** (per `GymTenant.tier`). Gating is enforced via `GymConfig` boolean flags per gym, not hardcoded by tier name, so an individual gym's flags can diverge from its tier's default set — but the default mapping is:
 
-| Feature                                                                                      | Starter | Growth | Pro |
-| -------------------------------------------------------------------------------------------- | ------- | ------ | --- |
-| Core (multi-tenant, auth, member mgmt, QR attendance, payments incl. Chapa, basic dashboard) | ✅      | ✅     | ✅  |
-| `has_trainer_module`                                                                         | ❌      | ✅     | ✅  |
-| `has_ai_plans`                                                                               | ❌      | ✅     | ✅  |
-| `has_analytics` (heatmap, cohort retention, revenue trends, referrals)                       | ❌      | ✅     | ✅  |
-| `has_group_classes`                                                                          | ❌      | ✅     | ✅  |
-| Membership freeze (`freeze_days_allowed` > 0)                                                | ❌      | ✅     | ✅  |
-| Multi-branch management (`has_multi_branch`)                                                 | ❌      | ❌     | ✅  |
+| Feature                                                                                                                                                                         | Starter | Growth | Pro |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------- | ------ | --- |
+| Core (multi-tenant, auth, member mgmt, QR attendance, payments incl. Chapa, renewal reminders, notice board with Telegram bridge, basic dashboard, audit log)                   | ✅      | ✅     | ✅  |
+| `has_trainer_module`                                                                                                                                                            | ❌      | ✅     | ✅  |
+| `has_ai_plans`                                                                                                                                                                  | ❌      | ✅     | ✅  |
+| `has_analytics` (revenue by plan only; peak-hours heatmap, cohort retention, and referral analytics deferred, see §10)                                                          | ❌      | ✅     | ✅  |
+| `has_group_classes` (deferred, see §10; stored and inert, false for every tier)                                                                                                 | ❌      | ❌     | ❌  |
+| Membership freeze (`freeze_days_allowed` > 0)                                                                                                                                   | ❌      | ✅     | ✅  |
+| Multi-branch management (`has_multi_branch`) (Pro tier only; Increment 6 runs as optional last increment; Pro hidden until Increment 6 ships; defaults equal Growth until then) | ❌      | ❌     | ✅  |
 
 **Who changes flags:** only Super Admin. Entitlements are what a gym pays for; an Owner cannot switch on their own premium features. Owners edit settings only (§2). A request for more (an upgrade) goes to Super Admin.
 
-**Pricing (yearly only, ETB — placeholders; the project owner sets the real prices):** Starter 12,000 · Growth 30,000 · Pro 60,000. The yearly price includes hosting, backups, security updates, bug fixes, new features within the gym's tier, and support, and the first year includes setup. It does not include custom development or large data imports. Billing is yearly only (§5, §11).
+**Pricing (yearly only, ETB — placeholders; the project owner sets the real prices):** Starter 12,000 · Growth 30,000 · Pro (no price shown until it ships; placeholder 60,000 ETB per year). Pro is NOT offered, advertised or selectable until multi-branch ships: until then it is hidden from the landing page and the Create Gym form; the tier value and flags stay in the database (Pro defaults equal Growth's, with `has_multi_branch` false until Increment 6 ships). `has_group_classes` stays stored and inert (false for every tier). The yearly price includes hosting, backups, security updates, bug fixes, new features within the gym's tier, and support, and the first year includes setup. It does not include custom development or large data imports. Billing is yearly only (§5, §11).
 
-**Multi-branch management is not in the original source document** — it is a Pro-tier addition decided directly with the project owner. Design: a `Branch` belongs to exactly one `GymTenant` (nested under the existing `gym_id` tenancy boundary, not a new isolation mechanism). One subdomain per gym regardless of branch count — branch selection happens in-app — because a subdomain per branch would effectively make each branch a separate tenant. Member branch access is a `MembershipPlan` attribute (`all_branches_access`), so a Pro gym can sell both single-branch and all-access plans. Staff are branch-scoped via a nullable `branch_id` (null = all branches, matching Owner).
+**Multi-branch management is not in the original source document** — it is a Pro-tier addition decided directly with the project owner. Design: a `Branch` belongs to exactly one `GymTenant` (nested under the existing `gym_id` tenancy boundary, not a new isolation mechanism). One subdomain per gym regardless of branch count — branch selection happens in-app — because a subdomain per branch would effectively make each branch a separate tenant. Member branch access is a `MembershipPlan` attribute (`all_branches_access`), so a Pro gym can sell both single-branch and all-access plans. Staff are branch-scoped via a nullable `branch_id` (null = all branches, matching Owner). Increment 6 (Multi-Branch) is scheduled after Increment 7 as an optional last phase (decision date set by the owner); until Increment 6 ships, Pro tier is hidden from landing pages and gym creation forms.
 
-Gating is enforced at **both** the backend (a Starter gym's API rejects trainer/AI/analytics/class endpoints, not just hides the UI) and the frontend (ungated features aren't rendered).
+Gating is enforced at **both** the backend (a Starter gym's API rejects trainer/AI/analytics endpoints, not just hides the UI; group classes and advanced analytics are deferred, see §10) and the frontend (ungated features aren't rendered).
 
 ## 4. Multi-tenancy
 
@@ -74,7 +76,7 @@ Row-level scoping: every gym-scoped table carries a `gym_id` foreign key to `Gym
 
 **Platform-level records.** Three tables — `User` (Super Admin), `Notification` and `AuditLog` — and platform `Announcement`s may have a null `gym_id`. They use a second base class: inside a gym it shows only that gym's rows; at the apex it shows only platform rows. The two never mix.
 
-The apex domain (`DOMAIN` itself — e.g. `fitgate.org` or `fitgate.tebebtech.com`) is the public platform site, not any gym's app. A request to the apex sets `request.tenant = None` and is routed to: the public marketing/tier-info page, the "Request a Demo" form, and the Super Admin dashboard. A gym's actual app only exists at `{subdomain}.{DOMAIN}`, and that subdomain does not exist until Super Admin creates the gym. Switching candidate domains is a `DOMAIN` env change, not a code change (`AGENT.md` rule 14). A host that is neither the apex nor under `.{DOMAIN}` is rejected, not treated as the apex. A gym subdomain is a single DNS label.
+The apex domain (`DOMAIN` itself — e.g. `fitgate.tebebtech.com`) is the public platform site, not any gym's app. A request to the apex sets `request.tenant = None` and is routed to: the public marketing/tier-info page, the "Request a Demo" form, and the Super Admin dashboard. A gym's actual app only exists at `{subdomain}.{DOMAIN}`, and that subdomain does not exist until Super Admin creates the gym. Switching candidate domains is a `DOMAIN` env change, not a code change (`AGENT.md` rule 14). A host that is neither the apex nor under `.{DOMAIN}` is rejected, not treated as the apex. A gym subdomain is a single DNS label.
 
 **Subdomain provisioning (hosting-constrained):** the production host (Yegara Premium, shared cPanel, no root) has no wildcard DNS, so creating a gym calls cPanel's UAPI to provision that subdomain. The subdomain is reachable over plain HTTP immediately, but AutoSSL issues the certificate on its own periodic scan (potentially up to about a day). During that window login and registration are blocked with a "still being secured" state, and no HTTPS redirect is forced. See Sprint 4.
 
@@ -89,7 +91,7 @@ Grouped as in the source document's §3.2.1.
 **Platform level (Super Admin)**
 
 - Dashboard: create gyms, record subscription payments, suspend/reinstate, handle demo requests, monitor platform-wide analytics.
-- Assign a tier to each gym; set premium flags (Trainer, AI Engine, Analytics, classes, multi-branch); enable/disable user roles per gym. Online payment via Chapa is available to every tier.
+- Assign a tier to each gym (Starter or Growth; Pro is hidden until Increment 6 ships); set premium flags (Trainer, AI Engine, Analytics [revenue by plan; heatmap, cohort retention, and referral analytics deferred, see §10], classes [deferred, see §10; inert/false for all tiers], multi-branch [deferred until Increment 6]); enable/disable user roles per gym. Online payment via Chapa is available to every tier.
 - A unique subdomain is proposed (editable) for each new gym at creation.
 - Platform reports (tenant summary, platform revenue, subscription status overview) and platform-wide notices published to all Owner dashboards.
 
@@ -121,9 +123,9 @@ Grouped as in the source document's §3.2.1.
 
 **Member management**
 
-- Reception/Manager register members capturing full name, date of birth, phone, gender, emergency contact, optional referral source, profile photo, body metrics, and acceptance of the health waiver (required). Members can also self-register through the gym's subdomain, then choose a plan and pay.
-- Members update body metrics over time with full history. A progress view charts the history. **Body composition estimation:** BMI is computed from the latest height and weight; an estimated body-fat percentage (US Navy circumference method) is shown when the needed measurements exist. Both are labeled estimates.
-- Member status: active, expired, frozen, suspended. Referral source data appears in owner analytics.
+- Reception/Manager register members capturing full name, date of birth, phone, gender, emergency contact, optional referral source, profile photo, and acceptance of the health waiver (required); registration captures no body measurements. Members can also self-register through the gym's subdomain, then choose a plan and pay.
+- Body measurements (weight, height, waist, neck, hip, and any other body measurement) are taken and recorded ONLY by Trainers, because they have the professional ability to measure accurately. Reception, Owner, Manager, Super Admin, and Members never enter measurements. Members and gym owners/managers can view measurement history, but cannot enter or edit measurements. **Body composition estimation:** After a Trainer records them, the member's profile shows BMI and estimated body fat (US Navy circumference method) as labeled estimates. Before that, it displays "Not measured yet. A trainer records measurements."
+- Member status: `pending` (registered, no active subscription yet), `active`, `expired`, `frozen`, `suspended`. Referral source data appears in owner analytics (deferred, see §10).
 
 **Membership plans**
 
@@ -134,28 +136,31 @@ Grouped as in the source document's §3.2.1.
 
 **QR check-in and attendance**
 
-- A unique, time-expiring QR token for each active member, regenerated on each valid use. The token is a **signed JWT with a 90-second window**, signed asymmetrically so a scanner can verify it offline from the public key alone. Known limitation: device clock skew can cause false rejections.
-- Browser-based scanner for reception, no dedicated hardware. Validation checks token expiry, `gym_id` match and active membership. On success, show the member's photo, name and status, and record the attendance.
-- A second scan for the same member on the same day is denied and staff are notified. Frozen or suspended members are denied with a distinct status message.
-- **Manual override** by Reception when the QR flow can't be used: requires an active subscription and a reason, and is audit-logged.
+- A unique, time-expiring QR token for each active member, regenerated on each valid use. The token is a **signed asymmetric JWT (EdDSA / Ed25519), compact claims so the QR stays small enough to scan**, with a **90-second window**, signed asymmetrically so a scanner can verify it offline from the public key alone. Known limitation: device clock skew can cause false rejections.
+- **Dedicated entrance scanner page** for a tablet/device at the gym entrance: full-screen, showing only camera view, gym name and logo, and a single instruction line. Members hold their phone's QR code up to the camera and are checked in hands-free. On success, a large green screen shows the member's name, photo and check-in time for about 3 seconds, then returns to scanning. On failure, a large red/amber screen explains the refusal plainly with an icon and guidance. The tablet displays no private details beyond name and photo. Screen stays awake while scanning; camera turns off when leaving the page or hiding the tab.
+- **Live "Today's check-ins" list** on the staff dashboard (Owner, Manager, Reception): shows today's attendance count, and for each entry shows photo, name, time and whether it was a scan or manual override, ordered newest first and polling for new entries every ~5 seconds. Blocked for Trainers, Members, and other gyms.
+- A second scan for the same member on the same day is denied with an amber alert and staff are notified; repeated duplicate scans on the same day merge to send staff only ONE notification. Frozen or suspended members are denied with distinct status messages.
+- **Manual override** by Reception, Owner, or Manager when the QR flow cannot be used: requires an active subscription and a reason, and is audit-logged.
 - **Offline grace mode:** check-ins keep working during outages (§6).
 - Attendance rows exist only for check-ins; the daily attendance log shows ✓/✗ per day, derived from check-ins and the subscription period.
+- **Future check-in credentials (credential-agnostic pipeline):** In v1, QR codes are the only supported check-in credential. The check-in pipeline is designed to be credential-agnostic: a single internal check-in function handles entrance validation, duplicate prevention, and audit logging, and stores the entrance method on the attendance record (`method`: `qr` or `manual_override`). Future credentials will be added in this order: signed NFC tags (NTAG 424 DNA cards or wristbands, generating a one-time cryptographic code verified server-side with encrypted tag keys, read via Web NFC on an Android tablet) and autonomous biometric fingerprint terminals that verify locally and call a device-authenticated endpoint. Raw-UID RFID cards and cheap keyboard-wedge readers provide staff-supervised convenience only and are explicitly not a security feature. No credential tables, device accounts, or hardware integrations are introduced in Increment 2.
 
 **Payments**
 
-- **Payment methods:** `chapa`, `cash`, `bank_transfer`. Members pay by `chapa` or `cash`; gyms pay the platform by `bank_transfer`.
-- **Each gym uses its own Chapa merchant account.** The gym's secret key and webhook secret are stored encrypted, never returned by any API, never logged; only Owner and Super Admin can set them; a verify-connection check tests them. "Pay Now" opens Chapa's hosted checkout (telebirr, CBE Birr, bank cards) only once a gym's configuration is verified; otherwise members are offered cash. The platform stores no card data. A demo gym uses Chapa test keys.
-- Chapa webhooks go to a per-gym URL, are verified by signature (with that gym's secret) **and amount** (re-verified with Chapa), and duplicate deliveries are treated as already processed. A successful webhook activates the membership with no staff involvement. A payment with no webhook after a configurable window (default 30 minutes) is flagged for manual review. A failed or abandoned checkout notifies the member, who may retry or pay cash.
-- Manual cash payment by Reception/Manager: amount and optional reference note; activates immediately and generates a digital receipt.
-- Per-member payment history (method, amount, date, reference). Owners log **expenses** and view revenue vs. expenses for a period. Financial summaries count confirmed payments only.
+- **Payment methods:** `chapa`, `cash`, `bank_transfer`. Members pay by `chapa`, `cash`, or `bank_transfer` (with owner reconciliation and reversal); gyms pay the platform by `bank_transfer`.
+- **Each gym uses its own Chapa merchant account.** The gym's secret key and webhook secret are stored encrypted, never returned by any API, never logged; only Owner and Super Admin can set them; a verify-connection check tests them. "Pay Now" opens Chapa's hosted checkout (telebirr, CBE Birr, bank cards) only once a gym's configuration is verified; otherwise members are offered cash or bank transfer. The platform stores no card data. A demo gym uses Chapa test keys.
+- Chapa webhooks go to a per-gym URL, are verified by signature (with that gym's secret) **and amount** (re-verified with Chapa), and duplicate deliveries are treated as already processed. A successful webhook activates the membership with no staff involvement. A payment with no webhook after a configurable window (default 30 minutes) is flagged for manual review. A failed or abandoned checkout notifies the member, who may retry or pay cash/bank transfer.
+- Manual cash and bank-transfer payment by Reception/Manager/Owner: amount locked to plan price; optional reference note (and unique bank reference for transfers); activates immediately and generates an immutable digital receipt. Bank transfers start as unreconciled and are cleared or reversed by the Owner.
+- Per-member payment history (method, amount, date, reference, reversal status). Owners log **expenses** and view revenue vs. expenses for a period. Financial summaries count confirmed, non-reversed payments only.
 
 **Trainer management**
 
 - Trainer profile: name, specialization, configurable maximum client capacity.
+- **Member body measurements:** Trainers record body measurements (weight kg and height cm required; waist, neck and hip cm optional) for gym members. Every recording is audit-logged with the trainer as actor. Until Sprint 17, any trainer of the gym can record for any member of that gym.
 - Automatic assignment on trainer-inclusive activation: lowest current client count among trainers below capacity; ties go to the least recently assigned. If all trainers are at capacity, nothing is assigned and Owner/Manager are notified.
 - Owner/Manager can reassign at any time (audit-logged; manual reassignment may exceed capacity after explicit confirmation). The trainer and the member are notified of a new or changed assignment. A trainer's client list shows only their assigned members.
-- Trainers set and update weekly availability.
-- In-app messaging between a trainer and their assigned members only: one thread per member-trainer pair, timestamped, each message notifies the recipient. After reassignment the member can no longer message the previous trainer.
+- Trainers set and update weekly availability (deferred, see §10).
+- In-app messaging between a trainer and their assigned members only: one thread per member-trainer pair, timestamped, each message notifies the recipient. After reassignment the member can no longer message the previous trainer. (deferred, see §10)
 
 **AI Personal Training Engine** (Growth/Pro, trainer-inclusive plans only)
 
@@ -173,20 +178,20 @@ Grouped as in the source document's §3.2.1.
 - Staff can report an issue, setting Needs Maintenance and notifying the Owner (no duplicate report if already Under Maintenance). Owner/Manager update condition and log resolutions. An Owner setting controls whether members see unavailable equipment (default off).
 - Owner sets a minimum quantity per item; a low-quantity alert fires when the count falls below it. Out-of-service and under-maintenance items are excluded from AI plans and update automatically when resolved.
 
-**Classes and group scheduling**
+**Classes and group scheduling (deferred, see §10)**
 
-- Owner/Manager create sessions (name, trainer, date, time, max capacity). Members view and book; booking closes automatically at capacity. The trainer marks class attendance, recorded separately from daily check-in. Growth/Pro only.
+- Owner/Manager create sessions (name, trainer, date, time, max capacity). Members view and book; booking closes automatically at capacity. The trainer marks class attendance, recorded separately from daily check-in. Growth/Pro only. (deferred, see §10)
 
 **Dashboards, analytics and reporting**
 
 - **Basic dashboard (every tier):** total active members, today's check-ins, monthly revenue, memberships expiring within seven days.
-- **Premium analytics (Growth/Pro):** peak-hours heatmap (day of week × hour), cohort retention by joining month, revenue trends (monthly and by plan), referral analytics. A Starter gym sees an upgrade prompt.
+- **Premium analytics (Growth/Pro):** in this version, the premium analytics block consists only of revenue trends by plan. Peak-hours heatmap (day of week × hour) (deferred, see §10), cohort retention by joining month (deferred, see §10), and referral analytics (deferred, see §10) are deferred to a future version. A Starter gym sees an upgrade prompt.
 - Reports (Owner/Manager): attendance summary and revenue report. Super Admin: tenant summary, platform revenue, subscription status overview.
 
 **Communication and engagement**
 
-- Notification centre per role (unread first, chronological, mark as read). Owner/Manager notice-board announcements visible to all members of the gym.
-- Milestone badges: first check-in, 30-day streak, plan completion.
+- Notification centre per role (unread first, chronological, mark as read). Owner/Manager notice-board announcements visible to all members of the gym; the notice board may also optionally publish to the gym's public Telegram channel via a platform bot (best effort, unconfigured Telegram or send failure does not block the in-app notice). Per-member direct messaging is deferred (see §10).
+- Milestone badges: first check-in, 30-day streak, plan completion (deferred, see §10).
 
 **Audit log**
 
@@ -238,7 +243,7 @@ Each entry: goal — key business rule(s).
 
 **Members & attendance**
 
-- Register member (FG-UC-01) — self-registration vs staff-assisted share the same `Member` + `BodyMetrics` creation; waiver required; both end in plan selection and payment; QR issued on activation.
+- Register member (FG-UC-01) — self-registration vs staff-assisted share the same `Member` creation (no body measurements captured during registration); waiver required; both end in plan selection and payment; QR issued on activation.
 - QR check-in (FG-UC-02) — token validated for expiry, gym and status; duplicate and expired scans denied with staff notified; frozen/suspended shown distinctly; manual override for Reception.
 
 **Membership & payment**
@@ -252,8 +257,9 @@ Each entry: goal — key business rule(s).
 
 **Trainer module**
 
+- Record body measurements — Trainer records height, weight, waist, neck, hip for gym members; audit-logged.
 - Assign trainer (FG-UC-05) — automatic (load-balance + least-recently-assigned) or manual; capacity-exhausted notifies Owner/Manager.
-- Trainer availability; trainer↔member messaging.
+- Trainer availability; trainer↔member messaging (both deferred, see §10).
 
 **AI training engine**
 
@@ -261,17 +267,17 @@ Each entry: goal — key business rule(s).
 - Generate AI plan (FG-UC-06) — rules engine → LiteLLM → plan `pending_review`. Runs synchronously inside the request on Passenger WSGI; if the chosen model is too slow for the request timeout, generation moves to the DB-backed job table + cron-poll.
 - Approve/reject plan; view training plan (most recent approved, or "pending trainer review"); weekly check-in.
 
-**Equipment, classes, analytics, communication**
+**Equipment, classes (deferred, see §10), analytics, communication**
 
 - Report equipment issue; manage equipment registry; low-quantity alerts.
-- Book group class; manage group class (capacity enforced; class attendance recorded separately).
-- View dashboard / analytics; view audit log; generate reports; notice board; notifications; badges and progress; data export; log expenses.
+- Book group class; manage group class (capacity enforced; class attendance recorded separately) (deferred, see §10).
+- View dashboard / analytics (premium block narrowed to revenue by plan; heatmap, cohort retention, and referral analytics deferred, see §10); view audit log; generate reports; notice board (with optional Telegram channel bridge); notifications; badges and progress (badges deferred, see §10); data export; log expenses.
 
 **Multi-branch (Pro) — not in source document, see §3**
 
 - Owner creates/manages branches; assigns staff to a branch or leaves them unscoped.
 - QR check-in validates branch access against `MembershipPlan.all_branches_access`.
-- Branch-scoped staff see only their branch's equipment, classes and attendance; Owner and unscoped staff see all branches.
+- Branch-scoped staff see only their branch's equipment, classes (classes deferred, see §10) and attendance; Owner and unscoped staff see all branches.
 
 **Platform admin**
 
@@ -287,7 +293,7 @@ All tables carry `id` (uuid, PK) unless noted. Every gym-scoped table carries `g
 
 **GymTenant** — `name` (150), `subdomain` (63, unique, **Not Null**, single DNS label, reserved names rejected), `status` (pending/active/suspended/terminated — `pending` is unused in this version), `tier` (starter/growth/pro), `currency` (default ETB), `created_at`; _added (not in Table 4.2):_ `location`, `contact_name`, `contact_phone`, `contact_email`, `subscription_expires_at` (null until login first becomes possible), `tls_confirmed_at`, `lapse_flagged_at`, `suspended_at`, `is_demo` (default false). _Note: `GymTenant.updated_at` is an extra operational timestamp not in the source tables._
 
-**GymConfig** — `gym_id` (PK+FK, 1:1), `has_trainer_module`, `has_ai_plans`, `has_analytics`, `has_group_classes`, `has_multi_branch` (_new_) (booleans, default false), `freeze_days_allowed` (default 0); _added:_ `payment_grace_days` (default 7), `subscription_reminder_days` (list, default 14 and 7), `member_reminder_days` (list, default 7 and 2), `brand_color` (hex, nullable), `logo` (storage reference, nullable), `show_unavailable_equipment` (default false), `first_run_dismissed_at` (nullable). Entitlements (`has_*`, `freeze_days_allowed`, `payment_grace_days`, `subscription_reminder_days`) are Super-Admin-editable; the rest are Owner-editable. _The source's `chapa_merchant_id` is replaced by `GymPaymentConfig` (§11)._
+**GymConfig** — `gym_id` (PK+FK, 1:1), `has_trainer_module`, `has_ai_plans`, `has_analytics`, `has_group_classes` (deferred, see §10; inert and false across all tiers), `has_multi_branch` (_new_) (booleans, default false), `freeze_days_allowed` (default 0); _added:_ `payment_grace_days` (default 7), `subscription_reminder_days` (list, default 14 and 7), `member_reminder_days` (list, default 7 and 2), `brand_color` (hex, nullable), `logo` (storage reference, nullable), `show_unavailable_equipment` (default false), `first_run_dismissed_at` (nullable). Entitlements (`has_*`, `freeze_days_allowed`, `payment_grace_days`, `subscription_reminder_days`) are Super-Admin-editable; the rest are Owner-editable. _The source's `chapa_merchant_id` is replaced by `GymPaymentConfig` (§11)._
 
 **GymPaymentConfig** _(new)_ — `gym_id` (PK+FK), `provider` (chapa), `mode` (test/live), `secret_key` (encrypted), `webhook_secret` (encrypted), `verified_at` (nullable), `is_enabled`. Never serialized back to any client.
 
@@ -295,7 +301,7 @@ All tables carry `id` (uuid, PK) unless noted. Every gym-scoped table carries `g
 
 **Branch** _(new — Pro tier, see §3)_ — `gym_id`, `name`, `address` (nullable), `is_primary` (default false), `created_at`
 
-**Member** — `gym_id`, `user_id`, `full_name`, `phone`, `date_of_birth`, `gender`, `emergency_contact`, `referral_source`, `photo_url`, `status` (active/expired/frozen/suspended), `joined_at`; _added:_ `waiver_accepted_at`.
+**Member** — `gym_id`, `user_id`, `full_name`, `phone`, `date_of_birth`, `gender`, `emergency_contact`, `referral_source`, `photo_url`, `status` (pending/active/expired/frozen/suspended), `joined_at`; _added:_ `waiver_accepted_at`.
 
 **BodyMetrics** — `member_id`, `gym_id`, `weight_kg`, `height_cm`, `measurements` (jsonb, free-form), `recorded_at`
 
@@ -313,9 +319,9 @@ All tables carry `id` (uuid, PK) unless noted. Every gym-scoped table carries `g
 
 **TrainerAssignment** — `member_id`, `trainer_id`, `gym_id`, `assigned_at`, `ended_at` (nullable), `assigned_by` (nullable — null for automatic)
 
-**TrainerAvailability** _(new)_ — `trainer_id`, `gym_id`, `day_of_week`, `start_time`, `end_time`
+**TrainerAvailability** _(deferred, see §10)_ — `trainer_id`, `gym_id`, `day_of_week`, `start_time`, `end_time`
 
-**Message** _(new)_ — `gym_id`, `member_id`, `trainer_id`, `sender_id`, `body`, `sent_at` (one thread per member-trainer pair)
+**Message** _(deferred, see §10)_ — `gym_id`, `member_id`, `trainer_id`, `sender_id`, `body`, `sent_at` (one thread per member-trainer pair)
 
 **FitnessProfile** — `member_id` (PK+FK), `gym_id`, `goal`, `fitness_level`, `limitations`, `equipment_prefs`, `training_days_per_week`, `updated_at`
 
@@ -327,9 +333,9 @@ All tables carry `id` (uuid, PK) unless noted. Every gym-scoped table carries `g
 
 **MaintenanceLog** — `equipment_id`, `gym_id`, `reported_by`, `issue_text` (nullable), `reported_at`, `resolved_at` (nullable)
 
-**ClassSession** — `gym_id`, `branch_id` (nullable; _new_), `trainer_id`, `name`, `scheduled_at`, `max_capacity`
+**ClassSession** _(deferred, see §10)_ — `gym_id`, `branch_id` (nullable; _new_), `trainer_id`, `name`, `scheduled_at`, `max_capacity`
 
-**ClassBooking** — `session_id`, `member_id`, `gym_id`, `booked_at`, `attended` (nullable boolean)
+**ClassBooking** _(deferred, see §10)_ — `session_id`, `member_id`, `gym_id`, `booked_at`, `attended` (nullable boolean)
 
 **FreezeRequest** _(new)_ — `member_id`, `subscription_id`, `gym_id`, `requested_days`, `reason`, `status` (pending/approved/rejected), `decided_by`, `decided_at`, `rejection_reason`
 
@@ -337,7 +343,7 @@ All tables carry `id` (uuid, PK) unless noted. Every gym-scoped table carries `g
 
 **Expense** _(new)_ — `gym_id`, `amount_etb`, `category`, `note`, `incurred_on`, `logged_by`
 
-**MemberBadge** _(new)_ — `member_id`, `gym_id`, `badge_type` (first_check_in/thirty_day_streak/plan_completed), `awarded_at`
+**MemberBadge** _(deferred, see §10)_ — `member_id`, `gym_id`, `badge_type` (first_check_in/thirty_day_streak/plan_completed), `awarded_at`
 
 **AuthToken** _(new)_ — `user_id`, `purpose` (password_reset/invite/email_verification), `token_hash`, `expires_at`, `used_at`
 
@@ -380,33 +386,37 @@ All tables carry `id` (uuid, PK) unless noted. Every gym-scoped table carries `g
 
 **External checks** (each has a fallback; none blocks a sprint — see `docs/SPRINTS.md`): cPanel UAPI `addsubdomain` enabled for the token; on-demand AutoSSL trigger; how to run one-time management commands on the host; Redis availability (fallback: database cache and job table); Chapa's merchant-account requirements for small gyms (fallback: cash-only until configured); Cloudinary sign-up, uploads and `authenticated` access from your network (fallback: host disk through the same storage interface).
 
-**Deferred to a future version:** public self-serve gym registration and approval (with rejection handling); inactivity flags, escalation and the inactive-member report; Chapa subaccount mode and Chapa-paid platform fees; monthly billing and auto-renewal; mid-subscription plan changes; phone-number login; discounts; a full public landing page per gym; a Starter member cap and a setup fee; a data deletion/archival policy.
+**Deferred to a future version:** public self-serve gym registration and approval (with rejection handling); inactivity flags, escalation and the inactive-member report; Chapa subaccount mode and Chapa-paid platform fees; monthly billing and auto-renewal; mid-subscription plan changes; phone-number login; discounts; a full public landing page per gym; a Starter member cap and a setup fee; a data deletion/archival policy; trainer availability schedule (Sprint 18); trainer-to-member direct in-app messaging (Sprint 19); group class scheduling and booking (Sprint 26); milestone badges and member progress charts (Sprint 28a); advanced analytics (peak-hours heatmap, cohort retention, referral analytics).
 
 ## 11. Deviations from the source document (deliberate)
 
-| Source says                                                                                                                                                                                           | This project does                                                                                       | Why                                                                                                                            |
-| ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
-| Schema-per-tenant (§1.7.3.2, §1.8.2)                                                                                                                                                                  | Row-level `gym_id` scoping                                                                              | Source contradicts itself; owner decision                                                                                      |
-| Celery nightly task (§4.5.1)                                                                                                                                                                          | cPanel Cron + management command                                                                        | Shared hosting, no persistent workers                                                                                          |
-| Single-instance cloud VPS (§1.4.2)                                                                                                                                                                    | Yegara cPanel shared hosting                                                                            | Owner decision after hosting was confirmed                                                                                     |
-| Gym owner self-registers and Super Admin approves; tenant becomes `active` on first Chapa webhook (FG-UC-00-GYM)                                                                                      | Super Admin creates the gym after payment; no self-registration in this version                         | Target owners are non-technical; avoids an unpaid-gym state and the owner-logs-in-to-pay contradiction. Self-serve is deferred |
-| Gym-owner onboarding form with custom add-ons                                                                                                                                                         | Request-a-Demo lead form; no add-ons                                                                    | Simplicity; add-ons are undefined in the source                                                                                |
-| Monthly and yearly gym billing, auto-renewal                                                                                                                                                          | Yearly only, manual renewal by bank transfer                                                            | Simplicity; fits assisted onboarding                                                                                           |
-| Gym subscription payments via Chapa                                                                                                                                                                   | `bank_transfer` for gym-to-platform payments                                                            | Platform has no Chapa account; avoids concentrating risk                                                                       |
-| Owner completes Chapa onboarding; `chapa_merchant_id`                                                                                                                                                 | `GymPaymentConfig` with encrypted per-gym keys and a per-gym webhook                                    | Same intent; credentials secured, test mode possible per gym                                                                   |
-| Owner edits GymConfig/feature toggles (Table 3.1a)                                                                                                                                                    | Entitlements Super Admin only; Owner edits settings                                                     | Otherwise an Owner could enable their own premium features                                                                     |
-| Plan duration in months                                                                                                                                                                               | Duration in days or months                                                                              | Real gyms sell trials and short passes                                                                                         |
-| Duplicate scan: notify staff                                                                                                                                                                          | Deny entry and notify staff                                                                             | Superset of the source behavior                                                                                                |
-| `missed` attendance written by a nightly job; inactivity flags at 7 and 10 days, escalation, missed-days KPI, inactive-member report                                                                  | Attendance derived from check-ins; inactivity features deferred                                         | Owner decision; data is kept so they can be added later                                                                        |
-| AI excludes only out-of-service equipment                                                                                                                                                             | Also excludes under-maintenance equipment                                                               | Unusable equipment shouldn't be prescribed                                                                                     |
-| Analytics dashboard gated to Growth/Pro (UC 3.19)                                                                                                                                                     | Basic KPIs on every tier; premium charts Growth/Pro                                                     | A paying Starter gym should see its basics                                                                                     |
-| "External AI API"                                                                                                                                                                                     | LiteLLM in-process, swappable model                                                                     | Provider-agnostic; satisfies the source's intent                                                                               |
-| Staff accounts as the source describes; session handling                                                                                                                                              | Password change invalidates all sessions; deactivation checked on every request; soft-deactivation only | Security hardening beyond the source                                                                                           |
-| QR token with 90-second validity                                                                                                                                                                      | Asymmetric signed JWT, 90 s                                                                             | Enables offline verification without exposing a secret                                                                         |
-| `GymTenant.subdomain` varchar, Not Null                                                                                                                                                               | Same, plus DNS-label validation and reserved names                                                      | Required for cPanel provisioning                                                                                               |
-| Offline sync via background sync                                                                                                                                                                      | Plus a replay-on-reconnect fallback                                                                     | Background sync is unsupported on iOS Safari                                                                                   |
-| Multi-branch management                                                                                                                                                                               | Added (Pro tier)                                                                                        | Owner decision; not in the source                                                                                              |
-| `has_multi_branch`, `payment_grace_days`, reminder/branding fields, `Branch`, `DemoRequest`, `FreezeRequest`, `Message`, `TrainerAvailability`, `Announcement`, `Expense`, `MemberBadge`, `AuthToken` | Added                                                                                                   | Required by the features above or by source requirements the source's data model omits                                         |
-| Manual check-in override Reception only (§2)                                                                                                                                                          | Owner and Manager may also use manual check-in override (SPEC §2 names Reception); accepted by owner    | Operational flexibility; accepted by owner                                                                                     |
+| Source says                                                                                                                                                                                           | This project does                                                                                                                                   | Why                                                                                                                            |
+| ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| Schema-per-tenant (§1.7.3.2, §1.8.2)                                                                                                                                                                  | Row-level `gym_id` scoping                                                                                                                          | Source contradicts itself; owner decision                                                                                      |
+| Celery nightly task (§4.5.1)                                                                                                                                                                          | cPanel Cron + management command                                                                                                                    | Shared hosting, no persistent workers                                                                                          |
+| Single-instance cloud VPS (§1.4.2)                                                                                                                                                                    | Yegara cPanel shared hosting                                                                                                                        | Owner decision after hosting was confirmed                                                                                     |
+| Gym owner self-registers and Super Admin approves; tenant becomes `active` on first Chapa webhook (FG-UC-00-GYM)                                                                                      | Super Admin creates the gym after payment; no self-registration in this version                                                                     | Target owners are non-technical; avoids an unpaid-gym state and the owner-logs-in-to-pay contradiction. Self-serve is deferred |
+| Gym-owner onboarding form with custom add-ons                                                                                                                                                         | Request-a-Demo lead form; no add-ons                                                                                                                | Simplicity; add-ons are undefined in the source                                                                                |
+| Monthly and yearly gym billing, auto-renewal                                                                                                                                                          | Yearly only, manual renewal by bank transfer                                                                                                        | Simplicity; fits assisted onboarding                                                                                           |
+| Gym subscription payments via Chapa                                                                                                                                                                   | `bank_transfer` for gym-to-platform payments                                                                                                        | Platform has no Chapa account; avoids concentrating risk                                                                       |
+| Owner completes Chapa onboarding; `chapa_merchant_id`                                                                                                                                                 | `GymPaymentConfig` with encrypted per-gym keys and a per-gym webhook                                                                                | Same intent; credentials secured, test mode possible per gym                                                                   |
+| Owner edits GymConfig/feature toggles (Table 3.1a)                                                                                                                                                    | Entitlements Super Admin only; Owner edits settings                                                                                                 | Otherwise an Owner could enable their own premium features                                                                     |
+| Plan duration in months                                                                                                                                                                               | Duration in days or months                                                                                                                          | Real gyms sell trials and short passes                                                                                         |
+| Duplicate scan: notify staff                                                                                                                                                                          | Deny entry and notify staff                                                                                                                         | Superset of the source behavior                                                                                                |
+| `missed` attendance written by a nightly job; inactivity flags at 7 and 10 days, escalation, missed-days KPI, inactive-member report                                                                  | Attendance derived from check-ins; inactivity features deferred                                                                                     | Owner decision; data is kept so they can be added later                                                                        |
+| AI excludes only out-of-service equipment                                                                                                                                                             | Also excludes under-maintenance equipment                                                                                                           | Unusable equipment shouldn't be prescribed                                                                                     |
+| Analytics dashboard gated to Growth/Pro (UC 3.19)                                                                                                                                                     | Basic KPIs on every tier; revenue by plan only in premium block (Growth/Pro); peak-hours heatmap, cohort retention, and referral analytics deferred | Avoids heavy background aggregation on shared hosting; preserves clear tier gating                                             |
+| "External AI API"                                                                                                                                                                                     | LiteLLM in-process, swappable model                                                                                                                 | Provider-agnostic; satisfies the source's intent                                                                               |
+| Staff accounts as the source describes; session handling                                                                                                                                              | Password change invalidates all sessions; deactivation checked on every request; soft-deactivation only                                             | Security hardening beyond the source                                                                                           |
+| QR token with 90-second validity                                                                                                                                                                      | Signed asymmetric JWT (EdDSA / Ed25519), compact claims so the QR stays small enough to scan, 90 s                                                  | Enables offline verification without exposing a secret and keeps QR code simple enough for webcams and phone screens           |
+| `GymTenant.subdomain` varchar, Not Null                                                                                                                                                               | Same, plus DNS-label validation and reserved names                                                                                                  | Required for cPanel provisioning                                                                                               |
+| Offline sync via background sync                                                                                                                                                                      | Plus a replay-on-reconnect fallback                                                                                                                 | Background sync is unsupported on iOS Safari                                                                                   |
+| Multi-branch management                                                                                                                                                                               | Added (Pro tier); kept as optional last increment (Increment 6, after Increment 7); Pro hidden until it ships                                       | Owner decision; not in the source; prioritized single-branch core platform first                                               |
+| `has_multi_branch`, `payment_grace_days`, reminder/branding fields, `Branch`, `DemoRequest`, `FreezeRequest`, `Message`, `TrainerAvailability`, `Announcement`, `Expense`, `MemberBadge`, `AuthToken` | Added                                                                                                                                               | Required by the features above or by source requirements the source's data model omits                                         |
+| Manual check-in override Reception only (§2)                                                                                                                                                          | Owner and Manager may also use manual check-in override (SPEC §2 names Reception); accepted by owner                                                | Operational flexibility; accepted by owner                                                                                     |
+| Registration captures body metrics; member updates metrics (§3.2.1)                                                                                                                                   | Body measurements recorded by Trainers only; registration captures none. Owner decision                                                             | Trainers have professional competence to measure accurately; reception/owners/members do not enter measurements.               |
+| Notice board in-app only                                                                                                                                                                              | Notice board in-app plus optional broadcast to gym's Telegram channel via platform bot; direct messaging deferred                                   | Matches Ethiopian communication habits without collecting member IDs; owner decision                                           |
+| Check-in credential handling                                                                                                                                                                          | Credential-agnostic pipeline; dynamic QR only in v1; signed NFC tags and fingerprint device terminal future roadmap                                 | Architecture ready for hardware devices; raw UID explicitly not secure                                                         |
+| Member status (active, expired, frozen, suspended)                                                                                                                                                    | Adds fifth state `pending`; MemberSubscription is single source of truth; Member.status is derived and check-in verifies dates directly             | Distinguishes newly registered members from active subscriptions with clear gate messages                                      |
 
 - Name and phone for every role live on User so profile editing is one code path; the Member table does not duplicate full_name/phone (the Member sprint reads them from User); Trainer specialization and the profile photo are delivered in the sprints that create the Trainer model and the Cloudinary storage layer.

@@ -6,12 +6,21 @@ import { Button } from "../components/ui/Button";
 import { Card } from "../components/ui/Card";
 import { FormField } from "../components/ui/FormField";
 import { Input } from "../components/ui/Input";
+import { PasswordChecklist } from "../components/ui/PasswordChecklist";
 import { getTenantFromHostname } from "../utils/tenant";
+import {
+  checkPasswordRequirements,
+  focusFirstInvalidField,
+} from "../utils/validators";
 
 export const SetPasswordScreen: React.FC = () => {
   const [token, setToken] = useState<string | null>(null);
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [fieldErrors, setFieldErrors] = useState<{
+    newPassword?: string;
+    confirmPassword?: string;
+  }>({});
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isSuccess, setIsSuccess] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -40,16 +49,33 @@ export const SetPasswordScreen: React.FC = () => {
       return;
     }
 
-    if (newPassword.length < 10) {
-      setErrorMessage("Password must be at least 10 characters long.");
+    const errors: { newPassword?: string; confirmPassword?: string } = {};
+
+    const reqs = checkPasswordRequirements(newPassword, confirmPassword);
+    if (!reqs.allValid) {
+      if (!reqs.minLength) {
+        errors.newPassword = "Password must be at least 10 characters long.";
+      } else if (!reqs.notNumeric) {
+        errors.newPassword = "Password cannot be only digits.";
+      } else if (!reqs.notCommon) {
+        errors.newPassword = "Password is too common; choose a stronger one.";
+      } else if (!reqs.matchesConfirm) {
+        errors.confirmPassword = "Passwords do not match.";
+      }
+    }
+
+    if (Object.keys(errors).length > 0) {
+      setFieldErrors(errors);
+      focusFirstInvalidField(
+        [
+          errors.newPassword ? "set-new-password" : "",
+          errors.confirmPassword ? "set-confirm-password" : "",
+        ].filter(Boolean)
+      );
       return;
     }
 
-    if (newPassword !== confirmPassword) {
-      setErrorMessage("Passwords do not match.");
-      return;
-    }
-
+    setFieldErrors({});
     setIsSubmitting(true);
 
     try {
@@ -57,12 +83,23 @@ export const SetPasswordScreen: React.FC = () => {
       setIsSuccess(true);
     } catch (err: unknown) {
       const errorObj = err as {
-        response?: { data?: { detail?: string; new_password?: string[] } };
+        status?: number;
+        response?: {
+          status?: number;
+          data?: { detail?: string; new_password?: string[] };
+        };
+        data?: { detail?: string; new_password?: string[] };
       };
-      const detail = errorObj.response?.data?.detail;
-      const pwdErrors = errorObj.response?.data?.new_password;
+      const status = errorObj.status ?? errorObj.response?.status;
+      const data = errorObj.data ?? errorObj.response?.data;
+      const detail = data?.detail;
+      const pwdErrors = data?.new_password;
 
-      if (detail === "token_expired") {
+      if (status === 503 || detail === "still_securing") {
+        setErrorMessage(
+          "This gym domain is currently being secured with an SSL certificate. Please ask your administrator to confirm TLS in the platform dashboard."
+        );
+      } else if (detail === "token_expired") {
         setErrorMessage(
           "This invitation link has expired. Please contact support for a new invitation."
         );
@@ -95,12 +132,12 @@ export const SetPasswordScreen: React.FC = () => {
           <p className="text-sm text-text-muted mt-1">
             {tenant ? (
               <span className="inline-block bg-surface-2 px-2.5 py-1 rounded-full text-xs font-medium border border-border">
-                Welcome to{" "}
+                Gym Portal:{" "}
                 <span className="text-primary font-semibold">{tenant}</span>
               </span>
             ) : (
               <span className="inline-block bg-surface-2 px-2.5 py-1 rounded-full text-xs font-medium border border-border">
-                Account Activation
+                Platform Account Setup
               </span>
             )}
           </p>
@@ -111,13 +148,12 @@ export const SetPasswordScreen: React.FC = () => {
             Set Your Password
           </h2>
           <p className="text-sm text-text-muted mb-4">
-            Welcome aboard! Choose a secure password to activate your gym owner
-            account.
+            Create a secure password to access your FitGate account.
           </p>
 
           {isSuccess ? (
             <div className="space-y-4">
-              <Alert variant="success" role="status">
+              <Alert variant="success" className="text-sm" role="alert">
                 Your password has been successfully set. Your account is now
                 active!
               </Alert>
@@ -140,11 +176,7 @@ export const SetPasswordScreen: React.FC = () => {
                   label="New password"
                   htmlFor="set-new-password"
                   required
-                  error={
-                    newPassword && newPassword.length < 10
-                      ? "Minimum 10 characters"
-                      : undefined
-                  }
+                  error={fieldErrors.newPassword}
                 >
                   <Input
                     id="set-new-password"
@@ -152,8 +184,17 @@ export const SetPasswordScreen: React.FC = () => {
                     autoComplete="new-password"
                     placeholder="At least 10 characters"
                     value={newPassword}
-                    onChange={(e) => setNewPassword(e.target.value)}
+                    onChange={(e) => {
+                      setNewPassword(e.target.value);
+                      if (fieldErrors.newPassword) {
+                        setFieldErrors((prev) => ({
+                          ...prev,
+                          newPassword: undefined,
+                        }));
+                      }
+                    }}
                     required
+                    error={fieldErrors.newPassword}
                     disabled={isSubmitting}
                   />
                 </FormField>
@@ -162,11 +203,7 @@ export const SetPasswordScreen: React.FC = () => {
                   label="Confirm password"
                   htmlFor="set-confirm-password"
                   required
-                  error={
-                    confirmPassword && newPassword !== confirmPassword
-                      ? "Passwords do not match"
-                      : undefined
-                  }
+                  error={fieldErrors.confirmPassword}
                 >
                   <Input
                     id="set-confirm-password"
@@ -174,17 +211,32 @@ export const SetPasswordScreen: React.FC = () => {
                     autoComplete="new-password"
                     placeholder="Re-enter your password"
                     value={confirmPassword}
-                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    onChange={(e) => {
+                      setConfirmPassword(e.target.value);
+                      if (fieldErrors.confirmPassword) {
+                        setFieldErrors((prev) => ({
+                          ...prev,
+                          confirmPassword: undefined,
+                        }));
+                      }
+                    }}
                     required
+                    error={fieldErrors.confirmPassword}
                     disabled={isSubmitting}
                   />
                 </FormField>
+
+                <PasswordChecklist
+                  password={newPassword}
+                  confirmPassword={confirmPassword}
+                />
 
                 <Button
                   type="submit"
                   variant="primary"
                   className="w-full"
                   isLoading={isSubmitting}
+                  disabled={isSubmitting}
                 >
                   Activate Account & Set Password
                 </Button>

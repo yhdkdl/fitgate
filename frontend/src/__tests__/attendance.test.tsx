@@ -2,9 +2,15 @@ import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import * as attendanceApi from "../api/attendance";
+import { listGymMembers, type Member } from "../api/members";
 import { MemberQrCard } from "../components/attendance/MemberQrCard";
 import { AttendanceScannerSection } from "../components/attendance/AttendanceScannerSection";
 import { AttendanceLogCard } from "../components/attendance/AttendanceLogCard";
+import { checkQrCooldown } from "../components/attendance/qrCooldown";
+
+vi.mock("../api/members", () => ({
+  listGymMembers: vi.fn(),
+}));
 
 vi.mock("../api/attendance", () => ({
   getMemberQrToken: vi.fn(),
@@ -12,6 +18,7 @@ vi.mock("../api/attendance", () => ({
   manualAttendanceOverride: vi.fn(),
   getAttendanceLog: vi.fn(),
   getAttendancePublicKey: vi.fn(),
+  getTodayCheckins: vi.fn().mockResolvedValue({ total_count: 0, results: [] }),
 }));
 
 describe("Sprint 8: QR Check-in & Attendance Components", () => {
@@ -33,13 +40,42 @@ describe("Sprint 8: QR Check-in & Attendance Components", () => {
 
       expect(await screen.findByText("Check-in QR Pass")).toBeInTheDocument();
       expect(screen.getByText("ACTIVE")).toBeInTheDocument();
-      expect(await screen.findByText("Refresh Token")).toBeInTheDocument();
+      expect(await screen.findByText("Refresh")).toBeInTheDocument();
+      expect(await screen.findByText("Copy code")).toBeInTheDocument();
 
       await waitFor(() => {
         expect(
           screen.getByAltText("Personal Member Check-in QR Code")
         ).toBeInTheDocument();
       });
+    });
+
+    it("copies token to clipboard when Copy code button is clicked", async () => {
+      const user = userEvent.setup();
+      const expiresAt = new Date(Date.now() + 85 * 1000).toISOString();
+      vi.mocked(attendanceApi.getMemberQrToken).mockResolvedValue({
+        token: "mock-rs256-jwt-token-string",
+        expires_at: expiresAt,
+        valid_seconds: 90,
+        member_id: "3cd1c4f9-704d-4d1e-af75-76e8fa2ba5de",
+      });
+
+      const writeTextMock = vi.fn().mockResolvedValue(undefined);
+      Object.defineProperty(navigator, "clipboard", {
+        value: {
+          writeText: writeTextMock,
+        },
+        configurable: true,
+      });
+
+      render(<MemberQrCard memberStatus="active" />);
+
+      const copyBtn = await screen.findByRole("button", { name: /copy code/i });
+      expect(copyBtn).toBeInTheDocument();
+      await user.click(copyBtn);
+
+      expect(writeTextMock).toHaveBeenCalledWith("mock-rs256-jwt-token-string");
+      expect(await screen.findByText("Copied!")).toBeInTheDocument();
     });
 
     it("displays error state when token generation is rejected", async () => {
@@ -186,6 +222,16 @@ describe("Sprint 8: QR Check-in & Attendance Components", () => {
         },
       });
 
+      vi.mocked(listGymMembers).mockResolvedValue([
+        {
+          id: "3cd1c4f9-704d-4d1e-af75-76e8fa2ba5de",
+          full_name: "Abebe Bikila",
+          email: "abebe@example.com",
+          phone: "+251911223344",
+          status: "active",
+        } as unknown as Member,
+      ]);
+
       render(<AttendanceScannerSection userRole="reception" />);
 
       // Open override modal
@@ -198,15 +244,20 @@ describe("Sprint 8: QR Check-in & Attendance Components", () => {
         screen.getByText("Manual Attendance Override")
       ).toBeInTheDocument();
 
-      // Enter member ID and reason
-      const memberInput = screen.getByPlaceholderText(
-        "e.g. 3cd1c4f9-704d-4d1e-af75-76e8fa2ba5de"
+      // Search for member, pick from results, and enter reason
+      const searchInput = screen.getByPlaceholderText(
+        "Search member by name, email, or phone..."
       );
+      await user.type(searchInput, "Abebe");
+
+      const memberOption = await screen.findByRole("button", {
+        name: /abebe bikila/i,
+      });
+      await user.click(memberOption);
+
       const reasonInput = screen.getByPlaceholderText(
         "Explain why manual override was needed (e.g. phone died, camera broken)..."
       );
-
-      await user.type(memberInput, "3cd1c4f9-704d-4d1e-af75-76e8fa2ba5de");
       await user.type(reasonInput, "Member phone battery died at gate");
 
       const confirmBtn = screen.getByRole("button", {
@@ -275,6 +326,29 @@ describe("Sprint 8: QR Check-in & Attendance Components", () => {
       expect(screen.getByText("blank")).toBeInTheDocument();
       expect(screen.getByText("✗")).toBeInTheDocument();
       expect(screen.getByText("✓")).toBeInTheDocument();
+    });
+  });
+
+  describe("Sprint 8b: CameraQrScanner Cooldown (Criterion 4)", () => {
+    it("pauses reading for 3 seconds between reads to prevent notification spam", () => {
+      const t0 = 10000;
+      // First read: allowed
+      expect(checkQrCooldown(t0, 0, false, false)).toBe(true);
+
+      // Same code held in view at 1 second later: rejected
+      expect(checkQrCooldown(t0 + 1000, t0, false, false)).toBe(false);
+
+      // Continuous view at 2.999 seconds later: rejected
+      expect(checkQrCooldown(t0 + 2999, t0, false, false)).toBe(false);
+
+      // While paused state flag is active: rejected
+      expect(checkQrCooldown(t0 + 3500, t0, true, false)).toBe(false);
+
+      // While processing: rejected
+      expect(checkQrCooldown(t0 + 4000, t0, false, true)).toBe(false);
+
+      // After 3 seconds have elapsed and pause lifted: allowed
+      expect(checkQrCooldown(t0 + 3001, t0, false, false)).toBe(true);
     });
   });
 });

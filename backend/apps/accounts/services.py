@@ -195,21 +195,34 @@ def request_password_reset(
     expiry_minutes = getattr(settings, "PASSWORD_RESET_TOKEN_MINUTES", 60)
     expires_at = now + timedelta(minutes=expiry_minutes)
 
-    AuthToken.objects.create(
-        user=user,
-        purpose=AuthToken.PURPOSE_PASSWORD_RESET,
-        token_hash=token_hash,
-        expires_at=expires_at,
-    )
+    with transaction.atomic():
+        AuthToken.objects.create(
+            user=user,
+            purpose=AuthToken.PURPOSE_PASSWORD_RESET,
+            token_hash=token_hash,
+            expires_at=expires_at,
+        )
+
+        record_audit_log(
+            action_type="password_reset_requested",
+            affected_record_type="User",
+            affected_record_id=str(user.id),
+            actor=user,
+            gym=getattr(user, "gym", None),
+            metadata={"email": user.email},
+        )
 
     # Construct reset link
     scheme = settings.PUBLIC_URL_SCHEME
+    port_suffix = (
+        f":{settings.PUBLIC_PORT}" if getattr(settings, "PUBLIC_PORT", "") else ""
+    )
     if user.gym:
         host = f"{user.gym.subdomain}.{settings.DOMAIN}"
     else:
         host = settings.DOMAIN
 
-    link = f"{scheme}://{host}/reset-password?token={raw_token}"
+    link = f"{scheme}://{host}{port_suffix}/reset-password?token={raw_token}"
 
     try:
         send_password_reset_email(user, link)
@@ -316,6 +329,15 @@ def confirm_password_reset(
             used_at__isnull=True,
         ).exclude(pk=auth_token.pk).update(used_at=now_consume)
 
+        record_audit_log(
+            action_type="password_reset_completed",
+            affected_record_type="User",
+            affected_record_id=str(user.id),
+            actor=user,
+            gym=getattr(user, "gym", None),
+            metadata={"email": user.email},
+        )
+
     return {"detail": "password_reset_complete"}
 
 
@@ -408,6 +430,15 @@ def set_password_from_invite(
             used_at__isnull=True,
         ).exclude(pk=auth_token.pk).update(used_at=now_consume)
 
+        record_audit_log(
+            action_type="password_set_from_invite",
+            affected_record_type="User",
+            affected_record_id=str(user.id),
+            actor=user,
+            gym=getattr(user, "gym", None),
+            metadata={"email": user.email, "role": user.role},
+        )
+
     return {"detail": "password_set_complete"}
 
 
@@ -484,9 +515,10 @@ def invite_staff_member(
 
         scheme = settings.PUBLIC_URL_SCHEME
         domain = settings.DOMAIN
-        invite_link = (
-            f"{scheme}://{gym.subdomain}.{domain}/set-password?token={raw_token}"
+        port_suffix = (
+            f":{settings.PUBLIC_PORT}" if getattr(settings, "PUBLIC_PORT", "") else ""
         )
+        invite_link = f"{scheme}://{gym.subdomain}.{domain}{port_suffix}/set-password?token={raw_token}"
 
         record_audit_log(
             action_type="staff_provisioned",

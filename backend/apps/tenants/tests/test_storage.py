@@ -334,6 +334,38 @@ class TestMediaEndpointsSuite:
         assert resp["Content-Type"] == "image/webp"
         assert "private" in resp["Cache-Control"]
 
+    def test_serve_photo_query_token_without_auth_header_refused_401(
+        self, gym_a, owner_gym_a, tmp_path, settings
+    ):
+        settings.MEDIA_ROOT = tmp_path
+        upload = make_uploaded_image("pic.png", fmt="PNG")
+        rel_path = save_member_photo(gym_a.id, upload)
+        filename = rel_path.split("/")[-1]
+
+        tokens = get_tokens_for_user(owner_gym_a)
+        valid_token = tokens["access"]
+
+        # Request with valid token in query param and NO Authorization header -> 401
+        client = APIClient()
+        url_with_query_token = (
+            f"/api/media/member-photos/{gym_a.id}/{filename}/?token={valid_token}"
+        )
+        resp_query = client.get(
+            url_with_query_token,
+            HTTP_HOST=f"{gym_a.subdomain}.localhost",
+        )
+        assert resp_query.status_code == 401
+
+        # Same request with Authorization header succeeds for the right gym's staff -> 200
+        client.credentials(HTTP_AUTHORIZATION=f"Bearer {valid_token}")
+        clean_url = f"/api/media/member-photos/{gym_a.id}/{filename}/"
+        resp_header = client.get(
+            clean_url,
+            HTTP_HOST=f"{gym_a.subdomain}.localhost",
+        )
+        assert resp_header.status_code == 200
+        assert resp_header["Content-Type"] == "image/webp"
+
     def test_serve_photo_cross_tenant_denied_with_404(
         self, gym_a, user_gym_b, tmp_path, settings
     ):

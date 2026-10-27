@@ -1,7 +1,8 @@
 import os
 
+from django.conf import settings
 from django.core.exceptions import ValidationError
-from django.db import IntegrityError
+from django.db import IntegrityError, transaction
 from django.http import FileResponse, Http404
 from drf_spectacular.utils import OpenApiResponse, extend_schema, inline_serializer
 from rest_framework import serializers, status
@@ -21,6 +22,7 @@ from apps.accounts.permissions import (
     RequirePasswordChanged,
 )
 from apps.accounts.serializers import UserSummarySerializer
+from apps.accounts.services import record_audit_log
 from apps.tenants.models import DemoRequest, GymConfig, GymTenant
 from apps.tenants.serializers import (
     ConfirmTLSResponseSerializer,
@@ -124,11 +126,15 @@ class CreateGymView(APIView):
                 status=status.HTTP_502_BAD_GATEWAY,
             )
 
+        domain = getattr(settings, "DOMAIN", "fitgate.tebebtech.com")
+        gym_url = f"https://{result['gym'].subdomain}.{domain}/"
+
         response_data = {
             "gym": GymTenantSummarySerializer(result["gym"]).data,
             "config": GymConfigSerializer(result["config"]).data,
             "owner": UserSummarySerializer(result["owner"]).data,
             "payment_id": str(result["payment"].id),
+            "gym_url": gym_url,
         }
         return Response(response_data, status=status.HTTP_201_CREATED)
 
@@ -392,12 +398,22 @@ class DemoRequestDetailView(APIView):
         if not serializer.is_valid():
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-        if "status" in serializer.validated_data:
-            demo.status = serializer.validated_data["status"]
-        if "notes" in serializer.validated_data:
-            demo.notes = serializer.validated_data["notes"]
-        demo.handled_by = request.user
-        demo.save()
+        with transaction.atomic():
+            if "status" in serializer.validated_data:
+                demo.status = serializer.validated_data["status"]
+            if "notes" in serializer.validated_data:
+                demo.notes = serializer.validated_data["notes"]
+            demo.handled_by = request.user
+            demo.save()
+
+            record_audit_log(
+                action_type="demo_request_updated",
+                affected_record_type="DemoRequest",
+                affected_record_id=str(demo.id),
+                actor=request.user,
+                gym=None,
+                metadata={"status": demo.status},
+            )
 
         return Response(DemoRequestSerializer(demo).data, status=status.HTTP_200_OK)
 
@@ -484,16 +500,21 @@ class ServeMemberPhotoView(APIView):
             if not member or not member.photo_url:
                 raise PermissionDenied("Members may only view their own photo.")
             # Exact-match check against member's stored photo
-            stored_filename = os.path.basename(member.photo_url)
+            stored_filename = os.path.basename(member.photo_url.rstrip("/"))
             if filename != stored_filename:
                 raise PermissionDenied("Members may only view their own photo.")
 
         elif role == User.ROLE_TRAINER:
             # Member photo read access for Trainers must narrow to their assigned members (Sprint 17 wires assignment)
+            from django.db.models import Q
+
             from apps.memberships.models import Member
 
             member = Member.objects.filter(
-                gym=request.tenant, photo_url__endswith=filename
+                Q(photo_url__endswith=f"/{filename}/")
+                | Q(photo_url__endswith=f"/{filename}")
+                | Q(photo_url=filename),
+                gym=request.tenant,
             ).first()
             if not member:
                 return Response(
@@ -584,19 +605,41 @@ class UploadMemberPhotoView(APIView):
             raise PermissionDenied("You cannot upload member photos for another gym.")
 
         role = getattr(request.user, "role", None)
+        if role == User.ROLE_TRAINER:
+            raise PermissionDenied("Trainers cannot upload or change member photos.")
+
         if role == User.ROLE_MEMBER:
             member = getattr(request.user, "member_profile", None)
             if not member:
                 raise PermissionDenied("Only registered members may upload a photo.")
+            member_id = request.data.get("member_id") or request.query_params.get(
+                "member_id"
+            )
+            if member_id and str(member_id) != str(member.id):
+                raise PermissionDenied("Members cannot change another member's photo.")
         elif role not in (
             User.ROLE_OWNER,
             User.ROLE_MANAGER,
-            User.ROLE_TRAINER,
             User.ROLE_RECEPTION,
         ):
             raise PermissionDenied(
                 "Only gym staff or members may upload member photos."
             )
+        else:
+            member_id = request.data.get("member_id") or request.query_params.get(
+                "member_id"
+            )
+            if member_id:
+                from apps.memberships.models import Member
+
+                if (
+                    Member.all_objects.filter(id=member_id)
+                    .exclude(gym=request.tenant)
+                    .exists()
+                ):
+                    raise PermissionDenied(
+                        "You cannot upload or change photos for members of another gym."
+                    )
 
         uploaded_file = request.FILES.get("photo") or request.FILES.get("file")
         if not uploaded_file:
@@ -614,27 +657,47 @@ class UploadMemberPhotoView(APIView):
                 else (exc.messages if hasattr(exc, "messages") else str(exc))
             )
             return Response({"detail": msg}, status=status.HTTP_400_BAD_REQUEST)
-
-        # Update member record if member is uploading their own photo or staff uploads for a member
-        if role == User.ROLE_MEMBER:
-            member = getattr(request.user, "member_profile", None)
-            if member:
-                member.photo_url = relative_path
-                member.save(update_fields=["photo_url"])
-        else:
-            member_id = request.data.get("member_id") or request.query_params.get(
-                "member_id"
+        except Exception as exc:
+            return Response(
+                {"detail": f"Failed to save member photo: {str(exc)}"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
-            if member_id:
-                from apps.memberships.models import Member
-
-                member = Member.objects.filter(gym=request.tenant, id=member_id).first()
-                if member:
-                    member.photo_url = relative_path
-                    member.save(update_fields=["photo_url"])
 
         filename = os.path.basename(relative_path)
         url = f"/api/media/member-photos/{gym_id}/{filename}/"
+
+        target_member = None
+        with transaction.atomic():
+            if role == User.ROLE_MEMBER:
+                target_member = getattr(request.user, "member_profile", None)
+                if target_member:
+                    target_member.photo_url = url
+                    target_member.save(update_fields=["photo_url"])
+            else:
+                member_id = request.data.get("member_id") or request.query_params.get(
+                    "member_id"
+                )
+                if member_id:
+                    from apps.memberships.models import Member
+
+                    target_member = Member.objects.filter(
+                        gym=request.tenant, id=member_id
+                    ).first()
+                    if not target_member:
+                        raise Http404("Member not found.")
+                    target_member.photo_url = url
+                    target_member.save(update_fields=["photo_url"])
+
+            record_audit_log(
+                action_type="member_photo_uploaded",
+                affected_record_type="Member",
+                affected_record_id=(
+                    str(target_member.id) if target_member else str(request.user.id)
+                ),
+                actor=request.user,
+                gym=request.tenant,
+                metadata={"filename": filename},
+            )
 
         return Response(
             {
@@ -699,8 +762,17 @@ class UploadGymLogoView(APIView):
 
         config = getattr(request.tenant, "config", None)
         if config:
-            config.logo = url
-            config.save(update_fields=["logo"])
+            with transaction.atomic():
+                config.logo = url
+                config.save(update_fields=["logo"])
+                record_audit_log(
+                    action_type="gym_logo_uploaded",
+                    affected_record_type="GymConfig",
+                    affected_record_id=str(config.pk),
+                    actor=request.user,
+                    gym=request.tenant,
+                    metadata={"url": url},
+                )
 
         return Response({"url": url}, status=status.HTTP_200_OK)
 
@@ -869,7 +941,7 @@ class DismissFirstRunChecklistView(APIView):
     )
     def post(self, request, *args, **kwargs):
         gym = request.tenant
-        config = dismiss_first_run_checklist(gym)
+        config = dismiss_first_run_checklist(gym, acting_user=request.user)
         return Response(
             {
                 "is_dismissed": True,
@@ -925,6 +997,13 @@ class GymPublicEntryView(APIView):
             )
 
         config = getattr(gym, "config", None)
+        from apps.memberships.models import MembershipPlan
+        from apps.memberships.serializers import PublicPlanSerializer
+
+        active_plans = MembershipPlan.all_objects.filter(
+            gym=gym, is_active=True
+        ).order_by("-created_at")
+
         data = {
             "still_securing": False,
             "gym_id": gym.id,
@@ -935,6 +1014,6 @@ class GymPublicEntryView(APIView):
             "phone": gym.contact_phone,
             "location": gym.location,
             "currency": gym.currency,
-            "plans": [],
+            "plans": PublicPlanSerializer(active_plans, many=True).data,
         }
         return Response(data, status=status.HTTP_200_OK)

@@ -1,11 +1,91 @@
 """Notification helper functions for accounts."""
 
+import email.utils
 import logging
+import re
+from typing import Any, List, Optional, Union
 
 from django.conf import settings
 from django.core.mail import send_mail
 
 logger = logging.getLogger(__name__)
+
+
+def sanitize_email_display_name(raw_name: Optional[str]) -> str:
+    """
+    Sanitize display name for email sender:
+    - Strip control characters (including newlines \\r, \\n)
+    - Strip quotes (' and ") and angle brackets (< and >)
+    - Collapse consecutive whitespace into single spaces
+    - Trim whitespace
+    - Limit length to at most 60 characters
+    - Fallback to 'FitGate' if empty or whitespace-only
+    Guarantees no email header injection is possible.
+    """
+    if not raw_name:
+        return "FitGate"
+
+    # Strip control characters (ASCII 0-31 and 127)
+    cleaned = re.sub(r"[\x00-\x1f\x7f]", " ", str(raw_name))
+    # Strip quotes and angle brackets
+    cleaned = re.sub(r"[\'\"<>]", "", cleaned)
+    # Collapse multiple whitespace characters into a single space
+    cleaned = re.sub(r"\s+", " ", cleaned).strip()
+
+    if not cleaned:
+        return "FitGate"
+
+    # Limit to at most 60 characters
+    cleaned = cleaned[:60].strip()
+    return cleaned or "FitGate"
+
+
+def build_from_email(gym_or_name: Optional[Union[str, Any]] = None) -> str:
+    """
+    Build sender header "<display_name> <DEFAULT_FROM_EMAIL>" using email.utils.formataddr.
+    If gym_or_name is provided:
+      - If it has an attribute 'name', use gym.name
+      - Else use str(gym_or_name)
+    If gym_or_name is None, use "FitGate".
+    """
+    if gym_or_name is None:
+        display_name = "FitGate"
+    elif hasattr(gym_or_name, "name"):
+        display_name = gym_or_name.name
+    else:
+        display_name = str(gym_or_name)
+
+    safe_name = sanitize_email_display_name(display_name)
+    default_from = settings.DEFAULT_FROM_EMAIL
+
+    # Extract bare email address if DEFAULT_FROM_EMAIL is already "Name <addr>"
+    _, parsed_email = email.utils.parseaddr(default_from)
+    from_addr = parsed_email or default_from
+
+    return email.utils.formataddr((safe_name, from_addr))
+
+
+def send_fitgate_email(
+    subject: str,
+    message: str,
+    recipient_list: List[str],
+    gym: Optional[Any] = None,
+    fail_silently: bool = False,
+    **kwargs,
+) -> int:
+    """
+    Central helper for routing all FitGate transactional emails.
+    Builds sanitized, formatted From header with gym branding or 'FitGate'.
+    """
+    from_email = build_from_email(gym)
+    return send_mail(
+        subject=subject,
+        message=message,
+        from_email=from_email,
+        recipient_list=recipient_list,
+        fail_silently=fail_silently,
+        **kwargs,
+    )
 
 
 def notify_account_locked(user) -> None:
@@ -31,7 +111,7 @@ def notify_account_locked(user) -> None:
     ).first()
 
     if owner and owner.email:
-        send_mail(
+        send_fitgate_email(
             subject=f"FitGate Alert: Account locked for {user.email}",
             message=(
                 f"Hello,\n\n"
@@ -39,8 +119,8 @@ def notify_account_locked(user) -> None:
                 f"locked following {user.failed_login_count} consecutive failed login attempts.\n"
                 f"The lockout will expire at {user.locked_until}.\n"
             ),
-            from_email=settings.DEFAULT_FROM_EMAIL,
             recipient_list=[owner.email],
+            gym=user.gym,
             fail_silently=False,
         )
     else:
@@ -70,11 +150,11 @@ def send_password_reset_email(user, link: str) -> None:
         f"This link will expire in {minutes} minutes.\n\n"
         f"If you did not request a password reset, you can safely ignore this email.\n"
     )
-    send_mail(
+    send_fitgate_email(
         subject=subject,
         message=message,
-        from_email=settings.DEFAULT_FROM_EMAIL,
         recipient_list=[user.email],
+        gym=user.gym,
         fail_silently=False,
     )
 
@@ -94,11 +174,11 @@ def send_owner_welcome_email(owner, gym, invite_link: str) -> None:
         f"This link is valid for 7 days. Once your password is set and your domain's security certificate is verified, you can log in to manage your gym.\n\n"
         f"Welcome aboard,\nThe FitGate Team\n"
     )
-    send_mail(
+    send_fitgate_email(
         subject=subject,
         message=message,
-        from_email=settings.DEFAULT_FROM_EMAIL,
         recipient_list=[owner.email],
+        gym=gym,
         fail_silently=False,
     )
 
@@ -120,11 +200,11 @@ def send_staff_invite_email(user, gym, invite_link: str) -> None:
         f"This link is valid for 7 days. Once your password is set, you can sign in to the staff portal.\n\n"
         f"Welcome aboard,\nThe FitGate Team\n"
     )
-    send_mail(
+    send_fitgate_email(
         subject=subject,
         message=message,
-        from_email=settings.DEFAULT_FROM_EMAIL,
         recipient_list=[user.email],
+        gym=gym,
         fail_silently=False,
     )
 
@@ -143,11 +223,11 @@ def send_member_verification_email(user, gym, verify_link: str) -> None:
         f"This verification link is valid for 24 hours.\n\n"
         f"Best regards,\nThe {gym.name} Team\n"
     )
-    send_mail(
+    send_fitgate_email(
         subject=subject,
         message=message,
-        from_email=settings.DEFAULT_FROM_EMAIL,
         recipient_list=[user.email],
+        gym=gym,
         fail_silently=False,
     )
 
@@ -166,36 +246,57 @@ def send_member_invite_email(user, gym, invite_link: str) -> None:
         f"subscription, and check-in QR codes.\n\n"
         f"Welcome aboard,\nThe {gym.name} Team\n"
     )
-    send_mail(
+    send_fitgate_email(
         subject=subject,
         message=message,
-        from_email=settings.DEFAULT_FROM_EMAIL,
         recipient_list=[user.email],
+        gym=gym,
         fail_silently=False,
+    )
+
+
+def create_notification(
+    recipient,
+    notification_type: str,
+    message: str,
+    gym=None,
+):
+    """
+    ONE shared helper function that creates an in-app notification record.
+    Stored only, no email, tenant-scoped to the gym (or platform-level if gym is None).
+    """
+    from apps.accounts.models import Notification
+
+    if gym is None and getattr(recipient, "gym", None):
+        gym = recipient.gym
+
+    return Notification.objects.create(
+        recipient=recipient,
+        type=notification_type,
+        message=message,
+        gym=gym,
     )
 
 
 def notify_demo_request_received(demo_request) -> None:
     """
     Create a platform-level notification for all active Super Admins upon receiving a new demo request.
-
-    Also logs the new request for platform visibility.
     """
-    from apps.accounts.models import Notification, User
+    from apps.accounts.models import User
 
     super_admins = User.all_objects.filter(
         role=User.ROLE_SUPER_ADMIN,
         is_active=True,
     )
     for admin_user in super_admins:
-        Notification.objects.create(
+        create_notification(
             recipient=admin_user,
-            gym=None,
-            type="demo_request",
+            notification_type="demo_request",
             message=(
                 f"New demo request from '{demo_request.gym_name}' "
                 f"(Contact: {demo_request.contact_name}, Phone: {demo_request.phone})"
             ),
+            gym=None,
         )
 
     logger.info(

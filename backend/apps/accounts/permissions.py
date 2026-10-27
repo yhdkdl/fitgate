@@ -51,12 +51,13 @@ class IsSuperAdmin(IsAuthenticated):
 class DocsPermission(BasePermission):
     """
     Permission for OpenAPI docs:
-    - Public when settings.DEBUG is True.
-    - Super Admin only at apex platform domain when settings.DEBUG is False.
+    - Public when settings.DOCS_PUBLIC is True (e.g. local development).
+    - Super Admin only at apex platform domain when settings.DOCS_PUBLIC is False (production).
+    No behavior depends on settings.DEBUG.
     """
 
     def has_permission(self, request, view):
-        if getattr(settings, "DEBUG", False):
+        if getattr(settings, "DOCS_PUBLIC", False):
             return True
         if not (request.user and request.user.is_authenticated):
             return False

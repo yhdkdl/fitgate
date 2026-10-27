@@ -218,7 +218,10 @@ def create_gym(
     # Send welcome email containing set-password link (never a password) via transaction.on_commit
     scheme = settings.PUBLIC_URL_SCHEME
     domain = settings.DOMAIN
-    invite_link = f"{scheme}://{normalized_subdomain}.{domain}/set-password?token={raw_invite_token}"
+    port_suffix = (
+        f":{settings.PUBLIC_PORT}" if getattr(settings, "PUBLIC_PORT", "") else ""
+    )
+    invite_link = f"{scheme}://{normalized_subdomain}.{domain}{port_suffix}/set-password?token={raw_invite_token}"
 
     def _send_welcome():
         try:
@@ -300,7 +303,21 @@ def confirm_gym_tls(gym_id: UUID | str, acting_super_admin: User) -> GymTenant:
     else:
         gym.tls_confirmed_at = now
 
-    gym.save(update_fields=update_fields)
+    with transaction.atomic():
+        gym.save(update_fields=update_fields)
+        from apps.accounts.services import record_audit_log
+
+        record_audit_log(
+            action_type="gym_tls_confirmed",
+            affected_record_type="GymTenant",
+            affected_record_id=str(gym.id),
+            actor=acting_super_admin,
+            gym=gym,
+            metadata={
+                "subdomain": gym.subdomain,
+                "tls_confirmed_at": gym.tls_confirmed_at.isoformat(),
+            },
+        )
     return gym
 
 
@@ -383,15 +400,28 @@ def get_first_run_checklist(gym: GymTenant) -> dict:
     }
 
 
-def dismiss_first_run_checklist(gym: GymTenant) -> GymConfig:
+def dismiss_first_run_checklist(
+    gym: GymTenant, acting_user: Optional[User] = None
+) -> GymConfig:
     """Mark first-run checklist as dismissed for the gym."""
     config = getattr(gym, "config", None)
     if config is None:
         config, _ = GymConfig.objects.get_or_create(gym=gym)
 
     if config.first_run_dismissed_at is None:
-        config.first_run_dismissed_at = timezone.now()
-        config.save(update_fields=["first_run_dismissed_at"])
+        with transaction.atomic():
+            config.first_run_dismissed_at = timezone.now()
+            config.save(update_fields=["first_run_dismissed_at"])
+            from apps.accounts.services import record_audit_log
+
+            record_audit_log(
+                action_type="checklist_dismissed",
+                affected_record_type="GymConfig",
+                affected_record_id=str(config.pk),
+                actor=acting_user,
+                gym=gym,
+                metadata={"dismissed_at": config.first_run_dismissed_at.isoformat()},
+            )
     return config
 
 
@@ -461,6 +491,17 @@ def update_gym_settings(
                 update_fields.append(field)
 
     if update_fields:
-        config.save(update_fields=update_fields)
+        with transaction.atomic():
+            config.save(update_fields=update_fields)
+            from apps.accounts.services import record_audit_log
+
+            record_audit_log(
+                action_type="gym_settings_updated",
+                affected_record_type="GymConfig",
+                affected_record_id=str(config.pk),
+                actor=acting_user,
+                gym=gym,
+                metadata={"updated_fields": update_fields},
+            )
 
     return config

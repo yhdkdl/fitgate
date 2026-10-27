@@ -803,6 +803,22 @@ class TestSpec2PermissionMatrixParametrizedTable:
             "wired_in_sprint": 13,
         },
         {
+            "row_name": "Request a membership freeze",
+            "spec_super_admin": "—",
+            "spec_owner": "No (Members only)",
+            "spec_manager": "No (Members only)",
+            "spec_trainer": "No",
+            "spec_reception": "No",
+            "spec_member": "Yes",
+            "super_admin": False,
+            "owner": False,
+            "manager": False,
+            "trainer": False,
+            "reception": False,
+            "member": True,
+            "wired_in_sprint": 13,
+        },
+        {
             "row_name": "Manually reassign a trainer",
             "spec_super_admin": "—",
             "spec_owner": "Yes",
@@ -819,7 +835,7 @@ class TestSpec2PermissionMatrixParametrizedTable:
             "wired_in_sprint": 17,
         },
         {
-            "row_name": "View analytics dashboard, audit log, and payment history",
+            "row_name": "View audit log",
             "spec_super_admin": "All gyms",
             "spec_owner": "Yes",
             "spec_manager": "Yes",
@@ -832,7 +848,39 @@ class TestSpec2PermissionMatrixParametrizedTable:
             "trainer": False,
             "reception": False,
             "member": False,
-            "wired_in_sprint": "9a, 12, 27",
+            "wired_in_sprint": "9a",
+        },
+        {
+            "row_name": "View payment history",
+            "spec_super_admin": "Denied (gym ledger is tenant-only)",
+            "spec_owner": "Yes",
+            "spec_manager": "Yes",
+            "spec_trainer": "see SPEC §5",
+            "spec_reception": "see SPEC §5",
+            "spec_member": "see SPEC §5",
+            "super_admin": False,
+            "owner": True,
+            "manager": True,
+            "trainer": False,
+            "reception": False,
+            "member": False,
+            "wired_in_sprint": 12,
+        },
+        {
+            "row_name": "View analytics dashboard",
+            "spec_super_admin": "All gyms",
+            "spec_owner": "Yes",
+            "spec_manager": "Yes",
+            "spec_trainer": "see SPEC §5",
+            "spec_reception": "see SPEC §5",
+            "spec_member": "see SPEC §5",
+            "super_admin": True,
+            "owner": True,
+            "manager": True,
+            "trainer": False,
+            "reception": False,
+            "member": False,
+            "wired_in_sprint": 27,
         },
         {
             "row_name": "Confirm a manual cash payment",
@@ -865,6 +913,134 @@ class TestSpec2PermissionMatrixParametrizedTable:
             "reception": False,
             "member": False,
             "wired_in_sprint": 28,
+        },
+        {
+            "row_name": "Configure payment gateway credentials",
+            "spec_super_admin": "—",
+            "spec_owner": "Yes",
+            "spec_manager": "No",
+            "spec_trainer": "No",
+            "spec_reception": "No",
+            "spec_member": "No",
+            "super_admin": False,
+            "owner": True,
+            "manager": False,
+            "trainer": False,
+            "reception": False,
+            "member": False,
+            "wired_in_sprint": 11,
+        },
+        {
+            "row_name": "Test payment gateway connection",
+            "spec_super_admin": "—",
+            "spec_owner": "Yes",
+            "spec_manager": "No",
+            "spec_trainer": "No",
+            "spec_reception": "No",
+            "spec_member": "No",
+            "super_admin": False,
+            "owner": True,
+            "manager": False,
+            "trainer": False,
+            "reception": False,
+            "member": False,
+            "wired_in_sprint": 11,
+        },
+        {
+            "row_name": "Initiate online Chapa checkout session",
+            "spec_super_admin": "—",
+            "spec_owner": "No (Members only; staff use cash flow in Sprint 12)",
+            "spec_manager": "No (Members only; staff use cash flow in Sprint 12)",
+            "spec_trainer": "No",
+            "spec_reception": "No (Members only; staff use cash flow in Sprint 12)",
+            "spec_member": "Yes",
+            "super_admin": False,
+            "owner": False,
+            "manager": False,
+            "trainer": False,
+            "reception": False,
+            "member": True,
+            "wired_in_sprint": 11,
+        },
+        {
+            "row_name": "View platform-wide payment status for gyms",
+            "spec_super_admin": "Yes",
+            "spec_owner": "No",
+            "spec_manager": "No",
+            "spec_trainer": "No",
+            "spec_reception": "No",
+            "spec_member": "No",
+            "super_admin": True,
+            "owner": False,
+            "manager": False,
+            "trainer": False,
+            "reception": False,
+            "member": False,
+            "wired_in_sprint": 11,
+        },
+        {
+            "row_name": "Record member bank transfer payment",
+            "spec_super_admin": "—",
+            "spec_owner": "Yes",
+            "spec_manager": "Yes",
+            "spec_trainer": "No",
+            "spec_reception": "Yes",
+            "spec_member": "No",
+            "super_admin": False,
+            "owner": True,
+            "manager": True,
+            "trainer": False,
+            "reception": True,
+            "member": False,
+            "wired_in_sprint": 12,
+        },
+        {
+            "row_name": "View unreconciled bank transfers",
+            "spec_super_admin": "—",
+            "spec_owner": "Yes",
+            "spec_manager": "No",
+            "spec_trainer": "No",
+            "spec_reception": "No",
+            "spec_member": "No",
+            "super_admin": False,
+            "owner": True,
+            "manager": False,
+            "trainer": False,
+            "reception": False,
+            "member": False,
+            "wired_in_sprint": 12,
+        },
+        {
+            "row_name": "Reconcile bank transfers",
+            "spec_super_admin": "—",
+            "spec_owner": "Yes",
+            "spec_manager": "No",
+            "spec_trainer": "No",
+            "spec_reception": "No",
+            "spec_member": "No",
+            "super_admin": False,
+            "owner": True,
+            "manager": False,
+            "trainer": False,
+            "reception": False,
+            "member": False,
+            "wired_in_sprint": 12,
+        },
+        {
+            "row_name": "Reverse bank transfer",
+            "spec_super_admin": "—",
+            "spec_owner": "Yes",
+            "spec_manager": "No",
+            "spec_trainer": "No",
+            "spec_reception": "No",
+            "spec_member": "No",
+            "super_admin": False,
+            "owner": True,
+            "manager": False,
+            "trainer": False,
+            "reception": False,
+            "member": False,
+            "wired_in_sprint": 12,
         },
     ]
 
@@ -906,7 +1082,7 @@ class TestSpec2PermissionMatrixParametrizedTable:
         Rows not yet wired skip with an explicit reason.
         Wired rows (Sprint 5) assert directly against real HTTP endpoints.
         """
-        if wired_sprint not in (5, 6, "9a, 12, 27"):
+        if wired_sprint not in (5, 6, "9a", 10, 11, 12, 13):
             pytest.skip(
                 f"Row '{row_name}' has no real endpoint yet (scheduled for Sprint {wired_sprint} in docs/SPRINTS.md)"
             )
@@ -1009,7 +1185,7 @@ class TestSpec2PermissionMatrixParametrizedTable:
                 assert deact_resp.status_code == 200
             else:
                 assert resp.status_code in (403, 404)
-        elif row_name == "View analytics dashboard, audit log, and payment history":
+        elif row_name == "View audit log":
             if role == User.ROLE_SUPER_ADMIN:
                 url = "/api/platform/audit-logs/"
                 host = "localhost"
@@ -1022,3 +1198,350 @@ class TestSpec2PermissionMatrixParametrizedTable:
                 assert resp.status_code == 200
             else:
                 assert resp.status_code in (403, 404)
+        elif row_name == "Create/edit membership plans and pricing":
+            url = "/api/gym/plans/"
+            host = (
+                "localhost"
+                if role == User.ROLE_SUPER_ADMIN
+                else f"{gym_tenant.subdomain}.localhost"
+            )
+            resp = client.post(
+                url,
+                {
+                    "name": f"Matrix Plan {role}",
+                    "duration_value": 1,
+                    "duration_unit": "months",
+                    "price_etb": "1500.00",
+                },
+                format="json",
+                HTTP_HOST=host,
+            )
+            if expected_allowed:
+                assert resp.status_code == 201
+                plan_id = resp.data["id"]
+                patch_resp = client.patch(
+                    f"/api/gym/plans/{plan_id}/",
+                    {"price_etb": "1800.00"},
+                    format="json",
+                    HTTP_HOST=host,
+                )
+                assert patch_resp.status_code == 200
+            else:
+                assert resp.status_code in (403, 404)
+        elif row_name == "Suspend or reactivate a member":
+            url = f"/api/gym/members/{member_user.member_profile.id}/suspend/"
+            host = (
+                "localhost"
+                if role == User.ROLE_SUPER_ADMIN
+                else f"{gym_tenant.subdomain}.localhost"
+            )
+            resp = client.post(
+                url,
+                {"reason": "Testing matrix suspension"},
+                format="json",
+                HTTP_HOST=host,
+            )
+            if expected_allowed:
+                assert resp.status_code == 200
+                react_resp = client.post(
+                    f"/api/gym/members/{member_user.member_profile.id}/reactivate/",
+                    format="json",
+                    HTTP_HOST=host,
+                )
+                assert react_resp.status_code == 200
+            else:
+                assert resp.status_code in (403, 404)
+        elif row_name == "Configure payment gateway credentials":
+            url = "/api/gym/payment-config/"
+            host = (
+                "localhost"
+                if role == User.ROLE_SUPER_ADMIN
+                else f"{gym_tenant.subdomain}.localhost"
+            )
+            resp = client.get(url, HTTP_HOST=host)
+            if expected_allowed:
+                assert resp.status_code == 200
+            else:
+                assert resp.status_code in (403, 404)
+        elif row_name == "Test payment gateway connection":
+            url = "/api/gym/payment-config/test/"
+            host = (
+                "localhost"
+                if role == User.ROLE_SUPER_ADMIN
+                else f"{gym_tenant.subdomain}.localhost"
+            )
+            resp = client.post(url, HTTP_HOST=host)
+            if expected_allowed:
+                # 400 because unconfigured credentials in matrix fixture, but authorized past RBAC check
+                assert resp.status_code in (200, 400)
+                assert resp.status_code not in (401, 403, 404)
+            else:
+                assert resp.status_code in (403, 404)
+        elif row_name == "Initiate online Chapa checkout session":
+            from apps.memberships.models import MembershipPlan
+
+            plan = MembershipPlan.objects.filter(gym=gym_tenant).first()
+            if not plan:
+                plan = MembershipPlan.objects.create(
+                    gym=gym_tenant,
+                    name="RBAC Matrix Plan",
+                    duration_value=1,
+                    duration_unit="months",
+                    price_etb=1200,
+                )
+            url = "/api/payments/checkout/chapa/"
+            host = (
+                "localhost"
+                if role == User.ROLE_SUPER_ADMIN
+                else f"{gym_tenant.subdomain}.localhost"
+            )
+            payload = {"plan_id": str(plan.id)}
+            resp = client.post(url, payload, format="json", HTTP_HOST=host)
+            if expected_allowed:
+                # 400 because payment config is unverified, but authorized past RBAC check
+                assert resp.status_code in (200, 400)
+                assert resp.status_code not in (401, 403, 404)
+            else:
+                assert resp.status_code in (403, 404)
+        elif row_name == "View platform-wide payment status for gyms":
+            url = f"/api/platform/gyms/{gym_tenant.id}/payment-status/"
+            host = (
+                "localhost"
+                if role == User.ROLE_SUPER_ADMIN
+                else f"{gym_tenant.subdomain}.localhost"
+            )
+            resp = client.get(url, HTTP_HOST=host)
+            if expected_allowed:
+                assert resp.status_code == 200
+            else:
+                assert resp.status_code in (403, 404)
+        elif row_name == "Confirm a manual cash payment":
+            import secrets
+
+            from apps.memberships.models import Member, MembershipPlan
+
+            plan = MembershipPlan.objects.filter(gym=gym_tenant, is_active=True).first()
+            if not plan:
+                plan = MembershipPlan.objects.create(
+                    gym=gym_tenant,
+                    name="RBAC Matrix Cash Plan",
+                    duration_value=1,
+                    duration_unit="months",
+                    price_etb=1500,
+                )
+            member = Member.all_objects.filter(gym=gym_tenant).first()
+            if not member:
+                member_u = User.all_objects.create_user(
+                    email=f"matrix_cash_mem_{role}_{secrets.token_hex(4)}@bolehub.com",
+                    full_name="Cash Member",
+                    role=User.ROLE_MEMBER,
+                    gym=gym_tenant,
+                )
+                member = Member.all_objects.create(
+                    gym=gym_tenant,
+                    user=member_u,
+                    full_name="Cash Member",
+                    phone=f"+251911{secrets.randbelow(899999) + 100000}",
+                )
+            url = "/api/gym/payments/cash/"
+            host = (
+                "localhost"
+                if role == User.ROLE_SUPER_ADMIN
+                else f"{gym_tenant.subdomain}.localhost"
+            )
+            payload = {
+                "member_id": str(member.id),
+                "plan_id": str(plan.id),
+                "notes": f"Matrix test for role {role}",
+            }
+            resp = client.post(url, payload, format="json", HTTP_HOST=host)
+            if expected_allowed:
+                assert resp.status_code == 201
+            else:
+                assert resp.status_code in (403, 404)
+        elif row_name == "View payment history":
+            if role == User.ROLE_SUPER_ADMIN:
+                url = f"/api/gym/payments/?gym_id={gym_tenant.id}"
+                host = "localhost"
+            else:
+                url = "/api/gym/payments/"
+                host = f"{gym_tenant.subdomain}.localhost"
+            resp = client.get(url, HTTP_HOST=host)
+            if expected_allowed:
+                assert resp.status_code == 200
+            else:
+                assert resp.status_code in (403, 404)
+        elif row_name == "Record member bank transfer payment":
+            import secrets
+
+            from django.utils import timezone
+
+            from apps.memberships.models import Member, MembershipPlan
+
+            plan = MembershipPlan.objects.filter(gym=gym_tenant, is_active=True).first()
+            if not plan:
+                plan = MembershipPlan.objects.create(
+                    gym=gym_tenant,
+                    name="RBAC Matrix Bank Plan",
+                    duration_value=1,
+                    duration_unit="months",
+                    price_etb=1500,
+                )
+            member = Member.all_objects.filter(gym=gym_tenant).first()
+            if not member:
+                member_u = User.all_objects.create_user(
+                    email=f"matrix_bank_mem_{role}_{secrets.token_hex(4)}@bolehub.com",
+                    full_name="Bank Member",
+                    role=User.ROLE_MEMBER,
+                    gym=gym_tenant,
+                )
+                member = Member.all_objects.create(
+                    gym=gym_tenant,
+                    user=member_u,
+                    full_name="Bank Member",
+                    phone=f"+251911{secrets.randbelow(899999) + 100000}",
+                )
+            url = "/api/gym/payments/bank-transfer/"
+            host = (
+                "localhost"
+                if role == User.ROLE_SUPER_ADMIN
+                else f"{gym_tenant.subdomain}.localhost"
+            )
+            payload = {
+                "member_id": str(member.id),
+                "plan_id": str(plan.id),
+                "bank_reference": f"TX-MAT-{role}-{secrets.token_hex(4)}",
+                "transfer_date": str(timezone.localdate()),
+                "channel": "CBE",
+                "notes": f"Matrix bank test for role {role}",
+            }
+            resp = client.post(url, payload, format="json", HTTP_HOST=host)
+            if expected_allowed:
+                assert resp.status_code == 201
+            else:
+                assert resp.status_code in (401, 403, 404)
+        elif row_name == "View unreconciled bank transfers":
+            url = "/api/gym/payments/bank-transfers/unreconciled/"
+            host = (
+                "localhost"
+                if role == User.ROLE_SUPER_ADMIN
+                else f"{gym_tenant.subdomain}.localhost"
+            )
+            resp = client.get(url, HTTP_HOST=host)
+            if expected_allowed:
+                assert resp.status_code == 200
+            else:
+                assert resp.status_code in (401, 403, 404)
+        elif row_name == "Reconcile bank transfers":
+            import uuid
+
+            url = "/api/gym/payments/bank-transfers/reconcile/"
+            host = (
+                "localhost"
+                if role == User.ROLE_SUPER_ADMIN
+                else f"{gym_tenant.subdomain}.localhost"
+            )
+            payload = {"payment_ids": [str(uuid.uuid4())]}
+            resp = client.post(url, payload, format="json", HTTP_HOST=host)
+            if expected_allowed:
+                assert resp.status_code == 200
+            else:
+                assert resp.status_code in (401, 403, 404)
+        elif row_name == "Reverse bank transfer":
+            import uuid
+
+            url = f"/api/gym/payments/{uuid.uuid4()}/reverse/"
+            host = (
+                "localhost"
+                if role == User.ROLE_SUPER_ADMIN
+                else f"{gym_tenant.subdomain}.localhost"
+            )
+            payload = {"reason": "Owner matrix test reversal reason"}
+            resp = client.post(url, payload, format="json", HTTP_HOST=host)
+            if expected_allowed:
+                assert resp.status_code in (200, 400)
+            else:
+                assert resp.status_code in (401, 403, 404)
+        elif row_name == "Approve or reject a freeze request":
+            import uuid
+
+            url = f"/api/gym/freezes/{uuid.uuid4()}/approve/"
+            host = (
+                "localhost"
+                if role == User.ROLE_SUPER_ADMIN
+                else f"{gym_tenant.subdomain}.localhost"
+            )
+            resp = client.post(url, {}, format="json", HTTP_HOST=host)
+            if expected_allowed:
+                assert resp.status_code in (200, 400)
+            else:
+                assert resp.status_code in (401, 403, 404)
+        elif row_name == "Request a membership freeze":
+            url = "/api/memberships/freezes/"
+            host = (
+                "localhost"
+                if role == User.ROLE_SUPER_ADMIN
+                else f"{gym_tenant.subdomain}.localhost"
+            )
+            payload = {
+                "start_date": "2026-11-01",
+                "end_date": "2026-11-07",
+                "reason": "Matrix freeze test",
+            }
+            resp = client.post(url, payload, format="json", HTTP_HOST=host)
+            if expected_allowed:
+                assert resp.status_code in (200, 201, 400)
+            else:
+                assert resp.status_code in (401, 403, 404)
+
+    def test_chapa_webhook_endpoint_is_public_with_signature_check(self, gym_tenant):
+        """Webhook endpoint is public at transport layer and rejects bad payload without JWT."""
+        client = APIClient()
+        resp = client.post(
+            "/api/webhooks/chapa/",
+            data=b"{}",
+            content_type="application/json",
+            HTTP_HOST="localhost",
+        )
+        # Unauthenticated request is processed without JWT auth; missing/bad signature gives 401 signature error
+        assert resp.status_code == 401
+        assert resp.json()["detail"] == "Invalid webhook signature."
+
+    def test_member_self_service_payment_history_access(
+        self,
+        gym_tenant,
+        super_admin_user,
+        owner_user,
+        manager_user,
+        trainer_user,
+        reception_user,
+        member_user,
+    ):
+        """
+        Verify /api/payments/history/ is strictly for members only.
+        Owner, Manager, Trainer, Reception, Super Admin get 403.
+        """
+        url = "/api/payments/history/"
+        host = f"{gym_tenant.subdomain}.localhost"
+
+        # Member: allowed (200)
+        tokens = get_tokens_for_user(member_user)
+        client = APIClient()
+        client.credentials(HTTP_AUTHORIZATION=f"Bearer {tokens['access']}")
+        resp = client.get(url, HTTP_HOST=host)
+        assert resp.status_code == 200
+
+        # Non-member roles: denied (403)
+        for staff in [
+            super_admin_user,
+            owner_user,
+            manager_user,
+            trainer_user,
+            reception_user,
+        ]:
+            st_tokens = get_tokens_for_user(staff)
+            st_client = APIClient()
+            st_client.credentials(HTTP_AUTHORIZATION=f"Bearer {st_tokens['access']}")
+            st_host = "localhost" if staff.role == User.ROLE_SUPER_ADMIN else host
+            st_resp = st_client.get(url, HTTP_HOST=st_host)
+            assert st_resp.status_code in (403, 404)

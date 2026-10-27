@@ -6,6 +6,7 @@ from apps.attendance.views import (
     AttendanceManualOverrideView,
     AttendancePublicKeyView,
     AttendanceScanView,
+    AttendanceTodayListView,
     GymMemberAttendanceLogView,
     MemberQrTokenView,
     MemberSelfAttendanceLogView,
@@ -34,6 +35,12 @@ urlpatterns = [
         "api/gym/attendance/manual-override/",
         AttendanceManualOverrideView.as_view(),
         name="gym-attendance-manual-override",
+    ),
+    # Live Today's check-ins list for staff dashboard
+    path(
+        "api/gym/attendance/today/",
+        AttendanceTodayListView.as_view(),
+        name="gym-attendance-today",
     ),
     # Daily attendance calendar logs
     path(

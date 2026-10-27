@@ -52,13 +52,18 @@ from apps.accounts.admin import AuditLogAdmin
 from apps.accounts.models import AuditLog, User
 from apps.accounts.services import (
     change_password,
+    confirm_password_reset,
     create_additional_super_admin,
     deactivate_staff_member,
     invite_staff_member,
     reactivate_staff_member,
     record_audit_log,
+    request_password_reset,
+    set_password_from_invite,
 )
+from apps.accounts.tokens import get_tokens_for_user
 from apps.attendance.services import (
+    ScanValidationError,
     issue_member_qr_token,
     process_manual_override,
     verify_and_process_scan,
@@ -67,9 +72,22 @@ from apps.memberships.models import Member, MemberSubscription
 from apps.memberships.services import (
     register_member_self_service,
     register_member_staff_assisted,
+    verify_member_email,
 )
-from apps.tenants.models import GymTenant
-from apps.tenants.services import create_gym
+from apps.tenants.models import DemoRequest, GymTenant
+from apps.tenants.services import (
+    confirm_gym_tls,
+    create_gym,
+    dismiss_first_run_checklist,
+    update_gym_settings,
+)
+
+
+def auth_client(api_client, user):
+    tokens = get_tokens_for_user(user)
+    client = APIClient()
+    client.credentials(HTTP_AUTHORIZATION=f"Bearer {tokens['access']}")
+    return client
 
 
 @pytest.fixture
@@ -122,6 +140,21 @@ def gym_reception(db, gym_tenant):
         role=User.ROLE_RECEPTION,
         gym=gym_tenant,
         full_name="Gym Reception",
+        is_active=True,
+        must_change_password=False,
+        email_verified_at=timezone.now(),
+    )
+    return user
+
+
+@pytest.fixture
+def gym_trainer(db, gym_tenant):
+    user = User.objects.create_user(
+        email="trainer_audit@example.com",
+        password="TrainerPassword123!",
+        role=User.ROLE_TRAINER,
+        gym=gym_tenant,
+        full_name="Gym Trainer",
         is_active=True,
         must_change_password=False,
         email_verified_at=timezone.now(),
@@ -225,6 +258,62 @@ class TestAuditLogImmutability:
         with pytest.raises(DatabaseError) as exc_info:
             with transaction.atomic():
                 with connection.cursor() as cursor:
+                    cursor.execute("TRUNCATE accounts_auditlog")
+        assert "AuditLog is append-only and cannot be modified or deleted." in str(
+            exc_info.value
+        )
+
+    def test_auditlog_update_still_blocked_when_flush_setting_attempted(
+        self, super_admin
+    ):
+        """Even if an attacker runs SET fitgate.allow_auditlog_flush = 'on', UPDATE is blocked."""
+        log = record_audit_log(
+            action_type="test_action",
+            affected_record_type="User",
+            affected_record_id=str(super_admin.id),
+            actor=super_admin,
+            metadata={"key": "original"},
+        )
+        with pytest.raises(DatabaseError) as exc_info:
+            with transaction.atomic():
+                with connection.cursor() as cursor:
+                    cursor.execute("SET fitgate.allow_auditlog_flush = 'on'")
+                    cursor.execute(
+                        "UPDATE accounts_auditlog SET action_type = 'tampered' WHERE id = %s",
+                        [str(log.id)],
+                    )
+        assert "AuditLog is append-only and cannot be modified or deleted." in str(
+            exc_info.value
+        )
+
+    def test_auditlog_delete_still_blocked_when_flush_setting_attempted(
+        self, super_admin
+    ):
+        """Even if an attacker runs SET fitgate.allow_auditlog_flush = 'on', DELETE is blocked."""
+        log = record_audit_log(
+            action_type="test_action",
+            affected_record_type="User",
+            affected_record_id=str(super_admin.id),
+            actor=super_admin,
+        )
+        with pytest.raises(DatabaseError) as exc_info:
+            with transaction.atomic():
+                with connection.cursor() as cursor:
+                    cursor.execute("SET fitgate.allow_auditlog_flush = 'on'")
+                    cursor.execute(
+                        "DELETE FROM accounts_auditlog WHERE id = %s",
+                        [str(log.id)],
+                    )
+        assert "AuditLog is append-only and cannot be modified or deleted." in str(
+            exc_info.value
+        )
+
+    def test_auditlog_truncate_still_blocked_when_flush_setting_attempted(self):
+        """Even if an attacker runs SET fitgate.allow_auditlog_flush = 'on', TRUNCATE is blocked."""
+        with pytest.raises(DatabaseError) as exc_info:
+            with transaction.atomic():
+                with connection.cursor() as cursor:
+                    cursor.execute("SET fitgate.allow_auditlog_flush = 'on'")
                     cursor.execute("TRUNCATE accounts_auditlog")
         assert "AuditLog is append-only and cannot be modified or deleted." in str(
             exc_info.value
@@ -555,6 +644,299 @@ class TestActionAuditLogging:
         assert entry.actor_id == gym_reception.id
         assert entry.gym_id == gym_tenant.id
 
+    def test_audit_gym_tls_confirmed(self, super_admin, gym_tenant):
+        """confirm_gym_tls produces exactly 1 row (platform-level)."""
+        count_before = AuditLog.all_objects.count()
+        confirm_gym_tls(gym_id=gym_tenant.id, acting_super_admin=super_admin)
+        assert AuditLog.all_objects.count() == count_before + 1
+
+        entry = AuditLog.all_objects.latest("timestamp")
+        assert entry.action_type == "gym_tls_confirmed"
+        assert entry.affected_record_type == "GymTenant"
+        assert entry.affected_record_id == str(gym_tenant.id)
+        assert entry.actor_id == super_admin.id
+        assert entry.gym == gym_tenant
+
+    def test_audit_gym_settings_updated(self, gym_owner, gym_tenant):
+        """update_gym_settings produces exactly 1 row."""
+        count_before = AuditLog.all_objects.count()
+        update_gym_settings(
+            gym=gym_tenant,
+            acting_user=gym_owner,
+            data={"brand_color": "#123456"},
+        )
+        assert AuditLog.all_objects.count() == count_before + 1
+
+        entry = AuditLog.all_objects.latest("timestamp")
+        assert entry.action_type == "gym_settings_updated"
+        assert entry.affected_record_type == "GymConfig"
+        assert entry.affected_record_id == str(gym_tenant.config.pk)
+        assert entry.actor_id == gym_owner.id
+        assert entry.gym_id == gym_tenant.id
+
+    def test_audit_checklist_dismissed(self, gym_owner, gym_tenant):
+        """dismiss_first_run_checklist produces exactly 1 row."""
+        count_before = AuditLog.all_objects.count()
+        dismiss_first_run_checklist(gym=gym_tenant, acting_user=gym_owner)
+        assert AuditLog.all_objects.count() == count_before + 1
+
+        entry = AuditLog.all_objects.latest("timestamp")
+        assert entry.action_type == "checklist_dismissed"
+        assert entry.affected_record_type == "GymConfig"
+        assert entry.actor_id == gym_owner.id
+        assert entry.gym_id == gym_tenant.id
+
+    def test_audit_gym_logo_uploaded(self, api_client, gym_owner, gym_tenant):
+        """UploadGymLogoView produces exactly 1 row."""
+        import io
+
+        from django.core.files.uploadedfile import SimpleUploadedFile
+        from PIL import Image
+
+        img = Image.new("RGB", (100, 100), color="blue")
+        img_bytes = io.BytesIO()
+        img.save(img_bytes, format="PNG")
+        img_bytes.seek(0)
+        upload_file = SimpleUploadedFile(
+            "logo.png", img_bytes.read(), content_type="image/png"
+        )
+
+        client = auth_client(api_client, gym_owner)
+        count_before = AuditLog.all_objects.count()
+        resp = client.post(
+            f"/api/media/gym-logo/{gym_tenant.id}/",
+            {"file": upload_file},
+            format="multipart",
+            HTTP_HOST=f"{gym_tenant.subdomain}.localhost",
+        )
+        assert resp.status_code == 200
+        assert AuditLog.all_objects.count() == count_before + 1
+
+        entry = AuditLog.all_objects.latest("timestamp")
+        assert entry.action_type == "gym_logo_uploaded"
+        assert entry.actor_id == gym_owner.id
+        assert entry.gym_id == gym_tenant.id
+
+    def test_audit_member_photo_uploaded(
+        self, api_client, gym_reception, gym_tenant, member_with_active_sub
+    ):
+        """UploadMemberPhotoView produces exactly 1 row."""
+        import io
+
+        from django.core.files.uploadedfile import SimpleUploadedFile
+        from PIL import Image
+
+        img = Image.new("RGB", (100, 100), color="green")
+        img_bytes = io.BytesIO()
+        img.save(img_bytes, format="JPEG")
+        img_bytes.seek(0)
+        upload_file = SimpleUploadedFile(
+            "photo.jpg", img_bytes.read(), content_type="image/jpeg"
+        )
+
+        client = auth_client(api_client, gym_reception)
+        count_before = AuditLog.all_objects.count()
+        resp = client.post(
+            f"/api/media/member-photos/{gym_tenant.id}/",
+            {"file": upload_file, "member_id": str(member_with_active_sub.id)},
+            format="multipart",
+            HTTP_HOST=f"{gym_tenant.subdomain}.localhost",
+        )
+        assert resp.status_code == 201
+        assert AuditLog.all_objects.count() == count_before + 1
+
+        entry = AuditLog.all_objects.latest("timestamp")
+        assert entry.action_type == "member_photo_uploaded"
+        assert entry.actor_id == gym_reception.id
+        assert entry.gym_id == gym_tenant.id
+
+    def test_audit_demo_request_updated(self, api_client, super_admin):
+        """DemoRequestDetailView.patch produces exactly 1 row."""
+        demo = DemoRequest.objects.create(
+            gym_name="Demo Gym",
+            contact_name="Abebe",
+            email="abebe@demogym.com",
+            phone="+251911112233",
+            city="Addis Ababa",
+            status=DemoRequest.STATUS_NEW,
+        )
+        client = auth_client(api_client, super_admin)
+        count_before = AuditLog.all_objects.count()
+        resp = client.patch(
+            f"/api/platform/demo-requests/{demo.id}/",
+            {"status": DemoRequest.STATUS_CONTACTED},
+            format="json",
+            HTTP_HOST="localhost",
+        )
+        assert resp.status_code == 200
+        assert AuditLog.all_objects.count() == count_before + 1
+
+        entry = AuditLog.all_objects.latest("timestamp")
+        assert entry.action_type == "demo_request_updated"
+        assert entry.actor_id == super_admin.id
+        assert entry.affected_record_type == "DemoRequest"
+        assert entry.affected_record_id == str(demo.id)
+
+    def test_audit_password_reset_flow(self, gym_owner, gym_tenant):
+        """request_password_reset and confirm_password_reset each produce exactly 1 row."""
+        count_before = AuditLog.all_objects.count()
+        raw_token = request_password_reset(email=gym_owner.email, tenant=gym_tenant)
+        assert raw_token is not None
+        assert AuditLog.all_objects.count() == count_before + 1
+
+        entry_req = AuditLog.all_objects.latest("timestamp")
+        assert entry_req.action_type == "password_reset_requested"
+        assert entry_req.affected_record_type == "User"
+        assert entry_req.affected_record_id == str(gym_owner.id)
+
+        confirm_password_reset(
+            raw_token=raw_token,
+            new_password="NewConfirmedPassword123!",
+            tenant=gym_tenant,
+        )
+        assert AuditLog.all_objects.count() == count_before + 2
+
+        entry_conf = AuditLog.all_objects.latest("timestamp")
+        assert entry_conf.action_type == "password_reset_completed"
+        assert entry_conf.affected_record_type == "User"
+        assert entry_conf.affected_record_id == str(gym_owner.id)
+
+    def test_audit_set_password_from_invite(self, gym_owner, gym_tenant):
+        """set_password_from_invite produces exactly 1 row."""
+        user, _, invite_token = invite_staff_member(
+            acting_user=gym_owner,
+            gym=gym_tenant,
+            data={
+                "role": User.ROLE_TRAINER,
+                "email": "invitee_audit@example.com",
+                "full_name": "Invited Trainer",
+                "phone": "+251911998877",
+            },
+        )
+        count_before = AuditLog.all_objects.count()
+        set_password_from_invite(
+            raw_token=invite_token,
+            new_password="NewTrainerPassword123!",
+            tenant=gym_tenant,
+        )
+        assert AuditLog.all_objects.count() == count_before + 1
+
+        entry = AuditLog.all_objects.latest("timestamp")
+        assert entry.action_type == "password_set_from_invite"
+        assert entry.affected_record_type == "User"
+        assert entry.affected_record_id == str(user.id)
+        assert entry.actor_id == user.id
+
+    def test_audit_email_verified(self, gym_tenant):
+        """verify_member_email produces exactly 1 row."""
+        member, token = register_member_self_service(
+            gym=gym_tenant,
+            data={
+                "email": "verify_me@example.com",
+                "password": "VerifyPassword123!",
+                "full_name": "Verify Me",
+                "phone": "+251911887766",
+                "date_of_birth": "1996-03-20",
+                "gender": "male",
+                "emergency_contact": "Contact - +251911998877",
+                "waiver_accepted": True,
+            },
+        )
+        count_before = AuditLog.all_objects.count()
+        verify_member_email(raw_token=token, tenant=gym_tenant)
+        assert AuditLog.all_objects.count() == count_before + 1
+
+        entry = AuditLog.all_objects.latest("timestamp")
+        assert entry.action_type == "email_verified"
+        assert entry.affected_record_type == "User"
+        assert entry.affected_record_id == str(member.user.id)
+        assert entry.actor_id == member.user.id
+
+    def test_audit_user_profile_updated(self, api_client, gym_owner, gym_tenant):
+        """UserProfileView.patch produces exactly 1 row."""
+        client = auth_client(api_client, gym_owner)
+        count_before = AuditLog.all_objects.count()
+        resp = client.patch(
+            "/api/auth/me/",
+            {"full_name": "Owner Updated Name", "phone": "+251911001122"},
+            format="json",
+            HTTP_HOST=f"{gym_tenant.subdomain}.localhost",
+        )
+        assert resp.status_code == 200
+        assert AuditLog.all_objects.count() == count_before + 1
+
+        entry = AuditLog.all_objects.latest("timestamp")
+        assert entry.action_type == "user_profile_updated"
+        assert entry.actor_id == gym_owner.id
+        assert entry.affected_record_type == "User"
+        assert entry.affected_record_id == str(gym_owner.id)
+
+    def test_audit_member_updated(
+        self, api_client, gym_owner, gym_tenant, member_with_active_sub
+    ):
+        """GymMemberDetailView.patch produces exactly 1 row."""
+        client = auth_client(api_client, gym_owner)
+        count_before = AuditLog.all_objects.count()
+        resp = client.patch(
+            f"/api/gym/members/{member_with_active_sub.id}/",
+            {"emergency_contact": "Updated Contact - +251911000999"},
+            format="json",
+            HTTP_HOST=f"{gym_tenant.subdomain}.localhost",
+        )
+        assert resp.status_code == 200
+        assert AuditLog.all_objects.count() == count_before + 1
+
+        entry = AuditLog.all_objects.latest("timestamp")
+        assert entry.action_type == "member_updated"
+        assert entry.actor_id == gym_owner.id
+        assert entry.affected_record_type == "Member"
+        assert entry.affected_record_id == str(member_with_active_sub.id)
+
+    def test_audit_member_metrics_recorded(
+        self, api_client, gym_trainer, gym_tenant, member_with_active_sub
+    ):
+        """GymMemberRecordMetricsView.post produces exactly 1 row."""
+        client = auth_client(api_client, gym_trainer)
+        count_before = AuditLog.all_objects.count()
+        resp = client.post(
+            f"/api/gym/members/{member_with_active_sub.id}/metrics/",
+            {
+                "weight_kg": 75.5,
+                "height_cm": 180.0,
+                "measurements": {"chest_cm": 100},
+            },
+            format="json",
+            HTTP_HOST=f"{gym_tenant.subdomain}.localhost",
+        )
+        assert resp.status_code == 201
+        assert AuditLog.all_objects.count() == count_before + 1
+
+        entry = AuditLog.all_objects.latest("timestamp")
+        assert entry.action_type == "member_metrics_recorded"
+        assert entry.actor_id == gym_trainer.id
+        assert entry.affected_record_type == "BodyMetrics"
+
+    def test_audit_member_self_profile_updated(
+        self, api_client, gym_tenant, member_with_active_sub
+    ):
+        """MemberSelfProfileView.patch produces exactly 1 row."""
+        client = auth_client(api_client, member_with_active_sub.user)
+        count_before = AuditLog.all_objects.count()
+        resp = client.patch(
+            "/api/members/me/",
+            {"emergency_contact": "Self Updated Contact"},
+            format="json",
+            HTTP_HOST=f"{gym_tenant.subdomain}.localhost",
+        )
+        assert resp.status_code == 200
+        assert AuditLog.all_objects.count() == count_before + 1
+
+        entry = AuditLog.all_objects.latest("timestamp")
+        assert entry.action_type == "member_profile_updated"
+        assert entry.actor_id == member_with_active_sub.user.id
+        assert entry.affected_record_type == "Member"
+        assert entry.affected_record_id == str(member_with_active_sub.id)
+
 
 # ==============================================================================
 # 3. FAILED ACTIONS PRODUCE NO AUDIT ROWS
@@ -653,6 +1035,131 @@ class TestFailedActionsProduceNoAuditLog:
                 gym=gym_tenant,
                 reason="",  # empty reason is rejected
                 recorded_by=gym_reception,
+            )
+        assert AuditLog.all_objects.count() == count_before
+
+    def test_duplicate_scan_already_checked_in_writes_no_audit_log(
+        self, gym_tenant, gym_reception, member_with_active_sub
+    ):
+        """A duplicate scan on the same day rejected with already_checked_in writes NO audit row."""
+        token1, _ = issue_member_qr_token(member_with_active_sub)
+        res1 = verify_and_process_scan(
+            token_str=token1,
+            gym=gym_tenant,
+            recorded_by=gym_reception,
+        )
+        assert res1["status"] == "success"
+        count_after_first = AuditLog.all_objects.count()
+
+        # Issue another token for same member and scan on same day
+        token2, _ = issue_member_qr_token(member_with_active_sub)
+        with pytest.raises(ScanValidationError) as exc_info:
+            verify_and_process_scan(
+                token_str=token2,
+                gym=gym_tenant,
+                recorded_by=gym_reception,
+            )
+        assert exc_info.value.reason == "already_checked_in"
+        assert AuditLog.all_objects.count() == count_after_first
+
+    def test_token_consumed_scan_writes_no_audit_log(
+        self, gym_tenant, gym_reception, member_with_active_sub
+    ):
+        """A replay scan with an already consumed token rejected with token_consumed writes NO audit row."""
+        token_str, _ = issue_member_qr_token(member_with_active_sub)
+        res1 = verify_and_process_scan(
+            token_str=token_str,
+            gym=gym_tenant,
+            recorded_by=gym_reception,
+        )
+        assert res1["status"] == "success"
+        count_after_first = AuditLog.all_objects.count()
+
+        # Attempt to scan again with the SAME consumed token
+        with pytest.raises(ScanValidationError) as exc_info:
+            verify_and_process_scan(
+                token_str=token_str,
+                gym=gym_tenant,
+                recorded_by=gym_reception,
+            )
+        assert exc_info.value.reason == "token_consumed"
+        assert AuditLog.all_objects.count() == count_after_first
+
+    def test_simulated_integrity_error_race_writes_no_audit_log(
+        self, gym_tenant, gym_reception, member_with_active_sub
+    ):
+        """Simulated concurrent race / IntegrityError on scan rolls back and writes NO audit row."""
+        token_str, _ = issue_member_qr_token(member_with_active_sub)
+        count_before = AuditLog.all_objects.count()
+
+        from unittest.mock import patch
+
+        from django.db import IntegrityError
+
+        from apps.attendance.models import Attendance
+
+        with patch.object(
+            Attendance.all_objects,
+            "create",
+            side_effect=IntegrityError(
+                "duplicate key value violates unique constraint"
+            ),
+        ):
+            with pytest.raises(ScanValidationError) as exc_info:
+                verify_and_process_scan(
+                    token_str=token_str,
+                    gym=gym_tenant,
+                    recorded_by=gym_reception,
+                )
+            assert exc_info.value.reason == "already_checked_in"
+
+        assert AuditLog.all_objects.count() == count_before
+
+    def test_failed_password_reset_confirm_writes_no_audit_log(self, gym_tenant):
+        count_before = AuditLog.all_objects.count()
+        with pytest.raises(ValidationError):
+            confirm_password_reset(
+                raw_token="invalid-token",
+                new_password="NewSecurePassword123!",
+                tenant=gym_tenant,
+            )
+        assert AuditLog.all_objects.count() == count_before
+
+    def test_failed_set_password_from_invite_writes_no_audit_log(self, gym_tenant):
+        count_before = AuditLog.all_objects.count()
+        with pytest.raises(ValidationError):
+            set_password_from_invite(
+                raw_token="invalid-invite-token",
+                new_password="NewSecurePassword123!",
+                tenant=gym_tenant,
+            )
+        assert AuditLog.all_objects.count() == count_before
+
+    def test_failed_email_verification_writes_no_audit_log(self, gym_tenant):
+        count_before = AuditLog.all_objects.count()
+        with pytest.raises(ValidationError):
+            verify_member_email(raw_token="invalid-token", tenant=gym_tenant)
+        assert AuditLog.all_objects.count() == count_before
+
+    def test_failed_gym_tls_confirm_writes_no_audit_log(self, super_admin):
+        import uuid
+
+        count_before = AuditLog.all_objects.count()
+        with pytest.raises(Exception):
+            confirm_gym_tls(gym_id=uuid.uuid4(), acting_super_admin=super_admin)
+        assert AuditLog.all_objects.count() == count_before
+
+    def test_failed_gym_settings_update_writes_no_audit_log(
+        self, gym_reception, gym_tenant
+    ):
+        count_before = AuditLog.all_objects.count()
+        from rest_framework.exceptions import PermissionDenied
+
+        with pytest.raises(PermissionDenied):
+            update_gym_settings(
+                gym=gym_tenant,
+                acting_user=gym_reception,
+                data={"brand_color": "#123456"},
             )
         assert AuditLog.all_objects.count() == count_before
 

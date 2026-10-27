@@ -127,4 +127,80 @@ describe("SetPasswordScreen", () => {
       screen.getByRole("button", { name: /proceed to sign in/i })
     ).toBeInTheDocument();
   });
+
+  it("displays clear security verification message when backend returns 503 still_securing", async () => {
+    window.history.pushState(
+      {},
+      "",
+      "/set-password?token=secretInviteToken999"
+    );
+    vi.mocked(gymsApi.setPasswordFromInvite).mockRejectedValue({
+      status: 503,
+      data: { detail: "still_securing" },
+    });
+
+    render(
+      <BrowserRouter>
+        <SetPasswordScreen />
+      </BrowserRouter>
+    );
+
+    await userEvent.type(
+      screen.getByLabelText(/^new password/i),
+      "ValidStrongPassword123!"
+    );
+    await userEvent.type(
+      screen.getByLabelText(/^confirm password/i),
+      "ValidStrongPassword123!"
+    );
+
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: /activate account & set password/i,
+      })
+    );
+
+    expect(
+      await screen.findByText(
+        /currently being secured with an SSL certificate/i
+      )
+    ).toBeInTheDocument();
+  });
+
+  it("displays expired message when invite token has expired", async () => {
+    window.history.pushState(
+      {},
+      "",
+      "/set-password?token=secretInviteToken999"
+    );
+    vi.mocked(gymsApi.setPasswordFromInvite).mockRejectedValue({
+      status: 400,
+      data: { detail: "token_expired" },
+    });
+
+    render(
+      <BrowserRouter>
+        <SetPasswordScreen />
+      </BrowserRouter>
+    );
+
+    await userEvent.type(
+      screen.getByLabelText(/^new password/i),
+      "ValidStrongPassword123!"
+    );
+    await userEvent.type(
+      screen.getByLabelText(/^confirm password/i),
+      "ValidStrongPassword123!"
+    );
+
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: /activate account & set password/i,
+      })
+    );
+
+    expect(
+      await screen.findByText(/this invitation link has expired/i)
+    ).toBeInTheDocument();
+  });
 });

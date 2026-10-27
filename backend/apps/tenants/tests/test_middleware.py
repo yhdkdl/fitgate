@@ -173,21 +173,21 @@ class TestTenantSubdomainMiddleware:
     # -------------------------------------------------------------------------
 
     @override_settings(
-        DOMAIN="fitgate.org",
-        ALLOWED_HOSTS=["fitgate.org", ".fitgate.org"],
+        DOMAIN="fitgate.tebebtech.com",
+        ALLOWED_HOSTS=["fitgate.tebebtech.com", ".fitgate.tebebtech.com"],
     )
     def test_single_label_domain_resolution_and_apex(self, factory, gym_tenant):
         """Single-label DOMAIN handles both subdomain resolution and apex access."""
         middleware = TenantSubdomainMiddleware(lambda req: HttpResponse("OK"))
 
         # Subdomain request
-        req_sub = factory.get("/", HTTP_HOST="gymname.fitgate.org")
+        req_sub = factory.get("/", HTTP_HOST="gymname.fitgate.tebebtech.com")
         res_sub = middleware(req_sub)
         assert res_sub.status_code == 200
         assert req_sub.tenant == gym_tenant
 
         # Apex request
-        req_apex = factory.get("/", HTTP_HOST="fitgate.org")
+        req_apex = factory.get("/", HTTP_HOST="fitgate.tebebtech.com")
         res_apex = middleware(req_apex)
         assert res_apex.status_code == 200
         assert req_apex.tenant is None
@@ -361,6 +361,29 @@ class TestTenantSubdomainMiddleware:
         import importlib
 
         from django.core.exceptions import ImproperlyConfigured
+
+        prod_env = {
+            "CPANEL_USE_MOCK": "False",
+            "CPANEL_HOST": "https://cpanel.example.com:2083",
+            "CPANEL_USERNAME": "testuser",
+            "CPANEL_API_TOKEN": "token123",
+            "CPANEL_ROOT_DOMAIN": "tebebtech.com",
+            "CPANEL_SUBDOMAIN_DOCROOT": "public_html/fitgate",
+            "TENANT_CREDENTIALS_KEY": "a" * 32,
+            "QR_JWT_PRIVATE_KEY": "privkey",
+            "QR_JWT_PUBLIC_KEY": "pubkey",
+            "EMAIL_HOST": "smtp.example.com",
+            "EMAIL_PORT": "587",
+            "EMAIL_HOST_USER": "mailer",
+            "EMAIL_HOST_PASSWORD": "password",
+            "EMAIL_USE_TLS": "True",
+            "EMAIL_USE_SSL": "False",
+            "DEFAULT_FROM_EMAIL": "noreply@fitgate.tebebtech.com",
+            "MEDIA_ROOT": "/tmp/fitgate_media",
+            "LOG_DIR": "/tmp/fitgate_logs",
+        }
+        for k, v in prod_env.items():
+            monkeypatch.setenv(k, v)
 
         from fitgate.settings import base, local, prod
 

@@ -17,10 +17,7 @@ class DemoRequestRateThrottle(SimpleRateThrottle):
 
     def __init__(self):
         super().__init__()
-        if "db_cache" in caches:
-            self.cache = caches["db_cache"]
-        else:
-            self.cache = caches["default"]
+        self.cache = caches["default"]
 
     def get_cache_key(self, request, view):
         ident = self.get_ident(request)
