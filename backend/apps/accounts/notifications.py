@@ -83,77 +83,103 @@ def is_recipient_allowed_by_staging_allowlist(email_addr: str) -> bool:
 def check_and_increment_email_rate_caps(gym: Optional[Any] = None) -> bool:
     """
     Check hourly email dispatch rate caps per gym and platform-wide.
+    Enforced directly in PostgreSQL with atomic select_for_update.
+    Does not depend on Redis and does not fail open.
     Raises ValidationError("email limit reached") if cap is exceeded.
     """
-    from django.core.cache import cache
     from django.core.exceptions import ValidationError
+    from django.db import transaction
     from django.utils import timezone
+
+    from apps.accounts.models import EmailRateCapCounter
 
     current_hour_str = timezone.now().strftime("%Y%m%d%H")
 
     # Platform hourly cap
     platform_cap = getattr(settings, "EMAIL_HOURLY_CAP_PLATFORM", 500)
-    platform_key = f"email_rate_cap:platform:{current_hour_str}"
-    try:
-        current_platform = cache.get(platform_key, 0)
-        if current_platform >= platform_cap:
-            logger.warning(
-                "Platform email rate cap exceeded (%d >= %d).",
-                current_platform,
-                platform_cap,
-            )
-            raise ValidationError("email limit reached")
-    except ValidationError:
-        raise
-    except Exception as e:
-        logger.warning("Cache access error checking platform email cap: %s", e)
+    platform_bucket = f"platform:{current_hour_str}"
 
     # Gym hourly cap
     gym_id = None
     if gym:
         gym_id = gym.id if hasattr(gym, "id") else str(gym)
-    if gym_id:
-        gym_cap = getattr(settings, "EMAIL_HOURLY_CAP_PER_GYM", 100)
-        gym_key = f"email_rate_cap:gym:{gym_id}:{current_hour_str}"
-        try:
-            current_gym = cache.get(gym_key, 0)
-            if current_gym >= gym_cap:
+    gym_bucket = f"gym:{gym_id}:{current_hour_str}" if gym_id else None
+    gym_cap = getattr(settings, "EMAIL_HOURLY_CAP_PER_GYM", 100)
+
+    with transaction.atomic():
+        plat_counter, _ = EmailRateCapCounter.objects.select_for_update().get_or_create(
+            bucket=platform_bucket,
+            defaults={"count": 0},
+        )
+        if plat_counter.count >= platform_cap:
+            logger.warning(
+                "Platform email rate cap exceeded (%d >= %d).",
+                plat_counter.count,
+                platform_cap,
+            )
+            raise ValidationError("email limit reached")
+
+        if gym_bucket:
+            (
+                gym_counter,
+                _,
+            ) = EmailRateCapCounter.objects.select_for_update().get_or_create(
+                bucket=gym_bucket,
+                defaults={"count": 0},
+            )
+            if gym_counter.count >= gym_cap:
                 logger.warning(
                     "Gym %s email rate cap exceeded (%d >= %d).",
                     gym_id,
-                    current_gym,
+                    gym_counter.count,
                     gym_cap,
                 )
                 raise ValidationError("email limit reached")
-        except ValidationError:
-            raise
-        except Exception as e:
-            logger.warning("Cache access error checking gym email cap: %s", e)
 
     return True
 
 
 def record_email_rate_cap_dispatch(gym: Optional[Any] = None, count: int = 1) -> None:
-    """Increment hourly email dispatch counters in cache."""
-    from django.core.cache import cache
+    """
+    Increment hourly email dispatch counters atomically in the database.
+    """
+    from django.db import transaction
+    from django.db.models import F
     from django.utils import timezone
 
+    from apps.accounts.models import EmailRateCapCounter
+
     current_hour_str = timezone.now().strftime("%Y%m%d%H")
-    platform_key = f"email_rate_cap:platform:{current_hour_str}"
-    try:
-        cache.set(platform_key, cache.get(platform_key, 0) + count, timeout=3700)
-    except Exception:
-        pass
+    platform_bucket = f"platform:{current_hour_str}"
 
     gym_id = None
     if gym:
         gym_id = gym.id if hasattr(gym, "id") else str(gym)
-    if gym_id:
-        gym_key = f"email_rate_cap:gym:{gym_id}:{current_hour_str}"
-        try:
-            cache.set(gym_key, cache.get(gym_key, 0) + count, timeout=3700)
-        except Exception:
-            pass
+    gym_bucket = f"gym:{gym_id}:{current_hour_str}" if gym_id else None
+
+    with transaction.atomic():
+        (
+            plat_counter,
+            created,
+        ) = EmailRateCapCounter.objects.select_for_update().get_or_create(
+            bucket=platform_bucket,
+            defaults={"count": count},
+        )
+        if not created:
+            plat_counter.count = F("count") + count
+            plat_counter.save(update_fields=["count", "updated_at"])
+
+        if gym_bucket:
+            (
+                gym_counter,
+                created,
+            ) = EmailRateCapCounter.objects.select_for_update().get_or_create(
+                bucket=gym_bucket,
+                defaults={"count": count},
+            )
+            if not created:
+                gym_counter.count = F("count") + count
+                gym_counter.save(update_fields=["count", "updated_at"])
 
 
 def send_fitgate_email(

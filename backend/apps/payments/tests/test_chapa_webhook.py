@@ -766,3 +766,89 @@ class TestChapaWebhookSafety:
         assert payment.amount_etb == original_amount
         assert payment.member == original_member
         assert payment.plan == original_plan
+
+    def test_dev_tunnel_host_allows_chapa_webhook_with_valid_signature(
+        self, setup_data, settings
+    ):
+        """Requests via DEV_TUNNEL_HOST reach Chapa webhook and confirm payment upon valid signature."""
+        settings.DEV_TUNNEL_HOST = "tunnel-abc.ngrok-free.app"
+        if "tunnel-abc.ngrok-free.app" not in settings.ALLOWED_HOSTS:
+            settings.ALLOWED_HOSTS = list(settings.ALLOWED_HOSTS) + [
+                "tunnel-abc.ngrok-free.app"
+            ]
+
+        client = APIClient()
+        payment = setup_data["payment"]
+        tx_ref = setup_data["tx_ref"]
+        config = setup_data["config"]
+
+        payload = {"event": "charge.success", "tx_ref": tx_ref}
+        body, sig = self._sign_payload(payload, config.webhook_secret)
+
+        mock_verify_resp = {
+            "status": "success",
+            "message": "Payment verified",
+            "data": {
+                "status": "success",
+                "amount": float(payment.amount_etb),
+                "currency": "ETB",
+                "tx_ref": tx_ref,
+            },
+        }
+
+        with patch("apps.payments.services.ChapaClient") as mock_client_cls:
+            mock_client_instance = mock_client_cls.return_value
+            mock_client_instance.verify_transaction.return_value = mock_verify_resp
+
+            resp = client.post(
+                "/api/webhooks/chapa/",
+                data=body,
+                content_type="application/json",
+                HTTP_X_CHAPA_SIGNATURE=sig,
+                HTTP_HOST="tunnel-abc.ngrok-free.app",
+            )
+
+        assert resp.status_code == status.HTTP_200_OK
+        payment.refresh_from_db()
+        assert payment.status == Payment.STATUS_CONFIRMED
+
+    def test_dev_tunnel_host_blocks_non_webhook_routes(self, setup_data, settings):
+        """Requests via DEV_TUNNEL_HOST to any path other than /api/webhooks/chapa return 403."""
+        settings.DEV_TUNNEL_HOST = "tunnel-abc.ngrok-free.app"
+        if "tunnel-abc.ngrok-free.app" not in settings.ALLOWED_HOSTS:
+            settings.ALLOWED_HOSTS = list(settings.ALLOWED_HOSTS) + [
+                "tunnel-abc.ngrok-free.app"
+            ]
+
+        client = APIClient()
+        resp = client.get(
+            "/api/auth/profile/",
+            HTTP_HOST="tunnel-abc.ngrok-free.app",
+        )
+        assert resp.status_code == status.HTTP_403_FORBIDDEN
+        assert resp.json() == {
+            "detail": "Tunnel host only permitted for payment webhooks."
+        }
+
+    def test_dev_tunnel_host_enforces_signature_check(self, setup_data, settings):
+        """Requests via DEV_TUNNEL_HOST with invalid or missing signature return 401."""
+        settings.DEV_TUNNEL_HOST = "tunnel-abc.ngrok-free.app"
+        if "tunnel-abc.ngrok-free.app" not in settings.ALLOWED_HOSTS:
+            settings.ALLOWED_HOSTS = list(settings.ALLOWED_HOSTS) + [
+                "tunnel-abc.ngrok-free.app"
+            ]
+
+        client = APIClient()
+        tx_ref = setup_data["tx_ref"]
+
+        payload = {"event": "charge.success", "tx_ref": tx_ref}
+        body, _ = self._sign_payload(payload, "wrong_secret")
+
+        resp = client.post(
+            "/api/webhooks/chapa/",
+            data=body,
+            content_type="application/json",
+            HTTP_X_CHAPA_SIGNATURE="forged_signature",
+            HTTP_HOST="tunnel-abc.ngrok-free.app",
+        )
+        assert resp.status_code == status.HTTP_401_UNAUTHORIZED

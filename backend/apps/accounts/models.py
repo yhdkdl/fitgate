@@ -340,3 +340,25 @@ class EmailDeliveryStatus(PlatformTenantAwareModel):
 
     def __str__(self):
         return f"{self.email} ({self.status}: {self.reason})"
+
+
+class EmailRateCapCounter(models.Model):
+    """
+    Atomic database counter for hourly email dispatch rate caps.
+    Ensures per-gym and per-platform hourly limits are strictly enforced
+    even when Redis is unavailable or unconfigured.
+    """
+
+    bucket = models.CharField(max_length=120, unique=True, db_index=True)
+    count = models.PositiveIntegerField(default=0)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Email Rate Cap Counter"
+        verbose_name_plural = "Email Rate Cap Counters"
+        indexes = [
+            models.Index(fields=["bucket"]),
+        ]
+
+    def __str__(self):
+        return f"EmailRateCapCounter({self.bucket}: {self.count})"

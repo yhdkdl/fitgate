@@ -335,3 +335,69 @@ class TestDailyMembershipSweep:
             # Check in-app notifications
             assert Notification.all_objects.filter(recipient=user_alpha).count() >= 1
             assert Notification.all_objects.filter(recipient=user_beta).count() == 0
+
+
+@pytest.mark.django_db
+class TestUnverifiedMemberCleanup:
+    """
+    Test Item 2: Unverified self-registered accounts older than 7 days must be
+    marked EXPIRED, not deleted. An expired unverified account cannot log in or verify;
+    the person can register again.
+    """
+
+    def test_unverified_member_older_than_7_days_marked_expired_and_can_reregister(
+        self, db
+    ):
+        from django.contrib.auth import authenticate
+        from django.core.exceptions import ValidationError
+
+        from apps.memberships.services import (
+            register_member_self_service,
+            verify_member_email,
+        )
+
+        gym = GymTenant.objects.create(name="Omega Gym", subdomain="omega")
+
+        # 1. Register a member self-service
+        reg_payload = {
+            "full_name": "Kenenisa Bekele",
+            "email": "kenenisa@example.com",
+            "phone": "+251911999888",
+            "password": "StrongPassword123!",
+            "waiver_accepted": True,
+        }
+        member, raw_token = register_member_self_service(gym, reg_payload)
+        user = member.user
+
+        # Backdate user.created_at to 8 days ago
+        User.all_objects.filter(id=user.id).update(
+            created_at=timezone.now() - timedelta(days=8)
+        )
+        user.refresh_from_db()
+
+        # 2. Run cleanup_unverified_members
+        call_command("cleanup_unverified_members")
+
+        user.refresh_from_db()
+        member.refresh_from_db()
+
+        # Account is marked EXPIRED and deactivated, NOT deleted!
+        assert user.is_active is False
+        assert member.status == Member.STATUS_EXPIRED
+
+        # 3. Cannot log in (inactive account)
+        auth_user = authenticate(
+            email="kenenisa@example.com", password="StrongPassword123!"
+        )
+        assert auth_user is None
+
+        # 4. Cannot verify with verification token
+        with pytest.raises(ValidationError):
+            verify_member_email(raw_token, tenant=gym)
+
+        # 5. Person CAN register again with the same email
+        member2, raw_token2 = register_member_self_service(gym, reg_payload)
+        assert member2 is not None
+        assert member2.user.email == "kenenisa@example.com"
+        assert member2.user.is_active is True
+        assert member2.status == Member.STATUS_PENDING

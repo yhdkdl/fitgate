@@ -49,6 +49,7 @@ PUBLIC_PORT = env.str("PUBLIC_PORT", default="")
 
 # Multi-tenancy platform hosts (empty by default in production)
 TENANT_EXTRA_PLATFORM_HOSTS: list[str] = []
+DEV_TUNNEL_HOST: str = ""
 
 # Allowed hosts derived from DOMAIN without wildcard
 ALLOWED_HOSTS = build_allowed_hosts(DOMAIN)
