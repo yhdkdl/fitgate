@@ -84,11 +84,21 @@ export interface StaffMemberRegistrationPayload {
   emergency_contact?: string;
   referral_source?: string;
   photo_url?: string;
+  plan_id?: string;
+  payment_method?: "none" | "cash" | "bank_transfer";
+  idempotency_key?: string;
+  notes?: string;
+  bank_reference?: string;
+  transfer_date?: string;
+  channel?: string;
+  screenshot?: File;
 }
 
 export interface MemberRegistrationResponse {
   detail: string;
   member: Member;
+  payment?: unknown;
+  receipt?: import("./payments").DigitalReceipt;
 }
 
 /**
@@ -155,13 +165,59 @@ export async function listGymMembers(params?: {
 }
 
 /**
- * Staff-assisted member registration.
+ * Staff-assisted member registration with integrated atomic payment (Item 12).
  */
 export async function registerMemberStaffAssisted(
   payload: StaffMemberRegistrationPayload
 ): Promise<MemberRegistrationResponse> {
+  let body: BodyInit;
+  const headers: Record<string, string> = { ...getAuthHeader() };
+
+  if (payload.screenshot) {
+    const formData = new FormData();
+    Object.entries(payload).forEach(([key, val]) => {
+      if (val !== undefined && val !== null) {
+        if (key === "screenshot" && val instanceof File) {
+          formData.append("screenshot", val);
+        } else {
+          formData.append(key, String(val));
+        }
+      }
+    });
+    body = formData;
+  } else {
+    headers["Content-Type"] = "application/json";
+    body = JSON.stringify(payload);
+  }
+
   const res = await fetch("/api/gym/members/", {
     method: "POST",
+    headers,
+    body,
+  });
+
+  return handleResponse<MemberRegistrationResponse>(
+    res,
+    "Staff member registration failed."
+  );
+}
+
+/**
+ * Staff member edit (Owner, Manager, Reception - Item 14).
+ */
+export async function updateGymMember(
+  memberId: string,
+  payload: {
+    full_name?: string;
+    phone?: string;
+    emergency_contact?: string;
+    gender?: string;
+    date_of_birth?: string | null;
+    photo_url?: string;
+  }
+): Promise<Member> {
+  const res = await fetch(`/api/gym/members/${memberId}/`, {
+    method: "PATCH",
     headers: {
       "Content-Type": "application/json",
       ...getAuthHeader(),
@@ -169,10 +225,7 @@ export async function registerMemberStaffAssisted(
     body: JSON.stringify(payload),
   });
 
-  return handleResponse<MemberRegistrationResponse>(
-    res,
-    "Staff member registration failed."
-  );
+  return handleResponse<Member>(res, "Failed to update member profile.");
 }
 
 /**

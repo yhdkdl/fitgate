@@ -2,14 +2,17 @@
 
 import logging
 import secrets
+import uuid
 from decimal import Decimal
 
 from django.conf import settings
 from django.core.exceptions import PermissionDenied, ValidationError
-from django.db.models import Sum
+from django.db.models import Q, Sum
+from django.http import FileResponse
 from django.utils import timezone
 from drf_spectacular.utils import OpenApiResponse, extend_schema
 from rest_framework import status
+from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
 from rest_framework.permissions import AllowAny, BasePermission, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.throttling import AnonRateThrottle
@@ -49,6 +52,10 @@ from apps.payments.services import (
     reverse_bank_transfer_payment,
 )
 from apps.tenants.models import GymTenant
+from apps.tenants.storage import (
+    get_bank_transfer_screenshot_stream,
+    save_bank_transfer_screenshot,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -746,9 +753,16 @@ class ReceiptDetailView(APIView):
     )
     def get(self, request, receipt_id, *args, **kwargs):
         tenant = getattr(request, "tenant", None)
+        lookup = Q(receipt_number=receipt_id)
+        try:
+            uuid.UUID(str(receipt_id))
+            lookup = lookup | Q(id=receipt_id) | Q(payment_id=receipt_id)
+        except (ValueError, AttributeError):
+            pass
+
         receipt = (
             Receipt.all_objects.select_related("gym", "issued_by", "payment__member")
-            .filter(id=receipt_id)
+            .filter(lookup)
             .first()
         )
         if not receipt:
@@ -829,6 +843,7 @@ class RecordBankTransferPaymentView(APIView):
     Denied: Member, Trainer, Super Admin (403). Other gyms (403).
     """
 
+    parser_classes = [MultiPartParser, FormParser, JSONParser]
     permission_classes = [
         IsAuthenticated,
         RequirePasswordChanged,
@@ -852,6 +867,31 @@ class RecordBankTransferPaymentView(APIView):
                 {"detail": "Tenant required."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
+
+        transfer_screenshot = ""
+        screenshot_file = request.FILES.get("screenshot") or request.FILES.get(
+            "transfer_screenshot"
+        )
+        if (
+            request.content_type
+            and "multipart" in request.content_type
+            and not screenshot_file
+        ):
+            return Response(
+                {"detail": "Bank transfer screenshot is required."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if screenshot_file:
+            try:
+                transfer_screenshot = save_bank_transfer_screenshot(
+                    tenant.id, screenshot_file
+                )
+            except ValidationError as exc:
+                detail = (
+                    exc.message_dict if hasattr(exc, "message_dict") else exc.messages
+                )
+                return Response({"detail": detail}, status=status.HTTP_400_BAD_REQUEST)
 
         serializer = RecordBankTransferPaymentRequestSerializer(data=request.data)
         if not serializer.is_valid():
@@ -893,6 +933,7 @@ class RecordBankTransferPaymentView(APIView):
                 bank_reference=bank_reference,
                 transfer_date=transfer_date,
                 channel=channel,
+                transfer_screenshot=transfer_screenshot,
                 notes=notes,
                 idempotency_key=idempotency_key or None,
             )
@@ -915,6 +956,108 @@ class RecordBankTransferPaymentView(APIView):
                 "subscription_id": (str(subscription.id) if subscription else None),
             },
             status=status.HTTP_201_CREATED,
+        )
+
+
+class BankTransferScreenshotView(APIView):
+    """
+    Stream bank transfer screenshot image.
+    Allowed: Owner, Manager of same gym, or the staff member who confirmed the payment.
+    Denied: Super Admin (403), Member (403), cross-gym (403), other staff (403).
+    """
+
+    permission_classes = [IsAuthenticated, RequirePasswordChanged]
+
+    @extend_schema(
+        summary="Stream bank transfer screenshot",
+        description="Stream bank transfer screenshot image for staff verification.",
+        responses={
+            200: OpenApiResponse(description="Screenshot image stream"),
+            403: OpenApiResponse(description="Permission denied"),
+            404: OpenApiResponse(description="Screenshot or payment not found"),
+        },
+    )
+    def get(self, request, payment_id, *args, **kwargs):
+        user = request.user
+        if user.role in (User.ROLE_SUPER_ADMIN, User.ROLE_MEMBER):
+            return Response(
+                {"detail": "Permission denied."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        tenant = getattr(request, "tenant", None)
+        if not tenant:
+            return Response(
+                {"detail": "Tenant required."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if user.gym_id != tenant.id:
+            return Response(
+                {"detail": "Permission denied."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        payment = Payment.all_objects.filter(id=payment_id, gym=tenant).first()
+        if not payment:
+            return Response(
+                {"detail": "Payment not found."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        is_allowed = user.role in (User.ROLE_OWNER, User.ROLE_MANAGER) or (
+            user.role == User.ROLE_RECEPTION and payment.confirmed_by_id == user.id
+        )
+        if not is_allowed:
+            return Response(
+                {"detail": "Permission denied."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        if not payment.transfer_screenshot:
+            return Response(
+                {"detail": "No screenshot recorded for this transfer."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        try:
+            stream, content_type = get_bank_transfer_screenshot_stream(
+                payment.transfer_screenshot
+            )
+        except (FileNotFoundError, ValidationError):
+            return Response(
+                {"detail": "Screenshot file not found on disk."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        return FileResponse(stream, content_type=content_type)
+
+
+class GymPaymentPublicStatusView(APIView):
+    """
+    Public / member-accessible check for whether the current gym has online payment verified.
+    """
+
+    permission_classes = [AllowAny]
+    authentication_classes = []
+
+    @extend_schema(
+        summary="Check gym online payment status",
+        description="Returns whether online payment is configured and verified for the tenant gym.",
+        responses={200: OpenApiResponse(description="Online payment status")},
+    )
+    def get(self, request, *args, **kwargs):
+        tenant = getattr(request, "tenant", None)
+        if not tenant:
+            return Response(
+                {"online_payment_verified": False},
+                status=status.HTTP_200_OK,
+            )
+        config = GymPaymentConfig.all_objects.filter(gym=tenant).first()
+        is_verified = bool(config and config.is_configured and config.is_verified)
+        return Response(
+            {"online_payment_verified": is_verified},
+            status=status.HTTP_200_OK,
         )
 
 
@@ -976,6 +1119,12 @@ class UnreconciledBankTransfersView(APIView):
                         t.confirmed_by.full_name if t.confirmed_by else ""
                     ),
                     "receipt_number": receipt_no,
+                    "has_screenshot": bool(t.transfer_screenshot),
+                    "screenshot_url": (
+                        f"/api/gym/payments/bank-transfers/{t.id}/screenshot/"
+                        if t.transfer_screenshot
+                        else None
+                    ),
                 }
             )
 

@@ -273,6 +273,8 @@ class UnreconciledBankTransferItemSerializer(serializers.Serializer):
     confirmed_by_id = serializers.UUIDField(allow_null=True)
     confirmed_by_name = serializers.CharField()
     receipt_number = serializers.CharField()
+    has_screenshot = serializers.BooleanField(default=False)
+    screenshot_url = serializers.CharField(allow_null=True, required=False)
 
 
 class ReconcileBankTransfersSerializer(serializers.Serializer):

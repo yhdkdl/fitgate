@@ -25,6 +25,7 @@ class GymTenantSummarySerializer(serializers.ModelSerializer):
     """Summary of a gym tenant."""
 
     url = serializers.SerializerMethodField()
+    owner_email = serializers.SerializerMethodField()
 
     class Meta:
         model = GymTenant
@@ -40,6 +41,7 @@ class GymTenantSummarySerializer(serializers.ModelSerializer):
             "contact_name",
             "contact_phone",
             "contact_email",
+            "owner_email",
             "subscription_expires_at",
             "tls_confirmed_at",
             "created_at",
@@ -48,8 +50,15 @@ class GymTenantSummarySerializer(serializers.ModelSerializer):
         read_only_fields = fields
 
     def get_url(self, obj) -> str:
+        scheme = getattr(settings, "PUBLIC_URL_SCHEME", "https")
         domain = getattr(settings, "DOMAIN", "fitgate.tebebtech.com")
-        return f"https://{obj.subdomain}.{domain}/"
+        port = getattr(settings, "PUBLIC_PORT", "")
+        port_suffix = f":{port}" if port else ""
+        return f"{scheme}://{obj.subdomain}.{domain}{port_suffix}/"
+
+    def get_owner_email(self, obj) -> str:
+        owner = obj.users.filter(role="owner").first()
+        return owner.email if owner else (obj.contact_email or "")
 
 
 class GymConfigSerializer(serializers.ModelSerializer):
@@ -64,6 +73,7 @@ class GymConfigSerializer(serializers.ModelSerializer):
             "has_group_classes",
             "has_multi_branch",
             "freeze_days_allowed",
+            "freeze_days_cap",
             "payment_grace_days",
             "subscription_reminder_days",
             "member_reminder_days",
@@ -321,6 +331,7 @@ class GymSettingsUpdateSerializer(serializers.Serializer):
         "brand_color",
         "show_unavailable_equipment",
         "member_reminder_days",
+        "freeze_days_allowed",
     }
     ENTITLEMENT_FIELDS = {
         "tier",
@@ -329,9 +340,9 @@ class GymSettingsUpdateSerializer(serializers.Serializer):
         "has_analytics",
         "has_group_classes",
         "has_multi_branch",
-        "freeze_days_allowed",
         "payment_grace_days",
         "subscription_reminder_days",
+        "freeze_days_cap",
     }
 
     brand_color = serializers.CharField(
@@ -343,6 +354,7 @@ class GymSettingsUpdateSerializer(serializers.Serializer):
         max_length=10,
         required=False,
     )
+    freeze_days_allowed = serializers.IntegerField(min_value=0, required=False)
 
     def to_internal_value(self, data):
         if not isinstance(data, dict):
@@ -400,3 +412,4 @@ class GymPublicEntryResponseSerializer(serializers.Serializer):
     location = serializers.CharField(required=False, allow_blank=True)
     currency = serializers.CharField(required=False)
     message = serializers.CharField(required=False)
+    online_payment_verified = serializers.BooleanField(default=False)

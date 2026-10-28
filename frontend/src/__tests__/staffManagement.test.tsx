@@ -43,6 +43,8 @@ const mockStaffList: staffApi.StaffMember[] = [
     is_active: true,
     email_verified_at: "2026-10-14T00:00:00Z",
     created_at: "2026-10-14T00:00:00Z",
+    invitation_status: "activated",
+    email_delivery_message: null,
   },
   {
     id: "mgr-1",
@@ -54,6 +56,8 @@ const mockStaffList: staffApi.StaffMember[] = [
     is_active: true,
     email_verified_at: "2026-10-14T00:00:00Z",
     created_at: "2026-10-14T00:00:00Z",
+    invitation_status: "activated",
+    email_delivery_message: null,
   },
   {
     id: "trainer-1",
@@ -65,6 +69,8 @@ const mockStaffList: staffApi.StaffMember[] = [
     is_active: true,
     email_verified_at: "2026-10-14T00:00:00Z",
     created_at: "2026-10-14T00:00:00Z",
+    invitation_status: "activated",
+    email_delivery_message: null,
   },
   {
     id: "rec-1",
@@ -76,6 +82,8 @@ const mockStaffList: staffApi.StaffMember[] = [
     is_active: false,
     email_verified_at: "2026-10-14T00:00:00Z",
     created_at: "2026-10-14T00:00:00Z",
+    invitation_status: "activated",
+    email_delivery_message: null,
   },
 ];
 
@@ -154,6 +162,8 @@ describe("Sprint 6: Staff Management UI", () => {
         is_active: true,
         email_verified_at: "2026-10-14T00:00:00Z",
         created_at: "2026-10-14T00:00:00Z",
+        invitation_status: "sent",
+        email_delivery_message: null,
       },
     });
 

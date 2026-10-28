@@ -24,6 +24,18 @@ export default defineConfig({
           });
         },
       },
+      "/media": {
+        target: process.env.API_PROXY_TARGET || "http://backend:8000",
+        changeOrigin: false,
+        configure: (proxy) => {
+          proxy.on("proxyReq", (proxyReq, req) => {
+            if (req.headers.host) {
+              proxyReq.setHeader("Host", req.headers.host);
+              proxyReq.setHeader("X-Forwarded-Host", req.headers.host);
+            }
+          });
+        },
+      },
     },
   },
   test: {

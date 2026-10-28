@@ -38,6 +38,7 @@ describe("Sprint 4c: Gym branding, entry page, first-run checklist", () => {
       vi.mocked(gymsApi.getPublicGymEntry).mockResolvedValue({
         still_securing: true,
         name: "Bole Power Fitness",
+        online_payment_verified: false,
         message:
           "This gym portal is still being secured. Please check back shortly.",
       });
@@ -73,6 +74,7 @@ describe("Sprint 4c: Gym branding, entry page, first-run checklist", () => {
         phone: "+251911223344",
         location: "Bole Atlas, Addis Ababa",
         currency: "ETB",
+        online_payment_verified: true,
       });
 
       render(
@@ -171,6 +173,7 @@ describe("Sprint 4c: Gym branding, entry page, first-run checklist", () => {
       has_analytics: false,
       has_group_classes: false,
       has_multi_branch: false,
+      freeze_days_cap: 30,
       freeze_days_allowed: 0,
       payment_grace_days: 7,
       subscription_reminder_days: [14, 7],

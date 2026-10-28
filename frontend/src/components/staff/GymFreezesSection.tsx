@@ -21,7 +21,9 @@ export const GymFreezesSection: React.FC = () => {
 
   // Rejection modal state
   const [rejectModalOpen, setRejectModalOpen] = useState(false);
-  const [selectedFreeze, setSelectedFreeze] = useState<MemberFreeze | null>(null);
+  const [selectedFreeze, setSelectedFreeze] = useState<MemberFreeze | null>(
+    null
+  );
   const [rejectionReason, setRejectionReason] = useState("");
   const [actionLoading, setActionLoading] = useState(false);
   const [modalError, setModalError] = useState<string | null>(null);
@@ -33,7 +35,9 @@ export const GymFreezesSection: React.FC = () => {
       const data = await getGymFreezes(statusFilter || undefined);
       setFreezes(data);
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Failed to load freeze requests.");
+      setError(
+        err instanceof Error ? err.message : "Failed to load freeze requests."
+      );
     } finally {
       setLoading(false);
     }
@@ -44,9 +48,10 @@ export const GymFreezesSection: React.FC = () => {
   }, [fetchFreezes]);
 
   const handleApprove = async (freeze: MemberFreeze) => {
+    const memberName = freeze.member?.full_name || "the member";
     if (
       !window.confirm(
-        `Approve freeze for ${freeze.member.full_name} for ${freeze.days} day(s)? This will pause their pass and extend their membership end date.`
+        `Approve freeze for ${memberName} for ${freeze.days} day(s)? This will pause their pass and extend their membership end date.`
       )
     ) {
       return;
@@ -60,7 +65,9 @@ export const GymFreezesSection: React.FC = () => {
       setSuccessMessage(res.detail || "Freeze request approved successfully.");
       await fetchFreezes();
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Failed to approve freeze request.");
+      setError(
+        err instanceof Error ? err.message : "Failed to approve freeze request."
+      );
     } finally {
       setActionLoading(false);
     }
@@ -79,7 +86,9 @@ export const GymFreezesSection: React.FC = () => {
 
     const trimmed = rejectionReason.trim();
     if (trimmed.length < 5 || trimmed.length > 500) {
-      setModalError("Rejection explanation must be between 5 and 500 characters.");
+      setModalError(
+        "Rejection explanation must be between 5 and 500 characters."
+      );
       return;
     }
 
@@ -92,7 +101,9 @@ export const GymFreezesSection: React.FC = () => {
       setSelectedFreeze(null);
       await fetchFreezes();
     } catch (err: unknown) {
-      setModalError(err instanceof Error ? err.message : "Failed to reject freeze request.");
+      setModalError(
+        err instanceof Error ? err.message : "Failed to reject freeze request."
+      );
     } finally {
       setActionLoading(false);
     }
@@ -115,9 +126,12 @@ export const GymFreezesSection: React.FC = () => {
     <Card className="bg-surface border-border p-6 space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h3 className="text-base font-bold text-text">Membership Freeze Requests</h3>
+          <h3 className="text-base font-bold text-text">
+            Membership Freeze Requests
+          </h3>
           <p className="text-xs text-text-muted mt-0.5">
-            Review, approve, or reject membership freeze requests from gym members.
+            Review, approve, or reject membership freeze requests from gym
+            members.
           </p>
         </div>
 
@@ -152,7 +166,9 @@ export const GymFreezesSection: React.FC = () => {
       {loading ? (
         <div className="p-8 text-center flex flex-col items-center gap-2">
           <Spinner size="sm" />
-          <span className="text-xs text-text-muted">Loading freeze requests...</span>
+          <span className="text-xs text-text-muted">
+            Loading freeze requests...
+          </span>
         </div>
       ) : freezes.length === 0 ? (
         <div className="p-8 text-center text-xs text-text-muted bg-surface-2/30 rounded-lg border border-border/60">
@@ -176,16 +192,23 @@ export const GymFreezesSection: React.FC = () => {
               {freezes.map((f) => (
                 <tr key={f.id} className="hover:bg-surface-2/30">
                   <td className="py-2.5 px-3 font-medium text-text">
-                    <div>{f.member.full_name}</div>
-                    {f.member.phone && (
-                      <div className="text-[11px] text-text-muted">{f.member.phone}</div>
+                    <div>{f.member?.full_name || "Unknown Member"}</div>
+                    {f.member?.phone && (
+                      <div className="text-[11px] text-text-muted">
+                        {f.member.phone}
+                      </div>
                     )}
                   </td>
                   <td className="py-2.5 px-3 text-text">
                     {f.start_date} to {f.end_date}
                   </td>
-                  <td className="py-2.5 px-3 font-semibold text-primary">{f.days}d</td>
-                  <td className="py-2.5 px-3 text-text max-w-[180px] truncate" title={f.reason}>
+                  <td className="py-2.5 px-3 font-semibold text-primary">
+                    {f.days}d
+                  </td>
+                  <td
+                    className="py-2.5 px-3 text-text max-w-[180px] truncate"
+                    title={f.reason}
+                  >
                     {f.reason}
                   </td>
                   <td className="py-2.5 px-3">{getStatusBadge(f.status)}</td>
@@ -195,7 +218,9 @@ export const GymFreezesSection: React.FC = () => {
                         {f.rejection_reason}
                       </span>
                     ) : f.status === "approved" && f.reviewed_at ? (
-                      <span>Approved {new Date(f.reviewed_at).toLocaleDateString()}</span>
+                      <span>
+                        Approved {new Date(f.reviewed_at).toLocaleDateString()}
+                      </span>
                     ) : (
                       "—"
                     )}
@@ -242,8 +267,9 @@ export const GymFreezesSection: React.FC = () => {
 
           <p className="text-xs text-text-muted">
             Provide a clear explanation for rejecting the freeze request for{" "}
-            <strong>{selectedFreeze?.member.full_name}</strong> ({selectedFreeze?.days} day(s)).
-            This will be sent to the member and their pass will remain active.
+            <strong>{selectedFreeze?.member?.full_name || "the member"}</strong>{" "}
+            ({selectedFreeze?.days} day(s)). This will be sent to the member and
+            their pass will remain active.
           </p>
 
           <div>
@@ -273,11 +299,7 @@ export const GymFreezesSection: React.FC = () => {
             >
               Cancel
             </Button>
-            <Button
-              type="submit"
-              variant="danger"
-              disabled={actionLoading}
-            >
+            <Button type="submit" variant="danger" disabled={actionLoading}>
               {actionLoading ? "Rejecting..." : "Confirm Rejection"}
             </Button>
           </div>

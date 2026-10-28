@@ -117,7 +117,6 @@ class TestUserProfileEndpoint:
             (User.ROLE_MANAGER, "alpha.localhost"),
             (User.ROLE_TRAINER, "alpha.localhost"),
             (User.ROLE_RECEPTION, "alpha.localhost"),
-            (User.ROLE_MEMBER, "alpha.localhost"),
         ],
     )
     def test_patch_me_updates_name_and_phone_for_each_role(
@@ -159,6 +158,19 @@ class TestUserProfileEndpoint:
         user.refresh_from_db()
         assert user.phone == ""
 
+    def test_patch_me_member_refused(self, setup_data):
+        """PATCH /api/auth/me/ is refused for members (Item 14)."""
+        member = setup_data["member_a1"]
+        tokens = get_tokens_for_user(member)
+        client = APIClient()
+        client.credentials(HTTP_AUTHORIZATION=f"Bearer {tokens['access']}")
+        resp = client.patch(
+            "/api/auth/me/",
+            {"full_name": "New Name", "phone": "+251911223344"},
+            HTTP_HOST="alpha.localhost",
+        )
+        assert resp.status_code == 403
+
     @pytest.mark.parametrize(
         "invalid_phone",
         [
@@ -172,8 +184,8 @@ class TestUserProfileEndpoint:
     )
     def test_patch_me_invalid_phone_returns_400(self, setup_data, invalid_phone):
         """PATCH /api/auth/me/ with invalid phone format returns 400."""
-        member = setup_data["member_a1"]
-        tokens = get_tokens_for_user(member)
+        owner = setup_data["owner_a"]
+        tokens = get_tokens_for_user(owner)
         client = APIClient()
         client.credentials(HTTP_AUTHORIZATION=f"Bearer {tokens['access']}")
 
@@ -185,8 +197,8 @@ class TestUserProfileEndpoint:
 
     def test_patch_me_whitespace_only_name_returns_400(self, setup_data):
         """PATCH /api/auth/me/ with whitespace-only full_name returns 400."""
-        member = setup_data["member_a1"]
-        tokens = get_tokens_for_user(member)
+        owner = setup_data["owner_a"]
+        tokens = get_tokens_for_user(owner)
         client = APIClient()
         client.credentials(HTTP_AUTHORIZATION=f"Bearer {tokens['access']}")
 
@@ -221,12 +233,12 @@ class TestUserProfileEndpoint:
         PATCH /api/auth/me/ with any privileged field returns 400 naming the field,
         and leaves the database row completely unchanged.
         """
-        member = setup_data["member_a1"]
-        orig_role = member.role
-        orig_email = member.email
-        orig_active = member.is_active
+        owner = setup_data["owner_a"]
+        orig_role = owner.role
+        orig_email = owner.email
+        orig_active = owner.is_active
 
-        tokens = get_tokens_for_user(member)
+        tokens = get_tokens_for_user(owner)
         client = APIClient()
         client.credentials(HTTP_AUTHORIZATION=f"Bearer {tokens['access']}")
 
@@ -244,10 +256,10 @@ class TestUserProfileEndpoint:
             or "privileged" in str(err_data).lower()
         )
 
-        member.refresh_from_db()
-        assert member.role == orig_role
-        assert member.email == orig_email
-        assert member.is_active == orig_active
+        owner.refresh_from_db()
+        assert owner.role == orig_role
+        assert owner.email == orig_email
+        assert owner.is_active == orig_active
 
     def test_me_disallowed_http_methods_return_405(self, setup_data):
         """PUT and DELETE methods on /api/auth/me/ return 405 Method Not Allowed."""

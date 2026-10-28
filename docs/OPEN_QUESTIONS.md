@@ -98,3 +98,33 @@ If less than 90% sure how a requirement should be implemented and the doubt does
       - A daily cron command flags unreconciled transfers older than 7 days, sets a flagged timestamp once, notifies the Owner with a single count summary, and writes an audit log naming confirming staff.
       - The Owner can reverse an unreconciled transfer with a 5-500 character reason. Reversal is recorded in an immutable DB table (`PaymentReversal` with database triggers preventing update/delete), marks the receipt as reversed, excludes the payment from ledger revenue, and restores the subscription to its exact previous state (pending for first purchase, previous end date/status for renewal). Reversal is refused if subsequent payments, freezes, or subscription changes have occurred.
     - **Reason for choice:** Solves real Ethiopian gym payment dynamics while providing strict financial controls against fake SMS/uncredited transfers through Owner-only reconciliation, immutable reversals, and complete state restoration.
+
+19. **Item 12: Owner Freeze Days Setting Gated by Super Admin Entitlement Cap**
+    - **Question/Context:** How does the gym owner configure freeze days allowed, and how does the platform prevent owners from offering excessive freeze durations beyond platform policy?
+    - **Chosen Solution & Policy:** `GymConfig.freeze_days_cap` is introduced as a Super Admin-only entitlement field (default 30 days). The gym Owner can configure `GymConfig.freeze_days_allowed` in Gym Settings up to `freeze_days_cap`. The owner cannot exceed this cap (validated with 400 Bad Request); attempting to modify `freeze_days_cap` directly returns 403 Forbidden.
+    - **Reason for choice:** Allows gym owners operational flexibility to define freeze terms for their members while giving platform super admins contractual control over freeze limits per tier.
+
+20. **Item 13: Gender Field Requirements & Allowed Values**
+    - **Question/Context:** What are the permitted gender values for member registration, and is gender mandatory?
+    - **Chosen Solution & Policy:** Member registration requires gender to be provided as either "Female" or "Male" (`female` / `male` in backend enum). Ambiguous and non-binary options ("other", "prefer_not_to_say") were removed per owner requirements to simplify physical facility management and ensure deterministic US Navy body fat estimation.
+    - **Reason for choice:** Gym operations in Ethiopia require binary gender segregation for certain facilities/classes and body composition calculation requires biological gender formulas.
+
+21. **Item 14: Member Self-Profile Lockdown**
+    - **Question/Context:** Can members edit their personal profile information (name, phone, email, photo) directly via self-service?
+    - **Chosen Solution & Policy:** Members are locked down from editing their profile fields (`full_name`, `phone`, `email`, `photo`). `PATCH /api/auth/me/`, `PATCH /api/members/me/`, and `POST /api/media/member-photos/{gym_id}/` strictly reject member role requests with 403 Forbidden. Members may only change their password via `/api/auth/change-password/`. Only authorized gym staff (Owner, Manager, Reception) can update member details or upload/change member photos.
+    - **Reason for choice:** Prevents identity spoofing, member credential sharing, unauthorized photo changes to bypass front-desk identification, and audit trail circumvention.
+
+22. **Item 16: Upfront Payment During Staff-Assisted Member Registration**
+    - **Question/Context:** Can staff collect payment and activate a membership plan immediately when registering a new member at the desk?
+    - **Chosen Solution & Policy:** The staff member registration endpoint (`POST /api/members/`) supports optional upfront payment data (`plan_id`, `payment_method` [cash/bank_transfer], `reference_number`, `proof_screenshot`, `amount`). When provided, member creation, subscription activation, payment recording, and digital receipt generation execute in a single atomic database transaction. If omitted, the member is registered in `pending` status as before.
+    - **Reason for choice:** Streamlines front-desk onboarding by eliminating redundant steps: receptionist registers the walk-in member and records their cash or bank transfer payment in a single action.
+
+23. **Item 17: Public Gym Payment Configuration Status**
+    - **Question/Context:** Can unauthenticated public clients (e.g. prospective members registering self-service) discover what payment methods a gym accepts?
+    - **Chosen Solution & Policy:** `GET /api/payments/public-status/<gym_id>/` is introduced as a public, unauthenticated endpoint. It returns public payment acceptance flags (`accepts_cash`, `accepts_bank_transfer`, `bank_account_name`, `bank_account_number`, `bank_name`, `chapa_active`). It strictly excludes secret credentials, API keys, or merchant tokens.
+    - **Reason for choice:** Allows member registration and payment landing flows to render appropriate payment options and transfer instructions without exposing sensitive credentials or requiring prior authentication.
+
+24. **Item 21: Bank Transfer Payment Proof Screenshot Upload**
+    - **Question/Context:** How do staff or members provide proof of bank transfer during payment recording?
+    - **Chosen Solution & Policy:** `Payment.transfer_screenshot` stores a secure relative path to uploaded transfer confirmation screenshots (Telebirr/CBE Birr transaction confirmation screens). The endpoint `POST /api/payments/bank-transfer-screenshot/` handles secure upload, image validation (max 5MB, JPEG/PNG/WebP), and encrypted tenant storage. Screenshots are served only to authorized staff via authenticated media streaming.
+    - **Reason for choice:** Provides verifiable proof for owner reconciliation and dispute resolution when clearing bank transfers.

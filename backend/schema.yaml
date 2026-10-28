@@ -496,6 +496,91 @@ paths:
           description: ''
         '403':
           description: Forbidden - only Owner permitted
+  /api/gym/freezes/:
+    get:
+      operationId: gym_freezes_list
+      description: Returns all freeze requests for the gym, filterable by status.
+      summary: List gym freeze requests (Owner, Manager)
+      tags:
+      - gym
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/MemberFreeze'
+          description: ''
+  /api/gym/freezes/{freeze_id}/approve/:
+    post:
+      operationId: gym_freezes_approve_create
+      description: Approves a member freeze, pauses pass, extends subscription end
+        date once, and notifies member.
+      summary: Approve a freeze request (Owner, Manager)
+      parameters:
+      - in: path
+        name: freeze_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - gym
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MemberFreeze'
+          description: ''
+        '400':
+          description: Validation error
+        '403':
+          description: Permission denied
+  /api/gym/freezes/{freeze_id}/reject/:
+    post:
+      operationId: gym_freezes_reject_create
+      description: Rejects a member freeze request with explanation and notifies member.
+      summary: Reject a freeze request (Owner, Manager)
+      parameters:
+      - in: path
+        name: freeze_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - gym
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MemberFreezeRejectRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/MemberFreezeRejectRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/MemberFreezeRejectRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MemberFreeze'
+          description: ''
+        '400':
+          description: Validation error
+        '403':
+          description: Permission denied
   /api/gym/members/:
     get:
       operationId: gym_members_list
@@ -523,13 +608,13 @@ paths:
       - gym
       requestBody:
         content:
-          application/json:
+          multipart/form-data:
             schema:
               $ref: '#/components/schemas/StaffMemberRegistrationRequest'
           application/x-www-form-urlencoded:
             schema:
               $ref: '#/components/schemas/StaffMemberRegistrationRequest'
-          multipart/form-data:
+          application/json:
             schema:
               $ref: '#/components/schemas/StaffMemberRegistrationRequest'
         required: true
@@ -768,7 +853,7 @@ paths:
   /api/gym/membership-plans/:
     get:
       operationId: gym_membership_plans_list
-      description: Returns all membership plans configured for the gym.
+      description: Returns membership plans configured for the gym.
       summary: List gym membership plans
       tags:
       - gym
@@ -1045,13 +1130,13 @@ paths:
       - gym
       requestBody:
         content:
-          application/json:
+          multipart/form-data:
             schema:
               $ref: '#/components/schemas/RecordBankTransferPaymentRequestRequest'
           application/x-www-form-urlencoded:
             schema:
               $ref: '#/components/schemas/RecordBankTransferPaymentRequestRequest'
-          multipart/form-data:
+          application/json:
             schema:
               $ref: '#/components/schemas/RecordBankTransferPaymentRequestRequest'
         required: true
@@ -1068,6 +1153,29 @@ paths:
           description: Validation error or duplicate reference
         '403':
           description: Permission denied
+  /api/gym/payments/bank-transfers/{payment_id}/screenshot/:
+    get:
+      operationId: gym_payments_bank_transfers_screenshot_retrieve
+      description: Stream bank transfer screenshot image for staff verification.
+      summary: Stream bank transfer screenshot
+      parameters:
+      - in: path
+        name: payment_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - gym
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: Screenshot image stream
+        '403':
+          description: Permission denied
+        '404':
+          description: Screenshot or payment not found
   /api/gym/payments/bank-transfers/reconcile/:
     post:
       operationId: gym_payments_bank_transfers_reconcile_create
@@ -1146,10 +1254,24 @@ paths:
           description: Unauthorized role or cross-gym staff
         '404':
           description: Member or plan not found
+  /api/gym/payments/public-status/:
+    get:
+      operationId: gym_payments_public_status_retrieve
+      description: Returns whether online payment is configured and verified for the
+        tenant gym.
+      summary: Check gym online payment status
+      tags:
+      - gym
+      security:
+      - jwtAuth: []
+      - {}
+      responses:
+        '200':
+          description: Online payment status
   /api/gym/plans/:
     get:
       operationId: gym_plans_list
-      description: Returns all membership plans configured for the gym.
+      description: Returns membership plans configured for the gym.
       summary: List gym membership plans
       tags:
       - gym
@@ -1287,7 +1409,6 @@ paths:
         name: receipt_id
         schema:
           type: string
-          format: uuid
         required: true
       tags:
       - gym
@@ -1464,6 +1585,34 @@ paths:
           description: Forbidden
         '404':
           description: Staff member not found
+  /api/gym/staff/{user_id}/resend-invite/:
+    post:
+      operationId: gym_staff_resend_invite_create
+      description: Resends the invitation email with a fresh set-password link to
+        a pending staff member. Capped at 3 resends per day.
+      summary: Resend staff member invitation
+      parameters:
+      - in: path
+        name: user_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - gym
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: Invitation resent successfully
+        '400':
+          description: Invalid request or recipient suppressed
+        '403':
+          description: Forbidden
+        '404':
+          description: Staff member not found
+        '429':
+          description: Daily resend limit reached
   /api/health/:
     get:
       operationId: health_retrieve
@@ -1626,7 +1775,8 @@ paths:
           description: ''
     patch:
       operationId: members_me_partial_update
-      description: Updates logged-in member's phone and emergency contact details.
+      description: Refused - members cannot edit personal details. Only password changes
+        are permitted.
       summary: Update own member contact info
       tags:
       - members
@@ -1644,14 +1794,8 @@ paths:
       security:
       - jwtAuth: []
       responses:
-        '200':
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/MemberDetail'
-          description: ''
-        '400':
-          description: Validation error
+        '403':
+          description: Forbidden - members cannot edit details
   /api/members/me/attendance/:
     get:
       operationId: members_me_attendance_retrieve
@@ -1752,6 +1896,131 @@ paths:
               schema:
                 $ref: '#/components/schemas/MemberQrTokenErrorResponse'
           description: ''
+  /api/memberships/freezes/:
+    post:
+      operationId: memberships_freezes_create
+      description: Submits a freeze request for the authenticated member's active
+        subscription.
+      summary: Submit a membership freeze request (Member only)
+      tags:
+      - memberships
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MemberFreezeRequestRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/MemberFreezeRequestRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/MemberFreezeRequestRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MemberFreeze'
+          description: ''
+        '400':
+          description: Validation error or allowance exceeded
+        '403':
+          description: Permission denied
+  /api/memberships/freezes/allowance/:
+    get:
+      operationId: memberships_freezes_allowance_retrieve
+      description: Returns total allowed, used, and remaining freeze days.
+      summary: Check member freeze allowance (Member only)
+      tags:
+      - memberships
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MemberFreezeAllowance'
+          description: ''
+  /api/memberships/freezes/mine/:
+    get:
+      operationId: memberships_freezes_mine_list
+      description: Returns all freeze requests for the logged-in member.
+      summary: List my freeze requests (Member only)
+      tags:
+      - memberships
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/MemberFreeze'
+          description: ''
+  /api/notifications/:
+    get:
+      operationId: notifications_list
+      description: Returns list of in-app notifications for the authenticated user
+        with unread count.
+      summary: List user notifications
+      tags:
+      - notifications
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Notification'
+          description: ''
+        '401':
+          description: Authentication required
+  /api/notifications/{id}/read/:
+    post:
+      operationId: notifications_read_create
+      description: Marks a single notification as read for the authenticated user.
+      summary: Mark notification as read
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - notifications
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: Notification marked as read
+        '401':
+          description: Authentication required
+        '404':
+          description: Notification not found
+  /api/notifications/mark-all-read/:
+    post:
+      operationId: notifications_mark_all_read_create
+      description: Marks all unread notifications as read for the authenticated user.
+      summary: Mark all notifications as read
+      tags:
+      - notifications
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: All notifications marked as read
+        '401':
+          description: Authentication required
   /api/payments/checkout/chapa/:
     post:
       operationId: payments_checkout_chapa_create
@@ -2304,6 +2573,30 @@ paths:
                 items:
                   $ref: '#/components/schemas/PublicPlan'
           description: ''
+  /api/webhooks/brevo/:
+    post:
+      operationId: webhooks_brevo_create
+      description: |-
+        Webhook endpoint on apex domain for Brevo transactional delivery event webhooks.
+        Accepts POST at /api/webhooks/brevo/, authenticated with BREVO_WEBHOOK_SECRET.
+        Secret passed via:
+        - Header: X-Webhook-Secret
+        - Header: Authorization: Bearer <secret>
+        - Query parameter: ?secret=<secret>
+
+        Wrong or missing secret returns the exact same response as an unknown event:
+        {"status": "ignored"} with HTTP 200 OK.
+
+        Suppression events (hardBounce, blocked, spam, invalid) record the email
+        in EmailDeliveryStatus with status='suppressed'.
+        Returns {"status": "processed"} with HTTP 200 OK.
+      tags:
+      - webhooks
+      security:
+      - {}
+      responses:
+        '200':
+          description: No response body
   /api/webhooks/chapa/:
     post:
       operationId: webhooks_chapa_create
@@ -2798,6 +3091,13 @@ components:
           type: string
           format: email
           minLength: 1
+        owner_email_confirm:
+          oneOf:
+          - type: string
+            format: email
+            default: ''
+          - type: string
+            maxLength: 0
         payment_amount:
           type: string
           format: decimal
@@ -3044,14 +3344,10 @@ components:
       enum:
       - male
       - female
-      - other
-      - prefer_not_to_say
       type: string
       description: |-
         * `male` - Male
         * `female` - Female
-        * `other` - Other
-        * `prefer_not_to_say` - Prefer not to say
     GymConfig:
       type: object
       description: Feature gating and configuration settings of a gym.
@@ -3072,6 +3368,9 @@ components:
           type: boolean
           readOnly: true
         freeze_days_allowed:
+          type: integer
+          readOnly: true
+        freeze_days_cap:
           type: integer
           readOnly: true
         payment_grace_days:
@@ -3101,6 +3400,7 @@ components:
       - brand_color
       - first_run_dismissed_at
       - freeze_days_allowed
+      - freeze_days_cap
       - has_ai_plans
       - has_analytics
       - has_group_classes
@@ -3183,6 +3483,9 @@ components:
           type: string
         message:
           type: string
+        online_payment_verified:
+          type: boolean
+          default: false
       required:
       - name
       - still_securing
@@ -3239,6 +3542,9 @@ components:
           type: string
           format: email
           readOnly: true
+        owner_email:
+          type: string
+          readOnly: true
         subscription_expires_at:
           type: string
           format: date-time
@@ -3266,6 +3572,7 @@ components:
       - id
       - location
       - name
+      - owner_email
       - status
       - subdomain
       - subscription_expires_at
@@ -3417,10 +3724,20 @@ components:
           allOf:
           - $ref: '#/components/schemas/BodyMetrics'
           readOnly: true
+        invitation_status:
+          type: string
+          nullable: true
+          readOnly: true
+        email_delivery_message:
+          type: string
+          nullable: true
+          readOnly: true
       required:
       - email
+      - email_delivery_message
       - full_name
       - id
+      - invitation_status
       - joined_at
       - latest_metrics
       - phone
@@ -3492,6 +3809,168 @@ components:
       - phone
       - status
       - waiver_accepted_at
+    MemberFreeze:
+      type: object
+      description: Detailed read serializer for MemberFreeze records.
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        member:
+          type: string
+          readOnly: true
+        member_id:
+          type: string
+          format: uuid
+          readOnly: true
+        member_name:
+          type: string
+          readOnly: true
+        member_phone:
+          type: string
+          readOnly: true
+        subscription_id:
+          type: string
+          format: uuid
+          readOnly: true
+        start_date:
+          type: string
+          format: date
+          readOnly: true
+        end_date:
+          type: string
+          format: date
+          readOnly: true
+        days:
+          type: integer
+          readOnly: true
+        reason:
+          type: string
+          readOnly: true
+        status:
+          allOf:
+          - $ref: '#/components/schemas/MemberFreezeStatusEnum'
+          readOnly: true
+        approved_by_id:
+          type: string
+          format: uuid
+          nullable: true
+          readOnly: true
+        approved_by_name:
+          type: string
+          readOnly: true
+        reviewed_at:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+        rejection_reason:
+          type: string
+          readOnly: true
+        extension_applied:
+          type: boolean
+          readOnly: true
+        unfrozen_at:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - approved_by_id
+      - approved_by_name
+      - created_at
+      - days
+      - end_date
+      - extension_applied
+      - id
+      - member
+      - member_id
+      - member_name
+      - member_phone
+      - reason
+      - rejection_reason
+      - reviewed_at
+      - start_date
+      - status
+      - subscription_id
+      - unfrozen_at
+      - updated_at
+    MemberFreezeAllowance:
+      type: object
+      description: Read serializer for member freeze allowance.
+      properties:
+        total_allowed:
+          type: integer
+        used_days:
+          type: integer
+        remaining_days:
+          type: integer
+        has_active_subscription:
+          type: boolean
+        freeze_allowed:
+          type: boolean
+        subscription_id:
+          type: string
+          nullable: true
+      required:
+      - freeze_allowed
+      - has_active_subscription
+      - remaining_days
+      - total_allowed
+      - used_days
+    MemberFreezeRejectRequest:
+      type: object
+      description: Request serializer for rejecting a membership freeze.
+      properties:
+        rejection_reason:
+          type: string
+          minLength: 5
+          description: Explanation for rejecting the freeze request (5 to 500 characters).
+          maxLength: 500
+      required:
+      - rejection_reason
+    MemberFreezeRequestRequest:
+      type: object
+      description: Request serializer for submitting a membership freeze.
+      properties:
+        start_date:
+          type: string
+          format: date
+          description: First day of membership freeze.
+        end_date:
+          type: string
+          format: date
+          description: Last day of membership freeze.
+        reason:
+          type: string
+          minLength: 5
+          description: Reason for the freeze request (5 to 500 characters).
+          maxLength: 500
+      required:
+      - end_date
+      - reason
+      - start_date
+    MemberFreezeStatusEnum:
+      enum:
+      - pending
+      - approved
+      - rejected
+      - completed
+      type: string
+      description: |-
+        * `pending` - Pending
+        * `approved` - Approved
+        * `rejected` - Rejected
+        * `completed` - Completed
     MemberPaymentHistoryItem:
       type: object
       description: Member self-service view of their own payment history.
@@ -3664,6 +4143,33 @@ components:
       - duration_value
       - name
       - price_etb
+    Notification:
+      type: object
+      description: Read-only representation of an in-app user notification.
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        type:
+          type: string
+          readOnly: true
+        message:
+          type: string
+          readOnly: true
+        is_read:
+          type: boolean
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - created_at
+      - id
+      - is_read
+      - message
+      - type
     PaginatedAuditLogList:
       type: object
       required:
@@ -3771,9 +4277,12 @@ components:
             maximum: 90
             minimum: 0
           maxItems: 10
+        freeze_days_allowed:
+          type: integer
+          minimum: 0
     PatchedMemberUpdateRequest:
       type: object
-      description: Serializer for updating member profile details.
+      description: Serializer for updating member profile details by gym staff.
       properties:
         full_name:
           type: string
@@ -3834,6 +4343,18 @@ components:
         phone:
           type: string
           maxLength: 50
+    PaymentMethodEnum:
+      enum:
+      - cash
+      - bank_transfer
+      - none
+      - no_payment
+      type: string
+      description: |-
+        * `cash` - cash
+        * `bank_transfer` - bank_transfer
+        * `none` - none
+        * `no_payment` - no_payment
     ProposeSubdomainResponse:
       type: object
       description: Response containing proposed candidate subdomain.
@@ -3921,12 +4442,10 @@ components:
           format: date
           nullable: true
         gender:
-          oneOf:
-          - $ref: '#/components/schemas/GenderEnum'
-          - $ref: '#/components/schemas/BlankEnum'
+          $ref: '#/components/schemas/GenderEnum'
         emergency_contact:
           type: string
-          maxLength: 255
+          maxLength: 50
         referral_source:
           type: string
           maxLength: 100
@@ -3936,6 +4455,7 @@ components:
       required:
       - email
       - full_name
+      - gender
       - password
       - phone
       - waiver_accepted
@@ -4289,8 +4809,8 @@ components:
         gym_id:
           type: string
           format: uuid
-          readOnly: true
           nullable: true
+          readOnly: true
         full_name:
           type: string
           readOnly: true
@@ -4309,13 +4829,22 @@ components:
           type: string
           format: date-time
           readOnly: true
+        invitation_status:
+          type: string
+          readOnly: true
+        email_delivery_message:
+          type: string
+          nullable: true
+          readOnly: true
       required:
       - created_at
       - email
+      - email_delivery_message
       - email_verified_at
       - full_name
       - gym_id
       - id
+      - invitation_status
       - is_active
       - phone
       - role
@@ -4324,7 +4853,7 @@ components:
       description: |-
         Serializer for staff-assisted member registration (Owner, Manager, Reception).
         Does not require a password; generates set-password invite link instead.
-        Registration captures no body measurements.
+        Integrates optional upfront payment (Cash, Bank transfer, or None).
       properties:
         full_name:
           type: string
@@ -4346,21 +4875,48 @@ components:
           format: date
           nullable: true
         gender:
-          oneOf:
-          - $ref: '#/components/schemas/GenderEnum'
-          - $ref: '#/components/schemas/BlankEnum'
+          $ref: '#/components/schemas/GenderEnum'
         emergency_contact:
           type: string
-          maxLength: 255
+          maxLength: 50
         referral_source:
           type: string
           maxLength: 100
         photo_url:
           type: string
           maxLength: 255
+        payment_method:
+          allOf:
+          - $ref: '#/components/schemas/PaymentMethodEnum'
+          default: none
+        plan_id:
+          type: string
+          format: uuid
+          nullable: true
+        idempotency_key:
+          type: string
+          maxLength: 255
+        notes:
+          type: string
+          maxLength: 500
+        bank_reference:
+          type: string
+          maxLength: 100
+        transfer_date:
+          type: string
+          format: date
+          nullable: true
+        channel:
+          type: string
+          maxLength: 50
+        screenshot:
+          type: string
+          format: binary
+          nullable: true
       required:
       - email
       - full_name
+      - gender
       - phone
       - waiver_accepted
     Status1d7Enum:
@@ -4496,6 +5052,12 @@ components:
           type: string
         receipt_number:
           type: string
+        has_screenshot:
+          type: boolean
+          default: false
+        screenshot_url:
+          type: string
+          nullable: true
       required:
       - amount_etb
       - bank_reference

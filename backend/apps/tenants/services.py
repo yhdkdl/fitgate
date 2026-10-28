@@ -329,7 +329,7 @@ ENTITLEMENT_FIELDS = frozenset(
         "has_analytics",
         "has_group_classes",
         "has_multi_branch",
-        "freeze_days_allowed",
+        "freeze_days_cap",
         "payment_grace_days",
         "subscription_reminder_days",
     }
@@ -474,6 +474,19 @@ def update_gym_settings(
         config.member_reminder_days = data["member_reminder_days"]
         update_fields.append("member_reminder_days")
 
+    if "freeze_days_allowed" in data:
+        val = int(data["freeze_days_allowed"])
+        if not is_super_admin and val > config.freeze_days_cap:
+            raise ValidationError(
+                {
+                    "freeze_days_allowed": [
+                        f"Cannot exceed maximum freeze allowance cap of {config.freeze_days_cap} days."
+                    ]
+                }
+            )
+        config.freeze_days_allowed = val
+        update_fields.append("freeze_days_allowed")
+
     if is_super_admin:
         # Entitlements editable by Super Admin
         for field in [
@@ -482,7 +495,7 @@ def update_gym_settings(
             "has_analytics",
             "has_group_classes",
             "has_multi_branch",
-            "freeze_days_allowed",
+            "freeze_days_cap",
             "payment_grace_days",
             "subscription_reminder_days",
         ]:

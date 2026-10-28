@@ -328,6 +328,66 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/gym/freezes/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List gym freeze requests (Owner, Manager)
+         * @description Returns all freeze requests for the gym, filterable by status.
+         */
+        get: operations["gym_freezes_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/gym/freezes/{freeze_id}/approve/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Approve a freeze request (Owner, Manager)
+         * @description Approves a member freeze, pauses pass, extends subscription end date once, and notifies member.
+         */
+        post: operations["gym_freezes_approve_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/gym/freezes/{freeze_id}/reject/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Reject a freeze request (Owner, Manager)
+         * @description Rejects a member freeze request with explanation and notifies member.
+         */
+        post: operations["gym_freezes_reject_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/gym/members/": {
         parameters: {
             query?: never;
@@ -469,7 +529,7 @@ export interface paths {
         };
         /**
          * List gym membership plans
-         * @description Returns all membership plans configured for the gym.
+         * @description Returns membership plans configured for the gym.
          */
         get: operations["gym_membership_plans_list"];
         put?: never;
@@ -643,6 +703,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/gym/payments/bank-transfers/{payment_id}/screenshot/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Stream bank transfer screenshot
+         * @description Stream bank transfer screenshot image for staff verification.
+         */
+        get: operations["gym_payments_bank_transfers_screenshot_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/gym/payments/bank-transfers/reconcile/": {
         parameters: {
             query?: never;
@@ -703,6 +783,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/gym/payments/public-status/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Check gym online payment status
+         * @description Returns whether online payment is configured and verified for the tenant gym.
+         */
+        get: operations["gym_payments_public_status_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/gym/plans/": {
         parameters: {
             query?: never;
@@ -712,7 +812,7 @@ export interface paths {
         };
         /**
          * List gym membership plans
-         * @description Returns all membership plans configured for the gym.
+         * @description Returns membership plans configured for the gym.
          */
         get: operations["gym_plans_list"];
         put?: never;
@@ -865,6 +965,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/gym/staff/{user_id}/resend-invite/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Resend staff member invitation
+         * @description Resends the invitation email with a fresh set-password link to a pending staff member. Capped at 3 resends per day.
+         */
+        post: operations["gym_staff_resend_invite_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/health/": {
         parameters: {
             query?: never;
@@ -965,7 +1085,7 @@ export interface paths {
         head?: never;
         /**
          * Update own member contact info
-         * @description Updates logged-in member's phone and emergency contact details.
+         * @description Refused - members cannot edit personal details. Only password changes are permitted.
          */
         patch: operations["members_me_partial_update"];
         trace?: never;
@@ -1032,6 +1152,126 @@ export interface paths {
          * @description Explicitly issues a rotated QR check-in token for the member.
          */
         post: operations["members_me_qr_token_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/memberships/freezes/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Submit a membership freeze request (Member only)
+         * @description Submits a freeze request for the authenticated member's active subscription.
+         */
+        post: operations["memberships_freezes_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/memberships/freezes/allowance/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Check member freeze allowance (Member only)
+         * @description Returns total allowed, used, and remaining freeze days.
+         */
+        get: operations["memberships_freezes_allowance_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/memberships/freezes/mine/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List my freeze requests (Member only)
+         * @description Returns all freeze requests for the logged-in member.
+         */
+        get: operations["memberships_freezes_mine_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/notifications/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List user notifications
+         * @description Returns list of in-app notifications for the authenticated user with unread count.
+         */
+        get: operations["notifications_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/notifications/{id}/read/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Mark notification as read
+         * @description Marks a single notification as read for the authenticated user.
+         */
+        post: operations["notifications_read_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/notifications/mark-all-read/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Mark all notifications as read
+         * @description Marks all unread notifications as read for the authenticated user.
+         */
+        post: operations["notifications_mark_all_read_create"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1391,6 +1631,37 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/webhooks/brevo/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description Webhook endpoint on apex domain for Brevo transactional delivery event webhooks.
+         *     Accepts POST at /api/webhooks/brevo/, authenticated with BREVO_WEBHOOK_SECRET.
+         *     Secret passed via:
+         *     - Header: X-Webhook-Secret
+         *     - Header: Authorization: Bearer <secret>
+         *     - Query parameter: ?secret=<secret>
+         *
+         *     Wrong or missing secret returns the exact same response as an unknown event:
+         *     {"status": "ignored"} with HTTP 200 OK.
+         *
+         *     Suppression events (hardBounce, blocked, spam, invalid) record the email
+         *     in EmailDeliveryStatus with status='suppressed'.
+         *     Returns {"status": "processed"} with HTTP 200 OK.
+         */
+        post: operations["webhooks_brevo_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/webhooks/chapa/": {
         parameters: {
             query?: never;
@@ -1628,6 +1899,7 @@ export interface components {
             owner_name: string;
             /** Format: email */
             owner_email: string;
+            owner_email_confirm?: string;
             /** Format: decimal */
             payment_amount: string;
             payment_reference: string;
@@ -1733,11 +2005,9 @@ export interface components {
         /**
          * @description * `male` - Male
          *     * `female` - Female
-         *     * `other` - Other
-         *     * `prefer_not_to_say` - Prefer not to say
          * @enum {string}
          */
-        GenderEnum: "male" | "female" | "other" | "prefer_not_to_say";
+        GenderEnum: "male" | "female";
         /** @description Feature gating and configuration settings of a gym. */
         GymConfig: {
             readonly has_trainer_module: boolean;
@@ -1746,6 +2016,7 @@ export interface components {
             readonly has_group_classes: boolean;
             readonly has_multi_branch: boolean;
             readonly freeze_days_allowed: number;
+            readonly freeze_days_cap: number;
             readonly payment_grace_days: number;
             readonly subscription_reminder_days: unknown;
             readonly member_reminder_days: unknown;
@@ -1783,6 +2054,8 @@ export interface components {
             location?: string;
             currency?: string;
             message?: string;
+            /** @default false */
+            online_payment_verified: boolean;
         };
         /**
          * @description * `pending` - Pending
@@ -1807,6 +2080,7 @@ export interface components {
             readonly contact_phone: string;
             /** Format: email */
             readonly contact_email: string;
+            readonly owner_email: string;
             /** Format: date-time */
             readonly subscription_expires_at: string | null;
             /** Format: date-time */
@@ -1883,6 +2157,8 @@ export interface components {
             /** Format: date-time */
             readonly waiver_accepted_at: string;
             readonly latest_metrics: components["schemas"]["BodyMetrics"];
+            readonly invitation_status: string | null;
+            readonly email_delivery_message: string | null;
         };
         /** @description Detailed member profile including historical body metrics and calculations. */
         MemberDetail: {
@@ -1906,6 +2182,75 @@ export interface components {
             readonly latest_metrics: components["schemas"]["BodyMetrics"];
             readonly body_metrics: components["schemas"]["BodyMetrics"][];
         };
+        /** @description Detailed read serializer for MemberFreeze records. */
+        MemberFreeze: {
+            /** Format: uuid */
+            readonly id: string;
+            readonly member: string;
+            /** Format: uuid */
+            readonly member_id: string;
+            readonly member_name: string;
+            readonly member_phone: string;
+            /** Format: uuid */
+            readonly subscription_id: string;
+            /** Format: date */
+            readonly start_date: string;
+            /** Format: date */
+            readonly end_date: string;
+            readonly days: number;
+            readonly reason: string;
+            readonly status: components["schemas"]["MemberFreezeStatusEnum"];
+            /** Format: uuid */
+            readonly approved_by_id: string | null;
+            readonly approved_by_name: string;
+            /** Format: date-time */
+            readonly reviewed_at: string | null;
+            readonly rejection_reason: string;
+            readonly extension_applied: boolean;
+            /** Format: date-time */
+            readonly unfrozen_at: string | null;
+            /** Format: date-time */
+            readonly created_at: string;
+            /** Format: date-time */
+            readonly updated_at: string;
+        };
+        /** @description Read serializer for member freeze allowance. */
+        MemberFreezeAllowance: {
+            total_allowed: number;
+            used_days: number;
+            remaining_days: number;
+            has_active_subscription: boolean;
+            freeze_allowed: boolean;
+            subscription_id?: string | null;
+        };
+        /** @description Request serializer for rejecting a membership freeze. */
+        MemberFreezeRejectRequest: {
+            /** @description Explanation for rejecting the freeze request (5 to 500 characters). */
+            rejection_reason: string;
+        };
+        /** @description Request serializer for submitting a membership freeze. */
+        MemberFreezeRequestRequest: {
+            /**
+             * Format: date
+             * @description First day of membership freeze.
+             */
+            start_date: string;
+            /**
+             * Format: date
+             * @description Last day of membership freeze.
+             */
+            end_date: string;
+            /** @description Reason for the freeze request (5 to 500 characters). */
+            reason: string;
+        };
+        /**
+         * @description * `pending` - Pending
+         *     * `approved` - Approved
+         *     * `rejected` - Rejected
+         *     * `completed` - Completed
+         * @enum {string}
+         */
+        MemberFreezeStatusEnum: "pending" | "approved" | "rejected" | "completed";
         /** @description Member self-service view of their own payment history. */
         MemberPaymentHistoryItem: {
             /** Format: uuid */
@@ -1987,6 +2332,16 @@ export interface components {
             trainer_inclusive?: boolean;
             is_active?: boolean;
         };
+        /** @description Read-only representation of an in-app user notification. */
+        Notification: {
+            /** Format: uuid */
+            readonly id: string;
+            readonly type: string;
+            readonly message: string;
+            readonly is_read: boolean;
+            /** Format: date-time */
+            readonly created_at: string;
+        };
         PaginatedAuditLogList: {
             /** @example 123 */
             count: number;
@@ -2040,8 +2395,9 @@ export interface components {
             brand_color?: string | null;
             show_unavailable_equipment?: boolean;
             member_reminder_days?: number[];
+            freeze_days_allowed?: number;
         };
-        /** @description Serializer for updating member profile details. */
+        /** @description Serializer for updating member profile details by gym staff. */
         PatchedMemberUpdateRequest: {
             full_name?: string;
             phone?: string;
@@ -2068,6 +2424,14 @@ export interface components {
             full_name?: string;
             phone?: string;
         };
+        /**
+         * @description * `cash` - cash
+         *     * `bank_transfer` - bank_transfer
+         *     * `none` - none
+         *     * `no_payment` - no_payment
+         * @enum {string}
+         */
+        PaymentMethodEnum: "cash" | "bank_transfer" | "none" | "no_payment";
         /** @description Response containing proposed candidate subdomain. */
         ProposeSubdomainResponse: {
             subdomain: string;
@@ -2102,7 +2466,7 @@ export interface components {
             waiver_accepted: boolean;
             /** Format: date */
             date_of_birth?: string | null;
-            gender?: components["schemas"]["GenderEnum"] | components["schemas"]["BlankEnum"];
+            gender: components["schemas"]["GenderEnum"];
             emergency_contact?: string;
             referral_source?: string;
             photo_url?: string;
@@ -2253,11 +2617,13 @@ export interface components {
             readonly email_verified_at: string | null;
             /** Format: date-time */
             readonly created_at: string;
+            readonly invitation_status: string;
+            readonly email_delivery_message: string | null;
         };
         /**
          * @description Serializer for staff-assisted member registration (Owner, Manager, Reception).
          *     Does not require a password; generates set-password invite link instead.
-         *     Registration captures no body measurements.
+         *     Integrates optional upfront payment (Cash, Bank transfer, or None).
          */
         StaffMemberRegistrationRequest: {
             full_name: string;
@@ -2267,10 +2633,22 @@ export interface components {
             waiver_accepted: boolean;
             /** Format: date */
             date_of_birth?: string | null;
-            gender?: components["schemas"]["GenderEnum"] | components["schemas"]["BlankEnum"];
+            gender: components["schemas"]["GenderEnum"];
             emergency_contact?: string;
             referral_source?: string;
             photo_url?: string;
+            /** @default none */
+            payment_method: components["schemas"]["PaymentMethodEnum"];
+            /** Format: uuid */
+            plan_id?: string | null;
+            idempotency_key?: string;
+            notes?: string;
+            bank_reference?: string;
+            /** Format: date */
+            transfer_date?: string | null;
+            channel?: string;
+            /** Format: binary */
+            screenshot?: string | null;
         };
         /**
          * @description * `pending` - Pending
@@ -2337,6 +2715,9 @@ export interface components {
             confirmed_by_id: string | null;
             confirmed_by_name: string;
             receipt_number: string;
+            /** @default false */
+            has_screenshot: boolean;
+            screenshot_url?: string | null;
         };
         /** @description Upload serializer for gym logo. */
         UploadGymLogoRequest: {
@@ -2947,6 +3328,101 @@ export interface operations {
             };
         };
     };
+    gym_freezes_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MemberFreeze"][];
+                };
+            };
+        };
+    };
+    gym_freezes_approve_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                freeze_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MemberFreeze"];
+                };
+            };
+            /** @description Validation error */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Permission denied */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    gym_freezes_reject_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                freeze_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MemberFreezeRejectRequest"];
+                "application/x-www-form-urlencoded": components["schemas"]["MemberFreezeRejectRequest"];
+                "multipart/form-data": components["schemas"]["MemberFreezeRejectRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MemberFreeze"];
+                };
+            };
+            /** @description Validation error */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Permission denied */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     gym_members_list: {
         parameters: {
             query?: never;
@@ -2975,9 +3451,9 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["StaffMemberRegistrationRequest"];
-                "application/x-www-form-urlencoded": components["schemas"]["StaffMemberRegistrationRequest"];
                 "multipart/form-data": components["schemas"]["StaffMemberRegistrationRequest"];
+                "application/x-www-form-urlencoded": components["schemas"]["StaffMemberRegistrationRequest"];
+                "application/json": components["schemas"]["StaffMemberRegistrationRequest"];
             };
         };
         responses: {
@@ -3529,9 +4005,9 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["RecordBankTransferPaymentRequestRequest"];
-                "application/x-www-form-urlencoded": components["schemas"]["RecordBankTransferPaymentRequestRequest"];
                 "multipart/form-data": components["schemas"]["RecordBankTransferPaymentRequestRequest"];
+                "application/x-www-form-urlencoded": components["schemas"]["RecordBankTransferPaymentRequestRequest"];
+                "application/json": components["schemas"]["RecordBankTransferPaymentRequestRequest"];
             };
         };
         responses: {
@@ -3552,6 +4028,40 @@ export interface operations {
             };
             /** @description Permission denied */
             403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    gym_payments_bank_transfers_screenshot_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                payment_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Screenshot image stream */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Permission denied */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Screenshot or payment not found */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -3641,6 +4151,24 @@ export interface operations {
             };
             /** @description Member or plan not found */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    gym_payments_public_status_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Online payment status */
+            200: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -4023,6 +4551,54 @@ export interface operations {
             };
         };
     };
+    gym_staff_resend_invite_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                user_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Invitation resent successfully */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Invalid request or recipient suppressed */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Staff member not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Daily resend limit reached */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     health_retrieve: {
         parameters: {
             query?: never;
@@ -4239,16 +4815,8 @@ export interface operations {
             };
         };
         responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["MemberDetail"];
-                };
-            };
-            /** @description Validation error */
-            400: {
+            /** @description Forbidden - members cannot edit details */
+            403: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -4368,6 +4936,168 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["MemberQrTokenErrorResponse"];
                 };
+            };
+        };
+    };
+    memberships_freezes_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MemberFreezeRequestRequest"];
+                "application/x-www-form-urlencoded": components["schemas"]["MemberFreezeRequestRequest"];
+                "multipart/form-data": components["schemas"]["MemberFreezeRequestRequest"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MemberFreeze"];
+                };
+            };
+            /** @description Validation error or allowance exceeded */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Permission denied */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    memberships_freezes_allowance_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MemberFreezeAllowance"];
+                };
+            };
+        };
+    };
+    memberships_freezes_mine_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MemberFreeze"][];
+                };
+            };
+        };
+    };
+    notifications_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Notification"][];
+                };
+            };
+            /** @description Authentication required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    notifications_read_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Notification marked as read */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Authentication required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Notification not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    notifications_mark_all_read_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description All notifications marked as read */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Authentication required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
         };
     };
@@ -4978,6 +5708,24 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["PublicPlan"][];
                 };
+            };
+        };
+    };
+    webhooks_brevo_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No response body */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
         };
     };

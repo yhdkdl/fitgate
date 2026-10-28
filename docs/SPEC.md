@@ -32,19 +32,19 @@ FitGate is a multi-tenant gym management platform for the Ethiopian market (deve
 
 **Permission matrix** (source Table 3.1a, with entitlements separated from settings):
 
-| Action                                                                                         | Super Admin      | Owner | Manager |
-| ---------------------------------------------------------------------------------------------- | ---------------- | ----- | ------- |
-| Edit entitlements: tier, `has_*` flags, freeze allowance, grace and subscription-reminder days | Yes              | No    | No      |
-| Edit gym settings: branding, member reminder days, payment credentials                         | —                | Yes   | No      |
-| Create or deactivate Manager accounts                                                          | —                | Yes   | No      |
-| Create or deactivate Trainer/Reception accounts                                                | —                | Yes   | Yes     |
-| Create/edit membership plans and pricing                                                       | —                | Yes   | Yes     |
-| Suspend or reactivate a member                                                                 | —                | Yes   | Yes     |
-| Approve or reject a freeze request                                                             | —                | Yes   | Yes     |
-| Manually reassign a trainer                                                                    | —                | Yes   | Yes     |
-| View analytics dashboard, audit log, and payment history                                       | All gyms         | Yes   | Yes     |
-| Confirm a manual cash payment                                                                  | —                | Yes   | Yes     |
-| Post a notice board announcement                                                               | Platform notices | Yes   | Yes     |
+| Action                                                                                                                  | Super Admin      | Owner | Manager |
+| ----------------------------------------------------------------------------------------------------------------------- | ---------------- | ----- | ------- |
+| Edit entitlements: tier, `has_*` flags, freeze cap (`freeze_days_cap`), grace and subscription-reminder days            | Yes              | No    | No      |
+| Edit gym settings: branding, freeze allowance (`freeze_days_allowed` <= cap), member reminder days, payment credentials | —                | Yes   | No      |
+| Create or deactivate Manager accounts                                                                                   | —                | Yes   | No      |
+| Create or deactivate Trainer/Reception accounts                                                                         | —                | Yes   | Yes     |
+| Create/edit membership plans and pricing                                                                                | —                | Yes   | Yes     |
+| Suspend or reactivate a member                                                                                          | —                | Yes   | Yes     |
+| Approve or reject a freeze request                                                                                      | —                | Yes   | Yes     |
+| Manually reassign a trainer                                                                                             | —                | Yes   | Yes     |
+| View analytics dashboard, audit log, and payment history                                                                | All gyms         | Yes   | Yes     |
+| Confirm a manual cash payment                                                                                           | —                | Yes   | Yes     |
+| Post a notice board announcement                                                                                        | Platform notices | Yes   | Yes     |
 
 **Deactivation (any staff role):** blocks login and invalidates existing tokens immediately, without deleting or hiding that user's history (audit entries, messages, approvals) from users who could see it before. There is no user hard-delete; the email stays reserved and an account can be reactivated. Deactivating a Trainer with active clients requires reassigning every one of them in the same action (§5).
 
@@ -118,12 +118,12 @@ Grouped as in the source document's §3.2.1.
 
 **Profile management**
 
-- Users view/edit their own profile fields (name, phone, photo; Trainer: specialization) and change their own password (current + new) from an account settings screen, without approval.
+- Staff and trainers view/edit their own profile fields (name, phone, photo; Trainer: specialization) and change their own password (current + new) from an account settings screen, without approval. Members are locked down from editing profile fields (full name, phone, email, photo) to preserve front-desk identification and membership integrity; members can only change their password. Staff (Owner, Manager, Reception) edit member profile details and manage member photos.
 - No role may self-edit role, `gym_id`, account status, membership status or trainer client capacity.
 
 **Member management**
 
-- Reception/Manager register members capturing full name, date of birth, phone, gender, emergency contact, optional referral source, profile photo, and acceptance of the health waiver (required); registration captures no body measurements. Members can also self-register through the gym's subdomain, then choose a plan and pay.
+- Reception/Manager register members capturing full name, date of birth, phone, gender (required Female or Male), emergency contact (phone), optional referral source, profile photo, and acceptance of the health waiver (required); registration captures no body measurements. Staff can optionally collect upfront payment (plan + cash/bank transfer + transfer reference/screenshot) to register and activate the member subscription atomically. Members can also self-register through the gym's subdomain, then choose a plan and pay.
 - Body measurements (weight, height, waist, neck, hip, and any other body measurement) are taken and recorded ONLY by Trainers, because they have the professional ability to measure accurately. Reception, Owner, Manager, Super Admin, and Members never enter measurements. Members and gym owners/managers can view measurement history, but cannot enter or edit measurements. **Body composition estimation:** After a Trainer records them, the member's profile shows BMI and estimated body fat (US Navy circumference method) as labeled estimates. Before that, it displays "Not measured yet. A trainer records measurements."
 - Member status: `pending` (registered, no active subscription yet), `active`, `expired`, `frozen`, `suspended`. Referral source data appears in owner analytics (deferred, see §10).
 
@@ -293,7 +293,7 @@ All tables carry `id` (uuid, PK) unless noted. Every gym-scoped table carries `g
 
 **GymTenant** — `name` (150), `subdomain` (63, unique, **Not Null**, single DNS label, reserved names rejected), `status` (pending/active/suspended/terminated — `pending` is unused in this version), `tier` (starter/growth/pro), `currency` (default ETB), `created_at`; _added (not in Table 4.2):_ `location`, `contact_name`, `contact_phone`, `contact_email`, `subscription_expires_at` (null until login first becomes possible), `tls_confirmed_at`, `lapse_flagged_at`, `suspended_at`, `is_demo` (default false). _Note: `GymTenant.updated_at` is an extra operational timestamp not in the source tables._
 
-**GymConfig** — `gym_id` (PK+FK, 1:1), `has_trainer_module`, `has_ai_plans`, `has_analytics`, `has_group_classes` (deferred, see §10; inert and false across all tiers), `has_multi_branch` (_new_) (booleans, default false), `freeze_days_allowed` (default 0); _added:_ `payment_grace_days` (default 7), `subscription_reminder_days` (list, default 14 and 7), `member_reminder_days` (list, default 7 and 2), `brand_color` (hex, nullable), `logo` (storage reference, nullable), `show_unavailable_equipment` (default false), `first_run_dismissed_at` (nullable). Entitlements (`has_*`, `freeze_days_allowed`, `payment_grace_days`, `subscription_reminder_days`) are Super-Admin-editable; the rest are Owner-editable. _The source's `chapa_merchant_id` is replaced by `GymPaymentConfig` (§11)._
+**GymConfig** — `gym_id` (PK+FK, 1:1), `has_trainer_module`, `has_ai_plans`, `has_analytics`, `has_group_classes` (deferred, see §10; inert and false across all tiers), `has_multi_branch` (_new_) (booleans, default false), `freeze_days_cap` (default 30), `freeze_days_allowed` (default 0); _added:_ `payment_grace_days` (default 7), `subscription_reminder_days` (list, default 14 and 7), `member_reminder_days` (list, default 7 and 2), `brand_color` (hex, nullable), `logo` (storage reference, nullable), `show_unavailable_equipment` (default false), `first_run_dismissed_at` (nullable). Entitlements (`has_*`, `freeze_days_cap`, `payment_grace_days`, `subscription_reminder_days`) are Super-Admin-editable; gym settings (`freeze_days_allowed` up to `freeze_days_cap`, `brand_color`, `member_reminder_days`, `show_unavailable_equipment`, `logo`) are Owner-editable. _The source's `chapa_merchant_id` is replaced by `GymPaymentConfig` (§11)._
 
 **GymPaymentConfig** _(new)_ — `gym_id` (PK+FK), `provider` (chapa), `mode` (test/live), `secret_key` (encrypted), `webhook_secret` (encrypted), `verified_at` (nullable), `is_enabled`. Never serialized back to any client.
 
@@ -301,7 +301,7 @@ All tables carry `id` (uuid, PK) unless noted. Every gym-scoped table carries `g
 
 **Branch** _(new — Pro tier, see §3)_ — `gym_id`, `name`, `address` (nullable), `is_primary` (default false), `created_at`
 
-**Member** — `gym_id`, `user_id`, `full_name`, `phone`, `date_of_birth`, `gender`, `emergency_contact`, `referral_source`, `photo_url`, `status` (pending/active/expired/frozen/suspended), `joined_at`; _added:_ `waiver_accepted_at`.
+**Member** — `gym_id`, `user_id`, `full_name`, `phone`, `date_of_birth`, `gender` (female/male), `emergency_contact`, `referral_source`, `photo_url`, `status` (pending/active/expired/frozen/suspended), `joined_at`; _added:_ `waiver_accepted_at`.
 
 **BodyMetrics** — `member_id`, `gym_id`, `weight_kg`, `height_cm`, `measurements` (jsonb, free-form), `recorded_at`
 
@@ -313,7 +313,7 @@ All tables carry `id` (uuid, PK) unless noted. Every gym-scoped table carries `g
 
 **Attendance** — `member_id`, `gym_id`, `branch_id` (nullable; _new_), `date`, `status` (checked_in — rows are written on check-in only; absence is derived), `checked_in_at`
 
-**Payment** — `gym_id` (the paying gym, including for `gym_subscription` payments), `payer_type` (gym_subscription/member), `member_id` (nullable), `subscription_id` (nullable), `method` (chapa/cash/bank_transfer — `bank_transfer` only for `gym_subscription`; `chapa` and `cash` only for `member`), `amount_etb`, `chapa_ref` (nullable), `bank_reference` (nullable), `status` (pending/confirmed/failed), `confirmed_by` (FK → User, nullable — required for cash and bank_transfer), `created_at`
+**Payment** — `gym_id` (the paying gym, including for `gym_subscription` payments), `payer_type` (gym_subscription/member), `member_id` (nullable), `subscription_id` (nullable), `method` (chapa/cash/bank_transfer), `amount_etb`, `chapa_ref` (nullable), `bank_reference` (nullable), `transfer_screenshot` (storage path, nullable), `status` (pending/confirmed/failed), `confirmed_by` (FK → User, nullable — required for cash and bank_transfer), `created_at`. Bank transfer enabled for members with Owner reconciliation, immutable reversal, and payment proof screenshot. Public gym payment configuration status is exposed via `GET /api/payments/public-status/<gym_id>/`.
 
 **Trainer** — `gym_id`, `user_id`, `specialization` (nullable), `max_clients`
 

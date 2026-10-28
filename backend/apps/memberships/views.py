@@ -7,6 +7,7 @@ from django.http import Http404
 from django.utils import timezone
 from drf_spectacular.utils import OpenApiResponse, extend_schema
 from rest_framework import status
+from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -158,6 +159,7 @@ class GymMemberListCreateView(APIView):
     Create: Owner, Manager, Reception (Trainer gets 403).
     """
 
+    parser_classes = [MultiPartParser, FormParser, JSONParser]
     permission_classes = [IsAuthenticated, RequirePasswordChanged, IsGymStaff]
 
     @extend_schema(
@@ -214,24 +216,36 @@ class GymMemberListCreateView(APIView):
                 "Only Gym Owner, Manager, or Reception can register members."
             )
 
-        serializer = StaffMemberRegistrationSerializer(data=request.data)
+        serializer = StaffMemberRegistrationSerializer(
+            data=request.data, context={"request": request}
+        )
         if not serializer.is_valid():
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        reg_data = dict(serializer.validated_data)
+        if "screenshot" in request.FILES:
+            reg_data["screenshot_file"] = request.FILES["screenshot"]
 
         try:
             member, _ = register_member_staff_assisted(
                 request.user,
                 request.tenant,
-                serializer.validated_data,
+                reg_data,
             )
         except ValidationError as exc:
             detail = exc.message_dict if hasattr(exc, "message_dict") else exc.messages
             return Response(detail, status=status.HTTP_400_BAD_REQUEST)
 
+        created_receipt = getattr(member, "_created_receipt", None)
+        from apps.payments.serializers import ReceiptSerializer
+
         return Response(
             {
                 "detail": "Member registered successfully. Invitation email sent.",
                 "member": MemberSerializer(member, context={"request": request}).data,
+                "receipt": (
+                    ReceiptSerializer(created_receipt).data if created_receipt else None
+                ),
             },
             status=status.HTTP_201_CREATED,
         )
@@ -456,44 +470,15 @@ class MemberSelfProfileView(APIView):
 
     @extend_schema(
         summary="Update own member contact info",
-        description="Updates logged-in member's phone and emergency contact details.",
+        description="Refused - members cannot edit personal details. Only password changes are permitted.",
         request=MemberUpdateSerializer,
         responses={
-            200: MemberDetailSerializer,
-            400: OpenApiResponse(description="Validation error"),
+            403: OpenApiResponse(description="Forbidden - members cannot edit details"),
         },
     )
     def patch(self, request, *args, **kwargs):
-        member = getattr(request.user, "member_profile", None)
-        if member is None:
-            raise Http404("Member profile not found.")
-
-        # Members can update phone and emergency contact only
-        allowed_fields = {"phone", "emergency_contact"}
-        filtered_data = {k: v for k, v in request.data.items() if k in allowed_fields}
-
-        serializer = MemberUpdateSerializer(member, data=filtered_data, partial=True)
-        if not serializer.is_valid():
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-        with transaction.atomic():
-            serializer.save()
-            if "phone" in filtered_data:
-                member.user.phone = filtered_data["phone"]
-                member.user.save(update_fields=["phone"])
-
-            record_audit_log(
-                action_type="member_profile_updated",
-                affected_record_type="Member",
-                affected_record_id=str(member.id),
-                actor=request.user,
-                gym=request.tenant,
-                metadata={"phone": member.phone},
-            )
-
-        return Response(
-            MemberDetailSerializer(member, context={"request": request}).data,
-            status=status.HTTP_200_OK,
+        raise PermissionDenied(
+            "Members cannot edit profile details. Only password changes are permitted."
         )
 
 
@@ -537,15 +522,15 @@ class MemberSelfMetricsView(APIView):
 class MembershipPlanListCreateView(APIView):
     """
     List and create membership plans for the gym.
-    Read: Gym Staff (Owner, Manager, Trainer, Reception).
+    Read: Gym Staff (all plans) and Members (active plans only).
     Write: Owner and Manager only.
     """
 
-    permission_classes = [IsAuthenticated, RequirePasswordChanged, IsGymStaff]
+    permission_classes = [IsAuthenticated, RequirePasswordChanged]
 
     @extend_schema(
         summary="List gym membership plans",
-        description="Returns all membership plans configured for the gym.",
+        description="Returns membership plans configured for the gym.",
         responses={200: MembershipPlanSerializer(many=True)},
     )
     def get(self, request, *args, **kwargs):
@@ -554,6 +539,9 @@ class MembershipPlanListCreateView(APIView):
             raise Http404("Gym tenant context required.")
 
         plans = MembershipPlan.objects.filter(gym=tenant).order_by("-created_at")
+        if request.user.role == User.ROLE_MEMBER:
+            plans = plans.filter(is_active=True)
+
         return Response(
             MembershipPlanSerializer(plans, many=True).data,
             status=status.HTTP_200_OK,

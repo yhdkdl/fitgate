@@ -95,11 +95,13 @@ export const MemberSelfSection: React.FC = () => {
         </div>
       </div>
 
-      {/* Online Plan Checkout & Renewal */}
-      <MemberCheckoutCard
-        memberStatus={profile.status}
-        onPaymentInitiated={fetchProfile}
-      />
+      {/* Online Plan Checkout & Renewal (Item 20: pending, expired, active; not suspended) */}
+      {profile.status !== "suspended" && (
+        <MemberCheckoutCard
+          memberStatus={profile.status}
+          onPaymentInitiated={fetchProfile}
+        />
+      )}
 
       {/* Body Composition Summary / Estimates */}
       {hasMetrics ? (

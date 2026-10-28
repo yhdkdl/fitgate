@@ -24,6 +24,9 @@ _Purpose: A dated record of every scope decision, modification, and addition mad
 - **Assisted onboarding replaces open gym self-registration (Sprints 4, 4a):** Prospective gyms submit a "Request a Demo" inquiry and pay platform fees via bank transfer; Super Admin provisions the gym and owner account, avoiding unpaid or unverified tenant sprawl.
 - **Database compatibility adjusted for PostgreSQL 13:** Adapted production deployment settings and verified test suites against Yegara cPanel's managed PostgreSQL 13.23 environment, replacing the earlier unmanaged VPS/Docker requirement.
 - **Member status model gains a fifth `pending` state:** New member registrations without an active subscription start as `pending`; `MemberSubscription` acts as the single source of truth, and check-in verifies subscription validity directly rather than trusting static status flags.
+- **Owner freeze days allowed setting capped by Super Admin entitlement cap (Item 12):** `GymConfig.freeze_days_allowed` is configurable by gym Owner up to `freeze_days_cap`, which is controlled exclusively by Super Admin.
+- **Member registration requires binary gender selection Female or Male (Item 13):** Replaced non-binary and optional gender choices with mandatory Female or Male selection.
+- **Member self-profile lockdown restricts member accounts to password changes only (Item 14):** Members cannot self-edit name, phone, email, or photo, which are managed exclusively by gym staff.
 
 ---
 
@@ -33,3 +36,6 @@ _Purpose: A dated record of every scope decision, modification, and addition mad
 - **Notice board Telegram channel bridge (Sprint 28):** Gym announcements can optionally broadcast to the gym's public Telegram channel via a platform bot, matching common Ethiopian member communication practices without collecting private member contact IDs.
 - **Dedicated entrance kiosk scanner and live check-in monitoring (Sprints 8b, 8c):** Added a full-screen, hands-free tablet camera scanner for front-desk entry and a live ~5-second polling attendance feed on staff dashboards, replacing manual desk check-in registers.
 - **Added: bank transfer as a member payment method, with reconciliation and reversal (Sprint 12b):** Direct bank transfer enabled for members at front desk (Owner, Manager, Reception) with unique bank reference enforcement, Owner reconciliation workflow, 7-day unattended flagging cron, and immutable reversal with previous subscription state restoration.
+- **Staff-assisted member registration supports atomic upfront plan payment (Item 16):** Staff can optionally collect cash or bank transfer payment and activate a plan during walk-in registration in a single atomic transaction.
+- **Public gym payment configuration status endpoint exposed for unauthenticated client discovery (Item 17):** Public endpoint exposes payment acceptance flags without authentication or credentials to support registration and checkout workflows.
+- **Bank transfer payments support payment proof screenshot upload (Item 21):** Staff and members can upload transaction confirmation screenshots for bank transfer payments, stored securely in tenant storage for owner reconciliation.

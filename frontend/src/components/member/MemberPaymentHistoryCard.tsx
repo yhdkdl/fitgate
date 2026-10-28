@@ -1,13 +1,30 @@
 import React, { useEffect, useState } from "react";
 import {
   getMemberPaymentHistory,
-  MemberPaymentHistoryItem,
+  getReceiptDetail,
+  type DigitalReceipt,
+  type MemberPaymentHistoryItem,
 } from "../../api/payments";
+import { DigitalReceiptModal } from "../ui/DigitalReceiptModal";
 
 export const MemberPaymentHistoryCard: React.FC = () => {
   const [history, setHistory] = useState<MemberPaymentHistoryItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [viewingReceipt, setViewingReceipt] = useState<DigitalReceipt | null>(null);
+  const [receiptLoading, setReceiptLoading] = useState(false);
+
+  const handleOpenReceipt = async (receiptRef: string) => {
+    setReceiptLoading(true);
+    try {
+      const receipt = await getReceiptDetail(receiptRef);
+      setViewingReceipt(receipt);
+    } catch {
+      alert("Receipt details could not be retrieved.");
+    } finally {
+      setReceiptLoading(false);
+    }
+  };
 
   useEffect(() => {
     async function load() {
@@ -100,15 +117,24 @@ export const MemberPaymentHistoryCard: React.FC = () => {
                   </span>
                 )}
                 {item.receipt_number && (
-                  <span
+                  <button
+                    type="button"
+                    onClick={() => handleOpenReceipt(item.receipt_number || item.id)}
+                    disabled={receiptLoading}
                     style={{
                       marginLeft: "8px",
                       color: "#38bdf8",
                       fontFamily: "monospace",
+                      background: "transparent",
+                      border: "none",
+                      cursor: "pointer",
+                      textDecoration: "underline",
+                      padding: 0,
+                      fontSize: "12px",
                     }}
                   >
                     Receipt #{item.receipt_number}
-                  </span>
+                  </button>
                 )}
                 {item.is_reversed && (
                   <span
@@ -173,6 +199,12 @@ export const MemberPaymentHistoryCard: React.FC = () => {
           </div>
         ))}
       </div>
+
+      <DigitalReceiptModal
+        isOpen={Boolean(viewingReceipt)}
+        receipt={viewingReceipt}
+        onClose={() => setViewingReceipt(null)}
+      />
     </div>
   );
 };

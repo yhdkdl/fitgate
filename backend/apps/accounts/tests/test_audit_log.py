@@ -562,7 +562,7 @@ class TestActionAuditLogging:
                 "phone": "+251911556677",
                 "date_of_birth": "1992-05-10",
                 "gender": "female",
-                "emergency_contact": "Mom - +251911998877",
+                "emergency_contact": "+251911998877",
                 "waiver_accepted": True,
             },
         )
@@ -587,7 +587,7 @@ class TestActionAuditLogging:
                 "phone": "+251911443322",
                 "date_of_birth": "1994-08-15",
                 "gender": "male",
-                "emergency_contact": "Brother - +251911332211",
+                "emergency_contact": "+251911332211",
                 "waiver_accepted": True,
             },
         )
@@ -838,7 +838,7 @@ class TestActionAuditLogging:
                 "phone": "+251911887766",
                 "date_of_birth": "1996-03-20",
                 "gender": "male",
-                "emergency_contact": "Contact - +251911998877",
+                "emergency_contact": "+251911998877",
                 "waiver_accepted": True,
             },
         )
@@ -879,7 +879,7 @@ class TestActionAuditLogging:
         count_before = AuditLog.all_objects.count()
         resp = client.patch(
             f"/api/gym/members/{member_with_active_sub.id}/",
-            {"emergency_contact": "Updated Contact - +251911000999"},
+            {"emergency_contact": "+251911000999"},
             format="json",
             HTTP_HOST=f"{gym_tenant.subdomain}.localhost",
         )
@@ -916,26 +916,20 @@ class TestActionAuditLogging:
         assert entry.actor_id == gym_trainer.id
         assert entry.affected_record_type == "BodyMetrics"
 
-    def test_audit_member_self_profile_updated(
+    def test_audit_member_self_profile_refused(
         self, api_client, gym_tenant, member_with_active_sub
     ):
-        """MemberSelfProfileView.patch produces exactly 1 row."""
+        """MemberSelfProfileView.patch is refused for member role (Item 14) and writes no audit log."""
         client = auth_client(api_client, member_with_active_sub.user)
         count_before = AuditLog.all_objects.count()
         resp = client.patch(
             "/api/members/me/",
-            {"emergency_contact": "Self Updated Contact"},
+            {"emergency_contact": "+251911000999"},
             format="json",
             HTTP_HOST=f"{gym_tenant.subdomain}.localhost",
         )
-        assert resp.status_code == 200
-        assert AuditLog.all_objects.count() == count_before + 1
-
-        entry = AuditLog.all_objects.latest("timestamp")
-        assert entry.action_type == "member_profile_updated"
-        assert entry.actor_id == member_with_active_sub.user.id
-        assert entry.affected_record_type == "Member"
-        assert entry.affected_record_id == str(member_with_active_sub.id)
+        assert resp.status_code == 403
+        assert AuditLog.all_objects.count() == count_before
 
 
 # ==============================================================================

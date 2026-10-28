@@ -70,14 +70,25 @@ This document is a comprehensive, numbered click-through guide for project owner
 
 ---
 
-## 2. Cash Payment & Sequential Digital Receipts (Sprint 12 & Followup)
+## 2. Cash & Bank Payment Recording, Digital Receipts, and Upfront Registration
 
-### 2.1 Cash Payment Recording
+### 2.0 Staff Walk-in Member Registration with Upfront Payment
+
+1. Sign in as **Reception** or **Owner** at `http://<gym-subdomain>.localhost:5173`.
+2. Navigate to **Members** and click **Register Member**.
+3. Enter required fields: Full Name, Phone (+251...), Date of Birth, Emergency Contact (phone number), and select Gender (**Female** or **Male**).
+4. Check **Collect Payment Now**.
+5. Select a plan and Payment Method (**Cash** or **Bank Transfer**).
+6. If Bank Transfer is selected, enter the bank transaction reference, bank name, and optionally upload a transfer proof screenshot.
+7. Click **Register & Record Payment**.
+8. Verify member account, active subscription, and digital receipt are generated atomically in a single transaction.
+
+### 2.1 Front-Desk Payment Recording (Existing Pending Member)
 
 1. Sign in as **Reception** or **Owner** at `http://<gym-subdomain>.localhost:5173`.
 2. Navigate to **Members** and locate a newly registered `pending` member.
 3. Click **Record Payment**.
-4. Select payment method: **Cash**.
+4. Select payment method: **Cash** (or **Bank Transfer**).
 5. Select plan: `1-Month Standard`.
 6. Enter notes: `Paid in cash at front desk`.
 7. Click **Confirm Payment**.
@@ -117,9 +128,10 @@ This document is a comprehensive, numbered click-through guide for project owner
 3. Select payment method: **Bank Transfer**.
 4. Enter a unique bank transfer transaction reference: `CBE-TX-998811`.
 5. Enter bank name: `Commercial Bank of Ethiopia`.
-6. Submit the payment.
-7. Verify the subscription is activated and a receipt (`REC-000003`) is generated.
-8. Attempt to record another payment using the exact same reference `CBE-TX-998811` (or `cbe-tx-998811` in lowercase); verify the system immediately rejects the duplicate reference.
+6. Optionally upload a bank transfer proof screenshot (`.png`, `.jpg`, `.webp` up to 5MB).
+7. Submit the payment.
+8. Verify the subscription is activated and a receipt (`REC-000003`) is generated.
+9. Attempt to record another payment using the exact same reference `CBE-TX-998811` (or `cbe-tx-998811` in lowercase); verify the system immediately rejects the duplicate reference.
 
 ### 3.2 Owner Statement Reconciliation
 
@@ -151,6 +163,15 @@ This document is a comprehensive, numbered click-through guide for project owner
 ---
 
 ## 4. Freeze Workflow (Sprint 13 & Followup)
+
+### 4.0 Owner Freeze Allowance Configuration (Gym Settings)
+
+1. Sign in as **Owner** at `http://<gym-subdomain>.localhost:5173`.
+2. Navigate to **Settings** (`/settings`).
+3. Locate the **Freeze Days Allowed** setting under Gym Settings.
+4. Verify the UI displays the platform cap set by Super Admin (e.g., `Cap: 30 days`).
+5. Enter a value within the cap (e.g., `14` days) and save; verify success.
+6. Attempt to enter a value higher than the cap (e.g., `45` days); verify the form displays a validation error and blocks saving.
 
 ### 4.1 Member Freeze Request
 
@@ -265,12 +286,13 @@ This document is a comprehensive, numbered click-through guide for project owner
 
 ## 8. Email Safety Safeguards (Sprint 9b)
 
-### 8.1 Disposable Email Blocking on Registration
+### 8.1 Disposable Email Blocking & Gender Selection on Registration
 
 1. Navigate to the public member registration form at `http://<gym-subdomain>.localhost:5173/register`.
-2. Attempt to register using a known disposable domain (e.g., `user@tempmail.com` or `test@10minutemail.com`).
-3. Verify the form rejects the submission with a clear message: `Disposable email domains are not allowed. Please use your personal or business email.`
-4. Verify staff creating a member at the front desk are allowed lenient entry if needed, but warned if the address is problematic.
+2. Verify the Gender field requires selection of strictly **Female** or **Male** (no 'Other' or 'Prefer not to say').
+3. Attempt to register using a known disposable domain (e.g., `user@tempmail.com` or `test@10minutemail.com`).
+4. Verify the form rejects the submission with a clear message: `Disposable email domains are not allowed. Please use your personal or business email.`
+5. Verify staff creating a member at the front desk are allowed lenient entry if needed, but warned if the address is problematic.
 
 ### 8.2 Confirmation of Owner Email on Gym Creation
 

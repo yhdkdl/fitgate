@@ -94,6 +94,9 @@ describe("Sprint 7: Member Registration & Body Metrics UI", () => {
       fireEvent.change(screen.getByLabelText(/password/i), {
         target: { value: "SecurePassword123!" },
       });
+      fireEvent.change(screen.getByLabelText(/gender/i), {
+        target: { value: "male" },
+      });
       fireEvent.click(screen.getByLabelText(/health & safety waiver/i));
 
       fireEvent.click(
@@ -145,6 +148,9 @@ describe("Sprint 7: Member Registration & Body Metrics UI", () => {
       });
       fireEvent.change(screen.getByLabelText(/password/i), {
         target: { value: "SecurePassword123!" },
+      });
+      fireEvent.change(screen.getByLabelText(/gender/i), {
+        target: { value: "female" },
       });
       fireEvent.click(screen.getByLabelText(/health & safety waiver/i));
 
@@ -316,6 +322,9 @@ describe("Sprint 7: Member Registration & Body Metrics UI", () => {
       });
       fireEvent.change(screen.getByPlaceholderText(/\+251911223344/i), {
         target: { value: "+251922222222" },
+      });
+      fireEvent.change(screen.getByLabelText(/gender/i), {
+        target: { value: "female" },
       });
       fireEvent.click(screen.getByRole("checkbox"));
 
