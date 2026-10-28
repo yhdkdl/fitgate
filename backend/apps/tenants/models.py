@@ -158,6 +158,7 @@ class GymConfig(models.Model):
     has_multi_branch = models.BooleanField(default=False)
     chapa_merchant_id = models.CharField(max_length=100, null=True, blank=True)
     freeze_days_allowed = models.PositiveIntegerField(default=0)
+    freeze_days_cap = models.PositiveIntegerField(default=0)
     payment_grace_days = models.PositiveIntegerField(default=7)
     subscription_reminder_days = models.JSONField(
         default=default_subscription_reminder_days
@@ -194,6 +195,7 @@ def get_tier_defaults(tier: str) -> dict:
                 "has_group_classes": False,
                 "has_multi_branch": False,
                 "freeze_days_allowed": 0,
+                "freeze_days_cap": 0,
             }
         )
     elif tier == GymTenant.TIER_GROWTH:
@@ -205,6 +207,7 @@ def get_tier_defaults(tier: str) -> dict:
                 "has_group_classes": True,
                 "has_multi_branch": False,
                 "freeze_days_allowed": 30,
+                "freeze_days_cap": 30,
             }
         )
     elif tier == GymTenant.TIER_PRO:
@@ -216,6 +219,7 @@ def get_tier_defaults(tier: str) -> dict:
                 "has_group_classes": True,
                 "has_multi_branch": True,
                 "freeze_days_allowed": 60,
+                "freeze_days_cap": 60,
             }
         )
     return defaults

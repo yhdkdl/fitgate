@@ -111,6 +111,21 @@ def validate_registration_payload(
             errors["phone"] = list(e.messages)
             normalized_phone = str(raw_phone).strip()
 
+    raw_gender = (data.get("gender") or "").strip().lower()
+    if raw_gender not in (Member.GENDER_FEMALE, Member.GENDER_MALE):
+        errors["gender"] = ["Gender must be either Female or Male."]
+    gender = raw_gender
+
+    raw_emergency_contact = data.get("emergency_contact")
+    normalized_emergency_contact = ""
+    if raw_emergency_contact:
+        try:
+            normalized_emergency_contact = validate_and_normalize_phone(
+                str(raw_emergency_contact)
+            )
+        except ValidationError as e:
+            errors["emergency_contact"] = list(e.messages)
+
     raw_dob = data.get("date_of_birth")
     validated_dob = raw_dob
     if raw_dob:
@@ -157,8 +172,8 @@ def validate_registration_payload(
         "email": normalized_email,
         "phone": normalized_phone,
         "date_of_birth": validated_dob,
-        "gender": data.get("gender") or "",
-        "emergency_contact": str(data.get("emergency_contact") or "").strip(),
+        "gender": gender,
+        "emergency_contact": normalized_emergency_contact,
         "referral_source": str(data.get("referral_source") or "").strip(),
         "photo_url": str(data.get("photo_url") or "").strip(),
     }
@@ -205,6 +220,7 @@ def register_member_self_service(
                 member.gender = validated["gender"]
                 member.emergency_contact = validated["emergency_contact"]
                 member.referral_source = validated["referral_source"]
+                member.photo_url = validated["photo_url"]
                 member.status = Member.STATUS_PENDING
                 member.waiver_accepted_at = timezone.now()
                 member._status_update_allowed = True
@@ -222,6 +238,7 @@ def register_member_self_service(
                     gender=validated["gender"],
                     emergency_contact=validated["emergency_contact"],
                     referral_source=validated["referral_source"],
+                    photo_url=validated["photo_url"],
                     status=Member.STATUS_PENDING,
                     waiver_accepted_at=timezone.now(),
                 )
@@ -248,6 +265,7 @@ def register_member_self_service(
                 gender=validated["gender"],
                 emergency_contact=validated["emergency_contact"],
                 referral_source=validated["referral_source"],
+                photo_url=validated["photo_url"],
                 status=Member.STATUS_PENDING,
                 waiver_accepted_at=timezone.now(),
             )
@@ -342,9 +360,96 @@ def register_member_staff_assisted(
             gender=validated["gender"],
             emergency_contact=validated["emergency_contact"],
             referral_source=validated["referral_source"],
+            photo_url=validated["photo_url"],
             status=Member.STATUS_PENDING,
             waiver_accepted_at=timezone.now(),
         )
+
+        payment_method = str(data.get("payment_method") or "none").strip().lower()
+        receipt = None
+        if payment_method in ("cash", "bank_transfer"):
+            plan_id = data.get("plan_id")
+            if not plan_id:
+                raise ValidationError(
+                    {"plan_id": ["Plan is required when recording payment."]}
+                )
+
+            plan = MembershipPlan.objects.filter(
+                gym=gym, id=plan_id, is_active=True
+            ).first()
+            if not plan:
+                raise ValidationError(
+                    {"plan_id": ["Membership plan not found or inactive for this gym."]}
+                )
+
+            idempotency_key = data.get("idempotency_key") or None
+            notes = str(data.get("notes") or "").strip()
+
+            if payment_method == "cash":
+                from apps.payments.services import record_cash_payment
+
+                _, receipt, _ = record_cash_payment(
+                    gym=gym,
+                    member=member,
+                    plan=plan,
+                    recorded_by=acting_user,
+                    notes=notes,
+                    idempotency_key=idempotency_key,
+                )
+            elif payment_method == "bank_transfer":
+                from apps.payments.services import record_bank_transfer_payment
+                from apps.tenants.storage import save_bank_transfer_screenshot
+
+                bank_reference = str(data.get("bank_reference") or "").strip()
+                if not bank_reference:
+                    raise ValidationError(
+                        {
+                            "bank_reference": [
+                                "Bank reference is required for bank transfer."
+                            ]
+                        }
+                    )
+
+                transfer_date = data.get("transfer_date")
+                if not transfer_date:
+                    raise ValidationError(
+                        {
+                            "transfer_date": [
+                                "Transfer date is required for bank transfer."
+                            ]
+                        }
+                    )
+
+                screenshot_file = data.get("screenshot_file") or data.get("screenshot")
+                if not screenshot_file:
+                    raise ValidationError(
+                        {
+                            "screenshot": [
+                                "A transfer screenshot image is required for bank transfer payments."
+                            ]
+                        }
+                    )
+
+                transfer_screenshot = save_bank_transfer_screenshot(
+                    gym.id, screenshot_file
+                )
+                channel = str(data.get("channel") or "").strip()
+
+                _, receipt, _ = record_bank_transfer_payment(
+                    gym=gym,
+                    member=member,
+                    plan=plan,
+                    recorded_by=acting_user,
+                    bank_reference=bank_reference,
+                    transfer_date=transfer_date,
+                    channel=channel,
+                    notes=notes,
+                    idempotency_key=idempotency_key,
+                    transfer_screenshot=transfer_screenshot,
+                )
+
+        if receipt:
+            member._created_receipt = receipt
 
         raw_token = secrets.token_urlsafe(32)
         token_hash = hashlib.sha256(raw_token.encode("utf-8")).hexdigest()

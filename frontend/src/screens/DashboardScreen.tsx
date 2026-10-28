@@ -1,9 +1,11 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Badge } from "../components/ui/Badge";
 import { Button } from "../components/ui/Button";
 import { Card } from "../components/ui/Card";
 import { NotificationCenter } from "../components/ui/NotificationCenter";
+import { SectionErrorBoundary } from "../components/ui/SectionErrorBoundary";
+import { getPublicGymEntry } from "../api/gyms";
 import {
   GymManagementSection,
   type GymPrefillData,
@@ -25,6 +27,24 @@ import { AttendanceScannerSection } from "../components/attendance/AttendanceSca
 import { useAuth } from "../context/AuthContext";
 import { getTenantFromHostname } from "../utils/tenant";
 
+function getSafeBrandColor(hex?: string | null): string {
+  if (!hex || !/^#[0-9a-fA-F]{6}$/.test(hex)) {
+    return "#2563EB";
+  }
+  const r = parseInt(hex.slice(1, 3), 16) / 255;
+  const g = parseInt(hex.slice(3, 5), 16) / 255;
+  const b = parseInt(hex.slice(5, 7), 16) / 255;
+  const toL = (c: number) =>
+    c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
+  const L = 0.2126 * toL(r) + 0.7152 * toL(g) + 0.0722 * toL(b);
+  const surfaceL = 0.0071; // #0E1626
+  const ratio = (Math.max(L, surfaceL) + 0.05) / (Math.min(L, surfaceL) + 0.05);
+  if (ratio < 3.0) {
+    return "#2563EB";
+  }
+  return hex;
+}
+
 export const DashboardScreen: React.FC = () => {
   const { user, dashboardConfig, logout } = useAuth();
   const navigate = useNavigate();
@@ -36,6 +56,34 @@ export const DashboardScreen: React.FC = () => {
   const [prefillGymData, setPrefillGymData] = useState<GymPrefillData | null>(
     null
   );
+  const [gymBranding, setGymBranding] = useState<{
+    name?: string;
+    logo?: string | null;
+    brand_color?: string | null;
+  } | null>(null);
+
+  useEffect(() => {
+    if (!tenant) return;
+    let isMounted = true;
+    getPublicGymEntry(tenant)
+      .then((res) => {
+        if (isMounted && res) {
+          setGymBranding({
+            name: res.name,
+            logo: res.logo,
+            brand_color: res.brand_color,
+          });
+        }
+      })
+      .catch(() => {
+        // Ignore fallback
+      });
+    return () => {
+      isMounted = false;
+    };
+  }, [tenant, checklistKey]);
+
+  const safeBrandColor = getSafeBrandColor(gymBranding?.brand_color);
 
   const handleLogout = async () => {
     await logout();
@@ -52,20 +100,43 @@ export const DashboardScreen: React.FC = () => {
   ];
 
   return (
-    <div className="min-h-screen bg-bg text-text flex flex-col pb-16 md:pb-0">
+    <div
+      className="min-h-screen bg-bg text-text flex flex-col pb-16 md:pb-0"
+      style={{ ["--brand-accent" as string]: safeBrandColor }}
+    >
       {/* Top Header */}
       <header className="border-b border-border bg-surface px-4 py-3 sm:px-6 sticky top-0 z-30">
         <div className="max-w-7xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-lg bg-primary/20 text-primary font-bold text-lg flex items-center justify-center border border-primary/30">
-              FG
-            </div>
+            {gymBranding?.logo ? (
+              <img
+                src={gymBranding.logo}
+                alt={`${gymBranding.name || tenant} logo`}
+                className="w-9 h-9 rounded-lg object-cover border border-border"
+              />
+            ) : (
+              <div
+                className="w-9 h-9 rounded-lg font-bold text-lg flex items-center justify-center border text-white"
+                style={{
+                  backgroundColor: safeBrandColor,
+                  borderColor: safeBrandColor,
+                }}
+              >
+                {(gymBranding?.name || tenant || "FG").charAt(0).toUpperCase()}
+              </div>
+            )}
             <div>
               <span className="font-bold text-base tracking-tight text-text">
-                FitGate
+                {gymBranding?.name || "FitGate"}
               </span>
               {tenant && (
-                <span className="ml-2 text-xs text-text-muted bg-surface-2 px-2 py-0.5 rounded border border-border">
+                <span
+                  className="ml-2 text-xs text-text-muted bg-surface-2 px-2 py-0.5 rounded border border-border"
+                  style={{
+                    borderLeftColor: safeBrandColor,
+                    borderLeftWidth: "3px",
+                  }}
+                >
                   {tenant}
                 </span>
               )}
@@ -187,21 +258,27 @@ export const DashboardScreen: React.FC = () => {
               </div>
 
               {adminTab === "gyms" && (
-                <GymManagementSection
-                  prefillData={prefillGymData}
-                  onClearPrefill={() => setPrefillGymData(null)}
-                />
+                <SectionErrorBoundary title="Gym Tenants">
+                  <GymManagementSection
+                    prefillData={prefillGymData}
+                    onClearPrefill={() => setPrefillGymData(null)}
+                  />
+                </SectionErrorBoundary>
               )}
               {adminTab === "leads" && (
-                <DemoRequestSection
-                  onConvertToGym={(data) => {
-                    setPrefillGymData(data);
-                    setAdminTab("gyms");
-                  }}
-                />
+                <SectionErrorBoundary title="Demo Requests">
+                  <DemoRequestSection
+                    onConvertToGym={(data) => {
+                      setPrefillGymData(data);
+                      setAdminTab("gyms");
+                    }}
+                  />
+                </SectionErrorBoundary>
               )}
               {adminTab === "audit" && (
-                <AuditLogSection userRole={user?.role} isPlatform={true} />
+                <SectionErrorBoundary title="Audit & Security Logs">
+                  <AuditLogSection userRole={user?.role} isPlatform={true} />
+                </SectionErrorBoundary>
               )}
             </div>
           )}
@@ -209,10 +286,12 @@ export const DashboardScreen: React.FC = () => {
           {/* Gym Owner Onboarding & Branding */}
           {user?.role === "owner" && (
             <div className="space-y-6">
-              <FirstRunChecklistCard
-                key={checklistKey}
-                onOpenBranding={() => setShowBranding(true)}
-              />
+              <SectionErrorBoundary title="First-run Checklist">
+                <FirstRunChecklistCard
+                  key={checklistKey}
+                  onOpenBranding={() => setShowBranding(true)}
+                />
+              </SectionErrorBoundary>
 
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-border pb-2">
                 <div>
@@ -234,67 +313,111 @@ export const DashboardScreen: React.FC = () => {
                 </Button>
               </div>
 
-              {showBranding && <GymBrandingSection onUpdated={() => {}} />}
+              {showBranding && (
+                <SectionErrorBoundary title="Gym Branding">
+                  <GymBrandingSection
+                    onUpdated={() => setChecklistKey((k) => k + 1)}
+                  />
+                </SectionErrorBoundary>
+              )}
 
-              <MembershipPlansSection
-                onPlansUpdated={() => setChecklistKey((k) => k + 1)}
-              />
+              <SectionErrorBoundary title="Membership Plans">
+                <MembershipPlansSection
+                  onPlansUpdated={() => setChecklistKey((k) => k + 1)}
+                />
+              </SectionErrorBoundary>
 
-              <PaymentGatewaySection
-                onUpdated={() => setChecklistKey((k) => k + 1)}
-              />
+              <SectionErrorBoundary title="Payment Gateway">
+                <PaymentGatewaySection
+                  onUpdated={() => setChecklistKey((k) => k + 1)}
+                />
+              </SectionErrorBoundary>
 
-              <GymPaymentsSection />
+              <SectionErrorBoundary title="Payments & Reconciliation">
+                <GymPaymentsSection />
+              </SectionErrorBoundary>
 
-              <GymFreezesSection />
+              <SectionErrorBoundary title="Freeze Requests">
+                <GymFreezesSection />
+              </SectionErrorBoundary>
 
-              <StaffManagementSection
-                onStaffUpdated={() => setChecklistKey((k) => k + 1)}
-              />
+              <SectionErrorBoundary title="Staff Management">
+                <StaffManagementSection
+                  onStaffUpdated={() => setChecklistKey((k) => k + 1)}
+                />
+              </SectionErrorBoundary>
 
-              <AttendanceScannerSection userRole={user?.role} />
+              <SectionErrorBoundary title="Attendance Scanner">
+                <AttendanceScannerSection userRole={user?.role} />
+              </SectionErrorBoundary>
 
-              <MemberManagementSection
-                userRole={user?.role}
-                onMemberRegistered={() => setChecklistKey((k) => k + 1)}
-              />
+              <SectionErrorBoundary title="Member Management">
+                <MemberManagementSection
+                  userRole={user?.role}
+                  onMemberRegistered={() => setChecklistKey((k) => k + 1)}
+                />
+              </SectionErrorBoundary>
 
-              <AuditLogSection userRole={user?.role} isPlatform={false} />
+              <SectionErrorBoundary title="Audit Logs">
+                <AuditLogSection userRole={user?.role} isPlatform={false} />
+              </SectionErrorBoundary>
             </div>
           )}
 
           {/* Gym Manager Hub */}
           {user?.role === "manager" && (
             <div className="space-y-6">
-              <MembershipPlansSection />
-              <GymPaymentsSection />
-              <GymFreezesSection />
-              <StaffManagementSection />
-              <AttendanceScannerSection userRole={user?.role} />
-              <MemberManagementSection userRole={user?.role} />
-              <AuditLogSection userRole={user?.role} isPlatform={false} />
+              <SectionErrorBoundary title="Membership Plans">
+                <MembershipPlansSection />
+              </SectionErrorBoundary>
+              <SectionErrorBoundary title="Payments & Reconciliation">
+                <GymPaymentsSection />
+              </SectionErrorBoundary>
+              <SectionErrorBoundary title="Freeze Requests">
+                <GymFreezesSection />
+              </SectionErrorBoundary>
+              <SectionErrorBoundary title="Staff Management">
+                <StaffManagementSection />
+              </SectionErrorBoundary>
+              <SectionErrorBoundary title="Attendance Scanner">
+                <AttendanceScannerSection userRole={user?.role} />
+              </SectionErrorBoundary>
+              <SectionErrorBoundary title="Member Management">
+                <MemberManagementSection userRole={user?.role} />
+              </SectionErrorBoundary>
+              <SectionErrorBoundary title="Audit Logs">
+                <AuditLogSection userRole={user?.role} isPlatform={false} />
+              </SectionErrorBoundary>
             </div>
           )}
 
           {/* Reception Hub */}
           {user?.role === "reception" && (
             <div className="space-y-6">
-              <AttendanceScannerSection userRole={user?.role} />
-              <MemberManagementSection userRole={user?.role} />
+              <SectionErrorBoundary title="Attendance Scanner">
+                <AttendanceScannerSection userRole={user?.role} />
+              </SectionErrorBoundary>
+              <SectionErrorBoundary title="Member Management">
+                <MemberManagementSection userRole={user?.role} />
+              </SectionErrorBoundary>
             </div>
           )}
 
           {/* Trainer Hub */}
           {user?.role === "trainer" && (
             <div className="space-y-6">
-              <TrainerMeasurementsSection />
+              <SectionErrorBoundary title="Trainer Measurements">
+                <TrainerMeasurementsSection />
+              </SectionErrorBoundary>
             </div>
           )}
 
           {/* Member Self-Service Hub */}
           {user?.role === "member" && (
             <div className="space-y-6">
-              <MemberSelfSection />
+              <SectionErrorBoundary title="Member Services">
+                <MemberSelfSection />
+              </SectionErrorBoundary>
             </div>
           )}
 

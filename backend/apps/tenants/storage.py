@@ -255,3 +255,28 @@ def get_authenticated_photo_stream(gym_id: Any, filename: str) -> Tuple[Any, str
     relative_path = f"gyms/{gym_id}/member_photos/{filename}"
     storage = get_storage()
     return storage.get_authenticated_asset(relative_path)
+
+
+def save_bank_transfer_screenshot(gym_id: Any, uploaded_file) -> str:
+    """
+    Validate, process, and save a bank transfer screenshot into gym-scoped private storage.
+    Path: gyms/<gym_id>/bank_transfers/<random_name>.webp
+    Enforces JPG, PNG, WebP format and max 5 MB limit.
+    """
+    content_file, random_filename = validate_and_process_image(
+        uploaded_file,
+        max_size_bytes=5 * 1024 * 1024,
+        max_dimensions=(1920, 1920),
+    )
+    relative_path = f"gyms/{gym_id}/bank_transfers/{random_filename}"
+    storage = get_storage()
+    storage.save_authenticated_asset(relative_path, content_file)
+    return relative_path
+
+
+def get_bank_transfer_screenshot_stream(relative_path: str) -> Tuple[Any, str]:
+    """
+    Retrieve binary stream for a bank transfer screenshot from private storage.
+    """
+    storage = get_storage()
+    return storage.get_authenticated_asset(relative_path)

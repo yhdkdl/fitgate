@@ -253,11 +253,10 @@ class PublicMemberRegistrationSerializer(serializers.Serializer):
     date_of_birth = serializers.DateField(required=False, allow_null=True)
     gender = serializers.ChoiceField(
         choices=Member.GENDER_CHOICES,
-        required=False,
-        allow_blank=True,
+        required=True,
     )
     emergency_contact = serializers.CharField(
-        max_length=255,
+        max_length=50,
         required=False,
         allow_blank=True,
     )
@@ -288,7 +287,7 @@ class PublicMemberRegistrationSerializer(serializers.Serializer):
 
     def validate_emergency_contact(self, value):
         if value:
-            return validate_text_length(value, 2, 255, "Emergency contact")
+            return validate_and_normalize_phone(value)
         return ""
 
 
@@ -296,7 +295,7 @@ class StaffMemberRegistrationSerializer(serializers.Serializer):
     """
     Serializer for staff-assisted member registration (Owner, Manager, Reception).
     Does not require a password; generates set-password invite link instead.
-    Registration captures no body measurements.
+    Integrates optional upfront payment (Cash, Bank transfer, or None).
     """
 
     full_name = serializers.CharField(max_length=150, required=True)
@@ -306,11 +305,10 @@ class StaffMemberRegistrationSerializer(serializers.Serializer):
     date_of_birth = serializers.DateField(required=False, allow_null=True)
     gender = serializers.ChoiceField(
         choices=Member.GENDER_CHOICES,
-        required=False,
-        allow_blank=True,
+        required=True,
     )
     emergency_contact = serializers.CharField(
-        max_length=255,
+        max_length=50,
         required=False,
         allow_blank=True,
     )
@@ -324,6 +322,22 @@ class StaffMemberRegistrationSerializer(serializers.Serializer):
         required=False,
         allow_blank=True,
     )
+    payment_method = serializers.ChoiceField(
+        choices=["cash", "bank_transfer", "none", "no_payment"],
+        required=False,
+        default="none",
+    )
+    plan_id = serializers.UUIDField(required=False, allow_null=True)
+    idempotency_key = serializers.CharField(
+        max_length=255, required=False, allow_blank=True
+    )
+    notes = serializers.CharField(max_length=500, required=False, allow_blank=True)
+    bank_reference = serializers.CharField(
+        max_length=100, required=False, allow_blank=True
+    )
+    transfer_date = serializers.DateField(required=False, allow_null=True)
+    channel = serializers.CharField(max_length=50, required=False, allow_blank=True)
+    screenshot = serializers.FileField(required=False, allow_null=True)
 
     def validate_full_name(self, value):
         return validate_name(value, "Full name")
@@ -341,8 +355,34 @@ class StaffMemberRegistrationSerializer(serializers.Serializer):
 
     def validate_emergency_contact(self, value):
         if value:
-            return validate_text_length(value, 2, 255, "Emergency contact")
+            return validate_and_normalize_phone(value)
         return ""
+
+    def validate(self, attrs):
+        method = attrs.get("payment_method") or "none"
+        if method in ("cash", "bank_transfer"):
+            if not attrs.get("plan_id"):
+                raise serializers.ValidationError(
+                    {
+                        "plan_id": [
+                            "Active membership plan is required when recording payment."
+                        ]
+                    }
+                )
+        if method == "bank_transfer":
+            if not attrs.get("bank_reference"):
+                raise serializers.ValidationError(
+                    {
+                        "bank_reference": [
+                            "Bank reference is required for bank transfer."
+                        ]
+                    }
+                )
+            if not attrs.get("transfer_date"):
+                raise serializers.ValidationError(
+                    {"transfer_date": ["Transfer date is required for bank transfer."]}
+                )
+        return attrs
 
 
 class VerifyEmailRequestSerializer(serializers.Serializer):
@@ -352,7 +392,7 @@ class VerifyEmailRequestSerializer(serializers.Serializer):
 
 
 class MemberUpdateSerializer(serializers.ModelSerializer):
-    """Serializer for updating member profile details."""
+    """Serializer for updating member profile details by gym staff."""
 
     class Meta:
         model = Member
@@ -383,8 +423,13 @@ class MemberUpdateSerializer(serializers.ModelSerializer):
 
     def validate_emergency_contact(self, value):
         if value:
-            return validate_text_length(value, 2, 255, "Emergency contact")
+            return validate_and_normalize_phone(value)
         return ""
+
+    def validate_gender(self, value):
+        if value and value not in (Member.GENDER_FEMALE, Member.GENDER_MALE):
+            raise serializers.ValidationError("Gender must be either Female or Male.")
+        return value
 
 
 class RecordBodyMetricsSerializer(serializers.Serializer):
@@ -561,6 +606,7 @@ class MemberFreezeRejectSerializer(serializers.Serializer):
 class MemberFreezeSerializer(serializers.ModelSerializer):
     """Detailed read serializer for MemberFreeze records."""
 
+    member = serializers.SerializerMethodField()
     member_name = serializers.CharField(source="member.full_name", read_only=True)
     member_phone = serializers.CharField(source="member.phone", read_only=True)
     approved_by_name = serializers.SerializerMethodField()
@@ -569,6 +615,7 @@ class MemberFreezeSerializer(serializers.ModelSerializer):
         model = MemberFreeze
         fields = [
             "id",
+            "member",
             "member_id",
             "member_name",
             "member_phone",
@@ -588,6 +635,15 @@ class MemberFreezeSerializer(serializers.ModelSerializer):
             "updated_at",
         ]
         read_only_fields = fields
+
+    def get_member(self, obj):
+        if obj.member:
+            return {
+                "id": str(obj.member.id),
+                "full_name": obj.member.full_name or "",
+                "phone": obj.member.phone or "",
+            }
+        return None
 
     def get_approved_by_name(self, obj) -> str:
         if obj.approved_by:

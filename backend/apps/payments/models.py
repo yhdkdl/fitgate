@@ -175,6 +175,7 @@ class Payment(TenantAwareModel):
     )
     transfer_date = models.DateField(null=True, blank=True)
     channel = models.CharField(max_length=50, blank=True, default="")
+    transfer_screenshot = models.CharField(max_length=500, blank=True, default="")
     is_reconciled = models.BooleanField(default=False)
     reconciled_at = models.DateTimeField(null=True, blank=True)
     reconciled_by = models.ForeignKey(

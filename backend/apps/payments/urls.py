@@ -3,11 +3,13 @@
 from django.urls import path
 
 from apps.payments.views import (
+    BankTransferScreenshotView,
     ChapaCheckoutView,
     ChapaWebhookView,
     GymPaymentConfigTestView,
     GymPaymentConfigView,
     GymPaymentListView,
+    GymPaymentPublicStatusView,
     MemberPaymentHistoryView,
     ReceiptDetailView,
     ReconcileBankTransfersView,
@@ -81,9 +83,21 @@ urlpatterns = [
     ),
     # Digital Receipt Details (Staff or owning member)
     path(
-        "api/gym/receipts/<uuid:receipt_id>/",
+        "api/gym/receipts/<str:receipt_id>/",
         ReceiptDetailView.as_view(),
         name="gym-receipt-detail",
+    ),
+    # Bank Transfer Screenshot View (Staff Owner/Manager/Recorder only)
+    path(
+        "api/gym/payments/bank-transfers/<uuid:payment_id>/screenshot/",
+        BankTransferScreenshotView.as_view(),
+        name="gym-bank-transfer-screenshot",
+    ),
+    # Gym Payment Public Status
+    path(
+        "api/gym/payments/public-status/",
+        GymPaymentPublicStatusView.as_view(),
+        name="gym-payment-public-status",
     ),
     # Chapa Webhook Receiver (public, HMAC-verified)
     path(

@@ -156,7 +156,7 @@ class TestApiTokenLeakPrevention:
             "waiver_accepted": True,
             "date_of_birth": "1996-01-01",
             "gender": "female",
-            "emergency_contact": "Emergency - +251911000000",
+            "emergency_contact": "+251911000000",
         }
 
         resp = client.post(
@@ -191,7 +191,7 @@ class TestApiTokenLeakPrevention:
             "waiver_accepted": True,
             "date_of_birth": "1994-02-02",
             "gender": "male",
-            "emergency_contact": "Contact - +251922000000",
+            "emergency_contact": "+251922000000",
         }
 
         resp = client.post(

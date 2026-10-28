@@ -379,7 +379,7 @@ class TestEntitlementsVsSettingsEnforcement:
         ({"has_analytics": True}, "has_analytics"),
         ({"has_group_classes": True}, "has_group_classes"),
         ({"has_multi_branch": True}, "has_multi_branch"),
-        ({"freeze_days_allowed": 30}, "freeze_days_allowed"),
+        ({"freeze_days_cap": 30}, "freeze_days_cap"),
         ({"payment_grace_days": 14}, "payment_grace_days"),
         ({"subscription_reminder_days": [30, 15]}, "subscription_reminder_days"),
     ]

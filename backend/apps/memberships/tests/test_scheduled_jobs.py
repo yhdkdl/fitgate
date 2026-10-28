@@ -365,6 +365,7 @@ class TestUnverifiedMemberCleanup:
             "phone": "+251911999888",
             "password": "StrongPassword123!",
             "waiver_accepted": True,
+            "gender": "male",
         }
         member, raw_token = register_member_self_service(gym, reg_payload)
         user = member.user

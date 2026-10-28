@@ -335,6 +335,7 @@ export const GymManagementSection: React.FC<GymManagementSectionProps> = ({
               <tr>
                 <th className="px-4 py-3">Gym</th>
                 <th className="px-4 py-3">Subdomain</th>
+                <th className="px-4 py-3">Owner Email</th>
                 <th className="px-4 py-3">Tier</th>
                 <th className="px-4 py-3">Status</th>
                 <th className="px-4 py-3">TLS Security</th>
@@ -345,7 +346,7 @@ export const GymManagementSection: React.FC<GymManagementSectionProps> = ({
               {isLoading && gyms.length === 0 ? (
                 <tr>
                   <td
-                    colSpan={6}
+                    colSpan={7}
                     className="px-4 py-8 text-center text-text-muted"
                   >
                     Loading gym tenants...
@@ -354,7 +355,7 @@ export const GymManagementSection: React.FC<GymManagementSectionProps> = ({
               ) : gyms.length === 0 ? (
                 <tr>
                   <td
-                    colSpan={6}
+                    colSpan={7}
                     className="px-4 py-8 text-center text-text-muted"
                   >
                     No gym tenants registered yet. Click &quot;Create New
@@ -372,6 +373,9 @@ export const GymManagementSection: React.FC<GymManagementSectionProps> = ({
                     </td>
                     <td className="px-4 py-3 font-mono text-xs text-primary">
                       {gym.subdomain}
+                    </td>
+                    <td className="px-4 py-3 text-xs text-text-muted">
+                      {gym.owner_email || "—"}
                     </td>
                     <td className="px-4 py-3">
                       <Badge variant="primary">{gym.tier.toUpperCase()}</Badge>

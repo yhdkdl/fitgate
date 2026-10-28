@@ -12,31 +12,47 @@ import {
 import { useAuth } from "../../context/AuthContext";
 import { RecordCashPaymentModal } from "./RecordCashPaymentModal";
 import { RecordBankTransferModal } from "./RecordBankTransferModal";
+import { DigitalReceiptModal } from "../ui/DigitalReceiptModal";
+import { AuthenticatedImage } from "../ui/AuthenticatedImage";
 
 export const GymPaymentsSection: React.FC = () => {
   const { user } = useAuth();
   const isOwner = user?.role === "owner";
 
-  const [activeTab, setActiveTab] = useState<"payments" | "unreconciled">("payments");
-  const [paymentsData, setPaymentsData] = useState<GymPaymentListResponse | null>(null);
+  const [activeTab, setActiveTab] = useState<"payments" | "unreconciled">(
+    "payments"
+  );
+  const [paymentsData, setPaymentsData] =
+    useState<GymPaymentListResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [methodFilter, setMethodFilter] = useState<string>("");
   const [statusFilter, setStatusFilter] = useState<string>("");
-  const [viewingReceipt, setViewingReceipt] = useState<DigitalReceipt | null>(null);
+  const [viewingReceipt, setViewingReceipt] = useState<DigitalReceipt | null>(
+    null
+  );
+  const [viewingScreenshot, setViewingScreenshot] = useState<{
+    url: string;
+    reference: string;
+  } | null>(null);
   const [receiptLoading, setReceiptLoading] = useState(false);
   const [showRecordCashModal, setShowRecordCashModal] = useState(false);
   const [showRecordBankModal, setShowRecordBankModal] = useState(false);
 
   // Unreconciled bank transfers state (Owner only)
-  const [unreconciled, setUnreconciled] = useState<UnreconciledBankTransferItem[]>([]);
+  const [unreconciled, setUnreconciled] = useState<
+    UnreconciledBankTransferItem[]
+  >([]);
   const [unreconciledLoading, setUnreconciledLoading] = useState(false);
-  const [unreconciledError, setUnreconciledError] = useState<string | null>(null);
+  const [unreconciledError, setUnreconciledError] = useState<string | null>(
+    null
+  );
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [reconciling, setReconciling] = useState(false);
 
   // Reversal state
-  const [reversingPayment, setReversingPayment] = useState<UnreconciledBankTransferItem | null>(null);
+  const [reversingPayment, setReversingPayment] =
+    useState<UnreconciledBankTransferItem | null>(null);
   const [reversalReason, setReversalReason] = useState("");
   const [reversalLoading, setReversalLoading] = useState(false);
   const [reversalError, setReversalError] = useState<string | null>(null);
@@ -82,10 +98,10 @@ export const GymPaymentsSection: React.FC = () => {
     }
   }, [activeTab, isOwner, fetchUnreconciled]);
 
-  const handleOpenReceipt = async (paymentId: string) => {
+  const handleOpenReceipt = async (receiptRef: string) => {
     setReceiptLoading(true);
     try {
-      const receipt = await getReceiptDetail(paymentId);
+      const receipt = await getReceiptDetail(receiptRef);
       setViewingReceipt(receipt);
     } catch {
       alert("Receipt details could not be retrieved.");
@@ -95,7 +111,12 @@ export const GymPaymentsSection: React.FC = () => {
   };
 
   const handleClearSingle = async (paymentId: string) => {
-    if (!window.confirm("Confirm that this transfer appears on your official bank statement?")) return;
+    if (
+      !window.confirm(
+        "Confirm that this transfer appears on your official bank statement?"
+      )
+    )
+      return;
     setReconciling(true);
     try {
       await reconcileBankTransfers([paymentId]);
@@ -111,7 +132,12 @@ export const GymPaymentsSection: React.FC = () => {
 
   const handleClearSelected = async () => {
     if (selectedIds.length === 0) return;
-    if (!window.confirm(`Clear ${selectedIds.length} selected transfer(s) against your bank statement?`)) return;
+    if (
+      !window.confirm(
+        `Clear ${selectedIds.length} selected transfer(s) against your bank statement?`
+      )
+    )
+      return;
     setReconciling(true);
     try {
       await reconcileBankTransfers(selectedIds);
@@ -119,7 +145,9 @@ export const GymPaymentsSection: React.FC = () => {
       await fetchPayments();
     } catch (err: unknown) {
       const errorObj = err as { data?: { detail?: string } };
-      alert(errorObj?.data?.detail || "Failed to reconcile selected transfers.");
+      alert(
+        errorObj?.data?.detail || "Failed to reconcile selected transfers."
+      );
     } finally {
       setReconciling(false);
     }
@@ -157,7 +185,9 @@ export const GymPaymentsSection: React.FC = () => {
       await fetchPayments();
     } catch (err: unknown) {
       const errorObj = err as { data?: { detail?: string } };
-      setReversalError(errorObj?.data?.detail || "Failed to reverse bank transfer.");
+      setReversalError(
+        errorObj?.data?.detail || "Failed to reverse bank transfer."
+      );
     } finally {
       setReversalLoading(false);
     }
@@ -188,7 +218,8 @@ export const GymPaymentsSection: React.FC = () => {
             Gym Payments & Revenue
           </h2>
           <p style={{ fontSize: "13px", color: "#94a3b8", margin: "4px 0 0" }}>
-            Audit payment records, bank transfers, confirmed receipts, and revenue totals.
+            Audit payment records, bank transfers, confirmed receipts, and
+            revenue totals.
           </p>
         </div>
         <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
@@ -249,7 +280,10 @@ export const GymPaymentsSection: React.FC = () => {
             style={{
               backgroundColor: "transparent",
               border: "none",
-              borderBottom: activeTab === "payments" ? "2px solid #38bdf8" : "2px solid transparent",
+              borderBottom:
+                activeTab === "payments"
+                  ? "2px solid #38bdf8"
+                  : "2px solid transparent",
               color: activeTab === "payments" ? "#38bdf8" : "#94a3b8",
               padding: "8px 16px",
               fontSize: "14px",
@@ -265,7 +299,10 @@ export const GymPaymentsSection: React.FC = () => {
             style={{
               backgroundColor: "transparent",
               border: "none",
-              borderBottom: activeTab === "unreconciled" ? "2px solid #38bdf8" : "2px solid transparent",
+              borderBottom:
+                activeTab === "unreconciled"
+                  ? "2px solid #38bdf8"
+                  : "2px solid transparent",
               color: activeTab === "unreconciled" ? "#38bdf8" : "#94a3b8",
               padding: "8px 16px",
               fontSize: "14px",
@@ -311,7 +348,8 @@ export const GymPaymentsSection: React.FC = () => {
             }}
           >
             <div style={{ fontSize: "13px", color: "#94a3b8" }}>
-              Verify pending transfers against your bank statement. Transfers older than 7 days will be flagged.
+              Verify pending transfers against your bank statement. Transfers
+              older than 7 days will be flagged.
             </div>
             {selectedIds.length > 0 && (
               <button
@@ -329,15 +367,21 @@ export const GymPaymentsSection: React.FC = () => {
                   cursor: reconciling ? "not-allowed" : "pointer",
                 }}
               >
-                {reconciling ? "Clearing..." : `Clear Selected (${selectedIds.length})`}
+                {reconciling
+                  ? "Clearing..."
+                  : `Clear Selected (${selectedIds.length})`}
               </button>
             )}
           </div>
 
           {unreconciledLoading ? (
-            <div style={{ color: "#94a3b8", padding: "20px 0" }}>Loading unreconciled transfers...</div>
+            <div style={{ color: "#94a3b8", padding: "20px 0" }}>
+              Loading unreconciled transfers...
+            </div>
           ) : unreconciledError ? (
-            <div style={{ color: "#f87171", padding: "20px 0" }}>{unreconciledError}</div>
+            <div style={{ color: "#f87171", padding: "20px 0" }}>
+              {unreconciledError}
+            </div>
           ) : unreconciled.length === 0 ? (
             <div
               style={{
@@ -359,13 +403,29 @@ export const GymPaymentsSection: React.FC = () => {
                 border: "1px solid #334155",
               }}
             >
-              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "13px", textAlign: "left" }}>
+              <table
+                style={{
+                  width: "100%",
+                  borderCollapse: "collapse",
+                  fontSize: "13px",
+                  textAlign: "left",
+                }}
+              >
                 <thead>
-                  <tr style={{ borderBottom: "1px solid #334155", color: "#94a3b8", backgroundColor: "#0f172a" }}>
+                  <tr
+                    style={{
+                      borderBottom: "1px solid #334155",
+                      color: "#94a3b8",
+                      backgroundColor: "#0f172a",
+                    }}
+                  >
                     <th style={{ padding: "12px 16px", width: "36px" }}>
                       <input
                         type="checkbox"
-                        checked={selectedIds.length === unreconciled.length && unreconciled.length > 0}
+                        checked={
+                          selectedIds.length === unreconciled.length &&
+                          unreconciled.length > 0
+                        }
                         onChange={handleSelectAll}
                       />
                     </th>
@@ -376,12 +436,20 @@ export const GymPaymentsSection: React.FC = () => {
                     <th style={{ padding: "12px 16px" }}>Member</th>
                     <th style={{ padding: "12px 16px" }}>Confirmed By</th>
                     <th style={{ padding: "12px 16px" }}>Receipt</th>
-                    <th style={{ padding: "12px 16px", textAlign: "right" }}>Actions</th>
+                    <th style={{ padding: "12px 16px", textAlign: "right" }}>
+                      Actions
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
                   {unreconciled.map((t) => (
-                    <tr key={t.id} style={{ borderBottom: "1px solid #334155", color: "#f8fafc" }}>
+                    <tr
+                      key={t.id}
+                      style={{
+                        borderBottom: "1px solid #334155",
+                        color: "#f8fafc",
+                      }}
+                    >
                       <td style={{ padding: "12px 16px" }}>
                         <input
                           type="checkbox"
@@ -389,21 +457,70 @@ export const GymPaymentsSection: React.FC = () => {
                           onChange={() => handleToggleSelect(t.id)}
                         />
                       </td>
-                      <td style={{ padding: "12px 16px", whiteSpace: "nowrap" }}>{t.transfer_date}</td>
-                      <td style={{ padding: "12px 16px", fontFamily: "monospace", color: "#a78bfa" }}>
-                        {t.bank_reference}
+                      <td
+                        style={{ padding: "12px 16px", whiteSpace: "nowrap" }}
+                      >
+                        {t.transfer_date}
                       </td>
-                      <td style={{ padding: "12px 16px" }}>{t.channel || "—"}</td>
-                      <td style={{ padding: "12px 16px", fontWeight: 600, color: "#34d399" }}>
+                      <td
+                        style={{
+                          padding: "12px 16px",
+                          fontFamily: "monospace",
+                          color: "#a78bfa",
+                        }}
+                      >
+                        <div>{t.bank_reference}</div>
+                        {t.has_screenshot && (
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setViewingScreenshot({
+                                url:
+                                  t.screenshot_url ||
+                                  `/api/media/transfer-screenshots/${t.id}/`,
+                                reference: t.bank_reference,
+                              })
+                            }
+                            style={{
+                              backgroundColor: "#334155",
+                              color: "#38bdf8",
+                              border: "1px solid #475569",
+                              borderRadius: "4px",
+                              padding: "2px 6px",
+                              fontSize: "11px",
+                              fontWeight: 600,
+                              cursor: "pointer",
+                              marginTop: "4px",
+                              display: "inline-block",
+                            }}
+                          >
+                            🖼️ View Screenshot
+                          </button>
+                        )}
+                      </td>
+                      <td style={{ padding: "12px 16px" }}>
+                        {t.channel || "—"}
+                      </td>
+                      <td
+                        style={{
+                          padding: "12px 16px",
+                          fontWeight: 600,
+                          color: "#34d399",
+                        }}
+                      >
                         {t.amount_etb} ETB
                       </td>
                       <td style={{ padding: "12px 16px" }}>{t.member_name}</td>
-                      <td style={{ padding: "12px 16px", color: "#94a3b8" }}>{t.confirmed_by_name}</td>
+                      <td style={{ padding: "12px 16px", color: "#94a3b8" }}>
+                        {t.confirmed_by_name}
+                      </td>
                       <td style={{ padding: "12px 16px" }}>
                         {t.receipt_number ? (
                           <button
                             type="button"
-                            onClick={() => handleOpenReceipt(t.id)}
+                            onClick={() =>
+                              handleOpenReceipt(t.receipt_number || t.id)
+                            }
                             style={{
                               background: "transparent",
                               border: "none",
@@ -420,7 +537,13 @@ export const GymPaymentsSection: React.FC = () => {
                           "—"
                         )}
                       </td>
-                      <td style={{ padding: "12px 16px", textAlign: "right", whiteSpace: "nowrap" }}>
+                      <td
+                        style={{
+                          padding: "12px 16px",
+                          textAlign: "right",
+                          whiteSpace: "nowrap",
+                        }}
+                      >
                         <button
                           type="button"
                           onClick={() => handleClearSingle(t.id)}
@@ -509,7 +632,9 @@ export const GymPaymentsSection: React.FC = () => {
                   ? `${Number(paymentsData.total_confirmed_revenue_etb).toLocaleString()} ETB`
                   : "0 ETB"}
               </div>
-              <div style={{ fontSize: "12px", color: "#64748b", marginTop: "4px" }}>
+              <div
+                style={{ fontSize: "12px", color: "#64748b", marginTop: "4px" }}
+              >
                 Total from confirmed, non-reversed payments
               </div>
             </div>
@@ -542,7 +667,9 @@ export const GymPaymentsSection: React.FC = () => {
               >
                 {paymentsData ? paymentsData.count : 0}
               </div>
-              <div style={{ fontSize: "12px", color: "#64748b", marginTop: "4px" }}>
+              <div
+                style={{ fontSize: "12px", color: "#64748b", marginTop: "4px" }}
+              >
                 Recorded payment records
               </div>
             </div>
@@ -626,7 +753,9 @@ export const GymPaymentsSection: React.FC = () => {
 
           {/* Table */}
           {loading ? (
-            <div style={{ color: "#94a3b8", padding: "20px 0" }}>Loading payments...</div>
+            <div style={{ color: "#94a3b8", padding: "20px 0" }}>
+              Loading payments...
+            </div>
           ) : error ? (
             <div style={{ color: "#f87171", padding: "20px 0" }}>{error}</div>
           ) : paymentsData && paymentsData.results.length === 0 ? (
@@ -682,16 +811,23 @@ export const GymPaymentsSection: React.FC = () => {
                       style={{
                         borderBottom: "1px solid #334155",
                         color: "#f8fafc",
-                        backgroundColor: p.is_reversed || p.status === "reversed" ? "rgba(127, 29, 29, 0.15)" : "transparent",
+                        backgroundColor:
+                          p.is_reversed || p.status === "reversed"
+                            ? "rgba(127, 29, 29, 0.15)"
+                            : "transparent",
                       }}
                     >
-                      <td style={{ padding: "12px 16px", whiteSpace: "nowrap" }}>
+                      <td
+                        style={{ padding: "12px 16px", whiteSpace: "nowrap" }}
+                      >
                         {new Date(p.created_at).toLocaleDateString()}
                       </td>
                       <td style={{ padding: "12px 16px", fontWeight: 500 }}>
                         {p.member_name || "—"}
                       </td>
-                      <td style={{ padding: "12px 16px" }}>{p.plan_name || "—"}</td>
+                      <td style={{ padding: "12px 16px" }}>
+                        {p.plan_name || "—"}
+                      </td>
                       <td style={{ padding: "12px 16px" }}>
                         <span
                           style={{
@@ -714,7 +850,9 @@ export const GymPaymentsSection: React.FC = () => {
                             borderRadius: "4px",
                           }}
                         >
-                          {p.method === "bank_transfer" ? "Bank Transfer" : p.method}
+                          {p.method === "bank_transfer"
+                            ? "Bank Transfer"
+                            : p.method}
                         </span>
                         {p.bank_reference && (
                           <div
@@ -732,8 +870,14 @@ export const GymPaymentsSection: React.FC = () => {
                       <td style={{ padding: "12px 16px", fontWeight: 600 }}>
                         <span
                           style={{
-                            textDecoration: p.is_reversed || p.status === "reversed" ? "line-through" : "none",
-                            color: p.is_reversed || p.status === "reversed" ? "#94a3b8" : "#f8fafc",
+                            textDecoration:
+                              p.is_reversed || p.status === "reversed"
+                                ? "line-through"
+                                : "none",
+                            color:
+                              p.is_reversed || p.status === "reversed"
+                                ? "#94a3b8"
+                                : "#f8fafc",
                           }}
                         >
                           {p.amount_etb} {p.currency}
@@ -776,7 +920,9 @@ export const GymPaymentsSection: React.FC = () => {
                         {p.receipt_number ? (
                           <button
                             type="button"
-                            onClick={() => handleOpenReceipt(p.id)}
+                            onClick={() =>
+                              handleOpenReceipt(p.receipt_number || p.id)
+                            }
                             disabled={receiptLoading}
                             style={{
                               background: "transparent",
@@ -803,137 +949,52 @@ export const GymPaymentsSection: React.FC = () => {
         </div>
       )}
 
-      {/* Receipt Viewer Modal */}
-      {viewingReceipt && (
+      {/* Reusable Digital Receipt Modal (Items 3, 4, 5, 6) */}
+      <DigitalReceiptModal
+        isOpen={Boolean(viewingReceipt)}
+        receipt={viewingReceipt}
+        onClose={() => setViewingReceipt(null)}
+      />
+
+      {/* Bank Transfer Screenshot Modal (Item 17) */}
+      {viewingScreenshot && (
         <div
-          style={{
-            position: "fixed",
-            inset: 0,
-            backgroundColor: "rgba(0,0,0,0.75)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            zIndex: 1000,
-            padding: "16px",
-          }}
+          className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4"
+          role="dialog"
+          aria-modal="true"
         >
-          <div
-            style={{
-              backgroundColor: "#1e293b",
-              borderRadius: "12px",
-              width: "100%",
-              maxWidth: "480px",
-              padding: "24px",
-              color: "#f8fafc",
-              border: "1px solid #334155",
-            }}
-          >
-            {viewingReceipt.is_reversed && (
-              <div
-                style={{
-                  backgroundColor: "#7f1d1d",
-                  color: "#fca5a5",
-                  padding: "8px 12px",
-                  borderRadius: "6px",
-                  fontSize: "13px",
-                  fontWeight: 700,
-                  textAlign: "center",
-                  marginBottom: "16px",
-                  letterSpacing: "0.5px",
-                }}
-              >
-                ⚠️ REVERSED - PAYMENT CANCELLED
+          <div className="bg-surface border border-border rounded-xl max-w-lg w-full p-5 space-y-4 text-text">
+            <div className="flex items-center justify-between border-b border-border pb-3">
+              <div>
+                <h3 className="font-bold text-sm text-text">
+                  Transfer Screenshot
+                </h3>
+                <p className="text-xs text-text-muted font-mono">
+                  Ref: {viewingScreenshot.reference}
+                </p>
               </div>
-            )}
-            <div style={{ textAlign: "center", marginBottom: "16px" }}>
-              <h3 style={{ fontSize: "18px", fontWeight: "bold", margin: "0 0 4px" }}>
-                Receipt #{viewingReceipt.receipt_number}
-              </h3>
-              <p style={{ color: "#94a3b8", fontSize: "13px", margin: 0 }}>
-                {viewingReceipt.gym_name}
-              </p>
-            </div>
-            <div
-              style={{
-                backgroundColor: "#0f172a",
-                borderRadius: "8px",
-                padding: "16px",
-                fontSize: "13px",
-                marginBottom: "20px",
-                border: "1px solid #334155",
-              }}
-            >
-              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "8px" }}>
-                <span style={{ color: "#94a3b8" }}>Member:</span>
-                <span style={{ fontWeight: 600 }}>{viewingReceipt.member_name}</span>
-              </div>
-              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "8px" }}>
-                <span style={{ color: "#94a3b8" }}>Plan:</span>
-                <span>{viewingReceipt.plan_name}</span>
-              </div>
-              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "8px" }}>
-                <span style={{ color: "#94a3b8" }}>Amount:</span>
-                <span style={{ color: viewingReceipt.is_reversed ? "#94a3b8" : "#34d399", fontWeight: "bold", textDecoration: viewingReceipt.is_reversed ? "line-through" : "none" }}>
-                  {viewingReceipt.amount_etb} ETB
-                </span>
-              </div>
-              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "8px" }}>
-                <span style={{ color: "#94a3b8" }}>Method:</span>
-                <span style={{ textTransform: "uppercase" }}>{viewingReceipt.payment_method}</span>
-              </div>
-              {viewingReceipt.bank_reference && (
-                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "8px" }}>
-                  <span style={{ color: "#94a3b8" }}>Bank Ref:</span>
-                  <span style={{ fontFamily: "monospace", color: "#a78bfa" }}>
-                    {viewingReceipt.bank_reference}
-                  </span>
-                </div>
-              )}
-              {viewingReceipt.transfer_channel && (
-                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "8px" }}>
-                  <span style={{ color: "#94a3b8" }}>Channel:</span>
-                  <span>{viewingReceipt.transfer_channel}</span>
-                </div>
-              )}
-              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "8px" }}>
-                <span style={{ color: "#94a3b8" }}>Issued By:</span>
-                <span>{viewingReceipt.issued_by_name}</span>
-              </div>
-              <div style={{ display: "flex", justifyContent: "space-between" }}>
-                <span style={{ color: "#94a3b8" }}>Date:</span>
-                <span>{new Date(viewingReceipt.issued_at).toLocaleString()}</span>
-              </div>
-            </div>
-            <div style={{ display: "flex", gap: "10px" }}>
               <button
                 type="button"
-                onClick={() => window.print()}
-                style={{
-                  flex: 1,
-                  backgroundColor: "#334155",
-                  color: "#f8fafc",
-                  border: "none",
-                  borderRadius: "6px",
-                  padding: "10px",
-                  fontWeight: 600,
-                  cursor: "pointer",
-                }}
+                onClick={() => setViewingScreenshot(null)}
+                className="text-text-muted hover:text-text text-sm font-bold px-2 py-1"
               >
-                🖨️ Print
+                ✕
               </button>
+            </div>
+
+            <div className="bg-bg rounded-lg p-2 border border-border flex items-center justify-center min-h-[200px]">
+              <AuthenticatedImage
+                src={viewingScreenshot.url}
+                alt={`Bank transfer screenshot for ${viewingScreenshot.reference}`}
+                className="max-h-[65vh] w-auto max-w-full rounded object-contain"
+              />
+            </div>
+
+            <div className="flex justify-end">
               <button
                 type="button"
-                onClick={() => setViewingReceipt(null)}
-                style={{
-                  flex: 1,
-                  backgroundColor: "#2563eb",
-                  color: "#ffffff",
-                  border: "none",
-                  borderRadius: "6px",
-                  padding: "10px",
-                  fontWeight: 600,
-                  cursor: "pointer",
-                }}
+                onClick={() => setViewingScreenshot(null)}
+                className="bg-surface-2 hover:bg-border text-text text-xs font-semibold py-2 px-4 rounded-button min-h-[36px]"
               >
                 Close
               </button>
@@ -967,13 +1028,28 @@ export const GymPaymentsSection: React.FC = () => {
               border: "1px solid #7f1d1d",
             }}
           >
-            <h3 style={{ fontSize: "18px", fontWeight: "bold", color: "#f87171", margin: "0 0 8px" }}>
+            <h3
+              style={{
+                fontSize: "18px",
+                fontWeight: "bold",
+                color: "#f87171",
+                margin: "0 0 8px",
+              }}
+            >
               ⚠️ Reverse Bank Transfer Payment
             </h3>
-            <p style={{ fontSize: "13px", color: "#cbd5e1", lineHeight: "1.5", margin: "0 0 16px" }}>
-              Reversing this transfer will restore the member's subscription to its exact prior state.
-              The receipt will be preserved with a reversed status, and revenue will be deducted.
-              This action is immutable and cannot be undone.
+            <p
+              style={{
+                fontSize: "13px",
+                color: "#cbd5e1",
+                lineHeight: "1.5",
+                margin: "0 0 16px",
+              }}
+            >
+              Reversing this transfer will restore the member's subscription to
+              its exact prior state. The receipt will be preserved with a
+              reversed status, and revenue will be deducted. This action is
+              immutable and cannot be undone.
             </p>
 
             <div
@@ -986,9 +1062,18 @@ export const GymPaymentsSection: React.FC = () => {
                 border: "1px solid #334155",
               }}
             >
-              <div><strong>Member:</strong> {reversingPayment.member_name}</div>
-              <div><strong>Amount:</strong> {reversingPayment.amount_etb} ETB</div>
-              <div><strong>Reference:</strong> <span style={{ fontFamily: "monospace" }}>{reversingPayment.bank_reference}</span></div>
+              <div>
+                <strong>Member:</strong> {reversingPayment.member_name}
+              </div>
+              <div>
+                <strong>Amount:</strong> {reversingPayment.amount_etb} ETB
+              </div>
+              <div>
+                <strong>Reference:</strong>{" "}
+                <span style={{ fontFamily: "monospace" }}>
+                  {reversingPayment.bank_reference}
+                </span>
+              </div>
             </div>
 
             {reversalError && (
@@ -1008,7 +1093,15 @@ export const GymPaymentsSection: React.FC = () => {
 
             <form onSubmit={handleConfirmReversal}>
               <div style={{ marginBottom: "16px" }}>
-                <label style={{ display: "block", fontSize: "13px", fontWeight: 500, color: "#cbd5e1", marginBottom: "6px" }}>
+                <label
+                  style={{
+                    display: "block",
+                    fontSize: "13px",
+                    fontWeight: 500,
+                    color: "#cbd5e1",
+                    marginBottom: "6px",
+                  }}
+                >
                   Reason for Reversal * (5 to 500 characters)
                 </label>
                 <textarea
@@ -1032,7 +1125,13 @@ export const GymPaymentsSection: React.FC = () => {
                 />
               </div>
 
-              <div style={{ display: "flex", justifyContent: "flex-end", gap: "10px" }}>
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "flex-end",
+                  gap: "10px",
+                }}
+              >
                 <button
                   type="button"
                   onClick={() => setReversingPayment(null)}

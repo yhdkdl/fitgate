@@ -5,6 +5,7 @@ import {
   reactivateMember,
   registerMemberStaffAssisted,
   suspendMember,
+  updateGymMember,
   uploadMemberPhoto,
   type Member,
   type StaffMemberRegistrationPayload,
@@ -18,7 +19,10 @@ import { Card } from "../ui/Card";
 import { FormField } from "../ui/FormField";
 import { Input } from "../ui/Input";
 import { Spinner } from "../ui/Spinner";
-import { RecordCashPaymentModal } from "../staff/RecordCashPaymentModal";
+import { RecordPaymentModal } from "../staff/RecordPaymentModal";
+import { DigitalReceiptModal } from "../ui/DigitalReceiptModal";
+import { getMembershipPlans, type MembershipPlan } from "../../api/plans";
+import type { DigitalReceipt } from "../../api/payments";
 import {
   filterPhoneInput,
   focusFirstInvalidField,
@@ -26,7 +30,6 @@ import {
   validateEmail,
   validateName,
   validatePhone,
-  validateTextLength,
 } from "../../utils/validators";
 
 interface Props {
@@ -51,6 +54,9 @@ export const MemberManagementSection: React.FC<Props> = ({
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
 
+  // Plans state for registration & payment
+  const [plans, setPlans] = useState<MembershipPlan[]>([]);
+
   // Registration modal state
   const [showRegisterModal, setShowRegisterModal] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -69,8 +75,21 @@ export const MemberManagementSection: React.FC<Props> = ({
   const [dateOfBirth, setDateOfBirth] = useState("");
   const [gender, setGender] = useState("");
   const [emergencyContact, setEmergencyContact] = useState("");
-  const [referralSource, setReferralSource] = useState("");
   const [waiverAccepted, setWaiverAccepted] = useState(false);
+
+  // Registration payment fields (Item 12 & 17)
+  const [regPaymentMethod, setRegPaymentMethod] = useState<
+    "none" | "cash" | "bank_transfer"
+  >("none");
+  const [regPlanId, setRegPlanId] = useState("");
+  const [regIdempotencyKey, setRegIdempotencyKey] = useState("");
+  const [regBankReference, setRegBankReference] = useState("");
+  const [regTransferDate, setRegTransferDate] = useState(
+    () => new Date().toISOString().split("T")[0]
+  );
+  const [regChannel, setRegChannel] = useState("CBE");
+  const [regScreenshot, setRegScreenshot] = useState<File | null>(null);
+  const [regNotes, setRegNotes] = useState("");
 
   // Member detail modal
   const [selectedMember, setSelectedMember] = useState<Member | null>(null);
@@ -86,15 +105,29 @@ export const MemberManagementSection: React.FC<Props> = ({
   const [actionError, setActionError] = useState<string | null>(null);
   const [actionSuccess, setActionSuccess] = useState<string | null>(null);
 
-  // Cash payment modal state
-  const [showCashPaymentModal, setShowCashPaymentModal] = useState(false);
-  const [cashPaymentMemberId, setCashPaymentMemberId] = useState<
-    string | undefined
-  >(undefined);
-  const [registeredMemberInfo, setRegisteredMemberInfo] = useState<{
+  // Unified payment modal state (Item 18)
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [paymentModalMember, setPaymentModalMember] = useState<{
     id: string;
-    name: string;
+    full_name: string;
+    phone?: string;
   } | null>(null);
+  const [viewingReceipt, setViewingReceipt] = useState<DigitalReceipt | null>(
+    null
+  );
+
+  // Edit Member Modal state (Item 14)
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editFullName, setEditFullName] = useState("");
+  const [editPhone, setEditPhone] = useState("");
+  const [editEmergencyContact, setEditEmergencyContact] = useState("");
+  const [editGender, setEditGender] = useState("");
+  const [editDateOfBirth, setEditDateOfBirth] = useState("");
+  const [editSubmitting, setEditSubmitting] = useState(false);
+  const [editError, setEditError] = useState<string | null>(null);
+  const [editFieldErrors, setEditFieldErrors] = useState<
+    Record<string, string>
+  >({});
 
   const canRegister =
     userRole === "owner" || userRole === "manager" || userRole === "reception";
@@ -171,6 +204,43 @@ export const MemberManagementSection: React.FC<Props> = ({
     });
   };
 
+  const handleRegScreenshotChange = (
+    e: React.ChangeEvent<HTMLInputElement>
+  ) => {
+    const file = e.target.files?.[0];
+    if (!file) {
+      setRegScreenshot(null);
+      return;
+    }
+    const validTypes = ["image/jpeg", "image/png", "image/webp"];
+    const ext = file.name.split(".").pop()?.toLowerCase();
+    const isAllowedExt =
+      ext === "jpg" || ext === "jpeg" || ext === "png" || ext === "webp";
+    if (!validTypes.includes(file.type.toLowerCase()) && !isAllowedExt) {
+      setFieldErrors((prev) => ({
+        ...prev,
+        "reg-screenshot":
+          "Unsupported format. Screenshot must be JPEG, PNG, or WebP.",
+      }));
+      setRegScreenshot(null);
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      setFieldErrors((prev) => ({
+        ...prev,
+        "reg-screenshot": "Screenshot size must not exceed 5 MB.",
+      }));
+      setRegScreenshot(null);
+      return;
+    }
+    setFieldErrors((prev) => {
+      const copy = { ...prev };
+      delete copy["reg-screenshot"];
+      return copy;
+    });
+    setRegScreenshot(file);
+  };
+
   const handleRegisterSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setRegError(null);
@@ -204,34 +274,35 @@ export const MemberManagementSection: React.FC<Props> = ({
     const phoneErr = validatePhone(phone, true);
     if (phoneErr) errors["reg-phone"] = phoneErr;
 
+    if (!gender || (gender !== "female" && gender !== "male")) {
+      errors["reg-gender"] = "Please select either Female or Male.";
+    }
+
     if (dateOfBirth) {
       const dobErr = validateDateOfBirth(dateOfBirth);
       if (dobErr) errors["reg-dob"] = dobErr;
     }
 
     if (emergencyContact.trim()) {
-      const ecErr = validateTextLength(
-        emergencyContact,
-        "Emergency contact",
-        2,
-        100
-      );
+      const ecErr = validatePhone(emergencyContact, false);
       if (ecErr) errors["reg-emergency"] = ecErr;
-    }
-
-    if (referralSource.trim()) {
-      const refErr = validateTextLength(
-        referralSource,
-        "Referral source",
-        2,
-        100
-      );
-      if (refErr) errors["reg-referral"] = refErr;
     }
 
     if (!waiverAccepted) {
       errors["reg-waiver"] =
         "Health waiver acceptance is required to register a member.";
+    }
+
+    if (regPaymentMethod !== "none") {
+      if (!regPlanId) {
+        errors["reg-plan"] = "Please select a membership plan for payment.";
+      }
+      if (regPaymentMethod === "bank_transfer") {
+        if (!regScreenshot) {
+          errors["reg-screenshot"] =
+            "Bank transfer payment requires screenshot upload.";
+        }
+      }
     }
 
     if (Object.keys(errors).length > 0) {
@@ -281,20 +352,36 @@ export const MemberManagementSection: React.FC<Props> = ({
         date_of_birth: dateOfBirth || null,
         gender: gender || "",
         emergency_contact: emergencyContact.trim(),
-        referral_source: referralSource.trim(),
         photo_url: uploadedPhotoUrl,
+        payment_method: regPaymentMethod,
+        plan_id: regPaymentMethod !== "none" ? regPlanId : undefined,
+        idempotency_key:
+          regPaymentMethod !== "none" ? regIdempotencyKey : undefined,
+        notes: regNotes.trim() || undefined,
+        bank_reference:
+          regPaymentMethod === "bank_transfer"
+            ? regBankReference.trim()
+            : undefined,
+        transfer_date:
+          regPaymentMethod === "bank_transfer" ? regTransferDate : undefined,
+        channel: regPaymentMethod === "bank_transfer" ? regChannel : undefined,
+        screenshot:
+          regPaymentMethod === "bank_transfer" && regScreenshot
+            ? regScreenshot
+            : undefined,
       };
 
       const res = await registerMemberStaffAssisted(payload);
-      setRegSuccess(
-        `Member ${fullName.trim()} registered successfully. Set-password invite link emailed.`
-      );
-      if (res?.member?.id) {
-        setRegisteredMemberInfo({
-          id: res.member.id,
-          name: res.member.full_name,
-        });
+      if (res?.receipt) {
+        setViewingReceipt(res.receipt);
       }
+      setRegSuccess(
+        `Member ${fullName.trim()} registered successfully.${
+          regPaymentMethod !== "none"
+            ? " Payment recorded and subscription activated."
+            : " Set-password invite link emailed."
+        }`
+      );
       // Reset form
       setFullName("");
       setEmail("");
@@ -302,8 +389,12 @@ export const MemberManagementSection: React.FC<Props> = ({
       setDateOfBirth("");
       setGender("");
       setEmergencyContact("");
-      setReferralSource("");
       setWaiverAccepted(false);
+      setRegPaymentMethod("none");
+      setRegPlanId("");
+      setRegBankReference("");
+      setRegScreenshot(null);
+      setRegNotes("");
       handleRemovePhoto();
       setFieldErrors({});
 
@@ -347,6 +438,71 @@ export const MemberManagementSection: React.FC<Props> = ({
       );
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const handleOpenEditModal = (member: Member) => {
+    setEditFullName(member.full_name);
+    setEditPhone(member.phone);
+    setEditEmergencyContact(member.emergency_contact || "");
+    setEditGender(member.gender || "");
+    setEditDateOfBirth(member.date_of_birth || "");
+    setEditError(null);
+    setEditFieldErrors({});
+    setShowEditModal(true);
+  };
+
+  const handleEditMemberSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedMember) return;
+    setEditError(null);
+    setEditFieldErrors({});
+
+    const errors: Record<string, string> = {};
+    const nameErr = validateName(editFullName, "Full name", 2, 100);
+    if (nameErr) errors["edit-name"] = nameErr;
+
+    const phoneErr = validatePhone(editPhone, true);
+    if (phoneErr) errors["edit-phone"] = phoneErr;
+
+    if (!editGender || (editGender !== "female" && editGender !== "male")) {
+      errors["edit-gender"] = "Please select either Female or Male.";
+    }
+
+    if (editEmergencyContact.trim()) {
+      const ecErr = validatePhone(editEmergencyContact, false);
+      if (ecErr) errors["edit-emergency"] = ecErr;
+    }
+
+    if (editDateOfBirth) {
+      const dobErr = validateDateOfBirth(editDateOfBirth);
+      if (dobErr) errors["edit-dob"] = dobErr;
+    }
+
+    if (Object.keys(errors).length > 0) {
+      setEditFieldErrors(errors);
+      focusFirstInvalidField(errors);
+      return;
+    }
+
+    setEditSubmitting(true);
+    try {
+      const updated = await updateGymMember(selectedMember.id, {
+        full_name: editFullName.trim(),
+        phone: editPhone.trim(),
+        emergency_contact: editEmergencyContact.trim(),
+        gender: editGender,
+        date_of_birth: editDateOfBirth || null,
+      });
+      setSelectedMember(updated);
+      setShowEditModal(false);
+      fetchMembers();
+    } catch (err: unknown) {
+      setEditError(
+        err instanceof Error ? err.message : "Failed to update member profile."
+      );
+    } finally {
+      setEditSubmitting(false);
     }
   };
 
@@ -465,9 +621,22 @@ export const MemberManagementSection: React.FC<Props> = ({
           <Button
             size="md"
             onClick={() => {
+              setRegIdempotencyKey(crypto.randomUUID());
+              setRegPaymentMethod("none");
+              setRegPlanId("");
+              setRegBankReference("");
+              setRegScreenshot(null);
+              setRegNotes("");
               setShowRegisterModal(true);
               setRegError(null);
               setRegSuccess(null);
+              getMembershipPlans()
+                .then((data) => {
+                  const active = (data || []).filter((p) => p.is_active);
+                  setPlans(active);
+                  if (active.length > 0) setRegPlanId(active[0].id);
+                })
+                .catch(() => {});
             }}
             className="self-start sm:self-center min-h-[44px]"
           >
@@ -609,12 +778,16 @@ export const MemberManagementSection: React.FC<Props> = ({
                               variant="primary"
                               size="sm"
                               onClick={() => {
-                                setCashPaymentMemberId(m.id);
-                                setShowCashPaymentModal(true);
+                                setPaymentModalMember({
+                                  id: m.id,
+                                  full_name: m.full_name,
+                                  phone: m.phone,
+                                });
+                                setShowPaymentModal(true);
                               }}
                               className="min-h-[36px]"
                             >
-                              Pay Cash
+                              Record Payment
                             </Button>
                           )}
                         </div>
@@ -646,30 +819,7 @@ export const MemberManagementSection: React.FC<Props> = ({
             </div>
 
             {regError && <Alert variant="danger">{regError}</Alert>}
-            {regSuccess && (
-              <div className="space-y-2">
-                <Alert variant="success">{regSuccess}</Alert>
-                {registeredMemberInfo && (
-                  <div className="p-3 bg-primary/10 border border-primary/30 rounded-lg flex items-center justify-between">
-                    <span className="text-xs text-text font-medium">
-                      Collect payment for{" "}
-                      <strong>{registeredMemberInfo.name}</strong>?
-                    </span>
-                    <Button
-                      size="sm"
-                      variant="primary"
-                      type="button"
-                      onClick={() => {
-                        setCashPaymentMemberId(registeredMemberInfo.id);
-                        setShowCashPaymentModal(true);
-                      }}
-                    >
-                      💵 Record Cash Payment
-                    </Button>
-                  </div>
-                )}
-              </div>
-            )}
+            {regSuccess && <Alert variant="success">{regSuccess}</Alert>}
 
             <form
               onSubmit={handleRegisterSubmit}
@@ -751,54 +901,198 @@ export const MemberManagementSection: React.FC<Props> = ({
                   />
                 </FormField>
 
-                <FormField label="Gender" htmlFor="reg-gender">
+                <FormField
+                  label="Gender"
+                  htmlFor="reg-gender"
+                  required
+                  error={fieldErrors["reg-gender"]}
+                >
                   <select
                     id="reg-gender"
                     value={gender}
                     onChange={(e) => setGender(e.target.value)}
                     className="w-full bg-surface-2 border border-border text-text rounded-input px-3 py-2 text-sm min-h-[44px]"
                   >
-                    <option value="">Select (optional)</option>
-                    <option value="male">Male</option>
+                    <option value="">Select Gender</option>
                     <option value="female">Female</option>
-                    <option value="other">Other</option>
-                    <option value="prefer_not_to_say">Prefer not to say</option>
+                    <option value="male">Male</option>
                   </select>
                 </FormField>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <FormField
-                  label="Emergency Contact"
-                  htmlFor="reg-emergency"
+              <FormField
+                label="Emergency Contact"
+                htmlFor="reg-emergency"
+                error={fieldErrors["reg-emergency"]}
+              >
+                <Input
+                  id="reg-emergency"
+                  type="tel"
+                  inputMode="tel"
+                  maxLength={50}
+                  value={emergencyContact}
+                  onChange={(e) =>
+                    setEmergencyContact(filterPhoneInput(e.target.value))
+                  }
+                  placeholder="+251912345678"
                   error={fieldErrors["reg-emergency"]}
-                >
-                  <Input
-                    id="reg-emergency"
-                    maxLength={100}
-                    value={emergencyContact}
-                    onChange={(e) => setEmergencyContact(e.target.value)}
-                    placeholder="Name and Phone"
-                    error={fieldErrors["reg-emergency"]}
-                    className="min-h-[44px]"
-                  />
+                  className="min-h-[44px]"
+                />
+              </FormField>
+
+              {/* Upfront Payment Section (Item 12 & 17) */}
+              <div className="p-3.5 bg-surface-2/70 border border-border rounded-lg space-y-3">
+                <div className="font-semibold text-xs uppercase tracking-wider text-text-muted">
+                  Membership Plan & Payment
+                </div>
+
+                <FormField label="Payment Method" htmlFor="reg-payment-method">
+                  <select
+                    id="reg-payment-method"
+                    value={regPaymentMethod}
+                    onChange={(e) => {
+                      const method = e.target.value as
+                        "none" | "cash" | "bank_transfer";
+                      setRegPaymentMethod(method);
+                      if (method !== "none" && plans.length > 0 && !regPlanId) {
+                        setRegPlanId(plans[0].id);
+                      }
+                    }}
+                    className="w-full bg-surface border border-border text-text rounded-input px-3 py-2 text-sm min-h-[44px]"
+                  >
+                    <option value="none">
+                      No payment now (Send invitation only)
+                    </option>
+                    <option value="cash">Cash</option>
+                    <option value="bank_transfer">Bank Transfer</option>
+                  </select>
                 </FormField>
 
-                <FormField
-                  label="Referral Source"
-                  htmlFor="reg-referral"
-                  error={fieldErrors["reg-referral"]}
-                >
-                  <Input
-                    id="reg-referral"
-                    maxLength={100}
-                    value={referralSource}
-                    onChange={(e) => setReferralSource(e.target.value)}
-                    placeholder="Walk-in, friend, etc."
-                    error={fieldErrors["reg-referral"]}
-                    className="min-h-[44px]"
-                  />
-                </FormField>
+                {regPaymentMethod !== "none" && (
+                  <div className="space-y-3 pt-2 border-t border-border/50">
+                    <FormField
+                      label="Membership Plan"
+                      htmlFor="reg-plan"
+                      required
+                      error={fieldErrors["reg-plan"]}
+                    >
+                      <select
+                        id="reg-plan"
+                        value={regPlanId}
+                        onChange={(e) => setRegPlanId(e.target.value)}
+                        className="w-full bg-surface border border-border text-text rounded-input px-3 py-2 text-sm min-h-[44px]"
+                      >
+                        <option value="">Select a Plan</option>
+                        {plans.map((p) => (
+                          <option key={p.id} value={p.id}>
+                            {p.name} — {p.price_etb} ETB ({p.duration_value}{" "}
+                            {p.duration_unit})
+                          </option>
+                        ))}
+                      </select>
+                    </FormField>
+
+                    {(() => {
+                      const selectedPlan = plans.find(
+                        (p) => p.id === regPlanId
+                      );
+                      return selectedPlan ? (
+                        <div className="p-2.5 bg-surface rounded border border-border text-xs flex justify-between items-center">
+                          <span className="text-text-muted">
+                            Locked Plan Price:
+                          </span>
+                          <span className="font-bold text-text">
+                            {selectedPlan.price_etb} ETB
+                          </span>
+                        </div>
+                      ) : null;
+                    })()}
+
+                    {regPaymentMethod === "cash" && (
+                      <FormField label="Notes (Optional)" htmlFor="reg-notes">
+                        <Input
+                          id="reg-notes"
+                          value={regNotes}
+                          onChange={(e) => setRegNotes(e.target.value)}
+                          placeholder="Cash payment notes..."
+                          maxLength={500}
+                        />
+                      </FormField>
+                    )}
+
+                    {regPaymentMethod === "bank_transfer" && (
+                      <div className="space-y-3">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                          <FormField
+                            label="Bank Reference"
+                            htmlFor="reg-bank-ref"
+                            error={fieldErrors["reg-bank-ref"]}
+                          >
+                            <Input
+                              id="reg-bank-ref"
+                              value={regBankReference}
+                              onChange={(e) =>
+                                setRegBankReference(e.target.value)
+                              }
+                              placeholder="e.g. CBE-TX-998811"
+                              maxLength={100}
+                            />
+                          </FormField>
+
+                          <FormField label="Channel" htmlFor="reg-channel">
+                            <select
+                              id="reg-channel"
+                              value={regChannel}
+                              onChange={(e) => setRegChannel(e.target.value)}
+                              className="w-full bg-surface border border-border text-text rounded-input px-3 py-2 text-sm min-h-[44px]"
+                            >
+                              {[
+                                "CBE",
+                                "Telebirr",
+                                "Awash Bank",
+                                "Dashen Bank",
+                                "Bank of Abyssinia",
+                                "Other",
+                              ].map((c) => (
+                                <option key={c} value={c}>
+                                  {c}
+                                </option>
+                              ))}
+                            </select>
+                          </FormField>
+                        </div>
+
+                        <FormField
+                          label="Transfer Date"
+                          htmlFor="reg-transfer-date"
+                        >
+                          <Input
+                            id="reg-transfer-date"
+                            type="date"
+                            value={regTransferDate}
+                            onChange={(e) => setRegTransferDate(e.target.value)}
+                          />
+                        </FormField>
+
+                        <FormField
+                          label="Transfer Screenshot"
+                          htmlFor="reg-screenshot"
+                          required
+                          error={fieldErrors["reg-screenshot"]}
+                          helpText="Required: JPG, PNG, or WebP, up to 5 MB."
+                        >
+                          <input
+                            id="reg-screenshot"
+                            type="file"
+                            accept="image/jpeg,image/png,image/webp"
+                            onChange={handleRegScreenshotChange}
+                            className="text-xs text-text file:mr-3 file:py-2 file:px-3 file:rounded-md file:border-0 file:text-xs file:font-semibold file:bg-primary file:text-primary-foreground hover:file:opacity-90 cursor-pointer"
+                          />
+                        </FormField>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
 
               {/* Optional Profile Photo Picker */}
@@ -913,20 +1207,30 @@ export const MemberManagementSection: React.FC<Props> = ({
                     {selectedMember.email}
                   </p>
                   {canRegister && (
-                    <label className="text-[11px] text-primary hover:underline cursor-pointer inline-flex items-center gap-1 mt-1">
-                      <span>
-                        {changingPhoto ? "Uploading..." : "Change Photo"}
-                      </span>
-                      <input
-                        type="file"
-                        accept="image/jpeg,image/png,image/webp"
-                        className="hidden"
-                        disabled={changingPhoto}
-                        onChange={(e) =>
-                          handleDetailPhotoChange(e, selectedMember.id)
-                        }
-                      />
-                    </label>
+                    <div className="flex items-center gap-2 mt-1">
+                      <button
+                        type="button"
+                        onClick={() => handleOpenEditModal(selectedMember)}
+                        className="text-[11px] text-primary hover:underline font-medium"
+                      >
+                        Edit Member
+                      </button>
+                      <span className="text-border">·</span>
+                      <label className="text-[11px] text-primary hover:underline cursor-pointer inline-flex items-center gap-1">
+                        <span>
+                          {changingPhoto ? "Uploading..." : "Change Photo"}
+                        </span>
+                        <input
+                          type="file"
+                          accept="image/jpeg,image/png,image/webp"
+                          className="hidden"
+                          disabled={changingPhoto}
+                          onChange={(e) =>
+                            handleDetailPhotoChange(e, selectedMember.id)
+                          }
+                        />
+                      </label>
+                    </div>
                   )}
                 </div>
               </div>
@@ -1150,27 +1454,31 @@ export const MemberManagementSection: React.FC<Props> = ({
               </div>
             )}
 
-            {/* Staff Cash Payment Action */}
+            {/* Staff Record Payment Action (Item 18) */}
             {canRegister && (
               <div className="p-4 bg-surface-2/40 border border-border rounded-lg flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div>
                   <h4 className="text-xs font-bold uppercase tracking-wider text-text">
-                    In-Person Payment
+                    Record Payment
                   </h4>
                   <p className="text-xs text-text-muted mt-0.5">
-                    Record a cash payment to activate or renew this member's
-                    subscription.
+                    Record a cash or bank transfer payment to activate or renew
+                    this member's subscription.
                   </p>
                 </div>
                 <Button
                   variant="primary"
                   size="sm"
                   onClick={() => {
-                    setCashPaymentMemberId(selectedMember.id);
-                    setShowCashPaymentModal(true);
+                    setPaymentModalMember({
+                      id: selectedMember.id,
+                      full_name: selectedMember.full_name,
+                      phone: selectedMember.phone,
+                    });
+                    setShowPaymentModal(true);
                   }}
                 >
-                  💵 Record Cash Payment
+                  Record Payment
                 </Button>
               </div>
             )}
@@ -1178,21 +1486,169 @@ export const MemberManagementSection: React.FC<Props> = ({
         </div>
       )}
 
-      <RecordCashPaymentModal
-        isOpen={showCashPaymentModal}
+      {/* Staff Edit Member Modal (Item 14) */}
+      {showEditModal && selectedMember && (
+        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 overflow-y-auto">
+          <Card className="max-w-md w-full bg-surface border-border p-6 space-y-4 my-8">
+            <div className="flex items-center justify-between border-b border-border pb-2">
+              <h3 className="text-lg font-bold text-text">
+                Edit Member Profile
+              </h3>
+              <button
+                type="button"
+                onClick={() => setShowEditModal(false)}
+                className="text-text-muted hover:text-text text-xl p-1"
+              >
+                ✕
+              </button>
+            </div>
+
+            {editError && <Alert variant="danger">{editError}</Alert>}
+
+            <form
+              onSubmit={handleEditMemberSubmit}
+              className="space-y-3"
+              noValidate
+            >
+              <FormField
+                label="Full Name"
+                htmlFor="edit-full-name"
+                required
+                error={editFieldErrors["edit-name"]}
+              >
+                <Input
+                  id="edit-full-name"
+                  required
+                  maxLength={100}
+                  value={editFullName}
+                  onChange={(e) => setEditFullName(e.target.value)}
+                  error={editFieldErrors["edit-name"]}
+                  className="min-h-[44px]"
+                />
+              </FormField>
+
+              <FormField
+                label="Phone"
+                htmlFor="edit-phone"
+                required
+                error={editFieldErrors["edit-phone"]}
+              >
+                <Input
+                  id="edit-phone"
+                  type="tel"
+                  inputMode="tel"
+                  required
+                  maxLength={20}
+                  value={editPhone}
+                  onChange={(e) =>
+                    setEditPhone(filterPhoneInput(e.target.value))
+                  }
+                  error={editFieldErrors["edit-phone"]}
+                  className="min-h-[44px]"
+                />
+              </FormField>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <FormField
+                  label="Gender"
+                  htmlFor="edit-gender"
+                  required
+                  error={editFieldErrors["edit-gender"]}
+                >
+                  <select
+                    id="edit-gender"
+                    value={editGender}
+                    onChange={(e) => setEditGender(e.target.value)}
+                    className="w-full bg-surface-2 border border-border text-text rounded-input px-3 py-2 text-sm min-h-[44px]"
+                  >
+                    <option value="">Select Gender</option>
+                    <option value="female">Female</option>
+                    <option value="male">Male</option>
+                  </select>
+                </FormField>
+
+                <FormField
+                  label="Date of Birth"
+                  htmlFor="edit-dob"
+                  error={editFieldErrors["edit-dob"]}
+                >
+                  <Input
+                    id="edit-dob"
+                    type="date"
+                    value={editDateOfBirth}
+                    onChange={(e) => setEditDateOfBirth(e.target.value)}
+                    error={editFieldErrors["edit-dob"]}
+                    className="min-h-[44px]"
+                  />
+                </FormField>
+              </div>
+
+              <FormField
+                label="Emergency Contact"
+                htmlFor="edit-emergency"
+                error={editFieldErrors["edit-emergency"]}
+              >
+                <Input
+                  id="edit-emergency"
+                  type="tel"
+                  inputMode="tel"
+                  maxLength={50}
+                  value={editEmergencyContact}
+                  onChange={(e) =>
+                    setEditEmergencyContact(filterPhoneInput(e.target.value))
+                  }
+                  placeholder="+251912345678"
+                  error={editFieldErrors["edit-emergency"]}
+                  className="min-h-[44px]"
+                />
+              </FormField>
+
+              <div className="flex justify-end gap-3 pt-3">
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={() => setShowEditModal(false)}
+                  className="min-h-[44px]"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="submit"
+                  disabled={editSubmitting}
+                  className="min-h-[44px]"
+                >
+                  {editSubmitting ? "Saving..." : "Save Changes"}
+                </Button>
+              </div>
+            </form>
+          </Card>
+        </div>
+      )}
+
+      {/* Unified Record Payment Modal (Item 18) */}
+      <RecordPaymentModal
+        isOpen={showPaymentModal}
         onClose={() => {
-          setShowCashPaymentModal(false);
-          setCashPaymentMemberId(undefined);
+          setShowPaymentModal(false);
+          setPaymentModalMember(null);
         }}
-        initialMemberId={cashPaymentMemberId}
-        onPaymentSuccess={() => {
-          setShowCashPaymentModal(false);
-          setCashPaymentMemberId(undefined);
+        member={paymentModalMember}
+        onPaymentSuccess={(receipt) => {
+          setShowPaymentModal(false);
+          setPaymentModalMember(null);
+          setViewingReceipt(receipt);
           fetchMembers();
           if (selectedMember) {
             handleOpenDetail(selectedMember.id);
           }
         }}
+      />
+
+      {/* Digital Receipt Modal */}
+      <DigitalReceiptModal
+        isOpen={Boolean(viewingReceipt)}
+        receipt={viewingReceipt}
+        onClose={() => setViewingReceipt(null)}
       />
     </div>
   );

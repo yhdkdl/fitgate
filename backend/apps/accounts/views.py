@@ -446,6 +446,11 @@ class UserProfileView(APIView):
         },
     )
     def patch(self, request, *args, **kwargs):
+        if getattr(request.user, "role", None) == User.ROLE_MEMBER:
+            raise PermissionDenied(
+                "Members cannot edit profile details. Only password changes are permitted."
+            )
+
         serializer = UserProfileUpdateSerializer(
             request.user, data=request.data, partial=True
         )

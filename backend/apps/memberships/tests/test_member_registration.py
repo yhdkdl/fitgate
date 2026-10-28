@@ -152,7 +152,7 @@ class TestMemberRegistrationSelfServiceAndStaffParity:
             "waiver_accepted": True,
             "date_of_birth": "1995-05-15",
             "gender": "male",
-            "emergency_contact": "Almaz - +251922001122",
+            "emergency_contact": "+251922001122",
             "referral_source": "friend",
             "weight_kg": 72.5,
             "height_cm": 178.0,
@@ -169,7 +169,7 @@ class TestMemberRegistrationSelfServiceAndStaffParity:
         assert member.phone == "+251911001122"
         assert str(member.date_of_birth) == "1995-05-15"
         assert member.gender == "male"
-        assert member.emergency_contact == "Almaz - +251922001122"
+        assert member.emergency_contact == "+251922001122"
         assert member.referral_source == "friend"
         assert member.status == Member.STATUS_PENDING
         assert member.waiver_accepted_at is not None
@@ -204,7 +204,7 @@ class TestMemberRegistrationSelfServiceAndStaffParity:
             "waiver_accepted": True,
             "date_of_birth": "1992-03-21",
             "gender": "female",
-            "emergency_contact": "Bekele - +251933445566",
+            "emergency_contact": "+251933445566",
             "referral_source": "walk_in",
             "weight_kg": 58.0,
             "height_cm": 165.0,
@@ -221,7 +221,7 @@ class TestMemberRegistrationSelfServiceAndStaffParity:
         assert member.phone == "+251911334455"
         assert str(member.date_of_birth) == "1992-03-21"
         assert member.gender == "female"
-        assert member.emergency_contact == "Bekele - +251933445566"
+        assert member.emergency_contact == "+251933445566"
         assert member.referral_source == "walk_in"
         assert member.status == Member.STATUS_PENDING
         assert member.waiver_accepted_at is not None
@@ -258,6 +258,7 @@ class TestWaiverAndDuplicateEnforcement:
             "email": "kenenisa@example.com",
             "phone": "+251911556677",
             "password": "SecurePassword123!",
+            "gender": "male",
             "waiver_accepted": False,
         }
         resp = api_client.post("/api/public/members/register/", payload, format="json")
@@ -280,6 +281,7 @@ class TestWaiverAndDuplicateEnforcement:
             "email": "tirunesh@example.com",
             "phone": "+251911778899",
             "password": "SecurePassword123!",
+            "gender": "female",
             "waiver_accepted": True,
         }
         resp = api_client.post("/api/public/members/register/", payload, format="json")
@@ -309,6 +311,7 @@ class TestWaiverAndDuplicateEnforcement:
             "email": "one@example.com",
             "phone": "+251911990011",
             "password": "SecurePassword123!",
+            "gender": "male",
             "waiver_accepted": True,
         }
         resp1 = api_client.post(
@@ -321,6 +324,7 @@ class TestWaiverAndDuplicateEnforcement:
             "email": "two@example.com",
             "phone": "+251911990011",  # Same phone
             "password": "SecurePassword123!",
+            "gender": "female",
             "waiver_accepted": True,
         }
         resp2 = api_client.post(
@@ -338,6 +342,7 @@ class TestWaiverAndDuplicateEnforcement:
             "email": "gym1@example.com",
             "phone": "+251911882233",
             "password": "SecurePassword123!",
+            "gender": "male",
             "waiver_accepted": True,
         }
         resp1 = api_client.post("/api/public/members/register/", payload, format="json")
@@ -362,6 +367,7 @@ class TestEmailVerificationAndAuthLifecycle:
             "email": "haile@example.com",
             "phone": "+251911123456",
             "password": "SecretPassword123!",
+            "gender": "male",
             "waiver_accepted": True,
         }
         resp_reg = api_client.post(
@@ -386,6 +392,7 @@ class TestEmailVerificationAndAuthLifecycle:
             "email": "meseret@example.com",
             "phone": "+251911654321",
             "password": "SecretPassword123!",
+            "gender": "female",
             "waiver_accepted": True,
         }
         resp_reg = api_client.post(
@@ -407,6 +414,7 @@ class TestEmailVerificationAndAuthLifecycle:
             "email": "sifan@example.com",
             "phone": "+251911765432",
             "password": "SecretPassword123!",
+            "gender": "female",
             "waiver_accepted": True,
         }
         _, raw_token = register_member_self_service(gym_tenant, test_user_payload)
@@ -442,6 +450,7 @@ class TestEmailVerificationAndAuthLifecycle:
             "email": "gudaf@example.com",
             "phone": "+251911998877",
             "password": "SecretPassword123!",
+            "gender": "female",
             "waiver_accepted": True,
         }
         _, raw_token = register_member_self_service(gym_tenant, payload)
@@ -464,6 +473,7 @@ class TestEmailVerificationAndAuthLifecycle:
             "email": "letesenbet@example.com",
             "phone": "+251911998866",
             "password": "SecretPassword123!",
+            "gender": "female",
             "waiver_accepted": True,
         }
         _, exp_token = register_member_self_service(gym_tenant, payload_exp)
@@ -499,6 +509,7 @@ class TestStaffAssistedRegistrationAndPermissions:
                 "full_name": f"Member registered by {staff.role}",
                 "email": email,
                 "phone": phone,
+                "gender": "male",
                 "waiver_accepted": True,
             }
             resp = client.post("/api/gym/members/", payload, format="json")
@@ -510,6 +521,7 @@ class TestStaffAssistedRegistrationAndPermissions:
             "full_name": "Unauthorized Trainer Registration",
             "email": "trainer_reg@example.com",
             "phone": "+251911000004",
+            "gender": "female",
             "waiver_accepted": True,
         }
         resp = client.post("/api/gym/members/", payload, format="json")
@@ -520,7 +532,9 @@ class TestStaffAssistedRegistrationAndPermissions:
 class TestProfilePhotoOwnershipAndScoping:
     """Tests for member profile photo ownership exact-match check and trainer scoping."""
 
-    def test_member_reads_own_photo_via_exact_match(self, api_client, gym_tenant):
+    def test_member_reads_own_photo_via_exact_match(
+        self, api_client, gym_tenant, owner_user
+    ):
         from apps.memberships.services import register_member_self_service
 
         member, _ = register_member_self_service(
@@ -530,6 +544,7 @@ class TestProfilePhotoOwnershipAndScoping:
                 "email": "photo_test@example.com",
                 "phone": "+251911445566",
                 "password": "Password123!",
+                "gender": "female",
                 "waiver_accepted": True,
             },
         )
@@ -538,12 +553,13 @@ class TestProfilePhotoOwnershipAndScoping:
         user.save()
 
         client = auth_client(api_client, user, gym_tenant.subdomain)
+        staff_client = auth_client(api_client, owner_user, gym_tenant.subdomain)
 
-        # Upload photo
+        # Upload photo via staff (Item 14)
         photo_file = make_valid_image("profile.webp")
-        upload_resp = client.post(
+        upload_resp = staff_client.post(
             f"/api/media/member-photos/{gym_tenant.id}/",
-            {"photo": photo_file},
+            {"photo": photo_file, "member_id": str(member.id)},
             format="multipart",
         )
         assert upload_resp.status_code == 201
@@ -556,8 +572,12 @@ class TestProfilePhotoOwnershipAndScoping:
         read_resp = client.get(f"/api/media/member-photos/{gym_tenant.id}/{filename}/")
         assert read_resp.status_code == 200
 
-    def test_member_cannot_read_another_members_photo(self, api_client, gym_tenant):
+    def test_member_cannot_read_another_members_photo(
+        self, api_client, gym_tenant, owner_user
+    ):
         from apps.memberships.services import register_member_self_service
+
+        staff_client = auth_client(api_client, owner_user, gym_tenant.subdomain)
 
         # Member 1
         m1, _ = register_member_self_service(
@@ -567,15 +587,15 @@ class TestProfilePhotoOwnershipAndScoping:
                 "email": "m1@example.com",
                 "phone": "+251911111111",
                 "password": "Password123!",
+                "gender": "male",
                 "waiver_accepted": True,
             },
         )
         m1.user.email_verified_at = timezone.now()
         m1.user.save()
-        c1 = auth_client(api_client, m1.user, gym_tenant.subdomain)
-        up_resp = c1.post(
+        up_resp = staff_client.post(
             f"/api/media/member-photos/{gym_tenant.id}/",
-            {"photo": make_valid_image("m1.webp")},
+            {"photo": make_valid_image("m1.webp"), "member_id": str(m1.id)},
             format="multipart",
         )
         m1_filename = up_resp.data["filename"]
@@ -588,6 +608,7 @@ class TestProfilePhotoOwnershipAndScoping:
                 "email": "m2@example.com",
                 "phone": "+251922222222",
                 "password": "Password123!",
+                "gender": "female",
                 "waiver_accepted": True,
             },
         )
@@ -610,6 +631,7 @@ class TestProfilePhotoOwnershipAndScoping:
                 "email": "list@example.com",
                 "phone": "+251933333333",
                 "password": "Password123!",
+                "gender": "female",
                 "waiver_accepted": True,
             },
         )
@@ -621,9 +643,11 @@ class TestProfilePhotoOwnershipAndScoping:
         assert resp.status_code == 403
 
     def test_trainer_cannot_view_unassigned_member_photo(
-        self, api_client, gym_tenant, trainer_user
+        self, api_client, gym_tenant, trainer_user, owner_user
     ):
         from apps.memberships.services import register_member_self_service
+
+        staff_client = auth_client(api_client, owner_user, gym_tenant.subdomain)
 
         m, _ = register_member_self_service(
             gym_tenant,
@@ -632,15 +656,15 @@ class TestProfilePhotoOwnershipAndScoping:
                 "email": "unassigned@example.com",
                 "phone": "+251944444444",
                 "password": "Password123!",
+                "gender": "female",
                 "waiver_accepted": True,
             },
         )
         m.user.email_verified_at = timezone.now()
         m.user.save()
-        mc = auth_client(api_client, m.user, gym_tenant.subdomain)
-        up = mc.post(
+        up = staff_client.post(
             f"/api/media/member-photos/{gym_tenant.id}/",
-            {"photo": make_valid_image("unassigned.webp")},
+            {"photo": make_valid_image("unassigned.webp"), "member_id": str(m.id)},
             format="multipart",
         )
         filename = up.data["filename"]
@@ -659,6 +683,8 @@ class TestProfilePhotoOwnershipAndScoping:
     ):
         from apps.memberships.services import register_member_self_service
 
+        staff_client = auth_client(api_client, owner_user, gym_tenant.subdomain)
+
         m, _ = register_member_self_service(
             gym_tenant,
             {
@@ -666,15 +692,15 @@ class TestProfilePhotoOwnershipAndScoping:
                 "email": "staffview@example.com",
                 "phone": "+251955555555",
                 "password": "Password123!",
+                "gender": "male",
                 "waiver_accepted": True,
             },
         )
         m.user.email_verified_at = timezone.now()
         m.user.save()
-        mc = auth_client(api_client, m.user, gym_tenant.subdomain)
-        up = mc.post(
+        up = staff_client.post(
             f"/api/media/member-photos/{gym_tenant.id}/",
-            {"photo": make_valid_image("staffview.webp")},
+            {"photo": make_valid_image("staffview.webp"), "member_id": str(m.id)},
             format="multipart",
         )
         filename = up.data["filename"]
@@ -786,6 +812,7 @@ class TestChecklistIntegration:
                 "email": "first@example.com",
                 "phone": "+251977777777",
                 "password": "Password123!",
+                "gender": "female",
                 "waiver_accepted": True,
             },
         )

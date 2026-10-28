@@ -203,13 +203,13 @@ class TestMemberPhotoSecurity:
             format="multipart",
         )
         assert resp.status_code == 403
-        assert "Members cannot change another member's photo" in resp.data["detail"]
+        assert "Members cannot upload or change photos" in resp.data["detail"]
 
         # Verify A2's photo was not changed
         member_a2.refresh_from_db()
         assert member_a2.photo_url == "/api/media/member-photos/alpha/original_m2.webp/"
 
-    def test_member_can_change_own_photo(self, gym_a, member_a1, tmp_path, settings):
+    def test_member_cannot_change_photo(self, gym_a, member_a1, tmp_path, settings):
         settings.MEDIA_ROOT = tmp_path
         client = auth_client(member_a1.user, gym_a.subdomain)
         image = make_test_image("new_me.webp")
@@ -219,11 +219,11 @@ class TestMemberPhotoSecurity:
             {"photo": image},
             format="multipart",
         )
-        assert resp.status_code == 201
-        assert "url" in resp.data
+        assert resp.status_code == 403
+        assert "Members cannot upload or change photos" in resp.data["detail"]
 
         member_a1.refresh_from_db()
-        assert resp.data["filename"] in member_a1.photo_url
+        assert member_a1.photo_url == "/api/media/member-photos/alpha/original_m1.webp/"
 
     def test_trainer_cannot_upload_or_change_photo(
         self, gym_a, trainer_gym_a, member_a1, tmp_path, settings

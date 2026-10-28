@@ -17,8 +17,18 @@ import { VerifyEmailScreen } from "./screens/VerifyEmailScreen";
 import { EntranceScannerScreen } from "./screens/EntranceScannerScreen";
 import { getTenantFromHostname } from "./utils/tenant";
 
+import { useAuth } from "./context/AuthContext";
+
 const RootRoute: React.FC = () => {
   const tenant = getTenantFromHostname();
+  const { user, isLoading } = useAuth();
+
+  if (isLoading) {
+    return null;
+  }
+  if (user) {
+    return <Navigate to="/dashboard" replace />;
+  }
   if (tenant) {
     return <GymEntryScreen />;
   }

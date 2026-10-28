@@ -126,8 +126,11 @@ class CreateGymView(APIView):
                 status=status.HTTP_502_BAD_GATEWAY,
             )
 
+        scheme = getattr(settings, "PUBLIC_URL_SCHEME", "https")
         domain = getattr(settings, "DOMAIN", "fitgate.tebebtech.com")
-        gym_url = f"https://{result['gym'].subdomain}.{domain}/"
+        port = getattr(settings, "PUBLIC_PORT", "")
+        port_suffix = f":{port}" if port else ""
+        gym_url = f"{scheme}://{result['gym'].subdomain}.{domain}{port_suffix}/"
 
         response_data = {
             "gym": GymTenantSummarySerializer(result["gym"]).data,
@@ -605,41 +608,33 @@ class UploadMemberPhotoView(APIView):
             raise PermissionDenied("You cannot upload member photos for another gym.")
 
         role = getattr(request.user, "role", None)
+        if role == User.ROLE_MEMBER:
+            raise PermissionDenied("Members cannot upload or change photos.")
+
         if role == User.ROLE_TRAINER:
             raise PermissionDenied("Trainers cannot upload or change member photos.")
 
-        if role == User.ROLE_MEMBER:
-            member = getattr(request.user, "member_profile", None)
-            if not member:
-                raise PermissionDenied("Only registered members may upload a photo.")
-            member_id = request.data.get("member_id") or request.query_params.get(
-                "member_id"
-            )
-            if member_id and str(member_id) != str(member.id):
-                raise PermissionDenied("Members cannot change another member's photo.")
-        elif role not in (
+        if role not in (
             User.ROLE_OWNER,
             User.ROLE_MANAGER,
             User.ROLE_RECEPTION,
         ):
-            raise PermissionDenied(
-                "Only gym staff or members may upload member photos."
-            )
-        else:
-            member_id = request.data.get("member_id") or request.query_params.get(
-                "member_id"
-            )
-            if member_id:
-                from apps.memberships.models import Member
+            raise PermissionDenied("Only gym staff may upload member photos.")
 
-                if (
-                    Member.all_objects.filter(id=member_id)
-                    .exclude(gym=request.tenant)
-                    .exists()
-                ):
-                    raise PermissionDenied(
-                        "You cannot upload or change photos for members of another gym."
-                    )
+        member_id = request.data.get("member_id") or request.query_params.get(
+            "member_id"
+        )
+        if member_id:
+            from apps.memberships.models import Member
+
+            if (
+                Member.all_objects.filter(id=member_id)
+                .exclude(gym=request.tenant)
+                .exists()
+            ):
+                raise PermissionDenied(
+                    "You cannot upload or change photos for members of another gym."
+                )
 
         uploaded_file = request.FILES.get("photo") or request.FILES.get("file")
         if not uploaded_file:
@@ -999,10 +994,16 @@ class GymPublicEntryView(APIView):
         config = getattr(gym, "config", None)
         from apps.memberships.models import MembershipPlan
         from apps.memberships.serializers import PublicPlanSerializer
+        from apps.payments.models import GymPaymentConfig
 
         active_plans = MembershipPlan.all_objects.filter(
             gym=gym, is_active=True
         ).order_by("-created_at")
+
+        payment_cfg = GymPaymentConfig.all_objects.filter(gym=gym).first()
+        online_payment_verified = bool(
+            payment_cfg and payment_cfg.is_configured and payment_cfg.is_verified
+        )
 
         data = {
             "still_securing": False,
@@ -1015,5 +1016,6 @@ class GymPublicEntryView(APIView):
             "location": gym.location,
             "currency": gym.currency,
             "plans": PublicPlanSerializer(active_plans, many=True).data,
+            "online_payment_verified": online_payment_verified,
         }
         return Response(data, status=status.HTTP_200_OK)

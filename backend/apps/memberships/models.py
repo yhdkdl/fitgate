@@ -85,14 +85,10 @@ class Member(TenantAwareModel):
 
     GENDER_MALE = "male"
     GENDER_FEMALE = "female"
-    GENDER_OTHER = "other"
-    GENDER_PREFER_NOT_TO_SAY = "prefer_not_to_say"
 
     GENDER_CHOICES = [
         (GENDER_MALE, "Male"),
         (GENDER_FEMALE, "Female"),
-        (GENDER_OTHER, "Other"),
-        (GENDER_PREFER_NOT_TO_SAY, "Prefer not to say"),
     ]
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)

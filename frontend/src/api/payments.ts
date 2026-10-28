@@ -139,6 +139,8 @@ export interface UnreconciledBankTransferItem {
   confirmed_by_id: string | null;
   confirmed_by_name: string;
   receipt_number: string;
+  has_screenshot?: boolean;
+  screenshot_url?: string | null;
 }
 
 export async function recordCashPayment(data: {
@@ -162,6 +164,7 @@ export async function recordBankTransferPayment(data: {
   channel?: string;
   notes?: string;
   idempotency_key?: string;
+  screenshot?: File;
 }): Promise<{
   detail: string;
   payment_id: string;
@@ -172,6 +175,23 @@ export async function recordBankTransferPayment(data: {
   receipt: DigitalReceipt;
   subscription_id: string | null;
 }> {
+  if (data.screenshot) {
+    const formData = new FormData();
+    formData.append("member_id", data.member_id);
+    formData.append("plan_id", data.plan_id);
+    formData.append("bank_reference", data.bank_reference);
+    formData.append("transfer_date", data.transfer_date);
+    if (data.channel) formData.append("channel", data.channel);
+    if (data.notes) formData.append("notes", data.notes);
+    if (data.idempotency_key)
+      formData.append("idempotency_key", data.idempotency_key);
+    formData.append("screenshot", data.screenshot);
+    return apiFetch("/api/gym/payments/bank-transfer/", {
+      method: "POST",
+      body: formData,
+    });
+  }
+
   return apiFetch("/api/gym/payments/bank-transfer/", {
     method: "POST",
     body: JSON.stringify(data),
@@ -245,12 +265,17 @@ export async function reverseBankTransfer(
   reversal_id: string;
   reversed_at: string;
 }> {
-  return apiFetch(
-    `/api/gym/payments/${paymentId}/reverse/`,
-    {
-      method: "POST",
-      body: JSON.stringify({ reason }),
-      headers: { "Content-Type": "application/json" },
-    }
+  return apiFetch(`/api/gym/payments/${paymentId}/reverse/`, {
+    method: "POST",
+    body: JSON.stringify({ reason }),
+    headers: { "Content-Type": "application/json" },
+  });
+}
+
+export async function getGymPaymentPublicStatus(): Promise<{
+  online_payment_verified: boolean;
+}> {
+  return apiFetch<{ online_payment_verified: boolean }>(
+    "/api/gym/payments/public-status/"
   );
 }

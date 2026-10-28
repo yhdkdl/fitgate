@@ -694,6 +694,7 @@ def record_bank_transfer_payment(
     channel: str = "",
     notes: str = "",
     idempotency_key: Optional[str] = None,
+    transfer_screenshot: str = "",
 ) -> Tuple[Payment, Receipt, MemberSubscription]:
     """
     Record and confirm a bank-transfer payment for a gym member.
@@ -863,6 +864,7 @@ def record_bank_transfer_payment(
             bank_reference_normalized=norm_ref,
             transfer_date=transfer_date,
             channel=str(channel or "").strip(),
+            transfer_screenshot=transfer_screenshot,
             is_reconciled=is_reconciled,
             reconciled_at=reconciled_at,
             reconciled_by=reconciled_by,

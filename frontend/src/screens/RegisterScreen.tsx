@@ -22,7 +22,6 @@ import {
   validateEmail,
   validateName,
   validatePhone,
-  validateTextLength,
 } from "../utils/validators";
 
 export const RegisterScreen: React.FC = () => {
@@ -35,7 +34,6 @@ export const RegisterScreen: React.FC = () => {
   const [dateOfBirth, setDateOfBirth] = useState("");
   const [gender, setGender] = useState("");
   const [emergencyContact, setEmergencyContact] = useState("");
-  const [referralSource, setReferralSource] = useState("");
   const [waiverAccepted, setWaiverAccepted] = useState(false);
 
   const [loading, setLoading] = useState(false);
@@ -70,29 +68,18 @@ export const RegisterScreen: React.FC = () => {
         errors.password = "Password cannot be entirely numeric.";
     }
 
+    if (!gender || (gender !== "female" && gender !== "male")) {
+      errors.gender = "Please select either Female or Male.";
+    }
+
     if (dateOfBirth) {
       const dobErr = validateDateOfBirth(dateOfBirth);
       if (dobErr) errors.date_of_birth = dobErr;
     }
 
     if (emergencyContact.trim()) {
-      const ecErr = validateTextLength(
-        emergencyContact,
-        "Emergency contact",
-        2,
-        100
-      );
+      const ecErr = validatePhone(emergencyContact, false);
       if (ecErr) errors.emergency_contact = ecErr;
-    }
-
-    if (referralSource.trim()) {
-      const refErr = validateTextLength(
-        referralSource,
-        "Referral source",
-        2,
-        100
-      );
-      if (refErr) errors.referral_source = refErr;
     }
 
     if (!waiverAccepted) {
@@ -118,7 +105,6 @@ export const RegisterScreen: React.FC = () => {
         date_of_birth: dateOfBirth || null,
         gender: gender || "",
         emergency_contact: emergencyContact.trim(),
-        referral_source: referralSource.trim(),
       };
 
       await registerMemberSelfService(payload);
@@ -361,53 +347,36 @@ export const RegisterScreen: React.FC = () => {
                   value={gender}
                   onChange={(e) => setGender(e.target.value)}
                   className="w-full bg-surface-2 border border-border text-text rounded-input px-3 py-2 text-sm focus:outline-none focus:border-primary min-h-[44px]"
+                  required
                 >
-                  <option value="">Select Gender (optional)</option>
-                  <option value="male">Male</option>
+                  <option value="">Select Gender *</option>
                   <option value="female">Female</option>
-                  <option value="other">Other</option>
-                  <option value="prefer_not_to_say">Prefer not to say</option>
+                  <option value="male">Male</option>
                 </select>
               </FormField>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <FormField
-                label="Emergency Contact"
-                htmlFor="emergency_contact"
+            <FormField
+              label="Emergency Contact Phone"
+              htmlFor="emergency_contact"
+              error={fieldErrors.emergency_contact}
+              helpText="Digits, spaces, hyphens, optional + prefix."
+            >
+              <Input
+                id="emergency_contact"
+                name="emergency_contact"
+                type="tel"
+                inputMode="tel"
+                maxLength={20}
+                value={emergencyContact}
+                onChange={(e) =>
+                  setEmergencyContact(filterPhoneInput(e.target.value))
+                }
+                placeholder="e.g. +251911223344"
                 error={fieldErrors.emergency_contact}
-              >
-                <Input
-                  id="emergency_contact"
-                  name="emergency_contact"
-                  type="text"
-                  maxLength={100}
-                  value={emergencyContact}
-                  onChange={(e) => setEmergencyContact(e.target.value)}
-                  placeholder="Name and phone"
-                  error={fieldErrors.emergency_contact}
-                  className="min-h-[44px]"
-                />
-              </FormField>
-
-              <FormField
-                label="Referral Source"
-                htmlFor="referral_source"
-                error={fieldErrors.referral_source}
-              >
-                <Input
-                  id="referral_source"
-                  name="referral_source"
-                  type="text"
-                  maxLength={100}
-                  value={referralSource}
-                  onChange={(e) => setReferralSource(e.target.value)}
-                  placeholder="Friend, Social media, etc."
-                  error={fieldErrors.referral_source}
-                  className="min-h-[44px]"
-                />
-              </FormField>
-            </div>
+                className="min-h-[44px]"
+              />
+            </FormField>
 
             {/* Mandatory Health Waiver Checkbox */}
             <div className="bg-surface-2/40 border border-border p-4 rounded-lg space-y-2">

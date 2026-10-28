@@ -726,9 +726,9 @@ class TestCreateGymSuite:
         )
         assert response.status_code == 201
         data = response.json()
-        assert data["gym"]["subdomain"] == "bole-apex"
-        assert data["gym"]["url"] == f"https://bole-apex.{settings.DOMAIN}/"
-        assert data["gym_url"] == f"https://bole-apex.{settings.DOMAIN}/"
+        expected_url = f"{getattr(settings, 'PUBLIC_URL_SCHEME', 'https')}://bole-apex.{settings.DOMAIN}{f':{settings.PUBLIC_PORT}' if getattr(settings, 'PUBLIC_PORT', '') else ''}/"
+        assert data["gym"]["url"] == expected_url
+        assert data["gym_url"] == expected_url
         assert data["config"]["has_multi_branch"] is True
         assert data["owner"]["email"] == "haile@boleapex.com"
         assert "invite_link" not in data

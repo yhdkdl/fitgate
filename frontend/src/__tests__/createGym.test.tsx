@@ -25,6 +25,7 @@ describe("GymManagementSection", () => {
       contact_name: "Abebe Bikila",
       contact_phone: "+251911223344",
       contact_email: "abebe@bolepower.com",
+      owner_email: "abebe@bolepower.com",
       subscription_expires_at: null,
       tls_confirmed_at: null,
       created_at: "2026-10-11T10:00:00Z",
@@ -42,6 +43,7 @@ describe("GymManagementSection", () => {
       contact_name: "Haile G",
       contact_phone: "+251922334455",
       contact_email: "haile@apexelite.com",
+      owner_email: "haile@apexelite.com",
       subscription_expires_at: "2027-10-11T10:00:00Z",
       tls_confirmed_at: "2026-10-11T10:00:00Z",
       created_at: "2026-10-10T10:00:00Z",
@@ -102,6 +104,7 @@ describe("GymManagementSection", () => {
         contact_name: "Derartu Tulu",
         contact_phone: "+251933445566",
         contact_email: "derartu@olympic.com",
+        owner_email: "derartu@olympic.com",
         subscription_expires_at: null,
         tls_confirmed_at: null,
         created_at: "2026-10-11T12:00:00Z",
@@ -113,6 +116,7 @@ describe("GymManagementSection", () => {
         has_analytics: false,
         has_group_classes: false,
         has_multi_branch: false,
+        freeze_days_cap: 30,
         freeze_days_allowed: 0,
         payment_grace_days: 7,
         subscription_reminder_days: [14, 7],
@@ -142,7 +146,11 @@ describe("GymManagementSection", () => {
     await userEvent.type(screen.getByLabelText(/gym name/i), "Olympic Gym");
     await userEvent.type(screen.getByLabelText(/subdomain/i), "olympic-gym");
     await userEvent.type(
-      screen.getByLabelText(/owner email/i),
+      screen.getByLabelText(/^owner email/i),
+      "derartu@olympic.com"
+    );
+    await userEvent.type(
+      screen.getByLabelText(/confirm owner email/i),
       "derartu@olympic.com"
     );
     await userEvent.type(

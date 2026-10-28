@@ -55,6 +55,7 @@ export const GymEntryScreen: React.FC = () => {
             message:
               errObj.data?.message ||
               "This gym portal is still being secured. Please check back shortly.",
+            online_payment_verified: false,
           });
         } else {
           setError(
