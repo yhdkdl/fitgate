@@ -1,5 +1,7 @@
 # Manual Steps
 
+Note for local setup: after pulling new code run docker compose exec frontend npm install (and rebuild if needed).
+
 Whenever a manual action comes up later, append numbered steps here (sprint, what to do, what to paste where, which fallback is in use), continue with the fallback, and track verification status.
 
 ---
