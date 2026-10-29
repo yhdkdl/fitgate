@@ -226,13 +226,19 @@ This document is a comprehensive, numbered click-through guide for project owner
    - With mock ON: shows `Simulated (mock mode): not checked with Chapa`.
    - With mock OFF: makes an authenticated call to Chapa (`GET https://api.chapa.co/v1/banks`) using the secret key; if valid, status changes to `Verified`. If keys have invalid format or mismatched mode (Test vs Live), distinct plain error messages are displayed before calling Chapa.
 
-### 5.1 Member Checkout
+### 5.1 Member Plan Selection & Online Checkout
 
-1. Sign in as **Member** at `http://<gym-subdomain>.localhost:5173`.
-2. Navigate to **My membership** (`/membership`).
-3. Select an online-enabled plan and choose **Pay Online (Chapa)**.
-4. Click **Proceed to Checkout**.
-5. Verify the member is redirected to the checkout screen with payment reference and amount.
+1. Self-register a new member at `http://<gym-subdomain>.localhost:5173/register` and verify email, or sign in as an existing member.
+2. If pending (no active plan), observe the prominent banner at the top of the Home dashboard: _"No active plan yet. Choose a plan to start checking in."_ with a direct button to **Choose a plan**.
+3. Click the button or navigate to **My membership** (`/membership`).
+4. For `pending` or `expired` members, verify the section header is **Choose a plan**; for `active` members, verify it shows **Renew**. If `frozen`, it shows _"Your membership is frozen."_; if `suspended`, _"Please see the front desk."_.
+5. Verify the gym's active plans are listed with name, duration, price in ETB, and trainer inclusion.
+6. If the gym's online payment is **Verified**:
+   - Each plan card includes a **Pay online (Chapa)** button.
+   - Below the plan cards, observe: _"Or pay at the front desk with cash or bank transfer."_ (plus gym phone/address if configured).
+   - Click **Pay online (Chapa)** on any plan and verify immediate redirect to Chapa's hosted checkout page.
+7. If online payment is **Not verified**:
+   - Verify that online payment buttons are omitted and the card displays: _"Online payment is not available at this gym. Please pay at the front desk with cash or bank transfer and tell the staff which plan you want."_ (plus gym phone/address if configured).
 
 ### 5.2 Signed Webhook Simulation
 
