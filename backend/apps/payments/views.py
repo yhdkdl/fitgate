@@ -1,6 +1,7 @@
 """API Views for Gym Payment Configuration, Chapa Checkout, Webhook processing, and Admin status."""
 
 import logging
+import re
 import secrets
 import uuid
 from decimal import Decimal
@@ -271,8 +272,8 @@ class ChapaCheckoutView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        # Build transaction reference with 16 bytes of cryptographically secure randomness
-        tx_ref = f"FG-{gym.subdomain}-{secrets.token_hex(16)}"
+        # Build transaction reference with cryptographically secure randomness (max 50 chars)
+        tx_ref = f"FG-{gym.subdomain[:15]}-{secrets.token_hex(8)}"
 
         # Create pending Payment record bound to gym, member, and plan
         payment = Payment.objects.create(
@@ -304,10 +305,25 @@ class ChapaCheckoutView(APIView):
         client = ChapaClient(secret_key=config.secret_key)
         domain = getattr(settings, "DOMAIN", "localhost")
         scheme = getattr(settings, "PUBLIC_URL_SCHEME", "https")
-        names = (member.full_name or "").split(maxsplit=1)
-        first_name = names[0] if names else "Member"
-        last_name = names[1] if len(names) > 1 else ""
-        email = member.user.email if member.user else ""
+        names = (member.full_name or "").strip().split(maxsplit=1)
+        first_name = names[0][:35].strip() if names and names[0].strip() else "Member"
+        last_name = (
+            names[1][:35].strip() if len(names) > 1 and names[1].strip() else "Member"
+        )
+        email = (
+            member.user.email.strip().lower()
+            if member.user and member.user.email
+            else ""
+        )
+        if not email or len(email) > 100:
+            email = "member@fitgate.org"
+
+        # Checkout title sent to Chapa must not exceed 16 characters; no gym name sent unshortened
+        checkout_title = (gym.name[:16].strip() if gym.name else "FitGate") or "FitGate"
+        plan_desc = (
+            re.sub(r"[^a-zA-Z0-9\s\-]", "", plan.name)[:40].strip() or "Membership"
+        )
+        checkout_description = f"Plan: {plan_desc}"[:50]
 
         init_payload = {
             "amount": str(plan.price_etb),
@@ -319,10 +335,27 @@ class ChapaCheckoutView(APIView):
             "callback_url": f"{scheme}://{domain}/api/webhooks/chapa/",
             "return_url": f"{scheme}://{gym.subdomain}.{domain}/members/payment-complete?tx_ref={tx_ref}",
             "customization": {
-                "title": f"{gym.name} - {plan.name}",
-                "description": f"Subscription payment for {member.full_name}",
+                "title": checkout_title,
+                "description": checkout_description,
             },
         }
+
+        # Send phone format only when valid
+        raw_phone = (member.phone or "").strip()
+        if raw_phone:
+            digits = re.sub(r"\D", "", raw_phone)
+            if digits.startswith("251") and len(digits) == 12:
+                digits = "0" + digits[3:]
+            elif len(digits) == 9 and (
+                digits.startswith("9") or digits.startswith("7")
+            ):
+                digits = "0" + digits
+            if len(digits) == 10 and (
+                digits.startswith("09") or digits.startswith("07")
+            ):
+                init_payload["phone_number"] = digits
+            elif 9 <= len(digits) <= 15:
+                init_payload["phone_number"] = digits
 
         try:
             init_resp = client.initialize_transaction(init_payload)
@@ -330,8 +363,16 @@ class ChapaCheckoutView(APIView):
             payment.status = Payment.STATUS_FAILED
             payment.metadata["initialization_error"] = exc.message
             payment.save(update_fields=["status", "metadata", "updated_at"])
+            logger.warning(
+                "Chapa payment initialization failed for gym %s (tx_ref %s): %s",
+                gym.subdomain,
+                tx_ref,
+                exc.message,
+            )
             return Response(
-                {"detail": f"Failed to initialize payment gateway: {exc.message}"},
+                {
+                    "detail": "We could not start the online payment. Please try again or pay at the front desk."
+                },
                 status=status.HTTP_502_BAD_GATEWAY,
             )
 

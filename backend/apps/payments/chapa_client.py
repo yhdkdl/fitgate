@@ -2,6 +2,7 @@
 
 import json
 import logging
+import re
 import ssl
 import urllib.error
 import urllib.parse
@@ -97,7 +98,65 @@ class ChapaClient:
         Returns the checkout response containing checkout_url.
         """
         if getattr(settings, "CHAPA_USE_MOCK", False):
+            customization = payload.get("customization") or {}
+            title = customization.get("title")
+            if title and len(title) > 16:
+                raise ChapaAPIError(
+                    "The customization.title must not exceed 16 characters.",
+                    status_code=400,
+                    data={
+                        "customization.title": [
+                            "The customization.title must not exceed 16 characters."
+                        ]
+                    },
+                )
+            first_name = payload.get("first_name")
+            if first_name and len(first_name) > 35:
+                raise ChapaAPIError(
+                    "The first_name must not exceed 35 characters.",
+                    status_code=400,
+                    data={
+                        "first_name": ["The first_name must not exceed 35 characters."]
+                    },
+                )
+            last_name = payload.get("last_name")
+            if last_name and len(last_name) > 35:
+                raise ChapaAPIError(
+                    "The last_name must not exceed 35 characters.",
+                    status_code=400,
+                    data={
+                        "last_name": ["The last_name must not exceed 35 characters."]
+                    },
+                )
             tx_ref = payload.get("tx_ref", "tx-mock")
+            if tx_ref and len(tx_ref) > 50:
+                raise ChapaAPIError(
+                    "The tx_ref must not exceed 50 characters.",
+                    status_code=400,
+                    data={"tx_ref": ["The tx_ref must not exceed 50 characters."]},
+                )
+            phone = payload.get("phone_number")
+            if phone and not (
+                re.match(r"^(09|07)\d{8}$", phone)
+                or (phone.isdigit() and 9 <= len(phone) <= 15)
+            ):
+                raise ChapaAPIError(
+                    "The phone_number format is invalid.",
+                    status_code=400,
+                    data={"phone_number": ["The phone_number format is invalid."]},
+                )
+            amount = payload.get("amount")
+            if not amount:
+                raise ChapaAPIError("The amount field is required.", status_code=400)
+            currency = payload.get("currency")
+            if currency not in ("ETB", "USD"):
+                raise ChapaAPIError("The currency is invalid.", status_code=400)
+            email = payload.get("email")
+            if not email or "@" not in email:
+                raise ChapaAPIError(
+                    "The email field must be a valid email address.", status_code=400
+                )
+
             return {
                 "message": "Hosted Link (mocked)",
                 "status": "success",
