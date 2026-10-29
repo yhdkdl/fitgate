@@ -121,10 +121,11 @@ export const DashboardScreen: React.FC = () => {
   } | null>(null);
 
   const role = user?.role || "member";
-  const userRoleNav = ROLE_NAV_ITEMS[role] || dashboardConfig?.navigation || [
-    { label: "Overview", path: "/dashboard" },
-    { label: "Profile", path: "/profile" },
-  ];
+  const userRoleNav = ROLE_NAV_ITEMS[role] ||
+    dashboardConfig?.navigation || [
+      { label: "Overview", path: "/dashboard" },
+      { label: "Profile", path: "/profile" },
+    ];
 
   const currentPath = location.pathname.replace(/\/+$/, "") || "/dashboard";
 
@@ -139,7 +140,9 @@ export const DashboardScreen: React.FC = () => {
     }
 
     const isAllowed = allowedPaths.some(
-      (p) => currentPath === p || (p !== "/dashboard" && currentPath.startsWith(p))
+      (p) =>
+        currentPath === p ||
+        (p !== "/dashboard" && currentPath.startsWith(p + "/"))
     );
 
     if (!isAllowed) {
@@ -189,8 +192,20 @@ export const DashboardScreen: React.FC = () => {
 
   // Determine current page render
   const renderCurrentPage = () => {
-    // 1. Members page
-    if (currentPath.startsWith("/members")) {
+    // 1. Member: My Membership page
+    if (
+      currentPath === "/membership" ||
+      currentPath.startsWith("/membership/")
+    ) {
+      return (
+        <SectionErrorBoundary title="My Membership">
+          <MemberSelfSection view="membership" />
+        </SectionErrorBoundary>
+      );
+    }
+
+    // 2. Staff: Members management page
+    if (currentPath === "/members" || currentPath.startsWith("/members/")) {
       return (
         <SectionErrorBoundary title="Members">
           <MemberManagementSection
@@ -297,15 +312,6 @@ export const DashboardScreen: React.FC = () => {
             />
           </SectionErrorBoundary>
         </div>
-      );
-    }
-
-    // 10. Member: My Membership page
-    if (currentPath.startsWith("/membership")) {
-      return (
-        <SectionErrorBoundary title="My Membership">
-          <MemberSelfSection view="membership" />
-        </SectionErrorBoundary>
       );
     }
 
@@ -496,7 +502,8 @@ export const DashboardScreen: React.FC = () => {
               const isActive =
                 item.path === "/dashboard"
                   ? currentPath === "/dashboard"
-                  : currentPath.startsWith(item.path);
+                  : currentPath === item.path ||
+                    currentPath.startsWith(item.path + "/");
 
               return (
                 <Link
@@ -527,7 +534,8 @@ export const DashboardScreen: React.FC = () => {
           const isActive =
             item.path === "/dashboard"
               ? currentPath === "/dashboard"
-              : currentPath.startsWith(item.path);
+              : currentPath === item.path ||
+                currentPath.startsWith(item.path + "/");
 
           return (
             <Link
@@ -586,7 +594,9 @@ export const DashboardScreen: React.FC = () => {
             </div>
             <div className="space-y-1 pt-1">
               {mobileMoreNav.map((item, idx) => {
-                const isActive = currentPath.startsWith(item.path);
+                const isActive =
+                  currentPath === item.path ||
+                  currentPath.startsWith(item.path + "/");
                 return (
                   <Link
                     key={idx}
