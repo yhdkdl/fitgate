@@ -43,6 +43,7 @@
 - Fix: Increment 2 post-testing fixes round 3 (Chapa payload limits & test connection, receipt PDF dynamic import & single-page print, public gym entry page, Pro tier hidden, demo success screen, real role routing and navigation) (tag `fix-increment-2-fixes-3-done`).
 - Fix: Member plan selection and reachable checkout on /membership (Home pending banner, public active plans listing without staff endpoints, verified/unverified/failure states, and status-based messaging) (tag `fix-member-plan-section-done`).
 - Fix: Membership route collision in DashboardScreen where staff /members matched /membership leading to permission denied error (tag `fix-membership-route-collision-done`).
+- Fix: Chapa checkout initialization character sanitization (customization description and title removing forbidden colons and special characters) (tag `fix-chapa-customization-desc-done`).
 
 ## Current
 

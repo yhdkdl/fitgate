@@ -377,12 +377,18 @@ class ChapaCheckoutView(APIView):
         if not email or len(email) > 100:
             email = "member@fitgate.org"
 
-        # Checkout title sent to Chapa must not exceed 16 characters; no gym name sent unshortened
-        checkout_title = (gym.name[:16].strip() if gym.name else "FitGate") or "FitGate"
-        plan_desc = (
-            re.sub(r"[^a-zA-Z0-9\s\-]", "", plan.name)[:40].strip() or "Membership"
+        # Checkout title and description sent to Chapa must not exceed length limits and allowed characters
+        raw_title = gym.name if gym.name else "FitGate"
+        checkout_title = (
+            re.sub(r"[^a-zA-Z0-9\s\-_.]", "", raw_title)[:16].strip() or "FitGate"
         )
-        checkout_description = f"Plan: {plan_desc}"[:50]
+        plan_desc = (
+            re.sub(r"[^a-zA-Z0-9\s\-_.]", "", plan.name)[:40].strip() or "Membership"
+        )
+        checkout_description = (
+            re.sub(r"[^a-zA-Z0-9\s\-_.]", "", f"Plan - {plan_desc}")[:50].strip()
+            or "Membership"
+        )
 
         init_payload = {
             "amount": str(plan.price_etb),

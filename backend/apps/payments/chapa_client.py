@@ -110,6 +110,27 @@ class ChapaClient:
                         ]
                     },
                 )
+            if title and not re.match(r"^[a-zA-Z0-9\s\-_.]+$", title):
+                raise ChapaAPIError(
+                    "The customization.title may only contain letters, numbers, hyphens, underscores, spaces, and dots.",
+                    status_code=400,
+                    data={
+                        "customization.title": [
+                            "The customization.title may only contain letters, numbers, hyphens, underscores, spaces, and dots."
+                        ]
+                    },
+                )
+            desc = customization.get("description")
+            if desc and not re.match(r"^[a-zA-Z0-9\s\-_.]+$", desc):
+                raise ChapaAPIError(
+                    "The customization.description may only contain letters, numbers, hyphens, underscores, spaces, and dots.",
+                    status_code=400,
+                    data={
+                        "customization.description": [
+                            "The customization.description may only contain letters, numbers, hyphens, underscores, spaces, and dots."
+                        ]
+                    },
+                )
             first_name = payload.get("first_name")
             if first_name and len(first_name) > 35:
                 raise ChapaAPIError(
