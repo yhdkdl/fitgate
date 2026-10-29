@@ -156,10 +156,10 @@ describe("Sprint 11 - MemberCheckoutCard", () => {
     });
 
     expect(screen.getAllByText(/1500\.00/i).length).toBeGreaterThanOrEqual(1);
-    const payBtn = screen.getByRole("button", {
-      name: /pay online with chapa/i,
+    const payBtns = screen.getAllByRole("button", {
+      name: /pay online \(chapa\)/i,
     });
-    fireEvent.click(payBtn);
+    fireEvent.click(payBtns[0]);
 
     await waitFor(() => {
       expect(paymentsApi.initiateChapaCheckout).toHaveBeenCalledWith(
