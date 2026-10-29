@@ -40,6 +40,7 @@
 - Increment 2 Closeout: Database-backed email hourly rate caps without Redis dependency (`EmailRateCapCounter` with row-level locking), unverified member 7-day accounts marked `EXPIRED` (reactivated upon re-registration), Brevo documentation and silent invalid-secret rejection, consolidated Scheduled Cron Jobs summary table, and local Chapa testing support via ngrok (`DEV_TUNNEL_HOST` restricted exclusively to payment webhook endpoint with signature verification) (tag `fix-increment-2-closeout-done`).
 - Increment 2 Complete: Sprints 10, 11, 12, 12b, 13, 9b, 14, 15, follow-up fixes, and closeout items all completed, verified, and documented with end-to-end testing script (`docs/INCREMENT_2_TEST.md`).
 - Fix: Increment 2 user testing fixes (21 owner-reported bug fixes and feature additions across payments, memberships, freeze settings, and member profile lockdown) (tag `fix-increment-2-user-testing-done`).
+- Fix: Increment 2 post-testing fixes round 3 (Chapa payload limits & test connection, receipt PDF dynamic import & single-page print, public gym entry page, Pro tier hidden, demo success screen, real role routing and navigation) (tag `fix-increment-2-fixes-3-done`).
 
 ## Current
 

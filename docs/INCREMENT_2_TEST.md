@@ -32,7 +32,7 @@ This document is a comprehensive, numbered click-through guide for project owner
 ### 1.1 Create Plans (Days and Months Durations)
 
 1. Sign in as gym **Owner** or **Manager** at `http://<gym-subdomain>.localhost:5173`.
-2. Navigate to **Membership Plans** (`/plans`).
+2. Navigate to **Plans** (`/plans`).
 3. Click **Add Plan**.
 4. Create a daily plan:
    - Name: `10-Day Pass`
@@ -62,11 +62,12 @@ This document is a comprehensive, numbered click-through guide for project owner
 2. Confirm the prompt. Verify the plan moves to the **Inactive** section and is hidden from front-desk staff when recording new memberships.
 3. Verify existing subscriptions on `10-Day Pass` remain active until their normal expiration date.
 
-### 1.4 Public Plan Listing
+### 1.4 Public Gym Entry Page & Plan Listing
 
-1. Open an incognito browser window and navigate to the public gym entry page at `http://<gym-subdomain>.localhost:5173/public/entry`.
-2. Scroll to the available plans list.
-3. Confirm active plans (`1-Month Standard`) are visible with their prices, while inactive plans (`10-Day Pass`) are hidden.
+1. Open an incognito browser window and navigate to the gym root address `http://<gym-subdomain>.localhost:5173/` (or `/public/entry`).
+2. Verify it displays a modern public gym page with gym name, logo, brand color accent, active plans with prices, and "Log in" / "Register" buttons (without showing any member data, even while the gym certificate is being confirmed).
+3. Scroll to the available plans list.
+4. Confirm active plans (`1-Month Standard`) are visible with their prices, while inactive plans (`10-Day Pass`) are hidden.
 
 ---
 
@@ -110,10 +111,10 @@ This document is a comprehensive, numbered click-through guide for project owner
 
 ### 2.3 Member Payment History & Revenue Totals
 
-1. Navigate to **Finance / Payments** as **Owner** or **Manager**.
+1. Navigate to **Payments** (`/payments`) as **Owner** or **Manager**.
 2. Verify the total confirmed revenue reflects the exact sum of cash payments recorded.
 3. Sign out and sign in as the **Member**.
-4. Navigate to **My Payments / History**.
+4. Navigate to **My payments** (`/payments`).
 5. Verify the member sees their own payments, receipt numbers, and can view their digital receipt.
 6. Verify platform **Super Admin** attempting to access member payment history or revenue totals receives an access denied error.
 
@@ -135,7 +136,7 @@ This document is a comprehensive, numbered click-through guide for project owner
 
 ### 3.2 Owner Statement Reconciliation
 
-1. Sign in as **Owner** and navigate to **Finance / Bank Reconciliation**.
+1. Sign in as **Owner** and navigate to **Bank transfers** (`/bank-transfers`).
 2. Notice the payment `CBE-TX-998811` is listed under **Unreconciled Bank Transfers**.
 3. Check the item and click **Mark as Reconciled**.
 4. Verify the transfer status updates to `Reconciled` with the timestamp and owner's name recorded.
@@ -187,7 +188,7 @@ This document is a comprehensive, numbered click-through guide for project owner
 ### 4.2 Owner Approval and Subscription Extension
 
 1. Sign in as **Owner** or **Manager**.
-2. Navigate to **Members / Freeze Requests**.
+2. Navigate to **Freeze requests** (`/freezes`).
 3. Review the pending request for 7 days.
 4. Click **Approve Freeze**.
 5. Verify:
@@ -213,10 +214,22 @@ This document is a comprehensive, numbered click-through guide for project owner
 
 ## 5. Online Payment with Mocked Webhooks (Sprint 11)
 
+### 5.0 Chapa Payment Gateway Configuration & Test Connection
+
+1. Sign in as **Owner** at `http://<gym-subdomain>.localhost:5173`.
+2. Navigate to **Settings** (`/settings`) and scroll to **Online Payment Gateway (Chapa)**.
+3. Observe the notice:
+   - With mock ON: `Simulated (mock mode): not checked with Chapa` and `Test environment: payments are simulated`.
+   - Explanatory note: "Checks your secret key with Chapa. The webhook secret is confirmed when the first payment arrives."
+4. Enter public key (`CHAPUBK_...`), secret key (`CHASECK_...`), and webhook secret. Verify that changing any key immediately resets verification status to "Not configured or unverified".
+5. Click **Test connection**.
+   - With mock ON: shows `Simulated (mock mode): not checked with Chapa`.
+   - With mock OFF: makes an authenticated call to Chapa (`GET https://api.chapa.co/v1/banks`) using the secret key; if valid, status changes to `Verified`. If keys have invalid format or mismatched mode (Test vs Live), distinct plain error messages are displayed before calling Chapa.
+
 ### 5.1 Member Checkout
 
 1. Sign in as **Member** at `http://<gym-subdomain>.localhost:5173`.
-2. Navigate to **Renew Membership**.
+2. Navigate to **My membership** (`/membership`).
 3. Select an online-enabled plan and choose **Pay Online (Chapa)**.
 4. Click **Proceed to Checkout**.
 5. Verify the member is redirected to the checkout screen with payment reference and amount.
@@ -316,6 +329,15 @@ This document is a comprehensive, numbered click-through guide for project owner
      -d '{"event": "hardBounce", "email": "bounced@example.com"}'
    ```
 6. Verify future invite attempts to `bounced@example.com` are suppressed immediately, showing `Email delivery suppressed due to prior bounce`.
+
+---
+
+### 8.4 Demo Request Submission & Return Home
+
+1. Open a browser window to `http://localhost:5173` and click **Request a Demo** (or navigate to `http://localhost:5173/request-demo`).
+2. Fill in the demo request form: gym name, contact person, phone number, email, and message.
+3. Click **Submit Demo Request**.
+4. Verify the confirmation card displays thanking the applicant, does **not** show a "Sign in" or "Submit another" link, and provides a **Back to home** button that navigates directly to `http://localhost:5173` (with auto-redirect after 5 seconds).
 
 ---
 
