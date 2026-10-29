@@ -1,7 +1,10 @@
 import { apiFetch } from "./client";
 import type { components } from "../types/api";
 
-export type GymPaymentConfig = components["schemas"]["GymPaymentConfig"];
+export type GymPaymentConfig = components["schemas"]["GymPaymentConfig"] & {
+  use_mock?: boolean;
+  detected_mode?: string;
+};
 export type PatchedGymPaymentConfigUpdateRequest =
   components["schemas"]["PatchedGymPaymentConfigUpdateRequest"];
 export type ChapaCheckoutResponse =
@@ -25,11 +28,15 @@ export async function testGymPaymentConfig(): Promise<{
   success: boolean;
   message: string;
   is_verified: boolean;
+  detected_mode?: string;
+  use_mock?: boolean;
 }> {
   return apiFetch<{
     success: boolean;
     message: string;
     is_verified: boolean;
+    detected_mode?: string;
+    use_mock?: boolean;
   }>("/api/gym/payment-config/test/", {
     method: "POST",
   });
@@ -274,9 +281,10 @@ export async function reverseBankTransfer(
 
 export async function getGymPaymentPublicStatus(subdomain?: string): Promise<{
   online_payment_verified: boolean;
+  use_mock?: boolean;
 }> {
   const query = subdomain ? `?subdomain=${encodeURIComponent(subdomain)}` : "";
-  return apiFetch<{ online_payment_verified: boolean }>(
+  return apiFetch<{ online_payment_verified: boolean; use_mock?: boolean }>(
     `/api/gym/payments/public-status/${query}`
   );
 }

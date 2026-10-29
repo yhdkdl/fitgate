@@ -114,6 +114,8 @@ class GymPaymentConfigView(APIView):
         updated = False
         if "public_key" in data:
             config.public_key = data["public_key"]
+            config.is_verified = False  # requires re-verification
+            config.verified_at = None
             updated = True
         if "secret_key" in data:
             config.secret_key = data["secret_key"]
@@ -122,6 +124,8 @@ class GymPaymentConfigView(APIView):
             updated = True
         if "webhook_secret" in data:
             config.webhook_secret = data["webhook_secret"]
+            config.is_verified = False  # requires re-verification
+            config.verified_at = None
             updated = True
 
         if updated:
@@ -167,13 +171,53 @@ class GymPaymentConfigTestView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
+        sec_key = (config.secret_key or "").strip()
+        pub_key = (config.public_key or "").strip()
+
+        # Format validation: refuse before any call
+        if not sec_key.startswith("CHASECK_") or not pub_key.startswith("CHAPUBK_"):
+            return Response(
+                {
+                    "success": False,
+                    "detail": "Wrong key format. Secret key must start with CHASECK_ and public key with CHAPUBK_.",
+                    "message": "Wrong key format. Secret key must start with CHASECK_ and public key with CHAPUBK_.",
+                    "is_verified": False,
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Mode detection from key prefixes
+        sec_is_test = "TEST" in sec_key.split("-")[0] or "_TEST" in sec_key
+        pub_is_test = "TEST" in pub_key.split("-")[0] or "_TEST" in pub_key
+
+        if sec_is_test != pub_is_test:
+            return Response(
+                {
+                    "success": False,
+                    "detail": "Public and secret keys disagree: one is Test and one is Live.",
+                    "message": "Public and secret keys disagree: one is Test and one is Live.",
+                    "is_verified": False,
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        detected_mode = "Test" if sec_is_test else "Live"
+        config.is_test_mode = sec_is_test
+
         client = ChapaClient(secret_key=config.secret_key)
         success, message = client.test_connection()
 
         if success:
             config.is_verified = True
             config.verified_at = timezone.now()
-            config.save(update_fields=["is_verified", "verified_at", "updated_at"])
+            config.save(
+                update_fields=[
+                    "is_verified",
+                    "verified_at",
+                    "is_test_mode",
+                    "updated_at",
+                ]
+            )
 
             record_audit_log(
                 actor=request.user,
@@ -184,13 +228,23 @@ class GymPaymentConfigTestView(APIView):
                 metadata={
                     "result": "success",
                     "is_test_mode": config.is_test_mode,
+                    "detected_mode": detected_mode,
                 },
             )
             return Response(
-                {"success": True, "message": message, "is_verified": True},
+                {
+                    "success": True,
+                    "message": message,
+                    "is_verified": True,
+                    "detected_mode": detected_mode,
+                    "use_mock": getattr(settings, "CHAPA_USE_MOCK", False),
+                },
                 status=status.HTTP_200_OK,
             )
         else:
+            config.is_verified = False
+            config.verified_at = None
+            config.save(update_fields=["is_verified", "verified_at", "updated_at"])
             record_audit_log(
                 actor=request.user,
                 gym=gym,
@@ -203,7 +257,12 @@ class GymPaymentConfigTestView(APIView):
                 },
             )
             return Response(
-                {"success": False, "message": message, "is_verified": False},
+                {
+                    "success": False,
+                    "detail": message,
+                    "message": message,
+                    "is_verified": False,
+                },
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
@@ -1077,10 +1136,10 @@ class BankTransferScreenshotView(APIView):
 class GymPaymentPublicStatusView(APIView):
     """
     Public / member-accessible check for whether the current gym has online payment verified.
+    Unauthenticated callers only see online payment availability.
     """
 
     permission_classes = [AllowAny]
-    authentication_classes = []
 
     @extend_schema(
         summary="Check gym online payment status",
@@ -1103,14 +1162,20 @@ class GymPaymentPublicStatusView(APIView):
             tenant = getattr(request.user, "gym", None)
 
         if not tenant:
+            payload = {"online_payment_verified": False}
+            if hasattr(request, "user") and request.user.is_authenticated:
+                payload["use_mock"] = getattr(settings, "CHAPA_USE_MOCK", False)
             return Response(
-                {"online_payment_verified": False},
+                payload,
                 status=status.HTTP_200_OK,
             )
         config = GymPaymentConfig.all_objects.filter(gym=tenant).first()
         is_verified = bool(config and config.is_configured and config.is_verified)
+        payload = {"online_payment_verified": is_verified}
+        if hasattr(request, "user") and request.user.is_authenticated:
+            payload["use_mock"] = getattr(settings, "CHAPA_USE_MOCK", False)
         return Response(
-            {"online_payment_verified": is_verified},
+            payload,
             status=status.HTTP_200_OK,
         )
 

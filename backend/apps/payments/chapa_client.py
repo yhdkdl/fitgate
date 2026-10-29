@@ -197,12 +197,16 @@ class ChapaClient:
         Calls GET /banks endpoint.
         """
         if getattr(settings, "CHAPA_USE_MOCK", False):
-            return True, "Chapa credentials verified successfully (mock mode)."
+            return True, "Simulated (mock mode): not checked with Chapa"
 
         try:
             resp = self._request("banks", method="GET", timeout=10)
             if resp.get("status") == "success" or "data" in resp:
                 return True, "Chapa connection verified successfully."
-            return False, resp.get("message", "Unexpected response from Chapa.")
+            return False, "Chapa rejected the key."
         except ChapaAPIError as exc:
-            return False, f"Chapa verification failed: {exc.message}"
+            if exc.status_code in (401, 403):
+                return False, "Chapa rejected the key."
+            return False, "Could not reach Chapa."
+        except Exception:
+            return False, "Could not reach Chapa."

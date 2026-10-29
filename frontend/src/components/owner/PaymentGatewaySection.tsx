@@ -139,29 +139,49 @@ export const PaymentGatewaySection: React.FC<PaymentGatewaySectionProps> = ({
             ) : (
               <Badge variant="secondary">Not Configured</Badge>
             )}
-            {config?.is_verified && (
-              <Badge variant="success">Verified & Active</Badge>
+            {config?.is_verified ? (
+              <Badge variant={config.use_mock ? "warning" : "success"}>
+                {config.use_mock
+                  ? "Simulated (mock mode): not checked with Chapa"
+                  : "Verified & Active"}
+              </Badge>
+            ) : (
+              config?.is_configured && (
+                <Badge variant="secondary">Not Verified</Badge>
+              )
             )}
           </h2>
           <p className="text-xs text-text-muted mt-1">
             Configure your gym's Chapa merchant keys to enable online membership
-            checkout. Credentials are encrypted at rest with zero plaintext
-            exposure.
+            checkout. Checks your secret key with Chapa. The webhook secret is
+            confirmed when the first payment arrives.
           </p>
         </div>
 
         {config?.is_configured && (
-          <Button
-            type="button"
-            variant="secondary"
-            size="sm"
-            onClick={handleTestConnection}
-            disabled={testing}
-          >
-            {testing ? "Testing Connection..." : "Test Connection"}
-          </Button>
+          <div className="flex flex-col sm:items-end gap-1">
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              onClick={handleTestConnection}
+              disabled={testing}
+            >
+              {testing ? "Testing Connection..." : "Test Connection"}
+            </Button>
+            <span className="text-[10px] text-text-muted text-left sm:text-right max-w-xs">
+              Checks your secret key with Chapa. The webhook secret is confirmed
+              when the first payment arrives.
+            </span>
+          </div>
         )}
       </div>
+
+      {config?.use_mock && (
+        <div className="bg-warning/10 border border-warning/30 rounded-lg p-3 text-xs text-warning font-medium">
+          Test environment: payments are simulated
+        </div>
+      )}
 
       {successMsg && <Alert variant="success">{successMsg}</Alert>}
       {errorMsg && <Alert variant="danger">{errorMsg}</Alert>}

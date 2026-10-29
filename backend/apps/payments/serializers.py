@@ -12,6 +12,8 @@ class GymPaymentConfigSerializer(serializers.ModelSerializer):
     masked_public_key = serializers.CharField(read_only=True)
     has_secret_key = serializers.BooleanField(read_only=True)
     has_webhook_secret = serializers.BooleanField(read_only=True)
+    use_mock = serializers.SerializerMethodField()
+    detected_mode = serializers.SerializerMethodField()
 
     class Meta:
         model = GymPaymentConfig
@@ -23,8 +25,24 @@ class GymPaymentConfigSerializer(serializers.ModelSerializer):
             "masked_public_key",
             "has_secret_key",
             "has_webhook_secret",
+            "use_mock",
+            "detected_mode",
         ]
         read_only_fields = fields
+
+    def get_use_mock(self, obj) -> bool:
+        from django.conf import settings
+
+        return getattr(settings, "CHAPA_USE_MOCK", False)
+
+    def get_detected_mode(self, obj) -> str:
+        sec = obj.secret_key or ""
+        pub = obj.public_key or ""
+        if "TEST" in sec.upper() or "TEST" in pub.upper():
+            return "Test"
+        if sec or pub:
+            return "Live"
+        return "Unknown"
 
 
 class GymPaymentConfigUpdateSerializer(serializers.Serializer):
