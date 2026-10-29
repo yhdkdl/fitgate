@@ -1,5 +1,5 @@
-import React, { useState } from "react";
-import { Link } from "react-router-dom";
+import React, { useEffect, useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import {
   CheckCircle,
   Mail,
@@ -50,6 +50,15 @@ export const RequestDemoScreen: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    if (!submitted) return;
+    const timer = setTimeout(() => {
+      navigate("/");
+    }, 5000);
+    return () => clearTimeout(timer);
+  }, [submitted, navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -224,25 +233,14 @@ export const RequestDemoScreen: React.FC = () => {
               or message you within 24 hours to arrange an interactive
               demonstration.
             </p>
-            <div className="flex flex-col sm:flex-row gap-3 justify-center">
-              <Button
-                variant="secondary"
-                onClick={() => {
-                  setSubmitted(false);
-                  setGymName("");
-                  setContactName("");
-                  setPhone("");
-                  setCity("");
-                  setEmail("");
-                  setMessage("");
-                }}
-              >
-                Submit Another Request
-              </Button>
-              <Link to="/login">
-                <Button variant="primary">Return to Sign In</Button>
+            <div className="flex justify-center">
+              <Link to="/">
+                <Button variant="primary">Back to home</Button>
               </Link>
             </div>
+            <p className="text-xs text-text-muted mt-4">
+              Redirecting to home in 5 seconds...
+            </p>
           </Card>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8 items-start">

@@ -1,6 +1,7 @@
 """API Views for Gym Payment Configuration, Chapa Checkout, Webhook processing, and Admin status."""
 
 import logging
+import re
 import secrets
 import uuid
 from decimal import Decimal
@@ -113,6 +114,8 @@ class GymPaymentConfigView(APIView):
         updated = False
         if "public_key" in data:
             config.public_key = data["public_key"]
+            config.is_verified = False  # requires re-verification
+            config.verified_at = None
             updated = True
         if "secret_key" in data:
             config.secret_key = data["secret_key"]
@@ -121,6 +124,8 @@ class GymPaymentConfigView(APIView):
             updated = True
         if "webhook_secret" in data:
             config.webhook_secret = data["webhook_secret"]
+            config.is_verified = False  # requires re-verification
+            config.verified_at = None
             updated = True
 
         if updated:
@@ -166,13 +171,53 @@ class GymPaymentConfigTestView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
+        sec_key = (config.secret_key or "").strip()
+        pub_key = (config.public_key or "").strip()
+
+        # Format validation: refuse before any call
+        if not sec_key.startswith("CHASECK_") or not pub_key.startswith("CHAPUBK_"):
+            return Response(
+                {
+                    "success": False,
+                    "detail": "Wrong key format. Secret key must start with CHASECK_ and public key with CHAPUBK_.",
+                    "message": "Wrong key format. Secret key must start with CHASECK_ and public key with CHAPUBK_.",
+                    "is_verified": False,
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Mode detection from key prefixes
+        sec_is_test = "TEST" in sec_key.split("-")[0] or "_TEST" in sec_key
+        pub_is_test = "TEST" in pub_key.split("-")[0] or "_TEST" in pub_key
+
+        if sec_is_test != pub_is_test:
+            return Response(
+                {
+                    "success": False,
+                    "detail": "Public and secret keys disagree: one is Test and one is Live.",
+                    "message": "Public and secret keys disagree: one is Test and one is Live.",
+                    "is_verified": False,
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        detected_mode = "Test" if sec_is_test else "Live"
+        config.is_test_mode = sec_is_test
+
         client = ChapaClient(secret_key=config.secret_key)
         success, message = client.test_connection()
 
         if success:
             config.is_verified = True
             config.verified_at = timezone.now()
-            config.save(update_fields=["is_verified", "verified_at", "updated_at"])
+            config.save(
+                update_fields=[
+                    "is_verified",
+                    "verified_at",
+                    "is_test_mode",
+                    "updated_at",
+                ]
+            )
 
             record_audit_log(
                 actor=request.user,
@@ -183,13 +228,23 @@ class GymPaymentConfigTestView(APIView):
                 metadata={
                     "result": "success",
                     "is_test_mode": config.is_test_mode,
+                    "detected_mode": detected_mode,
                 },
             )
             return Response(
-                {"success": True, "message": message, "is_verified": True},
+                {
+                    "success": True,
+                    "message": message,
+                    "is_verified": True,
+                    "detected_mode": detected_mode,
+                    "use_mock": getattr(settings, "CHAPA_USE_MOCK", False),
+                },
                 status=status.HTTP_200_OK,
             )
         else:
+            config.is_verified = False
+            config.verified_at = None
+            config.save(update_fields=["is_verified", "verified_at", "updated_at"])
             record_audit_log(
                 actor=request.user,
                 gym=gym,
@@ -202,7 +257,12 @@ class GymPaymentConfigTestView(APIView):
                 },
             )
             return Response(
-                {"success": False, "message": message, "is_verified": False},
+                {
+                    "success": False,
+                    "detail": message,
+                    "message": message,
+                    "is_verified": False,
+                },
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
@@ -271,8 +331,8 @@ class ChapaCheckoutView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        # Build transaction reference with 16 bytes of cryptographically secure randomness
-        tx_ref = f"FG-{gym.subdomain}-{secrets.token_hex(16)}"
+        # Build transaction reference with cryptographically secure randomness (max 50 chars)
+        tx_ref = f"FG-{gym.subdomain[:15]}-{secrets.token_hex(8)}"
 
         # Create pending Payment record bound to gym, member, and plan
         payment = Payment.objects.create(
@@ -304,10 +364,25 @@ class ChapaCheckoutView(APIView):
         client = ChapaClient(secret_key=config.secret_key)
         domain = getattr(settings, "DOMAIN", "localhost")
         scheme = getattr(settings, "PUBLIC_URL_SCHEME", "https")
-        names = (member.full_name or "").split(maxsplit=1)
-        first_name = names[0] if names else "Member"
-        last_name = names[1] if len(names) > 1 else ""
-        email = member.user.email if member.user else ""
+        names = (member.full_name or "").strip().split(maxsplit=1)
+        first_name = names[0][:35].strip() if names and names[0].strip() else "Member"
+        last_name = (
+            names[1][:35].strip() if len(names) > 1 and names[1].strip() else "Member"
+        )
+        email = (
+            member.user.email.strip().lower()
+            if member.user and member.user.email
+            else ""
+        )
+        if not email or len(email) > 100:
+            email = "member@fitgate.org"
+
+        # Checkout title sent to Chapa must not exceed 16 characters; no gym name sent unshortened
+        checkout_title = (gym.name[:16].strip() if gym.name else "FitGate") or "FitGate"
+        plan_desc = (
+            re.sub(r"[^a-zA-Z0-9\s\-]", "", plan.name)[:40].strip() or "Membership"
+        )
+        checkout_description = f"Plan: {plan_desc}"[:50]
 
         init_payload = {
             "amount": str(plan.price_etb),
@@ -319,10 +394,27 @@ class ChapaCheckoutView(APIView):
             "callback_url": f"{scheme}://{domain}/api/webhooks/chapa/",
             "return_url": f"{scheme}://{gym.subdomain}.{domain}/members/payment-complete?tx_ref={tx_ref}",
             "customization": {
-                "title": f"{gym.name} - {plan.name}",
-                "description": f"Subscription payment for {member.full_name}",
+                "title": checkout_title,
+                "description": checkout_description,
             },
         }
+
+        # Send phone format only when valid
+        raw_phone = (member.phone or "").strip()
+        if raw_phone:
+            digits = re.sub(r"\D", "", raw_phone)
+            if digits.startswith("251") and len(digits) == 12:
+                digits = "0" + digits[3:]
+            elif len(digits) == 9 and (
+                digits.startswith("9") or digits.startswith("7")
+            ):
+                digits = "0" + digits
+            if len(digits) == 10 and (
+                digits.startswith("09") or digits.startswith("07")
+            ):
+                init_payload["phone_number"] = digits
+            elif 9 <= len(digits) <= 15:
+                init_payload["phone_number"] = digits
 
         try:
             init_resp = client.initialize_transaction(init_payload)
@@ -330,8 +422,16 @@ class ChapaCheckoutView(APIView):
             payment.status = Payment.STATUS_FAILED
             payment.metadata["initialization_error"] = exc.message
             payment.save(update_fields=["status", "metadata", "updated_at"])
+            logger.warning(
+                "Chapa payment initialization failed for gym %s (tx_ref %s): %s",
+                gym.subdomain,
+                tx_ref,
+                exc.message,
+            )
             return Response(
-                {"detail": f"Failed to initialize payment gateway: {exc.message}"},
+                {
+                    "detail": "We could not start the online payment. Please try again or pay at the front desk."
+                },
                 status=status.HTTP_502_BAD_GATEWAY,
             )
 
@@ -1036,6 +1136,7 @@ class BankTransferScreenshotView(APIView):
 class GymPaymentPublicStatusView(APIView):
     """
     Public / member-accessible check for whether the current gym has online payment verified.
+    Unauthenticated callers only see online payment availability.
     """
 
     permission_classes = [AllowAny]
@@ -1048,15 +1149,34 @@ class GymPaymentPublicStatusView(APIView):
     )
     def get(self, request, *args, **kwargs):
         tenant = getattr(request, "tenant", None)
+        if tenant is None:
+            subdomain = request.query_params.get("subdomain")
+            if subdomain:
+                tenant = GymTenant.objects.filter(
+                    subdomain=subdomain.strip().lower()
+                ).first()
+        if (
+            tenant is None
+            and hasattr(request, "user")
+            and request.user.is_authenticated
+        ):
+            tenant = getattr(request.user, "gym", None)
+
         if not tenant:
+            payload = {"online_payment_verified": False}
+            if hasattr(request, "user") and request.user.is_authenticated:
+                payload["use_mock"] = getattr(settings, "CHAPA_USE_MOCK", False)
             return Response(
-                {"online_payment_verified": False},
+                payload,
                 status=status.HTTP_200_OK,
             )
         config = GymPaymentConfig.all_objects.filter(gym=tenant).first()
         is_verified = bool(config and config.is_configured and config.is_verified)
+        payload = {"online_payment_verified": is_verified}
+        if hasattr(request, "user") and request.user.is_authenticated:
+            payload["use_mock"] = getattr(settings, "CHAPA_USE_MOCK", False)
         return Response(
-            {"online_payment_verified": is_verified},
+            payload,
             status=status.HTTP_200_OK,
         )
 

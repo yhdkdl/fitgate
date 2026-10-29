@@ -9,6 +9,7 @@ import { Badge } from "../ui/Badge";
 import { Button } from "../ui/Button";
 import { Card } from "../ui/Card";
 import { Spinner } from "../ui/Spinner";
+import { getTenantFromHostname } from "../../utils/tenant";
 
 interface MemberCheckoutCardProps {
   memberStatus: string;
@@ -21,6 +22,7 @@ export const MemberCheckoutCard: React.FC<MemberCheckoutCardProps> = ({
   const [plans, setPlans] = useState<MembershipPlan[]>([]);
   const [selectedPlanId, setSelectedPlanId] = useState<string>("");
   const [onlinePaymentVerified, setOnlinePaymentVerified] = useState(true);
+  const [isSimulated, setIsSimulated] = useState(false);
   const [loading, setLoading] = useState(true);
   const [checkingOut, setCheckingOut] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -38,14 +40,18 @@ export const MemberCheckoutCard: React.FC<MemberCheckoutCardProps> = ({
         }
 
         try {
+          const tenant = getTenantFromHostname();
           const statusData = await Promise.resolve(
-            getGymPaymentPublicStatus?.()
+            getGymPaymentPublicStatus?.(tenant || undefined)
           );
           if (
             statusData &&
             typeof statusData.online_payment_verified === "boolean"
           ) {
             setOnlinePaymentVerified(statusData.online_payment_verified);
+            if (statusData.use_mock) {
+              setIsSimulated(true);
+            }
           } else {
             setOnlinePaymentVerified(true);
           }
@@ -131,6 +137,11 @@ export const MemberCheckoutCard: React.FC<MemberCheckoutCardProps> = ({
             ? "Pay online via Chapa (Telebirr, CBE, Cards) or visit reception to pay at front desk."
             : "Please pay at front desk (cash or bank transfer)."}
         </p>
+        {isSimulated && (
+          <p className="text-[11px] text-warning mt-1 font-medium">
+            Test environment: payments are simulated
+          </p>
+        )}
       </div>
 
       {errorMsg && <Alert variant="danger">{errorMsg}</Alert>}

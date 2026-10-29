@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { Badge } from "../components/ui/Badge";
 import { Button } from "../components/ui/Button";
 import { Card } from "../components/ui/Card";
@@ -18,7 +18,6 @@ import { MembershipPlansSection } from "../components/owner/MembershipPlansSecti
 import { PaymentGatewaySection } from "../components/owner/PaymentGatewaySection";
 import { GymPaymentsSection } from "../components/staff/GymPaymentsSection";
 import { GymFreezesSection } from "../components/staff/GymFreezesSection";
-
 import { MemberManagementSection } from "../components/dashboard/MemberManagementSection";
 import { MemberSelfSection } from "../components/dashboard/MemberSelfSection";
 import { TrainerMeasurementsSection } from "../components/trainer/TrainerMeasurementsSection";
@@ -26,6 +25,65 @@ import { AuditLogSection } from "../components/dashboard/AuditLogSection";
 import { AttendanceScannerSection } from "../components/attendance/AttendanceScannerSection";
 import { useAuth } from "../context/AuthContext";
 import { getTenantFromHostname } from "../utils/tenant";
+
+interface NavItem {
+  label: string;
+  path: string;
+}
+
+const ROLE_NAV_ITEMS: Record<string, NavItem[]> = {
+  owner: [
+    { label: "Overview", path: "/dashboard" },
+    { label: "Members", path: "/members" },
+    { label: "Check-in", path: "/check-in" },
+    { label: "Payments", path: "/payments" },
+    { label: "Bank transfers", path: "/bank-transfers" },
+    { label: "Plans", path: "/plans" },
+    { label: "Freeze requests", path: "/freezes" },
+    { label: "Staff", path: "/staff" },
+    { label: "Audit log", path: "/audit-log" },
+    { label: "Settings", path: "/settings" },
+  ],
+  manager: [
+    { label: "Overview", path: "/dashboard" },
+    { label: "Members", path: "/members" },
+    { label: "Check-in", path: "/check-in" },
+    { label: "Payments", path: "/payments" },
+    { label: "Plans", path: "/plans" },
+    { label: "Freeze requests", path: "/freezes" },
+    { label: "Staff", path: "/staff" },
+    { label: "Audit log", path: "/audit-log" },
+  ],
+  reception: [
+    { label: "Members", path: "/members" },
+    { label: "Check-in", path: "/check-in" },
+  ],
+  trainer: [
+    { label: "Overview", path: "/dashboard" },
+    { label: "Member measurements", path: "/measurements" },
+  ],
+  member: [
+    { label: "Home", path: "/dashboard" },
+    { label: "My membership", path: "/membership" },
+    { label: "My payments", path: "/payments" },
+    { label: "Profile", path: "/profile" },
+  ],
+  super_admin: [
+    { label: "Gyms", path: "/dashboard" },
+    { label: "Demo requests", path: "/platform/demo-requests" },
+    { label: "Audit log", path: "/platform/audit-log" },
+    { label: "Profile", path: "/profile" },
+  ],
+};
+
+const ROLE_HOMES: Record<string, string> = {
+  super_admin: "/dashboard",
+  owner: "/dashboard",
+  manager: "/dashboard",
+  reception: "/members",
+  trainer: "/dashboard",
+  member: "/dashboard",
+};
 
 function getSafeBrandColor(hex?: string | null): string {
   if (!hex || !/^#[0-9a-fA-F]{6}$/.test(hex)) {
@@ -48,11 +106,11 @@ function getSafeBrandColor(hex?: string | null): string {
 export const DashboardScreen: React.FC = () => {
   const { user, dashboardConfig, logout } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const tenant = getTenantFromHostname();
 
-  const [adminTab, setAdminTab] = useState<"gyms" | "leads" | "audit">("gyms");
-  const [showBranding, setShowBranding] = useState(false);
   const [checklistKey, setChecklistKey] = useState(0);
+  const [showMoreMobile, setShowMoreMobile] = useState(false);
   const [prefillGymData, setPrefillGymData] = useState<GymPrefillData | null>(
     null
   );
@@ -61,6 +119,34 @@ export const DashboardScreen: React.FC = () => {
     logo?: string | null;
     brand_color?: string | null;
   } | null>(null);
+
+  const role = user?.role || "member";
+  const userRoleNav = ROLE_NAV_ITEMS[role] || dashboardConfig?.navigation || [
+    { label: "Overview", path: "/dashboard" },
+    { label: "Profile", path: "/profile" },
+  ];
+
+  const currentPath = location.pathname.replace(/\/+$/, "") || "/dashboard";
+
+  // Role permissions routing check: send to own home page if unauthorized
+  useEffect(() => {
+    if (!user) return;
+    const allowedPaths = userRoleNav.map((item) => item.path);
+    // Allow special paths
+    allowedPaths.push("/profile");
+    if (role === "super_admin") {
+      allowedPaths.push("/platform/gyms");
+    }
+
+    const isAllowed = allowedPaths.some(
+      (p) => currentPath === p || (p !== "/dashboard" && currentPath.startsWith(p))
+    );
+
+    if (!isAllowed) {
+      const home = ROLE_HOMES[role] || "/dashboard";
+      navigate(home, { replace: true });
+    }
+  }, [currentPath, role, user, userRoleNav, navigate]);
 
   useEffect(() => {
     if (!tenant) return;
@@ -90,25 +176,246 @@ export const DashboardScreen: React.FC = () => {
     navigate("/login");
   };
 
-  const navItems = dashboardConfig?.navigation || [
-    { label: "Overview", path: "/dashboard" },
-    { label: "Profile", path: "/profile" },
-  ];
-
   const widgets = dashboardConfig?.widgets || [
     { id: "overview", title: "General Overview" },
   ];
 
+  // Mobile navigation partitioning: at most 5 items (first 4 + More, or all if <= 5)
+  const isMobileMoreNeeded = userRoleNav.length > 5;
+  const mobileVisibleNav = isMobileMoreNeeded
+    ? userRoleNav.slice(0, 4)
+    : userRoleNav;
+  const mobileMoreNav = isMobileMoreNeeded ? userRoleNav.slice(4) : [];
+
+  // Determine current page render
+  const renderCurrentPage = () => {
+    // 1. Members page
+    if (currentPath.startsWith("/members")) {
+      return (
+        <SectionErrorBoundary title="Members">
+          <MemberManagementSection
+            userRole={role}
+            onMemberRegistered={() => setChecklistKey((k) => k + 1)}
+          />
+        </SectionErrorBoundary>
+      );
+    }
+
+    // 2. Check-in page (Scanner & live list)
+    if (currentPath.startsWith("/check-in")) {
+      return (
+        <SectionErrorBoundary title="Check-in">
+          <AttendanceScannerSection userRole={role} />
+        </SectionErrorBoundary>
+      );
+    }
+
+    // 3. Payments ledger page
+    if (currentPath.startsWith("/payments")) {
+      if (role === "member") {
+        return (
+          <SectionErrorBoundary title="My Payments">
+            <MemberSelfSection view="payments" />
+          </SectionErrorBoundary>
+        );
+      }
+      return (
+        <SectionErrorBoundary title="Payments">
+          <GymPaymentsSection defaultTab="payments" />
+        </SectionErrorBoundary>
+      );
+    }
+
+    // 4. Bank transfers page (unreconciled list)
+    if (currentPath.startsWith("/bank-transfers")) {
+      return (
+        <SectionErrorBoundary title="Bank Transfers">
+          <GymPaymentsSection defaultTab="unreconciled" />
+        </SectionErrorBoundary>
+      );
+    }
+
+    // 5. Membership Plans page
+    if (currentPath.startsWith("/plans")) {
+      return (
+        <SectionErrorBoundary title="Membership Plans">
+          <MembershipPlansSection
+            onPlansUpdated={() => setChecklistKey((k) => k + 1)}
+          />
+        </SectionErrorBoundary>
+      );
+    }
+
+    // 6. Freeze requests page
+    if (currentPath.startsWith("/freezes")) {
+      return (
+        <SectionErrorBoundary title="Freeze Requests">
+          <GymFreezesSection />
+        </SectionErrorBoundary>
+      );
+    }
+
+    // 7. Staff Management page
+    if (currentPath.startsWith("/staff")) {
+      return (
+        <SectionErrorBoundary title="Staff Management">
+          <StaffManagementSection
+            onStaffUpdated={() => setChecklistKey((k) => k + 1)}
+          />
+        </SectionErrorBoundary>
+      );
+    }
+
+    // 8. Audit Log page
+    if (
+      currentPath.startsWith("/audit-log") ||
+      currentPath.startsWith("/platform/audit-log")
+    ) {
+      return (
+        <SectionErrorBoundary title="Audit Log">
+          <AuditLogSection
+            userRole={role}
+            isPlatform={role === "super_admin"}
+          />
+        </SectionErrorBoundary>
+      );
+    }
+
+    // 9. Settings page (Branding, payment gateway, freeze & reminder days)
+    if (currentPath.startsWith("/settings")) {
+      return (
+        <div className="space-y-6">
+          <SectionErrorBoundary title="Gym Branding & Settings">
+            <GymBrandingSection
+              onUpdated={() => setChecklistKey((k) => k + 1)}
+            />
+          </SectionErrorBoundary>
+
+          <SectionErrorBoundary title="Payment Gateway">
+            <PaymentGatewaySection
+              onUpdated={() => setChecklistKey((k) => k + 1)}
+            />
+          </SectionErrorBoundary>
+        </div>
+      );
+    }
+
+    // 10. Member: My Membership page
+    if (currentPath.startsWith("/membership")) {
+      return (
+        <SectionErrorBoundary title="My Membership">
+          <MemberSelfSection view="membership" />
+        </SectionErrorBoundary>
+      );
+    }
+
+    // 11. Trainer: Member measurements
+    if (currentPath.startsWith("/measurements")) {
+      return (
+        <SectionErrorBoundary title="Trainer Measurements">
+          <TrainerMeasurementsSection />
+        </SectionErrorBoundary>
+      );
+    }
+
+    // 12. Super Admin: Demo requests
+    if (currentPath.startsWith("/platform/demo-requests")) {
+      return (
+        <SectionErrorBoundary title="Demo Requests">
+          <DemoRequestSection
+            onConvertToGym={(data) => {
+              setPrefillGymData(data);
+              navigate("/dashboard");
+            }}
+          />
+        </SectionErrorBoundary>
+      );
+    }
+
+    // 13. Default: /dashboard (Overview / Home / Gyms)
+    if (role === "super_admin") {
+      return (
+        <SectionErrorBoundary title="Gyms">
+          <GymManagementSection
+            prefillData={prefillGymData}
+            onClearPrefill={() => setPrefillGymData(null)}
+          />
+        </SectionErrorBoundary>
+      );
+    }
+
+    if (role === "member") {
+      return (
+        <SectionErrorBoundary title="Member Home">
+          <MemberSelfSection view="home" />
+        </SectionErrorBoundary>
+      );
+    }
+
+    // Owner, Manager, Trainer: Overview (Short summary only: cards & checklist)
+    return (
+      <div className="space-y-6">
+        {role === "owner" && (
+          <SectionErrorBoundary title="First-run Checklist">
+            <FirstRunChecklistCard
+              key={checklistKey}
+              onOpenBranding={() => navigate("/settings")}
+            />
+          </SectionErrorBoundary>
+        )}
+
+        {/* Basic summary cards */}
+        <div>
+          <h2 className="text-lg font-semibold text-text mb-4">
+            Operational Overview
+          </h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            {widgets.map((widget) => (
+              <Card
+                key={widget.id}
+                className="bg-surface hover:border-border/80 transition-shadow p-5"
+              >
+                <div className="flex items-center justify-between mb-2">
+                  <h3 className="font-semibold text-sm text-text">
+                    {widget.title}
+                  </h3>
+                  <span className="w-2 h-2 rounded-full bg-primary animate-pulse" />
+                </div>
+                <p className="text-xs text-text-muted">
+                  Live operational tracking
+                </p>
+              </Card>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div
-      className="min-h-screen bg-bg text-text flex flex-col pb-16 md:pb-0"
+      className="min-h-screen bg-bg text-text flex flex-col pb-20 md:pb-0"
       style={{ ["--brand-accent" as string]: safeBrandColor }}
     >
       {/* Top Header */}
       <header className="border-b border-border bg-surface px-4 py-3 sm:px-6 sticky top-0 z-30">
         <div className="max-w-7xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-3">
-            {gymBranding?.logo ? (
+            {role === "super_admin" ? (
+              <div className="flex items-center gap-2">
+                <div className="w-9 h-9 rounded-lg bg-primary/20 text-primary font-bold text-lg flex items-center justify-center border border-primary/30">
+                  FG
+                </div>
+                <div>
+                  <span className="font-bold text-base tracking-tight text-text">
+                    FitGate Platform
+                  </span>
+                  <span className="ml-2 text-xs text-text-muted bg-surface-2 px-2 py-0.5 rounded border border-border">
+                    Apex Admin
+                  </span>
+                </div>
+              </div>
+            ) : gymBranding?.logo ? (
               <img
                 src={gymBranding.logo}
                 alt={`${gymBranding.name || tenant} logo`}
@@ -125,22 +432,25 @@ export const DashboardScreen: React.FC = () => {
                 {(gymBranding?.name || tenant || "FG").charAt(0).toUpperCase()}
               </div>
             )}
-            <div>
-              <span className="font-bold text-base tracking-tight text-text">
-                {gymBranding?.name || "FitGate"}
-              </span>
-              {tenant && (
-                <span
-                  className="ml-2 text-xs text-text-muted bg-surface-2 px-2 py-0.5 rounded border border-border"
-                  style={{
-                    borderLeftColor: safeBrandColor,
-                    borderLeftWidth: "3px",
-                  }}
-                >
-                  {tenant}
+
+            {role !== "super_admin" && (
+              <div>
+                <span className="font-bold text-base tracking-tight text-text">
+                  {gymBranding?.name || "FitGate"}
                 </span>
-              )}
-            </div>
+                {tenant && (
+                  <span
+                    className="ml-2 text-xs text-text-muted bg-surface-2 px-2 py-0.5 rounded border border-border"
+                    style={{
+                      borderLeftColor: safeBrandColor,
+                      borderLeftWidth: "3px",
+                    }}
+                  >
+                    {tenant}
+                  </span>
+                )}
+              </div>
+            )}
           </div>
 
           <div className="flex items-center gap-2 sm:gap-4">
@@ -166,304 +476,155 @@ export const DashboardScreen: React.FC = () => {
               variant="secondary"
               size="sm"
               onClick={handleLogout}
-              className="text-text-muted hover:text-danger"
+              className="text-text-muted hover:text-danger min-h-[44px]"
             >
-              Sign Out
+              Log out
             </Button>
           </div>
         </div>
       </header>
 
-      {/* Main content wrapper with desktop sidebar and responsive grid */}
+      {/* Main content wrapper with desktop sidebar and responsive content */}
       <div className="flex flex-1 max-w-7xl w-full mx-auto">
         {/* Desktop Sidebar */}
-        <aside className="hidden md:flex flex-col w-56 border-r border-border bg-surface/50 p-4 shrink-0">
+        <aside className="hidden md:flex flex-col w-60 border-r border-border bg-surface/50 p-4 shrink-0">
           <div className="text-xs font-semibold uppercase tracking-wider text-text-muted px-3 mb-2">
             Navigation
           </div>
           <nav className="space-y-1">
-            {navItems.map((item, idx) => (
-              <Link
-                key={idx}
-                to={item.path}
-                className="flex items-center px-3 py-2 text-sm font-medium rounded-input text-text hover:bg-surface-2 hover:text-white transition-colors min-h-[44px]"
-              >
-                {item.label}
-              </Link>
-            ))}
+            {userRoleNav.map((item, idx) => {
+              const isActive =
+                item.path === "/dashboard"
+                  ? currentPath === "/dashboard"
+                  : currentPath.startsWith(item.path);
+
+              return (
+                <Link
+                  key={idx}
+                  to={item.path}
+                  className={`flex items-center px-3 py-2 text-sm font-medium rounded-input transition-colors min-h-[44px] ${
+                    isActive
+                      ? "bg-primary text-white shadow-sm font-semibold"
+                      : "text-text hover:bg-surface-2 hover:text-white"
+                  }`}
+                >
+                  {item.label}
+                </Link>
+              );
+            })}
           </nav>
         </aside>
 
-        {/* Dashboard Main Area */}
+        {/* Dynamic Page Content */}
         <main className="flex-1 p-4 sm:p-6 lg:p-8 space-y-6 overflow-y-auto">
-          {/* Welcome title banner */}
-          <div className="bg-surface border border-border rounded-card p-6">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-              <div>
-                <h1 className="text-2xl font-bold text-text">
-                  {dashboardConfig?.title || "Platform Dashboard"}
-                </h1>
-                <p className="text-sm text-text-muted mt-1">
-                  Welcome back,{" "}
-                  <span className="text-text font-medium">
-                    {user?.full_name || user?.email}
-                  </span>
-                  . Here is your operational view for role{" "}
-                  <span className="font-semibold text-primary">
-                    {user?.role}
-                  </span>
-                  .
-                </p>
-              </div>
-              <div>
-                <Badge variant="success">Active Session</Badge>
-              </div>
-            </div>
-          </div>
-
-          {/* Super Admin Platform Hub */}
-          {user?.role === "super_admin" && (
-            <div className="space-y-6">
-              <div className="flex items-center gap-2 border-b border-border pb-2">
-                <button
-                  onClick={() => setAdminTab("gyms")}
-                  className={`px-4 py-2 text-sm font-semibold rounded-lg transition-colors ${
-                    adminTab === "gyms"
-                      ? "bg-primary text-white shadow-sm"
-                      : "text-text-muted hover:text-text hover:bg-surface-2"
-                  }`}
-                >
-                  Gym Tenants
-                </button>
-                <button
-                  onClick={() => setAdminTab("leads")}
-                  className={`px-4 py-2 text-sm font-semibold rounded-lg transition-colors ${
-                    adminTab === "leads"
-                      ? "bg-primary text-white shadow-sm"
-                      : "text-text-muted hover:text-text hover:bg-surface-2"
-                  }`}
-                >
-                  Demo Requests & Leads
-                </button>
-                <button
-                  onClick={() => setAdminTab("audit")}
-                  className={`px-4 py-2 text-sm font-semibold rounded-lg transition-colors ${
-                    adminTab === "audit"
-                      ? "bg-primary text-white shadow-sm"
-                      : "text-text-muted hover:text-text hover:bg-surface-2"
-                  }`}
-                >
-                  Audit & Security Logs
-                </button>
-              </div>
-
-              {adminTab === "gyms" && (
-                <SectionErrorBoundary title="Gym Tenants">
-                  <GymManagementSection
-                    prefillData={prefillGymData}
-                    onClearPrefill={() => setPrefillGymData(null)}
-                  />
-                </SectionErrorBoundary>
-              )}
-              {adminTab === "leads" && (
-                <SectionErrorBoundary title="Demo Requests">
-                  <DemoRequestSection
-                    onConvertToGym={(data) => {
-                      setPrefillGymData(data);
-                      setAdminTab("gyms");
-                    }}
-                  />
-                </SectionErrorBoundary>
-              )}
-              {adminTab === "audit" && (
-                <SectionErrorBoundary title="Audit & Security Logs">
-                  <AuditLogSection userRole={user?.role} isPlatform={true} />
-                </SectionErrorBoundary>
-              )}
-            </div>
-          )}
-
-          {/* Gym Owner Onboarding & Branding */}
-          {user?.role === "owner" && (
-            <div className="space-y-6">
-              <SectionErrorBoundary title="First-run Checklist">
-                <FirstRunChecklistCard
-                  key={checklistKey}
-                  onOpenBranding={() => setShowBranding(true)}
-                />
-              </SectionErrorBoundary>
-
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-border pb-2">
-                <div>
-                  <h2 className="text-lg font-semibold text-text">
-                    Gym Branding & Settings
-                  </h2>
-                  <p className="text-xs text-text-muted">
-                    Manage your gym's brand accent color, logo, and member
-                    renewal notices.
-                  </p>
-                </div>
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  onClick={() => setShowBranding((prev) => !prev)}
-                  className="self-start sm:self-center"
-                >
-                  {showBranding ? "Hide Branding" : "Configure Branding"}
-                </Button>
-              </div>
-
-              {showBranding && (
-                <SectionErrorBoundary title="Gym Branding">
-                  <GymBrandingSection
-                    onUpdated={() => setChecklistKey((k) => k + 1)}
-                  />
-                </SectionErrorBoundary>
-              )}
-
-              <SectionErrorBoundary title="Membership Plans">
-                <MembershipPlansSection
-                  onPlansUpdated={() => setChecklistKey((k) => k + 1)}
-                />
-              </SectionErrorBoundary>
-
-              <SectionErrorBoundary title="Payment Gateway">
-                <PaymentGatewaySection
-                  onUpdated={() => setChecklistKey((k) => k + 1)}
-                />
-              </SectionErrorBoundary>
-
-              <SectionErrorBoundary title="Payments & Reconciliation">
-                <GymPaymentsSection />
-              </SectionErrorBoundary>
-
-              <SectionErrorBoundary title="Freeze Requests">
-                <GymFreezesSection />
-              </SectionErrorBoundary>
-
-              <SectionErrorBoundary title="Staff Management">
-                <StaffManagementSection
-                  onStaffUpdated={() => setChecklistKey((k) => k + 1)}
-                />
-              </SectionErrorBoundary>
-
-              <SectionErrorBoundary title="Attendance Scanner">
-                <AttendanceScannerSection userRole={user?.role} />
-              </SectionErrorBoundary>
-
-              <SectionErrorBoundary title="Member Management">
-                <MemberManagementSection
-                  userRole={user?.role}
-                  onMemberRegistered={() => setChecklistKey((k) => k + 1)}
-                />
-              </SectionErrorBoundary>
-
-              <SectionErrorBoundary title="Audit Logs">
-                <AuditLogSection userRole={user?.role} isPlatform={false} />
-              </SectionErrorBoundary>
-            </div>
-          )}
-
-          {/* Gym Manager Hub */}
-          {user?.role === "manager" && (
-            <div className="space-y-6">
-              <SectionErrorBoundary title="Membership Plans">
-                <MembershipPlansSection />
-              </SectionErrorBoundary>
-              <SectionErrorBoundary title="Payments & Reconciliation">
-                <GymPaymentsSection />
-              </SectionErrorBoundary>
-              <SectionErrorBoundary title="Freeze Requests">
-                <GymFreezesSection />
-              </SectionErrorBoundary>
-              <SectionErrorBoundary title="Staff Management">
-                <StaffManagementSection />
-              </SectionErrorBoundary>
-              <SectionErrorBoundary title="Attendance Scanner">
-                <AttendanceScannerSection userRole={user?.role} />
-              </SectionErrorBoundary>
-              <SectionErrorBoundary title="Member Management">
-                <MemberManagementSection userRole={user?.role} />
-              </SectionErrorBoundary>
-              <SectionErrorBoundary title="Audit Logs">
-                <AuditLogSection userRole={user?.role} isPlatform={false} />
-              </SectionErrorBoundary>
-            </div>
-          )}
-
-          {/* Reception Hub */}
-          {user?.role === "reception" && (
-            <div className="space-y-6">
-              <SectionErrorBoundary title="Attendance Scanner">
-                <AttendanceScannerSection userRole={user?.role} />
-              </SectionErrorBoundary>
-              <SectionErrorBoundary title="Member Management">
-                <MemberManagementSection userRole={user?.role} />
-              </SectionErrorBoundary>
-            </div>
-          )}
-
-          {/* Trainer Hub */}
-          {user?.role === "trainer" && (
-            <div className="space-y-6">
-              <SectionErrorBoundary title="Trainer Measurements">
-                <TrainerMeasurementsSection />
-              </SectionErrorBoundary>
-            </div>
-          )}
-
-          {/* Member Self-Service Hub */}
-          {user?.role === "member" && (
-            <div className="space-y-6">
-              <SectionErrorBoundary title="Member Services">
-                <MemberSelfSection />
-              </SectionErrorBoundary>
-            </div>
-          )}
-
-          {/* Widgets Grid */}
-          <div>
-            <h2 className="text-lg font-semibold text-text mb-4">
-              Dashboard Widgets
-            </h2>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
-              {widgets.map((widget) => (
-                <Card
-                  key={widget.id}
-                  className="bg-surface hover:border-border/80 transition-shadow"
-                >
-                  <div className="flex items-center justify-between mb-3">
-                    <h3 className="font-semibold text-base text-text">
-                      {widget.title}
-                    </h3>
-                    <span className="w-2.5 h-2.5 rounded-full bg-primary/70 animate-pulse" />
-                  </div>
-                  <p className="text-sm text-text-muted mb-4">
-                    Real-time data stream for {widget.title.toLowerCase()}.
-                  </p>
-                  <div className="h-20 bg-surface-2/60 border border-border/50 rounded-lg flex items-center justify-center text-xs text-text-muted">
-                    Widget placeholder:{" "}
-                    <code className="ml-1 text-primary">{widget.id}</code>
-                  </div>
-                </Card>
-              ))}
-            </div>
-          </div>
+          {renderCurrentPage()}
         </main>
       </div>
 
-      {/* Mobile Bottom Navigation (320px responsive) */}
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-surface border-t border-border z-40 flex items-center justify-around py-2 px-1">
-        {navItems.slice(0, 4).map((item, idx) => (
-          <Link
-            key={idx}
-            to={item.path}
-            className="flex flex-col items-center justify-center text-xs text-text-muted hover:text-primary px-2 py-1 min-h-[44px] min-w-[44px]"
+      {/* Mobile Bottom Navigation (at most 5 items per DESIGN.md) */}
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-surface border-t border-border z-40 flex items-center justify-around py-1 px-1">
+        {mobileVisibleNav.map((item, idx) => {
+          const isActive =
+            item.path === "/dashboard"
+              ? currentPath === "/dashboard"
+              : currentPath.startsWith(item.path);
+
+          return (
+            <Link
+              key={idx}
+              to={item.path}
+              className={`flex flex-col items-center justify-center text-xs px-2 py-1 min-h-[44px] min-w-[44px] transition-colors ${
+                isActive
+                  ? "text-primary font-bold"
+                  : "text-text-muted hover:text-text"
+              }`}
+            >
+              <span className="font-medium text-center truncate max-w-[70px]">
+                {item.label}
+              </span>
+            </Link>
+          );
+        })}
+
+        {isMobileMoreNeeded && (
+          <button
+            type="button"
+            onClick={() => setShowMoreMobile((prev) => !prev)}
+            className={`flex flex-col items-center justify-center text-xs px-2 py-1 min-h-[44px] min-w-[44px] transition-colors ${
+              showMoreMobile
+                ? "text-primary font-bold"
+                : "text-text-muted hover:text-text"
+            }`}
           >
-            <span className="font-medium text-center">{item.label}</span>
-          </Link>
-        ))}
+            <span className="text-base leading-none">•••</span>
+            <span className="text-[10px] mt-0.5">More</span>
+          </button>
+        )}
       </nav>
+
+      {/* Mobile "More" Drawer / Popover Menu */}
+      {showMoreMobile && isMobileMoreNeeded && (
+        <div
+          className="md:hidden fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex flex-col justify-end"
+          onClick={() => setShowMoreMobile(false)}
+        >
+          <div
+            className="bg-surface border-t border-border p-4 rounded-t-xl space-y-2 max-h-[70vh] overflow-y-auto shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between pb-2 border-b border-border">
+              <span className="text-xs font-semibold uppercase tracking-wider text-text-muted">
+                More Options
+              </span>
+              <button
+                type="button"
+                onClick={() => setShowMoreMobile(false)}
+                className="text-text-muted hover:text-text font-bold text-lg px-2"
+              >
+                &times;
+              </button>
+            </div>
+            <div className="space-y-1 pt-1">
+              {mobileMoreNav.map((item, idx) => {
+                const isActive = currentPath.startsWith(item.path);
+                return (
+                  <Link
+                    key={idx}
+                    to={item.path}
+                    onClick={() => setShowMoreMobile(false)}
+                    className={`flex items-center px-4 py-3 text-sm rounded-lg min-h-[44px] ${
+                      isActive
+                        ? "bg-primary text-white font-semibold"
+                        : "text-text hover:bg-surface-2"
+                    }`}
+                  >
+                    {item.label}
+                  </Link>
+                );
+              })}
+              <div className="pt-2 border-t border-border">
+                <Link
+                  to="/profile"
+                  onClick={() => setShowMoreMobile(false)}
+                  className="flex items-center px-4 py-3 text-sm rounded-lg text-text hover:bg-surface-2 min-h-[44px]"
+                >
+                  Profile
+                </Link>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowMoreMobile(false);
+                    handleLogout();
+                  }}
+                  className="w-full text-left flex items-center px-4 py-3 text-sm rounded-lg text-danger hover:bg-danger/10 min-h-[44px]"
+                >
+                  Log out
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

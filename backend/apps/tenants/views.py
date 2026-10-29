@@ -877,6 +877,11 @@ class PlatformGymConfigView(APIView):
             )
 
         try:
+            if "tier" in request.data:
+                tier_val = str(request.data["tier"]).lower()
+                if tier_val in [GymTenant.TIER_STARTER, GymTenant.TIER_GROWTH]:
+                    gym.tier = tier_val
+                    gym.save(update_fields=["tier"])
             config = update_gym_settings(gym, request.user, request.data)
         except ValidationError as exc:
             msg = (
@@ -982,11 +987,30 @@ class GymPublicEntryView(APIView):
 
         # Check TLS confirmation status
         if gym.tls_confirmed_at is None:
+            config = getattr(gym, "config", None)
+            from apps.memberships.models import MembershipPlan
+            from apps.memberships.serializers import PublicPlanSerializer
+
+            active_plans = MembershipPlan.all_objects.filter(
+                gym=gym, is_active=True
+            ).order_by("-created_at")
+
             return Response(
                 {
                     "still_securing": True,
+                    "gym_id": gym.id,
                     "name": gym.name,
+                    "subdomain": gym.subdomain,
+                    "brand_color": (
+                        getattr(config, "brand_color", None) if config else None
+                    ),
+                    "logo": getattr(config, "logo", None) if config else None,
+                    "phone": gym.contact_phone,
+                    "location": gym.location,
+                    "currency": gym.currency,
                     "message": "This gym portal is still being secured. Please check back shortly.",
+                    "plans": PublicPlanSerializer(active_plans, many=True).data,
+                    "online_payment_verified": False,
                 },
                 status=status.HTTP_503_SERVICE_UNAVAILABLE,
             )

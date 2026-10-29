@@ -412,8 +412,8 @@ export const LandingScreen: React.FC = () => {
               </p>
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-stretch">
-              {PLATFORM_PRICING_TIERS.map((tier) => {
+            <div className="grid grid-cols-1 md:grid-cols-2 max-w-4xl mx-auto gap-8 items-stretch">
+              {PLATFORM_PRICING_TIERS.filter((tier) => tier.id !== "pro").map((tier) => {
                 const isPopular = tier.popular;
                 return (
                   <div

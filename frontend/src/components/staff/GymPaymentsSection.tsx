@@ -15,13 +15,23 @@ import { RecordBankTransferModal } from "./RecordBankTransferModal";
 import { DigitalReceiptModal } from "../ui/DigitalReceiptModal";
 import { AuthenticatedImage } from "../ui/AuthenticatedImage";
 
-export const GymPaymentsSection: React.FC = () => {
+interface GymPaymentsSectionProps {
+  defaultTab?: "payments" | "unreconciled";
+}
+
+export const GymPaymentsSection: React.FC<GymPaymentsSectionProps> = ({
+  defaultTab = "payments",
+}) => {
   const { user } = useAuth();
   const isOwner = user?.role === "owner";
 
   const [activeTab, setActiveTab] = useState<"payments" | "unreconciled">(
-    "payments"
+    defaultTab
   );
+
+  useEffect(() => {
+    setActiveTab(defaultTab);
+  }, [defaultTab]);
   const [paymentsData, setPaymentsData] =
     useState<GymPaymentListResponse | null>(null);
   const [loading, setLoading] = useState(true);

@@ -173,7 +173,7 @@ describe("Sprint 4d: Public Platform Landing Page", () => {
         </MemoryRouter>
       );
 
-      // 3 Tiers present
+      // 2 Tiers present (Pro card and price hidden)
       expect(
         screen.getByRole("heading", { name: /^starter$/i })
       ).toBeInTheDocument();
@@ -181,13 +181,13 @@ describe("Sprint 4d: Public Platform Landing Page", () => {
         screen.getByRole("heading", { name: /^growth$/i })
       ).toBeInTheDocument();
       expect(
-        screen.getByRole("heading", { name: /^pro$/i })
-      ).toBeInTheDocument();
+        screen.queryByRole("heading", { name: /^pro$/i })
+      ).not.toBeInTheDocument();
 
-      // Yearly pricing displayed
+      // Yearly pricing displayed (Starter and Growth)
       expect(screen.getByText("12,000")).toBeInTheDocument();
       expect(screen.getByText("30,000")).toBeInTheDocument();
-      expect(screen.getByText("60,000")).toBeInTheDocument();
+      expect(screen.queryByText("60,000")).not.toBeInTheDocument();
 
       // Each pricing card has a Request a Demo link
       const demoLinks = screen.getAllByRole("link", {

@@ -1,5 +1,4 @@
 import React from "react";
-import { jsPDF } from "jspdf";
 import type { DigitalReceipt } from "../../api/payments";
 
 interface DigitalReceiptModalProps {
@@ -9,7 +8,8 @@ interface DigitalReceiptModalProps {
   gymLogo?: string | null;
 }
 
-function downloadReceiptPdf(receipt: DigitalReceipt) {
+async function downloadReceiptPdf(receipt: DigitalReceipt) {
+  const { jsPDF } = await import("jspdf");
   const doc = new jsPDF({
     orientation: "portrait",
     unit: "mm",
@@ -122,14 +122,24 @@ export const DigitalReceiptModal: React.FC<DigitalReceiptModalProps> = ({
   onClose,
   gymLogo,
 }) => {
+  const [downloadingPdf, setDownloadingPdf] = React.useState(false);
+
   if (!isOpen || !receipt) return null;
 
   const handlePrint = () => {
     window.print();
   };
 
-  const handleDownloadPdf = () => {
-    downloadReceiptPdf(receipt);
+  const handleDownloadPdf = async () => {
+    if (!receipt) return;
+    try {
+      setDownloadingPdf(true);
+      await downloadReceiptPdf(receipt);
+    } catch (err) {
+      console.error("Failed to generate receipt PDF:", err);
+    } finally {
+      setDownloadingPdf(false);
+    }
   };
 
   return (
@@ -250,9 +260,10 @@ export const DigitalReceiptModal: React.FC<DigitalReceiptModalProps> = ({
           <button
             type="button"
             onClick={handleDownloadPdf}
-            className="flex-1 bg-primary hover:bg-primary-hover text-white text-xs font-semibold py-2.5 px-3 rounded-button min-h-[44px] transition-colors flex items-center justify-center gap-1.5"
+            disabled={downloadingPdf}
+            className="flex-1 bg-primary hover:bg-primary-hover text-white text-xs font-semibold py-2.5 px-3 rounded-button min-h-[44px] transition-colors flex items-center justify-center gap-1.5 disabled:opacity-50"
           >
-            📥 Download PDF
+            {downloadingPdf ? "Generating..." : "📥 Download PDF"}
           </button>
           <button
             type="button"

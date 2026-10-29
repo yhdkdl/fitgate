@@ -2,8 +2,10 @@ import React, { useEffect, useState } from "react";
 import {
   confirmGymTls,
   createGym,
+  getGymSettings,
   listGyms,
   proposeSubdomain,
+  updateGymSettings,
   type CreateGymResponse,
   type GymTenantSummary,
 } from "../../api/gyms";
@@ -73,6 +75,59 @@ export const GymManagementSection: React.FC<GymManagementSectionProps> = ({
   const [paymentReference, setPaymentReference] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [confirmingId, setConfirmingId] = useState<string | null>(null);
+
+  // Config modal states
+  const [selectedGymForConfig, setSelectedGymForConfig] = useState<GymTenantSummary | null>(null);
+  const [configTier, setConfigTier] = useState<string>("starter");
+  const [hasTrainerModule, setHasTrainerModule] = useState(false);
+  const [hasAiPlans, setHasAiPlans] = useState(false);
+  const [hasAnalytics, setHasAnalytics] = useState(false);
+  const [savingConfig, setSavingConfig] = useState(false);
+  const [configSuccessMsg, setConfigSuccessMsg] = useState<string | null>(null);
+  const [configErrorMsg, setConfigErrorMsg] = useState<string | null>(null);
+
+  const handleOpenConfig = async (gym: GymTenantSummary) => {
+    setSelectedGymForConfig(gym);
+    setConfigTier(gym.tier);
+    setConfigSuccessMsg(null);
+    setConfigErrorMsg(null);
+    try {
+      const cfg = await getGymSettings(gym.id);
+      setHasTrainerModule(Boolean(cfg.has_trainer_module));
+      setHasAiPlans(Boolean(cfg.has_ai_plans));
+      setHasAnalytics(Boolean(cfg.has_analytics));
+    } catch {
+      setHasTrainerModule(false);
+      setHasAiPlans(false);
+      setHasAnalytics(false);
+    }
+  };
+
+  const handleSaveConfig = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedGymForConfig) return;
+    setSavingConfig(true);
+    setConfigSuccessMsg(null);
+    setConfigErrorMsg(null);
+    try {
+      const payload: Record<string, unknown> = {
+        has_trainer_module: hasTrainerModule,
+        has_ai_plans: hasAiPlans,
+        has_analytics: hasAnalytics,
+      };
+      if (selectedGymForConfig.tier !== "pro") {
+        payload.tier = configTier;
+      }
+      await updateGymSettings(payload, selectedGymForConfig.id);
+      setConfigSuccessMsg("Gym configuration and entitlements updated successfully.");
+      await fetchGyms();
+    } catch (err: unknown) {
+      const errObj = err as { message?: string };
+      setConfigErrorMsg(errObj.message || "Failed to update gym configuration.");
+    } finally {
+      setSavingConfig(false);
+    }
+  };
 
   useEffect(() => {
     if (prefillData) {
@@ -403,17 +458,27 @@ export const GymManagementSection: React.FC<GymManagementSectionProps> = ({
                       )}
                     </td>
                     <td className="px-4 py-3 text-right">
-                      {!gym.tls_confirmed_at && (
+                      <div className="flex items-center justify-end gap-2">
                         <Button
                           size="sm"
                           variant="secondary"
-                          onClick={() => handleConfirmTls(gym.id)}
-                          isLoading={confirmingId === gym.id}
+                          onClick={() => handleOpenConfig(gym)}
                           className="text-xs"
                         >
-                          Confirm TLS
+                          Config
                         </Button>
-                      )}
+                        {!gym.tls_confirmed_at && (
+                          <Button
+                            size="sm"
+                            variant="secondary"
+                            onClick={() => handleConfirmTls(gym.id)}
+                            isLoading={confirmingId === gym.id}
+                            className="text-xs"
+                          >
+                            Confirm TLS
+                          </Button>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 ))
@@ -515,7 +580,6 @@ export const GymManagementSection: React.FC<GymManagementSectionProps> = ({
                   >
                     <option value="starter">Starter (12,000 ETB / yr)</option>
                     <option value="growth">Growth (30,000 ETB / yr)</option>
-                    <option value="pro">Pro (60,000 ETB / yr)</option>
                   </select>
                 </FormField>
 
@@ -687,6 +751,114 @@ export const GymManagementSection: React.FC<GymManagementSectionProps> = ({
                   disabled={isSubmitting}
                 >
                   Provision Gym
+                </Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Super Admin Gym Config & Entitlement Editor Modal */}
+      {selectedGymForConfig && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm overflow-y-auto">
+          <div className="bg-surface border border-border rounded-card w-full max-w-lg p-6 shadow-2xl my-8">
+            <div className="flex items-center justify-between pb-4 border-b border-border">
+              <div>
+                <h3 className="text-lg font-bold text-text">
+                  Configure Gym: {selectedGymForConfig.name}
+                </h3>
+                <span className="text-xs text-text-muted font-mono">
+                  {selectedGymForConfig.subdomain}
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSelectedGymForConfig(null)}
+                className="text-text-muted hover:text-text font-bold text-xl px-2"
+                aria-label="Close"
+              >
+                &times;
+              </button>
+            </div>
+
+            {configSuccessMsg && (
+              <Alert variant="success" className="mt-4 text-sm">
+                {configSuccessMsg}
+              </Alert>
+            )}
+            {configErrorMsg && (
+              <Alert variant="danger" className="mt-4 text-sm">
+                {configErrorMsg}
+              </Alert>
+            )}
+
+            <form onSubmit={handleSaveConfig} className="space-y-4 mt-4">
+              {/* Tier Selection */}
+              <div>
+                <label className="block text-xs font-semibold uppercase tracking-wider text-text-muted mb-1.5">
+                  Subscription Tier
+                </label>
+                {selectedGymForConfig.tier === "pro" ? (
+                  <div className="p-3 bg-surface-2 rounded-lg border border-border text-sm text-text">
+                    <span className="font-bold uppercase text-primary">Pro</span>{" "}
+                    <span className="text-xs text-text-muted">(Read-only)</span>
+                  </div>
+                ) : (
+                  <select
+                    value={configTier}
+                    onChange={(e) => setConfigTier(e.target.value)}
+                    className="w-full bg-surface-2 border border-border rounded-input px-3 py-2 text-text text-sm focus:outline-none focus:ring-2 focus:ring-primary min-h-[44px]"
+                  >
+                    <option value="starter">Starter</option>
+                    <option value="growth">Growth</option>
+                  </select>
+                )}
+              </div>
+
+              {/* Feature Entitlements */}
+              <div className="space-y-3 pt-2">
+                <span className="block text-xs font-semibold uppercase tracking-wider text-text-muted">
+                  Feature Entitlements
+                </span>
+                <label className="flex items-center gap-2 cursor-pointer text-sm text-text">
+                  <input
+                    type="checkbox"
+                    checked={hasTrainerModule}
+                    onChange={(e) => setHasTrainerModule(e.target.checked)}
+                    className="rounded border-border text-primary focus:ring-primary w-4 h-4"
+                  />
+                  <span>Trainer Module</span>
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer text-sm text-text">
+                  <input
+                    type="checkbox"
+                    checked={hasAiPlans}
+                    onChange={(e) => setHasAiPlans(e.target.checked)}
+                    className="rounded border-border text-primary focus:ring-primary w-4 h-4"
+                  />
+                  <span>AI Workout Plans</span>
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer text-sm text-text">
+                  <input
+                    type="checkbox"
+                    checked={hasAnalytics}
+                    onChange={(e) => setHasAnalytics(e.target.checked)}
+                    className="rounded border-border text-primary focus:ring-primary w-4 h-4"
+                  />
+                  <span>Analytics & Reports</span>
+                </label>
+              </div>
+
+              <div className="pt-4 border-t border-border flex items-center justify-end gap-2">
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={() => setSelectedGymForConfig(null)}
+                >
+                  Close
+                </Button>
+                <Button type="submit" variant="primary" disabled={savingConfig}>
+                  {savingConfig ? "Saving..." : "Save Changes"}
                 </Button>
               </div>
             </form>
