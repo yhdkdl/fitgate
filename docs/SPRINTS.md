@@ -566,7 +566,7 @@ _Increment 6 runs after Increment 7; go/no-go decision date: to be set by the ow
 9. Brevo: confirm "Authenticated" in the dashboard and DKIM PASS with d=fitgate.tebebtech.com in Gmail's "Show original" — deferred by owner decision.
 10. "Lessons from the first deploy" section in docs/DEPLOY_STAGING.md — deferred by owner decision.
 11. The earlier small follow-ups already in Known follow-ups — deferred by owner decision.
-12. Tier cards on the landing page, the Create Gym tier choices, the default flags set at gym creation, and the Super Admin flag editor must offer only the tiers that exist; Pro appears only after Increment 6 ships; has_group_classes must not be shown or enabled.
+12. [x] Tier cards on the landing page, the Create Gym tier choices, the default flags set at gym creation, and the Super Admin flag editor must offer only the tiers that exist; Pro appears only after Increment 6 ships; has_group_classes must not be shown or enabled.
 
 ## Deferred to a future version
 

@@ -877,6 +877,11 @@ class PlatformGymConfigView(APIView):
             )
 
         try:
+            if "tier" in request.data:
+                tier_val = str(request.data["tier"]).lower()
+                if tier_val in [GymTenant.TIER_STARTER, GymTenant.TIER_GROWTH]:
+                    gym.tier = tier_val
+                    gym.save(update_fields=["tier"])
             config = update_gym_settings(gym, request.user, request.data)
         except ValidationError as exc:
             msg = (
