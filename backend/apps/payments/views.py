@@ -1140,6 +1140,7 @@ class GymPaymentPublicStatusView(APIView):
     """
 
     permission_classes = [AllowAny]
+    authentication_classes = []
 
     @extend_schema(
         summary="Check gym online payment status",
