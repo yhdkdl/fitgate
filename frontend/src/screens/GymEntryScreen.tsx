@@ -20,7 +20,12 @@ export const GymEntryScreen: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    // If user is already authenticated on this gym, offer redirect or allow dashboard access
+    if (user) {
+      navigate("/dashboard", { replace: true });
+    }
+  }, [user, navigate]);
+
+  useEffect(() => {
     let isMounted = true;
 
     async function loadGymEntry() {
@@ -86,47 +91,24 @@ export const GymEntryScreen: React.FC = () => {
     );
   }
 
-  // Subdomain is still securing
-  if (securing) {
+  // If securing but no full gym data loaded yet, show minimal fallback
+  if (securing && !data?.name) {
     return (
       <div className="min-h-screen bg-bg flex items-center justify-center p-4">
         <Card className="max-w-md w-full bg-surface border-border p-6 text-center space-y-4">
           <div className="w-12 h-12 mx-auto rounded-full bg-warning/10 text-warning flex items-center justify-center border border-warning/20">
             <span className="text-xl font-bold">🔒</span>
           </div>
-
           <div>
-            <Badge variant="warning" className="mb-2">
-              Still Being Secured
-            </Badge>
-            <h1 className="text-xl font-bold text-text">
-              {data?.name || "Gym Portal"}
-            </h1>
+            <Badge variant="warning" className="mb-2">Still Being Secured</Badge>
+            <h1 className="text-xl font-bold text-text">Gym Portal</h1>
             <p className="text-sm text-text-muted mt-2">
-              {data?.message ||
-                "This gym portal is still being secured. Please check back shortly."}
+              This gym portal is still being secured. Please check back shortly.
             </p>
           </div>
-
-          <div className="bg-surface-2 p-3 rounded-lg border border-border text-xs text-text-muted text-left">
-            <p className="font-semibold text-text mb-1">
-              Notice for Members and Staff:
-            </p>
-            TLS security validation is currently finalizing for this subdomain.
-            Log in and registration will become available as soon as encryption
-            certificate issuance is confirmed.
-          </div>
-
-          <div className="pt-2">
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={() => window.location.reload()}
-              className="w-full"
-            >
-              Refresh Status
-            </Button>
-          </div>
+          <Button variant="secondary" size="sm" onClick={() => window.location.reload()} className="w-full">
+            Refresh Status
+          </Button>
         </Card>
       </div>
     );
@@ -184,21 +166,52 @@ export const GymEntryScreen: React.FC = () => {
             </div>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
             {user ? (
               <Button size="sm" onClick={() => navigate("/dashboard")}>
                 Go to Dashboard
               </Button>
             ) : (
-              <Link to="/login">
-                <Button size="sm" variant="primary">
-                  Sign In
-                </Button>
-              </Link>
+              <>
+                <Link to="/login">
+                  <Button size="sm" variant="secondary" disabled={securing}>
+                    Log in
+                  </Button>
+                </Link>
+                <Link to="/register">
+                  <Button size="sm" variant="primary" disabled={securing}>
+                    Register
+                  </Button>
+                </Link>
+              </>
             )}
           </div>
         </div>
       </header>
+
+      {/* Security Verification Banner when still securing */}
+      {securing && (
+        <div className="bg-warning/10 border-b border-warning/30 px-4 py-3">
+          <div className="max-w-5xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-2 text-warning text-sm">
+            <div className="flex flex-wrap items-center gap-2">
+              <Badge variant="warning">Still Being Secured</Badge>
+              <span className="font-semibold text-text">Notice for Members and Staff:</span>
+              <span className="text-text-muted">
+                {data.message ||
+                  "This gym portal is still being secured. Please check back shortly."}
+              </span>
+            </div>
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => window.location.reload()}
+              className="text-xs shrink-0"
+            >
+              Refresh Status
+            </Button>
+          </div>
+        </div>
+      )}
 
       {/* Main Hero & Welcome */}
       <main className="flex-1 max-w-5xl w-full mx-auto px-4 py-8 sm:py-12 space-y-8">
@@ -221,13 +234,13 @@ export const GymEntryScreen: React.FC = () => {
 
             <div className="flex flex-wrap items-center gap-3 pt-2">
               <Link to="/login">
-                <Button size="lg" className="min-h-[44px]">
-                  Member & Staff Sign In
+                <Button size="lg" className="min-h-[44px]" disabled={securing}>
+                  Log in
                 </Button>
               </Link>
               <Link to="/register">
-                <Button size="lg" variant="secondary" className="min-h-[44px]">
-                  Join & Register
+                <Button size="lg" variant="secondary" className="min-h-[44px]" disabled={securing}>
+                  Register
                 </Button>
               </Link>
             </div>

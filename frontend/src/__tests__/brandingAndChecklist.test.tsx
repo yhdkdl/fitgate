@@ -91,7 +91,8 @@ describe("Sprint 4c: Gym branding, entry page, first-run checklist", () => {
         screen.getAllByText("Bole Atlas, Addis Ababa")[0]
       ).toBeInTheDocument();
       expect(screen.getByText("+251911223344")).toBeInTheDocument();
-      expect(screen.getByText("Member & Staff Sign In")).toBeInTheDocument();
+      expect(screen.getAllByText("Log in")[0]).toBeInTheDocument();
+      expect(screen.getAllByText("Register")[0]).toBeInTheDocument();
       expect(screen.getByText("Membership Plans")).toBeInTheDocument();
     });
   });

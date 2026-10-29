@@ -9,6 +9,7 @@ import { Badge } from "../ui/Badge";
 import { Button } from "../ui/Button";
 import { Card } from "../ui/Card";
 import { Spinner } from "../ui/Spinner";
+import { getTenantFromHostname } from "../../utils/tenant";
 
 interface MemberCheckoutCardProps {
   memberStatus: string;
@@ -38,8 +39,9 @@ export const MemberCheckoutCard: React.FC<MemberCheckoutCardProps> = ({
         }
 
         try {
+          const tenant = getTenantFromHostname();
           const statusData = await Promise.resolve(
-            getGymPaymentPublicStatus?.()
+            getGymPaymentPublicStatus?.(tenant || undefined)
           );
           if (
             statusData &&

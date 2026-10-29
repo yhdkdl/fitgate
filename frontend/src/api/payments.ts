@@ -272,10 +272,11 @@ export async function reverseBankTransfer(
   });
 }
 
-export async function getGymPaymentPublicStatus(): Promise<{
+export async function getGymPaymentPublicStatus(subdomain?: string): Promise<{
   online_payment_verified: boolean;
 }> {
+  const query = subdomain ? `?subdomain=${encodeURIComponent(subdomain)}` : "";
   return apiFetch<{ online_payment_verified: boolean }>(
-    "/api/gym/payments/public-status/"
+    `/api/gym/payments/public-status/${query}`
   );
 }

@@ -1089,6 +1089,19 @@ class GymPaymentPublicStatusView(APIView):
     )
     def get(self, request, *args, **kwargs):
         tenant = getattr(request, "tenant", None)
+        if tenant is None:
+            subdomain = request.query_params.get("subdomain")
+            if subdomain:
+                tenant = GymTenant.objects.filter(
+                    subdomain=subdomain.strip().lower()
+                ).first()
+        if (
+            tenant is None
+            and hasattr(request, "user")
+            and request.user.is_authenticated
+        ):
+            tenant = getattr(request.user, "gym", None)
+
         if not tenant:
             return Response(
                 {"online_payment_verified": False},
