@@ -10,7 +10,13 @@ import { MemberCheckoutCard } from "../member/MemberCheckoutCard";
 import { MemberPaymentHistoryCard } from "../member/MemberPaymentHistoryCard";
 import { MemberFreezeCard } from "../member/MemberFreezeCard";
 
-export const MemberSelfSection: React.FC = () => {
+interface MemberSelfSectionProps {
+  view?: "home" | "membership" | "payments" | "all";
+}
+
+export const MemberSelfSection: React.FC<MemberSelfSectionProps> = ({
+  view = "all",
+}) => {
   const [profile, setProfile] = useState<Member | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -86,17 +92,19 @@ export const MemberSelfSection: React.FC = () => {
       </div>
 
       {/* Dynamic QR Pass & Attendance Calendar */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-1">
-          <MemberQrCard memberStatus={profile.status} />
+      {(view === "home" || view === "all") && (
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="lg:col-span-1">
+            <MemberQrCard memberStatus={profile.status} />
+          </div>
+          <div className="lg:col-span-2">
+            <AttendanceLogCard title="My Attendance Calendar" />
+          </div>
         </div>
-        <div className="lg:col-span-2">
-          <AttendanceLogCard title="My Attendance Calendar" />
-        </div>
-      </div>
+      )}
 
-      {/* Online Plan Checkout & Renewal (Item 20: pending, expired, active; not suspended) */}
-      {profile.status !== "suspended" && (
+      {/* Online Plan Checkout & Renewal */}
+      {(view === "membership" || view === "all") && profile.status !== "suspended" && (
         <MemberCheckoutCard
           memberStatus={profile.status}
           onPaymentInitiated={fetchProfile}
@@ -104,7 +112,7 @@ export const MemberSelfSection: React.FC = () => {
       )}
 
       {/* Body Composition Summary / Estimates */}
-      {hasMetrics ? (
+      {(view === "home" || view === "all") && (hasMetrics ? (
         <div className="space-y-4">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
             <div>
@@ -236,13 +244,17 @@ export const MemberSelfSection: React.FC = () => {
             Not measured yet. A trainer records measurements.
           </p>
         </Card>
-      )}
+      ))}
 
       {/* Membership Freeze Management */}
-      <MemberFreezeCard memberStatus={profile.status} />
+      {(view === "membership" || view === "all") && (
+        <MemberFreezeCard memberStatus={profile.status} />
+      )}
 
       {/* Payment History & Receipts */}
-      <MemberPaymentHistoryCard />
+      {(view === "payments" || view === "all") && (
+        <MemberPaymentHistoryCard />
+      )}
     </div>
   );
 };

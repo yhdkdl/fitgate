@@ -71,24 +71,13 @@ export const App: React.FC = () => {
         />
 
         <Route
-          path="/profile"
+          path="/members"
           element={
-            <ProtectedRoute>
-              <ProfileScreen />
-            </ProtectedRoute>
-          }
-        />
-
-        {/* Dynamic subpaths from dashboard navigation */}
-        <Route
-          path="/platform/*"
-          element={
-            <ProtectedRoute allowedRoles={["super_admin"]}>
+            <ProtectedRoute allowedRoles={["owner", "manager", "reception"]}>
               <DashboardScreen />
             </ProtectedRoute>
           }
         />
-
         <Route
           path="/members/*"
           element={
@@ -99,6 +88,67 @@ export const App: React.FC = () => {
         />
 
         <Route
+          path="/check-in"
+          element={
+            <ProtectedRoute allowedRoles={["owner", "manager", "reception"]}>
+              <DashboardScreen />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/payments"
+          element={
+            <ProtectedRoute allowedRoles={["owner", "manager", "member"]}>
+              <DashboardScreen />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/bank-transfers"
+          element={
+            <ProtectedRoute allowedRoles={["owner"]}>
+              <DashboardScreen />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/plans"
+          element={
+            <ProtectedRoute allowedRoles={["owner", "manager"]}>
+              <DashboardScreen />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/plans/*"
+          element={
+            <ProtectedRoute allowedRoles={["owner", "manager"]}>
+              <DashboardScreen />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/freezes"
+          element={
+            <ProtectedRoute allowedRoles={["owner", "manager"]}>
+              <DashboardScreen />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/staff"
+          element={
+            <ProtectedRoute allowedRoles={["owner", "manager"]}>
+              <DashboardScreen />
+            </ProtectedRoute>
+          }
+        />
+        <Route
           path="/staff/*"
           element={
             <ProtectedRoute allowedRoles={["owner", "manager"]}>
@@ -108,19 +158,63 @@ export const App: React.FC = () => {
         />
 
         <Route
-          path="/plans/*"
+          path="/audit-log"
           element={
-            <ProtectedRoute>
+            <ProtectedRoute allowedRoles={["owner", "manager", "super_admin"]}>
               <DashboardScreen />
             </ProtectedRoute>
           }
         />
 
         <Route
+          path="/settings"
+          element={
+            <ProtectedRoute allowedRoles={["owner"]}>
+              <DashboardScreen />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/membership"
+          element={
+            <ProtectedRoute allowedRoles={["member"]}>
+              <DashboardScreen />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/measurements"
+          element={
+            <ProtectedRoute allowedRoles={["trainer"]}>
+              <DashboardScreen />
+            </ProtectedRoute>
+          }
+        />
+        <Route
           path="/measurements/*"
           element={
             <ProtectedRoute allowedRoles={["trainer"]}>
               <DashboardScreen />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/platform/*"
+          element={
+            <ProtectedRoute allowedRoles={["super_admin"]}>
+              <DashboardScreen />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/profile"
+          element={
+            <ProtectedRoute>
+              <ProfileScreen />
             </ProtectedRoute>
           }
         />
