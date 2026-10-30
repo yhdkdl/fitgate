@@ -378,8 +378,27 @@ class ChapaCheckoutView(APIView):
             if member.user and member.user.email
             else ""
         )
-        if not email or len(email) > 100:
-            email = "member@fitgate.org"
+        test_dummy_domains = (
+            "example.com",
+            "example.org",
+            "example.net",
+            "test.com",
+            "test.org",
+            "fitgate.org",
+            "invalid",
+            "localhost",
+        )
+        domain_part = email.split("@")[-1] if "@" in email else ""
+        if (
+            not email
+            or len(email) > 100
+            or not domain_part
+            or domain_part in test_dummy_domains
+            or domain_part.endswith((".example", ".test", ".invalid", ".local"))
+        ):
+            local_user = email.split("@")[0] if "@" in email else "member"
+            safe_user = re.sub(r"[^a-zA-Z0-9._-]", "", local_user) or "member"
+            email = f"{safe_user}@gmail.com"
 
         # Checkout title and description sent to Chapa must not exceed length limits and allowed characters
         raw_title = gym.name if gym.name else "FitGate"
@@ -429,21 +448,39 @@ class ChapaCheckoutView(APIView):
         try:
             init_resp = client.initialize_transaction(init_payload)
         except ChapaAPIError as exc:
-            payment.status = Payment.STATUS_FAILED
-            payment.metadata["initialization_error"] = exc.message
-            payment.save(update_fields=["status", "metadata", "updated_at"])
-            logger.warning(
-                "Chapa payment initialization failed for gym %s (tx_ref %s): %s",
-                gym.subdomain,
-                tx_ref,
-                exc.message,
+            # If Chapa fails specifically on email validation (e.g. member email domain has no MX records),
+            # retry once with a safe deliverable address so the member is not blocked from paying.
+            is_email_error = "validation.email" in str(exc.message) or (
+                isinstance(exc.data, dict) and "email" in str(exc.data)
             )
-            return Response(
-                {
-                    "detail": "We could not start the online payment. Please try again or pay at the front desk."
-                },
-                status=status.HTTP_502_BAD_GATEWAY,
-            )
+            if is_email_error and init_payload.get("email") != "member@gmail.com":
+                logger.info(
+                    "Chapa rejected email %s; retrying with fallback address",
+                    init_payload.get("email"),
+                )
+                init_payload["email"] = "member@gmail.com"
+                try:
+                    init_resp = client.initialize_transaction(init_payload)
+                    exc = None
+                except ChapaAPIError as retry_exc:
+                    exc = retry_exc
+
+            if exc is not None:
+                payment.status = Payment.STATUS_FAILED
+                payment.metadata["initialization_error"] = exc.message
+                payment.save(update_fields=["status", "metadata", "updated_at"])
+                logger.warning(
+                    "Chapa payment initialization failed for gym %s (tx_ref %s): %s",
+                    gym.subdomain,
+                    tx_ref,
+                    exc.message,
+                )
+                return Response(
+                    {
+                        "detail": "We could not start the online payment. Please try again or pay at the front desk."
+                    },
+                    status=status.HTTP_502_BAD_GATEWAY,
+                )
 
         checkout_url = init_resp.get("data", {}).get("checkout_url", "")
         return Response(
