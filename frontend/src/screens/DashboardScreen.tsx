@@ -20,6 +20,7 @@ import { GymPaymentsSection } from "../components/staff/GymPaymentsSection";
 import { GymFreezesSection } from "../components/staff/GymFreezesSection";
 import { MemberManagementSection } from "../components/dashboard/MemberManagementSection";
 import { MemberSelfSection } from "../components/dashboard/MemberSelfSection";
+import { MemberPaymentCompleteSection } from "../components/member/MemberPaymentCompleteSection";
 import { TrainerMeasurementsSection } from "../components/trainer/TrainerMeasurementsSection";
 import { AuditLogSection } from "../components/dashboard/AuditLogSection";
 import { AttendanceScannerSection } from "../components/attendance/AttendanceScannerSection";
@@ -192,7 +193,19 @@ export const DashboardScreen: React.FC = () => {
 
   // Determine current page render
   const renderCurrentPage = () => {
-    // 1. Member: My Membership page
+    // 1. Member: Payment Complete page
+    if (
+      currentPath === "/membership/payment-complete" ||
+      currentPath.startsWith("/membership/payment-complete")
+    ) {
+      return (
+        <SectionErrorBoundary title="Payment Status">
+          <MemberPaymentCompleteSection />
+        </SectionErrorBoundary>
+      );
+    }
+
+    // 2. Member: My Membership page
     if (
       currentPath === "/membership" ||
       currentPath.startsWith("/membership/")

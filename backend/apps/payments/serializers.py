@@ -307,3 +307,11 @@ class ReverseBankTransferSerializer(serializers.Serializer):
     """Owner reversal request with mandatory reason."""
 
     reason = serializers.CharField(min_length=5, max_length=500)
+
+
+class MemberPaymentStatusSerializer(serializers.Serializer):
+    """Read-only payment status for member self-service return page."""
+
+    status = serializers.CharField()
+    receipt_id = serializers.CharField(allow_null=True)
+    plan_name = serializers.CharField(allow_blank=True)

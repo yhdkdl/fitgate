@@ -288,3 +288,16 @@ export async function getGymPaymentPublicStatus(subdomain?: string): Promise<{
     `/api/gym/payments/public-status/${query}`
   );
 }
+export interface MemberPaymentStatus {
+  status: string;
+  receipt_id: string | null;
+  plan_name: string;
+}
+
+export async function getMemberPaymentStatus(
+  reference: string
+): Promise<MemberPaymentStatus> {
+  return apiFetch<MemberPaymentStatus>(
+    `/api/payments/status/${encodeURIComponent(reference)}/`
+  );
+}

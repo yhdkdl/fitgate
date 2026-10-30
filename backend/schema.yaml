@@ -1263,7 +1263,6 @@ paths:
       tags:
       - gym
       security:
-      - jwtAuth: []
       - {}
       responses:
         '200':
@@ -2074,6 +2073,31 @@ paths:
                 items:
                   $ref: '#/components/schemas/MemberPaymentHistoryItem'
           description: ''
+  /api/payments/status/{reference}/:
+    get:
+      operationId: payments_status_retrieve
+      description: Returns payment status, receipt id, and plan name for a member's
+        own payment reference.
+      summary: Check member own payment status
+      parameters:
+      - in: path
+        name: reference
+        schema:
+          type: string
+        required: true
+      tags:
+      - payments
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MemberPaymentStatus'
+          description: ''
+        '404':
+          description: Payment not found
   /api/platform/audit-logs/:
     get:
       operationId: platform_audit_logs_list
@@ -3448,13 +3472,21 @@ components:
         has_webhook_secret:
           type: boolean
           readOnly: true
+        use_mock:
+          type: boolean
+          readOnly: true
+        detected_mode:
+          type: string
+          readOnly: true
       required:
+      - detected_mode
       - has_secret_key
       - has_webhook_secret
       - is_configured
       - is_test_mode
       - is_verified
       - masked_public_key
+      - use_mock
       - verified_at
     GymPublicEntryResponse:
       type: object
@@ -4024,6 +4056,21 @@ components:
       - status
       - subscription_end_date
       - subscription_start_date
+    MemberPaymentStatus:
+      type: object
+      description: Read-only payment status for member self-service return page.
+      properties:
+        status:
+          type: string
+        receipt_id:
+          type: string
+          nullable: true
+        plan_name:
+          type: string
+      required:
+      - plan_name
+      - receipt_id
+      - status
     MemberQrTokenErrorResponse:
       type: object
       properties:

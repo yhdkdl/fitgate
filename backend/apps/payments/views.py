@@ -35,6 +35,7 @@ from apps.payments.serializers import (
     GymPaymentConfigSerializer,
     GymPaymentConfigUpdateSerializer,
     MemberPaymentHistoryItemSerializer,
+    MemberPaymentStatusSerializer,
     ReceiptSerializer,
     ReconcileBankTransfersSerializer,
     RecordBankTransferPaymentRequestSerializer,
@@ -364,6 +365,9 @@ class ChapaCheckoutView(APIView):
         client = ChapaClient(secret_key=config.secret_key)
         domain = getattr(settings, "DOMAIN", "localhost")
         scheme = getattr(settings, "PUBLIC_URL_SCHEME", "https")
+        port_suffix = (
+            f":{settings.PUBLIC_PORT}" if getattr(settings, "PUBLIC_PORT", "") else ""
+        )
         names = (member.full_name or "").strip().split(maxsplit=1)
         first_name = names[0][:35].strip() if names and names[0].strip() else "Member"
         last_name = (
@@ -398,7 +402,7 @@ class ChapaCheckoutView(APIView):
             "last_name": last_name,
             "tx_ref": tx_ref,
             "callback_url": f"{scheme}://{domain}/api/webhooks/chapa/",
-            "return_url": f"{scheme}://{gym.subdomain}.{domain}/members/payment-complete?tx_ref={tx_ref}",
+            "return_url": f"{scheme}://{gym.subdomain}.{domain}{port_suffix}/membership/payment-complete?tx_ref={tx_ref}",
             "customization": {
                 "title": checkout_title,
                 "description": checkout_description,
@@ -772,6 +776,73 @@ class GymPaymentListView(APIView):
                 "count": len(results),
                 "total_confirmed_revenue_etb": str(confirmed_revenue),
                 "results": results,
+            },
+            status=status.HTTP_200_OK,
+        )
+
+
+class MemberPaymentStatusView(APIView):
+    """
+    Read-only payment status by reference for the logged-in member.
+    Allowed: Member for own payment.
+    Denied: Every other role (403) and other members / unknown references (404).
+    Returns strictly status, receipt_id, and plan_name.
+    """
+
+    permission_classes = [IsAuthenticated, RequirePasswordChanged]
+
+    @extend_schema(
+        summary="Check member own payment status",
+        description="Returns payment status, receipt id, and plan name for a member's own payment reference.",
+        responses={
+            200: MemberPaymentStatusSerializer,
+            404: OpenApiResponse(description="Payment not found"),
+        },
+    )
+    def get(self, request, reference, *args, **kwargs):
+        if request.user.role != User.ROLE_MEMBER:
+            return Response(
+                {"detail": "You do not have permission to perform this action."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        member = Member.all_objects.filter(user=request.user).first()
+        if not member:
+            return Response(
+                {"detail": "We could not find this payment."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        lookup = Q(chapa_ref=reference)
+        try:
+            uuid.UUID(str(reference))
+            lookup = lookup | Q(id=reference)
+        except (ValueError, AttributeError):
+            pass
+
+        qs = Payment.all_objects.select_related("plan", "receipt").filter(
+            lookup, member=member
+        )
+        tenant = getattr(request, "tenant", None)
+        if tenant:
+            qs = qs.filter(gym=tenant)
+
+        payment = qs.first()
+        if not payment:
+            return Response(
+                {"detail": "We could not find this payment."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        receipt_id = None
+        if hasattr(payment, "receipt") and payment.receipt:
+            receipt_id = payment.receipt.receipt_number
+
+        return Response(
+            {
+                "status": payment.status,
+                "receipt_id": receipt_id,
+                "plan_name": payment.plan.name if payment.plan else "",
             },
             status=status.HTTP_200_OK,
         )

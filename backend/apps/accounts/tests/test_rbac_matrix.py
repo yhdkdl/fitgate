@@ -947,6 +947,22 @@ class TestSpec2PermissionMatrixParametrizedTable:
             "wired_in_sprint": 11,
         },
         {
+            "row_name": "Check own payment status by reference",
+            "spec_super_admin": "—",
+            "spec_owner": "No",
+            "spec_manager": "No",
+            "spec_trainer": "No",
+            "spec_reception": "No",
+            "spec_member": "Yes",
+            "super_admin": False,
+            "owner": False,
+            "manager": False,
+            "trainer": False,
+            "reception": False,
+            "member": True,
+            "wired_in_sprint": 11,
+        },
+        {
             "row_name": "Initiate online Chapa checkout session",
             "spec_super_admin": "—",
             "spec_owner": "No (Members only; staff use cash flow in Sprint 12)",
@@ -1301,6 +1317,37 @@ class TestSpec2PermissionMatrixParametrizedTable:
                 # 400 because payment config is unverified, but authorized past RBAC check
                 assert resp.status_code in (200, 400)
                 assert resp.status_code not in (401, 403, 404)
+            else:
+                assert resp.status_code in (403, 404)
+        elif row_name == "Check own payment status by reference":
+            from apps.memberships.models import Member
+            from apps.payments.models import Payment
+
+            member = Member.all_objects.filter(user=acting_user).first()
+            tx_ref = f"tx-matrix-{role}"
+            if member:
+                Payment.objects.create(
+                    gym=gym_tenant,
+                    member=member,
+                    payer_type=Payment.PAYER_TYPE_MEMBER,
+                    method=Payment.METHOD_CHAPA,
+                    amount_etb=500,
+                    chapa_ref=tx_ref,
+                    status=Payment.STATUS_PENDING,
+                )
+            url = f"/api/payments/status/{tx_ref}/"
+            host = (
+                "localhost"
+                if role == User.ROLE_SUPER_ADMIN
+                else f"{gym_tenant.subdomain}.localhost"
+            )
+            resp = client.get(url, HTTP_HOST=host)
+            if expected_allowed:
+                assert resp.status_code == 200
+                assert resp.data["status"] == "pending"
+                assert "receipt_id" in resp.data
+                assert "plan_name" in resp.data
+                assert "amount_etb" not in resp.data
             else:
                 assert resp.status_code in (403, 404)
         elif row_name == "View platform-wide payment status for gyms":

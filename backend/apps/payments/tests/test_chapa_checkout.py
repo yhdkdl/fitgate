@@ -247,3 +247,208 @@ class TestChapaCheckout:
             HTTP_HOST="alpha.localhost",
         )
         assert resp.status_code == status.HTTP_403_FORBIDDEN
+
+
+@pytest.mark.django_db
+class TestMemberPaymentStatus:
+    """Test suite for member payment status check by reference."""
+
+    def test_member_can_check_own_payment_status(self):
+        gym = GymTenant.objects.create(
+            name="Alpha", subdomain="alpha", tls_confirmed_at=timezone.now()
+        )
+        member_user = User.objects.create_user(
+            email="mem@alpha.test", password="Pass123!", gym=gym, role=User.ROLE_MEMBER
+        )
+        member = Member.objects.create(
+            gym=gym,
+            user=member_user,
+            full_name="Mem Test",
+            phone="+251911223344",
+            waiver_accepted_at=timezone.now(),
+        )
+        plan = MembershipPlan.objects.create(
+            gym=gym,
+            name="1 Month",
+            duration_value=1,
+            duration_unit="months",
+            price_etb=500,
+        )
+        Payment.objects.create(
+            gym=gym,
+            payer_type=Payment.PAYER_TYPE_MEMBER,
+            member=member,
+            plan=plan,
+            method=Payment.METHOD_CHAPA,
+            amount_etb=500,
+            chapa_ref="FG-alpha-test12345",
+            status=Payment.STATUS_CONFIRMED,
+        )
+
+        client = APIClient()
+        client.force_authenticate(user=member_user)
+        resp = client.get(
+            "/api/payments/status/FG-alpha-test12345/", HTTP_HOST="alpha.localhost"
+        )
+        assert resp.status_code == status.HTTP_200_OK
+        assert resp.data["status"] == "confirmed"
+        assert resp.data["plan_name"] == "1 Month"
+        # Only status, receipt_id, and plan_name exposed
+        assert set(resp.data.keys()) == {"status", "receipt_id", "plan_name"}
+
+    def test_other_member_and_unknown_reference_denied_with_uniform_404(self):
+        gym = GymTenant.objects.create(
+            name="Alpha", subdomain="alpha", tls_confirmed_at=timezone.now()
+        )
+        u1 = User.objects.create_user(
+            email="mem1@alpha.test", password="Pass123!", gym=gym, role=User.ROLE_MEMBER
+        )
+        m1 = Member.objects.create(
+            gym=gym,
+            user=u1,
+            full_name="Mem 1",
+            phone="+251911111111",
+            waiver_accepted_at=timezone.now(),
+        )
+        u2 = User.objects.create_user(
+            email="mem2@alpha.test", password="Pass123!", gym=gym, role=User.ROLE_MEMBER
+        )
+        Member.objects.create(
+            gym=gym,
+            user=u2,
+            full_name="Mem 2",
+            phone="+251911222222",
+            waiver_accepted_at=timezone.now(),
+        )
+
+        p1 = Payment.objects.create(
+            gym=gym,
+            payer_type=Payment.PAYER_TYPE_MEMBER,
+            member=m1,
+            method=Payment.METHOD_CHAPA,
+            amount_etb=500,
+            chapa_ref="FG-alpha-mem1ref",
+            status=Payment.STATUS_PENDING,
+        )
+
+        client = APIClient()
+        client.force_authenticate(user=u2)
+        # Other member querying m1's payment
+        resp = client.get(
+            f"/api/payments/status/{p1.chapa_ref}/", HTTP_HOST="alpha.localhost"
+        )
+        assert resp.status_code == status.HTTP_404_NOT_FOUND
+        assert resp.data["detail"] == "We could not find this payment."
+
+        # Unknown reference
+        resp2 = client.get(
+            "/api/payments/status/FG-nonexistent/", HTTP_HOST="alpha.localhost"
+        )
+        assert resp2.status_code == status.HTTP_404_NOT_FOUND
+        assert resp2.data["detail"] == "We could not find this payment."
+
+    def test_staff_roles_and_super_admin_denied_status_endpoint(self):
+        gym = GymTenant.objects.create(
+            name="Alpha", subdomain="alpha", tls_confirmed_at=timezone.now()
+        )
+        mem_user = User.objects.create_user(
+            email="mem@alpha.test", password="Pass123!", gym=gym, role=User.ROLE_MEMBER
+        )
+        member = Member.objects.create(
+            gym=gym,
+            user=mem_user,
+            full_name="Mem Test",
+            phone="+251911223344",
+            waiver_accepted_at=timezone.now(),
+        )
+        p = Payment.objects.create(
+            gym=gym,
+            payer_type=Payment.PAYER_TYPE_MEMBER,
+            member=member,
+            method=Payment.METHOD_CHAPA,
+            amount_etb=500,
+            chapa_ref="FG-alpha-stafftest",
+            status=Payment.STATUS_PENDING,
+        )
+
+        for role in [
+            User.ROLE_OWNER,
+            User.ROLE_MANAGER,
+            User.ROLE_RECEPTION,
+            User.ROLE_TRAINER,
+        ]:
+            staff_user = User.objects.create_user(
+                email=f"staff_{role}@alpha.test",
+                password="Pass123!",
+                gym=gym,
+                role=role,
+            )
+            client = APIClient()
+            client.force_authenticate(user=staff_user)
+            resp = client.get(
+                f"/api/payments/status/{p.chapa_ref}/", HTTP_HOST="alpha.localhost"
+            )
+            assert resp.status_code == status.HTTP_403_FORBIDDEN
+
+        super_admin = User.objects.create_superuser(
+            email="admin@fitgate.org", password="Pass123!"
+        )
+        client = APIClient()
+        client.force_authenticate(user=super_admin)
+        resp = client.get(f"/api/payments/status/{p.chapa_ref}/", HTTP_HOST="localhost")
+        assert resp.status_code == status.HTTP_403_FORBIDDEN
+
+    def test_return_url_constructed_with_domain_scheme_port_and_membership_route(self):
+        gym = GymTenant.objects.create(
+            name="Alpha", subdomain="alpha", tls_confirmed_at=timezone.now()
+        )
+        config = GymPaymentConfig.all_objects.create(gym=gym)
+        config.public_key = "CHAPUBK_TEST-pub"
+        config.secret_key = "CHASECK_TEST-sec"
+        config.is_verified = True
+        config.save()
+        mem_user = User.objects.create_user(
+            email="mem@alpha.test", password="Pass123!", gym=gym, role=User.ROLE_MEMBER
+        )
+        Member.objects.create(
+            gym=gym,
+            user=mem_user,
+            full_name="Mem Test",
+            phone="+251911223344",
+            waiver_accepted_at=timezone.now(),
+        )
+        plan = MembershipPlan.objects.create(
+            gym=gym,
+            name="1 Month",
+            duration_value=1,
+            duration_unit="months",
+            price_etb=500,
+            is_active=True,
+        )
+
+        client = APIClient()
+        client.force_authenticate(user=mem_user)
+
+        with patch(
+            "apps.payments.views.ChapaClient.initialize_transaction"
+        ) as mock_init:
+            mock_init.return_value = {
+                "status": "success",
+                "data": {
+                    "checkout_url": "https://checkout.chapa.co/test",
+                    "tx_ref": "tx-123",
+                },
+            }
+            resp = client.post(
+                "/api/payments/checkout/chapa/",
+                {"plan_id": str(plan.id)},
+                format="json",
+                HTTP_HOST="alpha.localhost",
+            )
+            assert resp.status_code == status.HTTP_200_OK
+            assert mock_init.called
+            payload = mock_init.call_args[0][0]
+            # Verify return_url has scheme, subdomain, domain, port, and /membership/payment-complete
+            assert payload["return_url"].startswith(
+                "http://alpha.localhost:5173/membership/payment-complete?tx_ref="
+            )

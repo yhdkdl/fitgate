@@ -1319,6 +1319,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/payments/status/{reference}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Check member own payment status
+         * @description Returns payment status, receipt id, and plan name for a member's own payment reference.
+         */
+        get: operations["payments_status_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/platform/audit-logs/": {
         parameters: {
             query?: never;
@@ -2040,6 +2060,8 @@ export interface components {
             readonly masked_public_key: string;
             readonly has_secret_key: boolean;
             readonly has_webhook_secret: boolean;
+            readonly use_mock: boolean;
+            readonly detected_mode: string;
         };
         /** @description Public details returned on the gym subdomain entry page. */
         GymPublicEntryResponse: {
@@ -2274,6 +2296,12 @@ export interface components {
             subscription_start_date: string | null;
             /** Format: date */
             subscription_end_date: string | null;
+        };
+        /** @description Read-only payment status for member self-service return page. */
+        MemberPaymentStatus: {
+            status: string;
+            receipt_id: string | null;
+            plan_name: string;
         };
         MemberQrTokenErrorResponse: {
             detail: string;
@@ -5156,6 +5184,34 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["MemberPaymentHistoryItem"][];
                 };
+            };
+        };
+    };
+    payments_status_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                reference: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MemberPaymentStatus"];
+                };
+            };
+            /** @description Payment not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
         };
     };
