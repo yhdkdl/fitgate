@@ -120,7 +120,6 @@ class MemberSerializer(serializers.ModelSerializer):
     email_delivery_message = serializers.SerializerMethodField()
     assigned_trainer = serializers.SerializerMethodField(read_only=True)
     is_on_trainer_plan = serializers.SerializerMethodField(read_only=True)
-    is_on_trainer_plan = serializers.SerializerMethodField(read_only=True)
 
     class Meta:
         model = Member
@@ -219,7 +218,7 @@ class MemberSerializer(serializers.ModelSerializer):
 
     def get_is_on_trainer_plan(self, obj) -> bool:
         sub = obj.active_subscription
-        return bool(sub and sub.plan and sub.plan.has_trainer)
+        return bool(sub and sub.plan and sub.plan.trainer_inclusive)
 
     def to_representation(self, instance):
         request = self.context.get("request")
@@ -258,7 +257,7 @@ class MemberSerializer(serializers.ModelSerializer):
 
         active_sub = instance.active_subscription
         data["is_on_trainer_plan"] = bool(
-            active_sub and active_sub.plan and active_sub.plan.has_trainer
+            active_sub and active_sub.plan and active_sub.plan.trainer_inclusive
         )
 
         return data
@@ -322,7 +321,7 @@ class MemberDetailSerializer(serializers.ModelSerializer):
 
     def get_is_on_trainer_plan(self, obj) -> bool:
         sub = obj.active_subscription
-        return bool(sub and sub.plan and sub.plan.has_trainer)
+        return bool(sub and sub.plan and sub.plan.trainer_inclusive)
 
     def to_representation(self, instance):
         data = super().to_representation(instance)
@@ -345,10 +344,16 @@ class MemberDetailSerializer(serializers.ModelSerializer):
             data["assigned_trainer"] = {
                 "id": str(active_assignment.trainer.id),
                 "name": t_user.full_name or t_user.email,
-                "specialization": active_assignment.trainer.specialization,
+                "specialization": active_assignment.trainer.specialization or "",
+                "photo_url": active_assignment.trainer.photo_url or "",
             }
         else:
             data["assigned_trainer"] = None
+
+        active_sub = instance.active_subscription
+        data["is_on_trainer_plan"] = bool(
+            active_sub and active_sub.plan and active_sub.plan.trainer_inclusive
+        )
 
         return data
 

@@ -631,3 +631,177 @@ class TestTrainerMeasurementsSecurityAndRBAC:
         )
         assert r_old.status_code == 400
         assert "Only the latest measurement entry can be corrected" in str(r_old.data)
+
+
+@pytest.mark.django_db
+class TestMemberProfileAndPaymentsAcrossPlanTypes:
+    """
+    Verifies that Member profile (/api/gym/members/me/) and payments (/api/payments/history/)
+    load successfully with HTTP 200 (no 500 server error from reading plan.trainer_inclusive):
+    (a) with an active trainer-inclusive plan
+    (b) with an active standard plan
+    (c) with no subscription
+    """
+
+    def test_member_profile_and_payments_across_plan_types(
+        self, api_client, gym_tenant
+    ):
+        from datetime import timedelta
+
+        from django.utils import timezone
+
+        from apps.memberships.models import Member, MembershipPlan, MemberSubscription
+        from apps.trainers.models import Trainer, TrainerAssignment
+
+        today = timezone.localdate()
+
+        # -------------------------------------------------------------
+        # (c) Member with NO subscription
+        # -------------------------------------------------------------
+        user_no_sub = User.objects.create_user(
+            email="nosub@bolehub.com",
+            password="Password123!",
+            gym=gym_tenant,
+            role=User.ROLE_MEMBER,
+        )
+        _ = Member.all_objects.create(
+            gym=gym_tenant,
+            user=user_no_sub,
+            full_name="No Sub Member",
+            phone="+251911000111",
+            waiver_accepted_at=timezone.now(),
+            status=Member.STATUS_PENDING,
+        )
+        client_no_sub = auth_client(APIClient(), user_no_sub, gym_tenant.subdomain)
+
+        # Profile request
+        resp_prof_c = client_no_sub.get("/api/members/me/")
+        assert resp_prof_c.status_code == 200
+        assert resp_prof_c.data["is_on_trainer_plan"] is False
+        assert resp_prof_c.data["assigned_trainer"] is None
+
+        # Payments request
+        resp_pay_c = client_no_sub.get("/api/payments/history/")
+        assert resp_pay_c.status_code == 200
+
+        # -------------------------------------------------------------
+        # (b) Member with an ACTIVE STANDARD plan (no trainer)
+        # -------------------------------------------------------------
+        standard_plan = MembershipPlan.all_objects.create(
+            gym=gym_tenant,
+            name="Standard Plan",
+            duration_value=1,
+            duration_unit="months",
+            price_etb=800,
+            trainer_inclusive=False,
+            is_active=True,
+        )
+        user_std = User.objects.create_user(
+            email="std@bolehub.com",
+            password="Password123!",
+            gym=gym_tenant,
+            role=User.ROLE_MEMBER,
+        )
+        member_std = Member.all_objects.create(
+            gym=gym_tenant,
+            user=user_std,
+            full_name="Standard Member",
+            phone="+251911000222",
+            waiver_accepted_at=timezone.now(),
+            status=Member.STATUS_ACTIVE,
+        )
+        MemberSubscription.all_objects.create(
+            gym=gym_tenant,
+            member=member_std,
+            plan=standard_plan,
+            start_date=today,
+            end_date=today + timedelta(days=30),
+            status=MemberSubscription.STATUS_ACTIVE,
+        )
+        client_std = auth_client(APIClient(), user_std, gym_tenant.subdomain)
+
+        # Profile request
+        resp_prof_b = client_std.get("/api/members/me/")
+        assert resp_prof_b.status_code == 200
+        assert resp_prof_b.data["is_on_trainer_plan"] is False
+        assert resp_prof_b.data["assigned_trainer"] is None
+
+        # Payments request
+        resp_pay_b = client_std.get("/api/payments/history/")
+        assert resp_pay_b.status_code == 200
+
+        # -------------------------------------------------------------
+        # (a) Member with an ACTIVE TRAINER-INCLUSIVE plan
+        # -------------------------------------------------------------
+        trainer_plan = MembershipPlan.all_objects.create(
+            gym=gym_tenant,
+            name="Trainer Plan",
+            duration_value=1,
+            duration_unit="months",
+            price_etb=1500,
+            trainer_inclusive=True,
+            is_active=True,
+        )
+        trainer_user = User.objects.create_user(
+            email="trainer_plan_t@bolehub.com",
+            password="Password123!",
+            gym=gym_tenant,
+            role=User.ROLE_TRAINER,
+            full_name="Coach Dawit",
+        )
+        trainer_profile = Trainer.all_objects.get(user=trainer_user)
+        trainer_profile.photo_url = "media/trainers/dawit.webp"
+        trainer_profile.specialization = "Strength & Conditioning"
+        trainer_profile.save()
+
+        user_trainer_sub = User.objects.create_user(
+            email="trainersub@bolehub.com",
+            password="Password123!",
+            gym=gym_tenant,
+            role=User.ROLE_MEMBER,
+        )
+        member_trainer_sub = Member.all_objects.create(
+            gym=gym_tenant,
+            user=user_trainer_sub,
+            full_name="Trainer Sub Member",
+            phone="+251911000333",
+            waiver_accepted_at=timezone.now(),
+            status=Member.STATUS_ACTIVE,
+        )
+        MemberSubscription.all_objects.create(
+            gym=gym_tenant,
+            member=member_trainer_sub,
+            plan=trainer_plan,
+            start_date=today,
+            end_date=today + timedelta(days=30),
+            status=MemberSubscription.STATUS_ACTIVE,
+        )
+        TrainerAssignment.all_objects.create(
+            gym=gym_tenant,
+            member=member_trainer_sub,
+            trainer=trainer_profile,
+            assigned_by=user_trainer_sub,
+        )
+
+        client_trainer_sub = auth_client(
+            APIClient(), user_trainer_sub, gym_tenant.subdomain
+        )
+
+        # Profile request
+        resp_prof_a = client_trainer_sub.get("/api/members/me/")
+        assert resp_prof_a.status_code == 200
+        assert resp_prof_a.data["is_on_trainer_plan"] is True
+        assert resp_prof_a.data["assigned_trainer"] is not None
+        assert resp_prof_a.data["assigned_trainer"]["name"] == "Coach Dawit"
+        assert (
+            resp_prof_a.data["assigned_trainer"]["photo_url"]
+            == "media/trainers/dawit.webp"
+        )
+        assert (
+            resp_prof_a.data["assigned_trainer"]["specialization"]
+            == "Strength & Conditioning"
+        )
+
+        # Payments request
+        resp_pay_a = client_trainer_sub.get("/api/payments/history/")
+        assert resp_pay_a.status_code == 200
