@@ -1612,6 +1612,100 @@ paths:
           description: Staff member not found
         '429':
           description: Daily resend limit reached
+  /api/gym/trainers/:
+    get:
+      operationId: gym_trainers_list
+      description: Returns all trainers for the gym with their active client count
+        and capacity.
+      summary: List gym trainers (Owner, Manager)
+      tags:
+      - trainers
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Trainer'
+          description: ''
+        '401':
+          description: Authentication required
+        '403':
+          description: Permission denied or trainer module not enabled
+  /api/gym/trainers/{id}/:
+    get:
+      operationId: gym_trainers_retrieve
+      description: Returns details, capacity, and active client count for a trainer.
+      summary: Get trainer details (Owner, Manager)
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - trainers
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Trainer'
+          description: ''
+        '401':
+          description: Authentication required
+        '403':
+          description: Permission denied or trainer module not enabled
+        '404':
+          description: Trainer not found
+    patch:
+      operationId: gym_trainers_partial_update
+      description: Updates a trainer's maximum client capacity (1 to 200). Warns if
+        set below current client count.
+      summary: Update trainer capacity (Owner, Manager)
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - trainers
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedTrainerCapacityUpdateRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedTrainerCapacityUpdateRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedTrainerCapacityUpdateRequest'
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TrainerCapacityUpdateResponse'
+          description: ''
+        '400':
+          description: Invalid capacity value
+        '401':
+          description: Authentication required
+        '403':
+          description: Permission denied or trainer module not enabled
+        '404':
+          description: Trainer not found
   /api/health/:
     get:
       operationId: health_retrieve
@@ -2597,6 +2691,29 @@ paths:
                 items:
                   $ref: '#/components/schemas/PublicPlan'
           description: ''
+  /api/trainers/me/:
+    get:
+      operationId: trainers_me_retrieve
+      description: Returns the authenticated trainer's profile, client count, and
+        capacity.
+      summary: Get own trainer profile (Trainer only)
+      tags:
+      - trainers
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Trainer'
+          description: ''
+        '401':
+          description: Authentication required
+        '403':
+          description: Permission denied or trainer module not enabled
+        '404':
+          description: Trainer profile not found
   /api/webhooks/brevo/:
     post:
       operationId: webhooks_brevo_create
@@ -4380,6 +4497,17 @@ components:
           type: boolean
         is_active:
           type: boolean
+    PatchedTrainerCapacityUpdateRequest:
+      type: object
+      properties:
+        max_clients:
+          type: integer
+          maximum: 200
+          minimum: 1
+        specialization:
+          type: string
+          nullable: true
+          maxLength: 255
     PatchedUserProfileUpdateRequest:
       type: object
       description: Payload for updating user profile (full_name and phone only).
@@ -5061,6 +5189,81 @@ components:
           type: string
       required:
       - access
+    Trainer:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        user:
+          allOf:
+          - $ref: '#/components/schemas/TrainerUser'
+          readOnly: true
+        specialization:
+          type: string
+          nullable: true
+          maxLength: 255
+        max_clients:
+          type: integer
+          maximum: 200
+          minimum: 1
+        client_count:
+          type: integer
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - client_count
+      - created_at
+      - id
+      - updated_at
+      - user
+    TrainerCapacityUpdateResponse:
+      type: object
+      properties:
+        detail:
+          type: string
+        warning:
+          type: string
+          nullable: true
+        trainer:
+          $ref: '#/components/schemas/Trainer'
+      required:
+      - detail
+      - trainer
+    TrainerUser:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        email:
+          type: string
+          format: email
+          readOnly: true
+        full_name:
+          type: string
+          readOnly: true
+        phone:
+          type: string
+          readOnly: true
+        is_active:
+          type: boolean
+          readOnly: true
+      required:
+      - email
+      - full_name
+      - id
+      - is_active
+      - phone
     UnreconciledBankTransferItem:
       type: object
       description: Owner view of an unreconciled bank transfer.
