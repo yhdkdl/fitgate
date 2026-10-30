@@ -377,6 +377,8 @@ _Increment 3 = Sprints 16 and 17 only; Sprints 18 and 19 are deferred to a futur
 16. **Trainer profile & capacity** — `Trainer` model, `max_clients` config.
     - A trainer's current client count is correctly derived from active `TrainerAssignment` rows, exposed accurately for Sprint 17.
 
+- [x] Status: done — merged to develop (tag sprint-16-done)
+
 17. **Trainer assignment (GATE)** — automatic (load-balance + least-recently-assigned tie-break) + manual reassignment.
     - Automatic assignment selects the eligible trainer with the lowest current client count; on a tie, the least-recently-assigned trainer wins — both rules tested against a seeded scenario.
     - A trainer at `max_clients` is never selected by automatic assignment. If every trainer is at capacity, no assignment is made and Owner/Manager are notified.

@@ -22,6 +22,8 @@ import { MemberManagementSection } from "../components/dashboard/MemberManagemen
 import { MemberSelfSection } from "../components/dashboard/MemberSelfSection";
 import { MemberPaymentCompleteSection } from "../components/member/MemberPaymentCompleteSection";
 import { TrainerMeasurementsSection } from "../components/trainer/TrainerMeasurementsSection";
+import { TrainersManagementSection } from "../components/owner/TrainersManagementSection";
+import { getTrainerProfileMe, type Trainer } from "../api/trainers";
 import { AuditLogSection } from "../components/dashboard/AuditLogSection";
 import { AttendanceScannerSection } from "../components/attendance/AttendanceScannerSection";
 import { useAuth } from "../context/AuthContext";
@@ -40,6 +42,7 @@ const ROLE_NAV_ITEMS: Record<string, NavItem[]> = {
     { label: "Payments", path: "/payments" },
     { label: "Bank transfers", path: "/bank-transfers" },
     { label: "Plans", path: "/plans" },
+    { label: "Trainers", path: "/trainers" },
     { label: "Freeze requests", path: "/freezes" },
     { label: "Staff", path: "/staff" },
     { label: "Audit log", path: "/audit-log" },
@@ -51,6 +54,7 @@ const ROLE_NAV_ITEMS: Record<string, NavItem[]> = {
     { label: "Check-in", path: "/check-in" },
     { label: "Payments", path: "/payments" },
     { label: "Plans", path: "/plans" },
+    { label: "Trainers", path: "/trainers" },
     { label: "Freeze requests", path: "/freezes" },
     { label: "Staff", path: "/staff" },
     { label: "Audit log", path: "/audit-log" },
@@ -111,6 +115,7 @@ export const DashboardScreen: React.FC = () => {
   const tenant = getTenantFromHostname();
 
   const [checklistKey, setChecklistKey] = useState(0);
+  const [trainerWorkload, setTrainerWorkload] = useState<Trainer | null>(null);
   const [showMoreMobile, setShowMoreMobile] = useState(false);
   const [prefillGymData, setPrefillGymData] = useState<GymPrefillData | null>(
     null
@@ -151,6 +156,14 @@ export const DashboardScreen: React.FC = () => {
       navigate(home, { replace: true });
     }
   }, [currentPath, role, user, userRoleNav, navigate]);
+
+  useEffect(() => {
+    if (role === "trainer") {
+      getTrainerProfileMe()
+        .then((t) => setTrainerWorkload(t))
+        .catch(() => {});
+    }
+  }, [role]);
 
   useEffect(() => {
     if (!tenant) return;
@@ -283,6 +296,15 @@ export const DashboardScreen: React.FC = () => {
       );
     }
 
+    // 6b. Trainers Management page
+    if (currentPath.startsWith("/trainers")) {
+      return (
+        <SectionErrorBoundary title="Trainers">
+          <TrainersManagementSection />
+        </SectionErrorBoundary>
+      );
+    }
+
     // 7. Staff Management page
     if (currentPath.startsWith("/staff")) {
       return (
@@ -380,6 +402,35 @@ export const DashboardScreen: React.FC = () => {
               key={checklistKey}
               onOpenBranding={() => navigate("/settings")}
             />
+          </SectionErrorBoundary>
+        )}
+
+        {role === "trainer" && trainerWorkload && (
+          <SectionErrorBoundary title="Trainer Profile">
+            <Card className="bg-surface p-5 border-border">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                <div>
+                  <h3 className="text-base font-bold text-text">
+                    Trainer Profile & Capacity
+                  </h3>
+                  <p className="text-xs text-text-muted mt-1">
+                    Current workload:{" "}
+                    <span className="font-semibold text-text">
+                      {trainerWorkload.client_count} /{" "}
+                      {trainerWorkload.max_clients}
+                    </span>{" "}
+                    active clients
+                    {trainerWorkload.specialization &&
+                      ` • Specialization: ${trainerWorkload.specialization}`}
+                  </p>
+                </div>
+                {trainerWorkload.client_count >= trainerWorkload.max_clients ? (
+                  <Badge variant="warning">At Capacity</Badge>
+                ) : (
+                  <Badge variant="success">Capacity Available</Badge>
+                )}
+              </div>
+            </Card>
           </SectionErrorBoundary>
         )}
 

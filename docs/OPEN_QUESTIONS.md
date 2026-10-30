@@ -128,3 +128,8 @@ If less than 90% sure how a requirement should be implemented and the doubt does
     - **Question/Context:** How do staff or members provide proof of bank transfer during payment recording?
     - **Chosen Solution & Policy:** `Payment.transfer_screenshot` stores a secure relative path to uploaded transfer confirmation screenshots (Telebirr/CBE Birr transaction confirmation screens). The endpoint `POST /api/payments/bank-transfer-screenshot/` handles secure upload, image validation (max 5MB, JPEG/PNG/WebP), and encrypted tenant storage. Screenshots are served only to authorized staff via authenticated media streaming.
     - **Reason for choice:** Provides verifiable proof for owner reconciliation and dispute resolution when clearing bank transfers.
+
+25. **Trainer Default Client Capacity (Sprint 16)**
+    - **Question/Context:** SPEC §8 defines `Trainer` with `max_clients`, but does not specify a numerical default.
+    - **Chosen Solution:** Default `max_clients` is set to 20 for newly provisioned trainer profiles, with an allowed range of 1 to 200, editable by Owner and Manager.
+    - **Reason for choice:** 20 provides an operationally sensible client cap for individual trainers while preventing unbounded assignment overload.

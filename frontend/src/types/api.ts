@@ -985,6 +985,50 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/gym/trainers/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List gym trainers (Owner, Manager)
+         * @description Returns all trainers for the gym with their active client count and capacity.
+         */
+        get: operations["gym_trainers_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/gym/trainers/{id}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get trainer details (Owner, Manager)
+         * @description Returns details, capacity, and active client count for a trainer.
+         */
+        get: operations["gym_trainers_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Update trainer capacity (Owner, Manager)
+         * @description Updates a trainer's maximum client capacity (1 to 200). Warns if set below current client count.
+         */
+        patch: operations["gym_trainers_partial_update"];
+        trace?: never;
+    };
     "/api/health/": {
         parameters: {
             query?: never;
@@ -1643,6 +1687,26 @@ export interface paths {
          * @description Visitors can view all active plans and prices without logging in.
          */
         get: operations["public_plans_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/trainers/me/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get own trainer profile (Trainer only)
+         * @description Returns the authenticated trainer's profile, client count, and capacity.
+         */
+        get: operations["trainers_me_retrieve"];
         put?: never;
         post?: never;
         delete?: never;
@@ -2447,6 +2511,10 @@ export interface components {
             trainer_inclusive?: boolean;
             is_active?: boolean;
         };
+        PatchedTrainerCapacityUpdateRequest: {
+            max_clients?: number;
+            specialization?: string | null;
+        };
         /** @description Payload for updating user profile (full_name and phone only). */
         PatchedUserProfileUpdateRequest: {
             full_name?: string;
@@ -2722,6 +2790,32 @@ export interface components {
         /** @description Response containing refreshed access token. */
         TokenRefreshResponse: {
             access: string;
+        };
+        Trainer: {
+            /** Format: uuid */
+            readonly id: string;
+            readonly user: components["schemas"]["TrainerUser"];
+            specialization?: string | null;
+            max_clients?: number;
+            readonly client_count: number;
+            /** Format: date-time */
+            readonly created_at: string;
+            /** Format: date-time */
+            readonly updated_at: string;
+        };
+        TrainerCapacityUpdateResponse: {
+            detail: string;
+            warning?: string | null;
+            trainer: components["schemas"]["Trainer"];
+        };
+        TrainerUser: {
+            /** Format: uuid */
+            readonly id: string;
+            /** Format: email */
+            readonly email: string;
+            readonly full_name: string;
+            readonly phone: string;
+            readonly is_active: boolean;
         };
         /** @description Owner view of an unreconciled bank transfer. */
         UnreconciledBankTransferItem: {
@@ -4627,6 +4721,136 @@ export interface operations {
             };
         };
     };
+    gym_trainers_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Trainer"][];
+                };
+            };
+            /** @description Authentication required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Permission denied or trainer module not enabled */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    gym_trainers_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Trainer"];
+                };
+            };
+            /** @description Authentication required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Permission denied or trainer module not enabled */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Trainer not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    gym_trainers_partial_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["PatchedTrainerCapacityUpdateRequest"];
+                "application/x-www-form-urlencoded": components["schemas"]["PatchedTrainerCapacityUpdateRequest"];
+                "multipart/form-data": components["schemas"]["PatchedTrainerCapacityUpdateRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TrainerCapacityUpdateResponse"];
+                };
+            };
+            /** @description Invalid capacity value */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Authentication required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Permission denied or trainer module not enabled */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Trainer not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     health_retrieve: {
         parameters: {
             query?: never;
@@ -5764,6 +5988,46 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["PublicPlan"][];
                 };
+            };
+        };
+    };
+    trainers_me_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Trainer"];
+                };
+            };
+            /** @description Authentication required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Permission denied or trainer module not enabled */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Trainer profile not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
         };
     };

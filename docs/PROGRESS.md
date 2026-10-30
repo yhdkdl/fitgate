@@ -45,16 +45,15 @@
 - Fix: Membership route collision in DashboardScreen where staff /members matched /membership leading to permission denied error (tag `fix-membership-route-collision-done`).
 - Fix: Chapa checkout initialization character sanitization (customization description and title removing forbidden colons and special characters) (tag `fix-chapa-customization-desc-done`).
 - Fix: Chapa return URL construction with port and scheme, dedicated member payment complete return page with 3s polling, and own-payment status endpoint with RBAC enforcement (tag `fix-chapa-return-flow-done`).
+- Sprint 16: Trainer profile and capacity — `Trainer` model with 1:1 user link, default 20 capacity (range 1-200), derived active client count from `TrainerAssignment` rows, server-side `has_trainer_module` gating, automatic profile creation signal & data migration backfill, Owner/Manager capacity editing with under-capacity warnings and audit logging, Trainer self-profile endpoint, and Owner/Manager "Trainers" management page and navigation (tag `sprint-16-done`).
 
 ## Current
 
-- Increment 2 closeout completed; ready for Increment 3.
-
-- Increment 2 review and acceptance.
+- Sprint 17: Trainer assignment (GATE)
 
 ## Next
 
-- Increment 3: Trainer module (non-AI) — Sprints 16 and 17.
+- Increment 3 closeout and acceptance.
 
 ## Open manual steps
 

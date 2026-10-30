@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { getProfile } from "../api/auth";
 import { getMemberProfileMe, type Member } from "../api/members";
+import { getTrainerProfileMe, type Trainer } from "../api/trainers";
 import { AuthenticatedImage } from "../components/ui/AuthenticatedImage";
 import { Alert } from "../components/ui/Alert";
 import { Badge } from "../components/ui/Badge";
@@ -34,6 +35,7 @@ export const ProfileScreen: React.FC = () => {
 
   // Member photo fields
   const [memberData, setMemberData] = useState<Member | null>(null);
+  const [trainerData, setTrainerData] = useState<Trainer | null>(null);
 
   // Password fields
   const [currentPassword, setCurrentPassword] = useState("");
@@ -61,6 +63,11 @@ export const ProfileScreen: React.FC = () => {
     if (user?.role === "member") {
       getMemberProfileMe()
         .then((m) => setMemberData(m))
+        .catch(() => {});
+    }
+    if (user?.role === "trainer") {
+      getTrainerProfileMe()
+        .then((t) => setTrainerData(t))
         .catch(() => {});
     }
   }, [user?.role]);
@@ -209,6 +216,30 @@ export const ProfileScreen: React.FC = () => {
 
       <main className="max-w-4xl mx-auto p-4 sm:p-6 space-y-6">
         <h1 className="text-2xl font-bold text-text">Account Settings</h1>
+
+        {user?.role === "trainer" && trainerData && (
+          <Card className="bg-surface border-border">
+            <h2 className="text-lg font-semibold mb-2 text-text">
+              Trainer Profile & Capacity
+            </h2>
+            <div className="flex items-center justify-between p-4 bg-surface-2/40 rounded-lg border border-border">
+              <div>
+                <div className="text-sm font-semibold text-text">
+                  Workload: {trainerData.client_count} /{" "}
+                  {trainerData.max_clients} active clients
+                </div>
+                <div className="text-xs text-text-muted mt-1">
+                  Capacity limit: {trainerData.max_clients} clients
+                  {trainerData.specialization &&
+                    ` • Specialization: ${trainerData.specialization}`}
+                </div>
+              </div>
+              {trainerData.client_count >= trainerData.max_clients && (
+                <Badge variant="warning">At Capacity</Badge>
+              )}
+            </div>
+          </Card>
+        )}
 
         {/* Member Profile Photo Card (Item 14: Member cannot edit photo) */}
         {user?.role === "member" && (

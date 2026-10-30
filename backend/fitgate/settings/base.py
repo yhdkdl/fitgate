@@ -77,6 +77,7 @@ INSTALLED_APPS = [
     "apps.payments.apps.PaymentsConfig",
     "apps.memberships.apps.MembershipsConfig",
     "apps.attendance.apps.AttendanceConfig",
+    "apps.trainers.apps.TrainersConfig",
 ]
 
 
