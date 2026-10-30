@@ -11,6 +11,7 @@ from apps.payments.views import (
     GymPaymentListView,
     GymPaymentPublicStatusView,
     MemberPaymentHistoryView,
+    MemberPaymentStatusView,
     ReceiptDetailView,
     ReconcileBankTransfersView,
     RecordBankTransferPaymentView,
@@ -45,6 +46,12 @@ urlpatterns = [
         "api/payments/history/",
         MemberPaymentHistoryView.as_view(),
         name="member-payment-history",
+    ),
+    # Member Self-Service Payment Status by Reference
+    path(
+        "api/payments/status/<str:reference>/",
+        MemberPaymentStatusView.as_view(),
+        name="member-payment-status",
     ),
     # Staff Cash Payment Recording (Owner, Manager, Reception)
     path(

@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { Alert } from "../components/ui/Alert";
 import { Button } from "../components/ui/Button";
 import { Card } from "../components/ui/Card";
@@ -21,6 +21,7 @@ export const LoginScreen: React.FC = () => {
 
   const { login } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const tenant = getTenantFromHostname();
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -49,7 +50,15 @@ export const LoginScreen: React.FC = () => {
 
     try {
       await login({ email: email.trim().toLowerCase(), password });
-      navigate("/dashboard");
+      const from = (
+        location.state as {
+          from?: { pathname: string; search?: string; hash?: string };
+        }
+      )?.from;
+      const destination = from
+        ? `${from.pathname}${from.search || ""}${from.hash || ""}`
+        : "/dashboard";
+      navigate(destination, { replace: true });
     } catch (err: unknown) {
       const errorObj = err as {
         status?: number;

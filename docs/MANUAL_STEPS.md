@@ -83,6 +83,7 @@ The feasibility spike on the real Yegara cPanel host passed all checks:
      7. As a member, pay a plan with a Chapa test card or test phone number. What the owner should see: subscription active, a digital receipt, and an in-app notification.
      8. **Static vs. Dynamic Address:** If the owner's ngrok account can reserve a free fixed address (under Cloud Edge &rarr; Domains in the ngrok dashboard, e.g. `ngrok http --domain=my-fixed-name.ngrok-free.app 8000`), use it so `DEV_TUNNEL_HOST` and the Chapa dashboard address stay the same permanently; otherwise both `DEV_TUNNEL_HOST` in `.env` and the Chapa dashboard webhook URL must be updated every time ngrok restarts.
    - **Troubleshooting List:**
+     - Open http://127.0.0.1:4040 (ngrok viewer) and look for POST /api/webhooks/chapa/: no call = webhook URL missing or ngrok address changed in the Chapa test dashboard; 401 = webhook secret differs or has spaces; 400 = DEV_TUNNEL_HOST missing or backend not restarted; 200 = webhook accepted.
      - **401 on the webhook:** Webhook secret in gym payment settings does not match the secret in the Chapa dashboard, or the HMAC signature check failed.
      - **ngrok address changed:** ngrok restarted without a reserved static domain; update `DEV_TUNNEL_HOST` in `.env`, restart the backend, and update the Chapa dashboard webhook URL.
      - **Keys mixed between test and live:** Public or secret keys have the wrong prefix (`CHAPUBK_LIVE-` / `CHASECK_LIVE-` instead of `_TEST-`), or test keys were generated on a different account.

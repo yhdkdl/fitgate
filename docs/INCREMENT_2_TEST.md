@@ -239,6 +239,13 @@ This document is a comprehensive, numbered click-through guide for project owner
    - Click **Pay online (Chapa)** on any plan and verify immediate redirect to Chapa's hosted checkout page.
 7. If online payment is **Not verified**:
    - Verify that online payment buttons are omitted and the card displays: _"Online payment is not available at this gym. Please pay at the front desk with cash or bank transfer and tell the staff which plan you want."_ (plus gym phone/address if configured).
+8. **Final Member Flow (Pay Online, Chapa, Return Page, Confirmed):**
+   - Click **Pay online (Chapa)** on any active plan and verify redirect to Chapa's hosted checkout page.
+   - Complete payment using Chapa test credentials.
+   - Chapa redirects the member back to the gym return URL: `http://<gym-subdomain>.localhost:5173/membership/payment-complete?tx_ref=<reference>` (or in production `https://<gym-subdomain>.<domain>/membership/payment-complete?tx_ref=<reference>`).
+   - If the member session expired during checkout, verify they are redirected to `/login` and returned automatically to `/membership/payment-complete?tx_ref=<reference>` after logging in.
+   - Observe the return page displaying _"Checking your payment..."_ while polling the member's own payment status every 3 seconds for up to 60 seconds.
+   - Once confirmed via webhook, verify the screen updates to: _"Payment confirmed. Your plan is active."_ with working **View receipt** (opens digital receipt modal) and **Go to My membership** buttons.
 
 ### 5.2 Signed Webhook Simulation
 

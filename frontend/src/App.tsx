@@ -183,6 +183,14 @@ export const App: React.FC = () => {
             </ProtectedRoute>
           }
         />
+        <Route
+          path="/membership/*"
+          element={
+            <ProtectedRoute allowedRoles={["member"]}>
+              <DashboardScreen />
+            </ProtectedRoute>
+          }
+        />
 
         <Route
           path="/measurements"
