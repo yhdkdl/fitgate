@@ -311,6 +311,64 @@ paths:
           description: Email verified successfully
         '400':
           description: Invalid or expired token
+  /api/gym/assignments/:
+    get:
+      operationId: gym_assignments_list
+      description: Returns trainer assignments for the gym.
+      summary: List gym trainer assignments (Owner, Manager)
+      tags:
+      - trainers
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/TrainerAssignmentDetail'
+          description: ''
+        '401':
+          description: Authentication required
+        '403':
+          description: Forbidden
+  /api/gym/assignments/reassign/:
+    post:
+      operationId: gym_assignments_reassign_create
+      description: Closes the previous open assignment and opens a new one.
+      summary: Manually assign or reassign trainer (Owner, Manager)
+      tags:
+      - trainers
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ManualReassignRequestRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/ManualReassignRequestRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/ManualReassignRequestRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ManualReassignResponse'
+          description: ''
+        '400':
+          description: Validation error or capacity confirmation needed
+        '401':
+          description: Authentication required
+        '403':
+          description: Forbidden
+        '404':
+          description: Member or Trainer not found
   /api/gym/attendance/manual-override/:
     post:
       operationId: gym_attendance_manual_override_create
@@ -784,7 +842,6 @@ paths:
           multipart/form-data:
             schema:
               $ref: '#/components/schemas/RecordBodyMetricsRequest'
-        required: true
       security:
       - jwtAuth: []
       responses:
@@ -800,6 +857,46 @@ paths:
           description: Forbidden - Trainer only
         '404':
           description: Member not found
+    patch:
+      operationId: gym_members_metrics_partial_update
+      description: Corrects the latest recorded measurement entry for a member. Trainer
+        ONLY. Audit logged and marked corrected.
+      summary: Correct latest member body metrics
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - gym
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedRecordBodyMetricsRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedRecordBodyMetricsRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedRecordBodyMetricsRequest'
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BodyMetrics'
+          description: ''
+        '400':
+          description: Validation error or not latest entry
+        '403':
+          description: Forbidden - Trainer only for assigned client
+        '404':
+          description: Member or metric not found
   /api/gym/members/{id}/reactivate/:
     post:
       operationId: gym_members_reactivate_create
@@ -1706,6 +1803,29 @@ paths:
           description: Permission denied or trainer module not enabled
         '404':
           description: Trainer not found
+  /api/gym/unassigned-members/:
+    get:
+      operationId: gym_unassigned_members_list
+      description: Returns members who have an active trainer-inclusive plan but no
+        open assignment.
+      summary: List unassigned members on trainer plans (Owner, Manager)
+      tags:
+      - trainers
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/UnassignedMember'
+          description: ''
+        '401':
+          description: Authentication required
+        '403':
+          description: Forbidden
   /api/health/:
     get:
       operationId: health_retrieve
@@ -2714,6 +2834,28 @@ paths:
           description: Permission denied or trainer module not enabled
         '404':
           description: Trainer profile not found
+  /api/trainers/me/clients/:
+    get:
+      operationId: trainers_me_clients_list
+      description: Returns list of active clients assigned to the logged-in trainer.
+      summary: View own assigned clients (Trainer only)
+      tags:
+      - trainers
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/TrainerMyClient'
+          description: ''
+        '401':
+          description: Authentication required
+        '403':
+          description: Forbidden
   /api/webhooks/brevo/:
     post:
       operationId: webhooks_brevo_create
@@ -3058,8 +3200,8 @@ components:
       type: object
       description: |-
         Serializer for member body composition metrics.
-        Exposes BMI and US Navy body-fat estimates, explicitly labeled as estimates,
-        along with recording trainer information.
+        Exposes BMI, US Navy body-fat estimates, waist-to-hip ratio, and lean body mass,
+        along with recording trainer information and correction status.
       properties:
         id:
           type: string
@@ -3105,16 +3247,34 @@ components:
         body_fat_label:
           type: string
           readOnly: true
+        waist_to_hip_ratio:
+          type: number
+          format: double
+          readOnly: true
+        lean_body_mass:
+          type: number
+          format: double
+          readOnly: true
+        lean_body_mass_label:
+          type: string
+          readOnly: true
+        is_corrected:
+          type: boolean
+          readOnly: true
       required:
       - bmi_label
       - body_fat_label
       - estimated_bmi
       - estimated_body_fat_percentage
       - id
+      - is_corrected
+      - lean_body_mass
+      - lean_body_mass_label
       - recorded_at
       - recorded_by
       - recorded_by_name
       - trainer_name
+      - waist_to_hip_ratio
     ChangePasswordRequestRequest:
       type: object
       description: Payload for changing user password.
@@ -3822,6 +3982,31 @@ components:
           minLength: 1
       required:
       - refresh
+    ManualReassignRequestRequest:
+      type: object
+      properties:
+        member_id:
+          type: string
+          format: uuid
+        trainer_id:
+          type: string
+          format: uuid
+        confirm_over_capacity:
+          type: boolean
+          default: false
+      required:
+      - member_id
+      - trainer_id
+    ManualReassignResponse:
+      type: object
+      properties:
+        detail:
+          type: string
+        assignment:
+          $ref: '#/components/schemas/TrainerAssignmentDetail'
+      required:
+      - assignment
+      - detail
     Member:
       type: object
       description: Summary serializer for gym members.
@@ -3881,12 +4066,20 @@ components:
           type: string
           nullable: true
           readOnly: true
+        assigned_trainer:
+          type: string
+          readOnly: true
+        is_on_trainer_plan:
+          type: boolean
+          readOnly: true
       required:
+      - assigned_trainer
       - email
       - email_delivery_message
       - full_name
       - id
       - invitation_status
+      - is_on_trainer_plan
       - joined_at
       - latest_metrics
       - phone
@@ -3948,11 +4141,19 @@ components:
           items:
             $ref: '#/components/schemas/BodyMetrics'
           readOnly: true
+        assigned_trainer:
+          type: string
+          readOnly: true
+        is_on_trainer_plan:
+          type: boolean
+          readOnly: true
       required:
+      - assigned_trainer
       - body_metrics
       - email
       - full_name
       - id
+      - is_on_trainer_plan
       - joined_at
       - latest_metrics
       - phone
@@ -4497,12 +4698,91 @@ components:
           type: boolean
         is_active:
           type: boolean
+    PatchedRecordBodyMetricsRequest:
+      type: object
+      description: |-
+        Serializer for recording or correcting body metrics entries by a Trainer.
+        Weight (kg) and height (cm) are required on new records; all circumference
+        and vitals measurements are optional.
+      properties:
+        weight_kg:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,3}(?:\.\d{0,2})?$
+          nullable: true
+        height_cm:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,3}(?:\.\d{0,2})?$
+          nullable: true
+        waist_cm:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,3}(?:\.\d{0,2})?$
+          nullable: true
+        neck_cm:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,3}(?:\.\d{0,2})?$
+          nullable: true
+        hip_cm:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,3}(?:\.\d{0,2})?$
+          nullable: true
+        chest_cm:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,3}(?:\.\d{0,2})?$
+          nullable: true
+        bicep_left_cm:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,3}(?:\.\d{0,2})?$
+          nullable: true
+        bicep_right_cm:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,3}(?:\.\d{0,2})?$
+          nullable: true
+        thigh_left_cm:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,3}(?:\.\d{0,2})?$
+          nullable: true
+        thigh_right_cm:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,3}(?:\.\d{0,2})?$
+          nullable: true
+        calf_left_cm:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,3}(?:\.\d{0,2})?$
+          nullable: true
+        calf_right_cm:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,3}(?:\.\d{0,2})?$
+          nullable: true
+        resting_heart_rate:
+          type: integer
+          nullable: true
+        body_fat_percentage:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,3}(?:\.\d{0,2})?$
+          nullable: true
+        measurements:
+          type: object
+          additionalProperties: {}
+          nullable: true
     PatchedTrainerCapacityUpdateRequest:
       type: object
       properties:
         max_clients:
           type: integer
-          maximum: 200
+          maximum: 100
           minimum: 1
         specialization:
           type: string
@@ -4845,17 +5125,20 @@ components:
     RecordBodyMetricsRequest:
       type: object
       description: |-
-        Serializer for recording a new body metrics entry by a Trainer.
-        Weight (kg) and height (cm) are required; waist, neck and hip are optional.
+        Serializer for recording or correcting body metrics entries by a Trainer.
+        Weight (kg) and height (cm) are required on new records; all circumference
+        and vitals measurements are optional.
       properties:
         weight_kg:
           type: string
           format: decimal
           pattern: ^-?\d{0,3}(?:\.\d{0,2})?$
+          nullable: true
         height_cm:
           type: string
           format: decimal
           pattern: ^-?\d{0,3}(?:\.\d{0,2})?$
+          nullable: true
         waist_cm:
           type: string
           format: decimal
@@ -4871,13 +5154,53 @@ components:
           format: decimal
           pattern: ^-?\d{0,3}(?:\.\d{0,2})?$
           nullable: true
+        chest_cm:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,3}(?:\.\d{0,2})?$
+          nullable: true
+        bicep_left_cm:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,3}(?:\.\d{0,2})?$
+          nullable: true
+        bicep_right_cm:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,3}(?:\.\d{0,2})?$
+          nullable: true
+        thigh_left_cm:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,3}(?:\.\d{0,2})?$
+          nullable: true
+        thigh_right_cm:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,3}(?:\.\d{0,2})?$
+          nullable: true
+        calf_left_cm:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,3}(?:\.\d{0,2})?$
+          nullable: true
+        calf_right_cm:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,3}(?:\.\d{0,2})?$
+          nullable: true
+        resting_heart_rate:
+          type: integer
+          nullable: true
+        body_fat_percentage:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,3}(?:\.\d{0,2})?$
+          nullable: true
         measurements:
           type: object
           additionalProperties: {}
           nullable: true
-      required:
-      - height_cm
-      - weight_kg
     RecordCashPaymentRequestRequest:
       type: object
       description: Input serializer for gym staff recording a cash payment.
@@ -5200,13 +5523,16 @@ components:
           allOf:
           - $ref: '#/components/schemas/TrainerUser'
           readOnly: true
+        photo_url:
+          type: string
+          readOnly: true
         specialization:
           type: string
           nullable: true
           maxLength: 255
         max_clients:
           type: integer
-          maximum: 200
+          maximum: 100
           minimum: 1
         client_count:
           type: integer
@@ -5223,8 +5549,40 @@ components:
       - client_count
       - created_at
       - id
+      - max_clients
+      - photo_url
       - updated_at
       - user
+    TrainerAssignmentDetail:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        member:
+          type: string
+          readOnly: true
+        trainer:
+          allOf:
+          - $ref: '#/components/schemas/Trainer'
+          readOnly: true
+        assigned_at:
+          type: string
+          format: date-time
+        ended_at:
+          type: string
+          format: date-time
+          nullable: true
+        assigned_by:
+          allOf:
+          - $ref: '#/components/schemas/TrainerUser'
+          readOnly: true
+      required:
+      - assigned_by
+      - id
+      - member
+      - trainer
     TrainerCapacityUpdateResponse:
       type: object
       properties:
@@ -5238,6 +5596,37 @@ components:
       required:
       - detail
       - trainer
+    TrainerMyClient:
+      type: object
+      properties:
+        assignment_id:
+          type: string
+          format: uuid
+        member_id:
+          type: string
+          format: uuid
+        member_name:
+          type: string
+        member_phone:
+          type: string
+        photo_url:
+          type: string
+          default: ''
+        plan_name:
+          type: string
+        assigned_at:
+          type: string
+          format: date-time
+        has_measurements:
+          type: boolean
+          default: false
+      required:
+      - assigned_at
+      - assignment_id
+      - member_id
+      - member_name
+      - member_phone
+      - plan_name
     TrainerUser:
       type: object
       properties:
@@ -5264,6 +5653,38 @@ components:
       - id
       - is_active
       - phone
+    UnassignedMember:
+      type: object
+      properties:
+        member_id:
+          type: string
+          format: uuid
+        full_name:
+          type: string
+        phone:
+          type: string
+        status:
+          type: string
+        plan_name:
+          type: string
+        subscription_id:
+          type: string
+          format: uuid
+        start_date:
+          type: string
+          format: date
+        end_date:
+          type: string
+          format: date
+      required:
+      - end_date
+      - full_name
+      - member_id
+      - phone
+      - plan_name
+      - start_date
+      - status
+      - subscription_id
     UnreconciledBankTransferItem:
       type: object
       description: Owner view of an unreconciled bank transfer.

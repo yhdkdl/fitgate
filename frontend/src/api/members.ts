@@ -42,6 +42,10 @@ export interface BodyMetrics {
   estimated_body_fat_percentage?: number | null;
   bmi_label?: string;
   body_fat_label?: string;
+  waist_to_hip_ratio?: number | null;
+  lean_body_mass?: number | null;
+  lean_body_mass_label?: string | null;
+  is_corrected?: boolean;
 }
 
 export interface Member {
@@ -59,6 +63,13 @@ export interface Member {
   waiver_accepted_at: string;
   latest_metrics?: BodyMetrics | null;
   body_metrics?: BodyMetrics[];
+  assigned_trainer?: {
+    id: string;
+    name: string;
+    specialization?: string;
+    photo_url?: string;
+  } | null;
+  is_on_trainer_plan?: boolean;
 }
 
 export interface PublicMemberRegistrationPayload {
@@ -259,16 +270,28 @@ export async function getMemberMetrics(
 /**
  * Record body metrics for a member by a Trainer.
  */
+export interface RecordMetricsPayload {
+  weight_kg?: number;
+  height_cm?: number;
+  waist_cm?: number | null;
+  neck_cm?: number | null;
+  hip_cm?: number | null;
+  chest_cm?: number | null;
+  bicep_left_cm?: number | null;
+  bicep_right_cm?: number | null;
+  thigh_left_cm?: number | null;
+  thigh_right_cm?: number | null;
+  calf_left_cm?: number | null;
+  calf_right_cm?: number | null;
+  resting_heart_rate?: number | null;
+  body_fat_percentage?: number | null;
+  metric_id?: string;
+  measurements?: Record<string, unknown>;
+}
+
 export async function recordMemberMetrics(
   memberId: string,
-  payload: {
-    weight_kg: number;
-    height_cm: number;
-    waist_cm?: number | null;
-    neck_cm?: number | null;
-    hip_cm?: number | null;
-    measurements?: Record<string, unknown>;
-  }
+  payload: RecordMetricsPayload
 ): Promise<BodyMetrics> {
   const res = await fetch(`/api/gym/members/${memberId}/metrics/`, {
     method: "POST",
@@ -280,6 +303,22 @@ export async function recordMemberMetrics(
   });
 
   return handleResponse<BodyMetrics>(res, "Failed to record body metrics.");
+}
+
+export async function correctMemberMetrics(
+  memberId: string,
+  payload: RecordMetricsPayload
+): Promise<BodyMetrics> {
+  const res = await fetch(`/api/gym/members/${memberId}/metrics/`, {
+    method: "PATCH",
+    headers: {
+      "Content-Type": "application/json",
+      ...getAuthHeader(),
+    },
+    body: JSON.stringify(payload),
+  });
+
+  return handleResponse<BodyMetrics>(res, "Failed to correct body metrics.");
 }
 
 /**

@@ -155,9 +155,17 @@ export const MemberCheckoutCard: React.FC<MemberCheckoutCardProps> = ({
           "We could not start the online payment. Please try again or pay at the front desk (cash or bank transfer)."
         );
       }
-    } catch {
+    } catch (err: unknown) {
+      const errorObj = err as {
+        detail?: string;
+        message?: string;
+        data?: { detail?: string };
+      };
       setErrorMsg(
-        "We could not start the online payment. Please try again or pay at the front desk (cash or bank transfer)."
+        errorObj?.detail ||
+          errorObj?.data?.detail ||
+          errorObj?.message ||
+          "We could not start the online payment. Please try again or pay at the front desk (cash or bank transfer)."
       );
     } finally {
       setCheckingOut(false);

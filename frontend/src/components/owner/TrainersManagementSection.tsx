@@ -5,6 +5,7 @@ import {
   type Trainer,
 } from "../../api/trainers";
 import { Alert } from "../ui/Alert";
+import { AuthenticatedImage } from "../ui/AuthenticatedImage";
 import { Badge } from "../ui/Badge";
 import { Button } from "../ui/Button";
 import { Card } from "../ui/Card";
@@ -69,10 +70,15 @@ export const TrainersManagementSection: React.FC = () => {
     setWarningMsg(null);
 
     const parsed = parseInt(capacityInput, 10);
-    if (isNaN(parsed) || parsed < 1 || parsed > 200) {
+    if (isNaN(parsed) || parsed < 1 || parsed > 100) {
       setModalError(
-        "Maximum clients must be a whole number between 1 and 200."
+        "Maximum clients must be a whole number between 1 and 100."
       );
+      return;
+    }
+
+    if (parsed < editingTrainer.client_count) {
+      setModalError("Reassign some clients first.");
       return;
     }
 
@@ -123,27 +129,19 @@ export const TrainersManagementSection: React.FC = () => {
       </div>
 
       {errorMsg && (
-        <Alert variant="error" dismissible onDismiss={() => setErrorMsg(null)}>
+        <Alert variant="error" onClose={() => setErrorMsg(null)}>
           {errorMsg}
         </Alert>
       )}
 
       {warningMsg && (
-        <Alert
-          variant="warning"
-          dismissible
-          onDismiss={() => setWarningMsg(null)}
-        >
+        <Alert variant="warning" onClose={() => setWarningMsg(null)}>
           {warningMsg}
         </Alert>
       )}
 
       {successMsg && (
-        <Alert
-          variant="success"
-          dismissible
-          onDismiss={() => setSuccessMsg(null)}
-        >
+        <Alert variant="success" onClose={() => setSuccessMsg(null)}>
           {successMsg}
         </Alert>
       )}
@@ -182,7 +180,29 @@ export const TrainersManagementSection: React.FC = () => {
                       className="hover:bg-surface-2/30 transition-colors"
                     >
                       <td className="py-3 px-4 font-medium text-text">
-                        {trainer.user.full_name || "—"}
+                        <div className="flex items-center gap-3">
+                          {trainer.photo_url ? (
+                            <AuthenticatedImage
+                              src={trainer.photo_url}
+                              alt={trainer.user.full_name || "Trainer"}
+                              className="w-9 h-9 rounded-full object-cover border border-border"
+                            />
+                          ) : (
+                            <div className="w-9 h-9 rounded-full bg-primary/20 text-primary font-bold flex items-center justify-center text-xs border border-border">
+                              {(trainer.user.full_name || trainer.user.email || "TR")
+                                .slice(0, 2)
+                                .toUpperCase()}
+                            </div>
+                          )}
+                          <div>
+                            <div className="font-semibold text-text">
+                              {trainer.user.full_name || "—"}
+                            </div>
+                            <div className="text-xs text-text-muted">
+                              {trainer.specialization || "General Fitness"}
+                            </div>
+                          </div>
+                        </div>
                       </td>
                       <td className="py-3 px-4 text-text-muted">
                         <div>{trainer.user.email}</div>
@@ -246,11 +266,7 @@ export const TrainersManagementSection: React.FC = () => {
             </div>
 
             {modalError && (
-              <Alert
-                variant="error"
-                dismissible
-                onDismiss={() => setModalError(null)}
-              >
+              <Alert variant="error" onClose={() => setModalError(null)}>
                 {modalError}
               </Alert>
             )}

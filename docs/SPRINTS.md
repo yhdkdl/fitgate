@@ -376,6 +376,9 @@ _Increment 3 = Sprints 16 and 17 only; Sprints 18 and 19 are deferred to a futur
 
 16. **Trainer profile & capacity** — `Trainer` model, `max_clients` config.
     - A trainer's current client count is correctly derived from active `TrainerAssignment` rows, exposed accurately for Sprint 17.
+    - Owner and Manager can edit a trainer's maximum client capacity (1 to 100); lowering below current active clients is refused with "Reassign some clients first"; change is audit-logged; trainers, reception, member, and super admin cannot edit capacity.
+    - Trainers can upload and replace an optional profile photo in account settings (JPEG/PNG/WebP, up to 2 MB); Owner and Manager see the photo on the Trainers management screen.
+    - Trainer Overview dashboard shows active client ratio ("X of Y clients"), the 5 newest assigned clients, and the count of assigned clients with no measurements recorded yet. "My clients" view lists all assigned clients with photos, names, phone numbers, plans, and assignment dates.
 
 - [x] Status: done — merged to develop (tag sprint-16-done)
 
@@ -385,6 +388,13 @@ _Increment 3 = Sprints 16 and 17 only; Sprints 18 and 19 are deferred to a futur
     - Assignment happens only for members on trainer-inclusive plans. The trainer and the member are both notified of a new or changed assignment.
     - Manual reassignment closes the prior `TrainerAssignment` (`ended_at`) and opens a new one; a member never has two open assignments. Manual reassignment may exceed capacity after an explicit confirmation, and is audit-logged.
     - Deactivating a trainer who has active clients is rejected unless the same action reassigns every one of them; a deactivated trainer's clients are never left silently unassigned.
+    - Members on trainer-inclusive plans see a "My trainer" card on Home and Membership screens with assigned trainer photo, name, and specialization ("Trainer not assigned yet" if unassigned; hidden on standard plans). Server enforces private photo access to the current assigned trainer only.
+    - Strict measurement and photo scoping: Trainers can view, search, record measurements for, and view profile photos of ONLY their currently assigned active clients (enforced on server; 403 on non-assigned or ended assignments). Owner/Manager have view-only access across all members. Super Admin and Reception denied.
+    - Extended body measurement fields: Chest (50–200 cm), bicep L/R (15–80 cm), thigh L/R (30–120 cm), calf L/R (20–80 cm), resting heart rate (30–220 bpm integer), and trainer-measured body fat % (2–70%) stored in flexible metrics.
+    - Automated derived values: Waist-to-hip ratio (waist / hip) and lean body mass (`weight * (1 - body fat % / 100)` labeled "measured" with body fat % or "estimate" formula).
+    - Measurement correction rule: Assigned trainer records a new entry for each session; trainer can correct only the latest entry, marking it "corrected" and audit-logging old and new values. Older entries remain immutable.
+
+- [x] Status: done (GATE reached — branch feature/sprint-17-trainer-assignment verified, awaiting owner approval to continue)
 
 18. **Trainer availability schedule.** (Deferred to a future version, see docs/SPEC.md §10)
     - Availability reflects added and removed slots when queried per trainer (a trainer maintains their own weekly availability).

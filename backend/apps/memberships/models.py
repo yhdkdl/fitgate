@@ -7,7 +7,12 @@ from django.conf import settings
 from django.db import models
 from django.utils import timezone
 
-from apps.memberships.calculations import calculate_bmi, calculate_us_navy_body_fat
+from apps.memberships.calculations import (
+    calculate_bmi,
+    calculate_lean_body_mass,
+    calculate_us_navy_body_fat,
+    calculate_waist_to_hip_ratio,
+)
 from apps.tenants.managers import TenantManager, TenantQuerySet
 from apps.tenants.models import TenantAwareModel
 
@@ -286,6 +291,31 @@ class BodyMetrics(TenantAwareModel):
     def estimated_body_fat_percentage(self) -> Optional[float]:
         gender = self.member.gender if self.member_id else None
         return calculate_us_navy_body_fat(gender, self.height_cm, self.measurements)
+
+    @property
+    def waist_to_hip_ratio(self) -> Optional[float]:
+        return calculate_waist_to_hip_ratio(self.measurements)
+
+    @property
+    def lean_body_mass(self) -> Optional[float]:
+        bf = None
+        if self.measurements and isinstance(self.measurements, dict):
+            bf = self.measurements.get("body_fat_percentage")
+        if bf is None:
+            bf = self.estimated_body_fat_percentage
+        return calculate_lean_body_mass(self.weight_kg, bf)
+
+    @property
+    def lean_body_mass_label(self) -> str:
+        if (
+            self.measurements
+            and isinstance(self.measurements, dict)
+            and self.measurements.get("body_fat_percentage") is not None
+        ):
+            return "measured"
+        if self.estimated_body_fat_percentage is not None:
+            return "estimate"
+        return "—"
 
 
 class MemberSubscription(TenantAwareModel):

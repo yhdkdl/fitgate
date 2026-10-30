@@ -208,6 +208,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/gym/assignments/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List gym trainer assignments (Owner, Manager)
+         * @description Returns trainer assignments for the gym.
+         */
+        get: operations["gym_assignments_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/gym/assignments/reassign/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Manually assign or reassign trainer (Owner, Manager)
+         * @description Closes the previous open assignment and opens a new one.
+         */
+        post: operations["gym_assignments_reassign_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/gym/attendance/manual-override/": {
         parameters: {
             query?: never;
@@ -477,7 +517,11 @@ export interface paths {
         delete?: never;
         options?: never;
         head?: never;
-        patch?: never;
+        /**
+         * Correct latest member body metrics
+         * @description Corrects the latest recorded measurement entry for a member. Trainer ONLY. Audit logged and marked corrected.
+         */
+        patch: operations["gym_members_metrics_partial_update"];
         trace?: never;
     };
     "/api/gym/members/{id}/reactivate/": {
@@ -1027,6 +1071,26 @@ export interface paths {
          * @description Updates a trainer's maximum client capacity (1 to 200). Warns if set below current client count.
          */
         patch: operations["gym_trainers_partial_update"];
+        trace?: never;
+    };
+    "/api/gym/unassigned-members/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List unassigned members on trainer plans (Owner, Manager)
+         * @description Returns members who have an active trainer-inclusive plan but no open assignment.
+         */
+        get: operations["gym_unassigned_members_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/api/health/": {
@@ -1715,6 +1779,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/trainers/me/clients/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * View own assigned clients (Trainer only)
+         * @description Returns list of active clients assigned to the logged-in trainer.
+         */
+        get: operations["trainers_me_clients_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/webhooks/brevo/": {
         parameters: {
             query?: never;
@@ -1909,8 +1993,8 @@ export interface components {
         BlankEnum: "";
         /**
          * @description Serializer for member body composition metrics.
-         *     Exposes BMI and US Navy body-fat estimates, explicitly labeled as estimates,
-         *     along with recording trainer information.
+         *     Exposes BMI, US Navy body-fat estimates, waist-to-hip ratio, and lean body mass,
+         *     along with recording trainer information and correction status.
          */
         BodyMetrics: {
             /** Format: uuid */
@@ -1932,6 +2016,12 @@ export interface components {
             readonly estimated_body_fat_percentage: number;
             readonly bmi_label: string;
             readonly body_fat_label: string;
+            /** Format: double */
+            readonly waist_to_hip_ratio: number;
+            /** Format: double */
+            readonly lean_body_mass: number;
+            readonly lean_body_mass_label: string;
+            readonly is_corrected: boolean;
         };
         /** @description Payload for changing user password. */
         ChangePasswordRequestRequest: {
@@ -2223,6 +2313,18 @@ export interface components {
         LogoutRequestRequest: {
             refresh: string;
         };
+        ManualReassignRequestRequest: {
+            /** Format: uuid */
+            member_id: string;
+            /** Format: uuid */
+            trainer_id: string;
+            /** @default false */
+            confirm_over_capacity: boolean;
+        };
+        ManualReassignResponse: {
+            detail: string;
+            assignment: components["schemas"]["TrainerAssignmentDetail"];
+        };
         /** @description Summary serializer for gym members. */
         Member: {
             /** Format: uuid */
@@ -2245,6 +2347,8 @@ export interface components {
             readonly latest_metrics: components["schemas"]["BodyMetrics"];
             readonly invitation_status: string | null;
             readonly email_delivery_message: string | null;
+            readonly assigned_trainer: string;
+            readonly is_on_trainer_plan: boolean;
         };
         /** @description Detailed member profile including historical body metrics and calculations. */
         MemberDetail: {
@@ -2267,6 +2371,8 @@ export interface components {
             readonly waiver_accepted_at: string;
             readonly latest_metrics: components["schemas"]["BodyMetrics"];
             readonly body_metrics: components["schemas"]["BodyMetrics"][];
+            readonly assigned_trainer: string;
+            readonly is_on_trainer_plan: boolean;
         };
         /** @description Detailed read serializer for MemberFreeze records. */
         MemberFreeze: {
@@ -2511,6 +2617,43 @@ export interface components {
             trainer_inclusive?: boolean;
             is_active?: boolean;
         };
+        /**
+         * @description Serializer for recording or correcting body metrics entries by a Trainer.
+         *     Weight (kg) and height (cm) are required on new records; all circumference
+         *     and vitals measurements are optional.
+         */
+        PatchedRecordBodyMetricsRequest: {
+            /** Format: decimal */
+            weight_kg?: string | null;
+            /** Format: decimal */
+            height_cm?: string | null;
+            /** Format: decimal */
+            waist_cm?: string | null;
+            /** Format: decimal */
+            neck_cm?: string | null;
+            /** Format: decimal */
+            hip_cm?: string | null;
+            /** Format: decimal */
+            chest_cm?: string | null;
+            /** Format: decimal */
+            bicep_left_cm?: string | null;
+            /** Format: decimal */
+            bicep_right_cm?: string | null;
+            /** Format: decimal */
+            thigh_left_cm?: string | null;
+            /** Format: decimal */
+            thigh_right_cm?: string | null;
+            /** Format: decimal */
+            calf_left_cm?: string | null;
+            /** Format: decimal */
+            calf_right_cm?: string | null;
+            resting_heart_rate?: number | null;
+            /** Format: decimal */
+            body_fat_percentage?: string | null;
+            measurements?: {
+                [key: string]: unknown;
+            } | null;
+        };
         PatchedTrainerCapacityUpdateRequest: {
             max_clients?: number;
             specialization?: string | null;
@@ -2640,20 +2783,38 @@ export interface components {
             detail: string;
         };
         /**
-         * @description Serializer for recording a new body metrics entry by a Trainer.
-         *     Weight (kg) and height (cm) are required; waist, neck and hip are optional.
+         * @description Serializer for recording or correcting body metrics entries by a Trainer.
+         *     Weight (kg) and height (cm) are required on new records; all circumference
+         *     and vitals measurements are optional.
          */
         RecordBodyMetricsRequest: {
             /** Format: decimal */
-            weight_kg: string;
+            weight_kg?: string | null;
             /** Format: decimal */
-            height_cm: string;
+            height_cm?: string | null;
             /** Format: decimal */
             waist_cm?: string | null;
             /** Format: decimal */
             neck_cm?: string | null;
             /** Format: decimal */
             hip_cm?: string | null;
+            /** Format: decimal */
+            chest_cm?: string | null;
+            /** Format: decimal */
+            bicep_left_cm?: string | null;
+            /** Format: decimal */
+            bicep_right_cm?: string | null;
+            /** Format: decimal */
+            thigh_left_cm?: string | null;
+            /** Format: decimal */
+            thigh_right_cm?: string | null;
+            /** Format: decimal */
+            calf_left_cm?: string | null;
+            /** Format: decimal */
+            calf_right_cm?: string | null;
+            resting_heart_rate?: number | null;
+            /** Format: decimal */
+            body_fat_percentage?: string | null;
             measurements?: {
                 [key: string]: unknown;
             } | null;
@@ -2795,18 +2956,45 @@ export interface components {
             /** Format: uuid */
             readonly id: string;
             readonly user: components["schemas"]["TrainerUser"];
+            readonly photo_url: string;
             specialization?: string | null;
-            max_clients?: number;
+            max_clients: number;
             readonly client_count: number;
             /** Format: date-time */
             readonly created_at: string;
             /** Format: date-time */
             readonly updated_at: string;
         };
+        TrainerAssignmentDetail: {
+            /** Format: uuid */
+            readonly id: string;
+            readonly member: string;
+            readonly trainer: components["schemas"]["Trainer"];
+            /** Format: date-time */
+            assigned_at?: string;
+            /** Format: date-time */
+            ended_at?: string | null;
+            readonly assigned_by: components["schemas"]["TrainerUser"];
+        };
         TrainerCapacityUpdateResponse: {
             detail: string;
             warning?: string | null;
             trainer: components["schemas"]["Trainer"];
+        };
+        TrainerMyClient: {
+            /** Format: uuid */
+            assignment_id: string;
+            /** Format: uuid */
+            member_id: string;
+            member_name: string;
+            member_phone: string;
+            /** @default  */
+            photo_url: string;
+            plan_name: string;
+            /** Format: date-time */
+            assigned_at: string;
+            /** @default false */
+            has_measurements: boolean;
         };
         TrainerUser: {
             /** Format: uuid */
@@ -2816,6 +3004,20 @@ export interface components {
             readonly full_name: string;
             readonly phone: string;
             readonly is_active: boolean;
+        };
+        UnassignedMember: {
+            /** Format: uuid */
+            member_id: string;
+            full_name: string;
+            phone: string;
+            status: string;
+            plan_name: string;
+            /** Format: uuid */
+            subscription_id: string;
+            /** Format: date */
+            start_date: string;
+            /** Format: date */
+            end_date: string;
         };
         /** @description Owner view of an unreconciled bank transfer. */
         UnreconciledBankTransferItem: {
@@ -3255,6 +3457,92 @@ export interface operations {
             };
             /** @description Invalid or expired token */
             400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    gym_assignments_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TrainerAssignmentDetail"][];
+                };
+            };
+            /** @description Authentication required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    gym_assignments_reassign_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ManualReassignRequestRequest"];
+                "application/x-www-form-urlencoded": components["schemas"]["ManualReassignRequestRequest"];
+                "multipart/form-data": components["schemas"]["ManualReassignRequestRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ManualReassignResponse"];
+                };
+            };
+            /** @description Validation error or capacity confirmation needed */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Authentication required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Member or Trainer not found */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -3749,7 +4037,7 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody: {
+        requestBody?: {
             content: {
                 "application/json": components["schemas"]["RecordBodyMetricsRequest"];
                 "application/x-www-form-urlencoded": components["schemas"]["RecordBodyMetricsRequest"];
@@ -3780,6 +4068,54 @@ export interface operations {
                 content?: never;
             };
             /** @description Member not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    gym_members_metrics_partial_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["PatchedRecordBodyMetricsRequest"];
+                "application/x-www-form-urlencoded": components["schemas"]["PatchedRecordBodyMetricsRequest"];
+                "multipart/form-data": components["schemas"]["PatchedRecordBodyMetricsRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BodyMetrics"];
+                };
+            };
+            /** @description Validation error or not latest entry */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Forbidden - Trainer only for assigned client */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Member or metric not found */
             404: {
                 headers: {
                     [name: string]: unknown;
@@ -4844,6 +5180,39 @@ export interface operations {
             };
             /** @description Trainer not found */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    gym_unassigned_members_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UnassignedMember"][];
+                };
+            };
+            /** @description Authentication required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Forbidden */
+            403: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -6024,6 +6393,39 @@ export interface operations {
             };
             /** @description Trainer profile not found */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    trainers_me_clients_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TrainerMyClient"][];
+                };
+            };
+            /** @description Authentication required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Forbidden */
+            403: {
                 headers: {
                     [name: string]: unknown;
                 };

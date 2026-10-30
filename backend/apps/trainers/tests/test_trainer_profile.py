@@ -373,16 +373,23 @@ class TestTrainerCapacityUpdatesAndValidation:
         assert trainer.client_count == 2
 
         client = auth_client(api_client, owner_user, gym_tenant.subdomain)
-        # Lower capacity to 1 (below 2 active clients)
+        # Lower capacity to 1 (below 2 active clients) - refused per Sprint 17 Gate Item I
         resp = client.patch(
             f"/api/gym/trainers/{trainer.id}/",
             {"max_clients": 1},
             format="json",
         )
+        assert resp.status_code == 400
+        assert "Reassign some clients first." in str(resp.data)
+
+        # Update capacity to 5 (above active clients) - accepted and audit-logged
+        resp = client.patch(
+            f"/api/gym/trainers/{trainer.id}/",
+            {"max_clients": 5},
+            format="json",
+        )
         assert resp.status_code == 200
-        assert resp.data["trainer"]["max_clients"] == 1
-        assert resp.data["warning"] is not None
-        assert "below the current active client count of 2" in resp.data["warning"]
+        assert resp.data["trainer"]["max_clients"] == 5
 
         # Audit log verification
         log = AuditLog.all_objects.filter(
@@ -393,7 +400,7 @@ class TestTrainerCapacityUpdatesAndValidation:
         assert log.actor == owner_user
         assert log.gym == gym_tenant
         assert log.metadata["old_max_clients"] == 20
-        assert log.metadata["new_max_clients"] == 1
+        assert log.metadata["new_max_clients"] == 5
         assert log.metadata["current_client_count"] == 2
 
 

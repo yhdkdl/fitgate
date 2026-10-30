@@ -31,7 +31,11 @@ class HasTrainerModule(BasePermission):
 
         config = getattr(tenant, "config", None)
         if not config or not config.has_trainer_module:
-            raise PermissionDenied("Trainer module is not enabled for this gym.")
+            from apps.tenants.models import GymConfig
+
+            config = GymConfig.objects.filter(gym_id=tenant.id).first()
+            if not config or not config.has_trainer_module:
+                raise PermissionDenied("Trainer module is not enabled for this gym.")
 
         return True
 

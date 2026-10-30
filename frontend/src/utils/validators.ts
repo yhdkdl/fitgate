@@ -354,6 +354,136 @@ export function validateHip(
 }
 
 /**
+ * Validate chest (50 to 200 cm, max 2 decimals).
+ */
+export function validateChest(
+  value: number | string | null | undefined
+): string | null {
+  if (value === "" || value === null || value === undefined) {
+    return null;
+  }
+  const num = Number(value);
+  if (isNaN(num)) {
+    return "Chest must be a valid number.";
+  }
+  if (!checkDecimalPlaces(value)) {
+    return "Chest cannot have more than 2 decimal places.";
+  }
+  if (num < 50 || num > 200) {
+    return "Chest circumference must be between 50 and 200 cm.";
+  }
+  return null;
+}
+
+/**
+ * Validate bicep (15 to 80 cm, max 2 decimals).
+ */
+export function validateBicep(
+  value: number | string | null | undefined
+): string | null {
+  if (value === "" || value === null || value === undefined) {
+    return null;
+  }
+  const num = Number(value);
+  if (isNaN(num)) {
+    return "Bicep must be a valid number.";
+  }
+  if (!checkDecimalPlaces(value)) {
+    return "Bicep cannot have more than 2 decimal places.";
+  }
+  if (num < 15 || num > 80) {
+    return "Bicep circumference must be between 15 and 80 cm.";
+  }
+  return null;
+}
+
+/**
+ * Validate thigh (30 to 120 cm, max 2 decimals).
+ */
+export function validateThigh(
+  value: number | string | null | undefined
+): string | null {
+  if (value === "" || value === null || value === undefined) {
+    return null;
+  }
+  const num = Number(value);
+  if (isNaN(num)) {
+    return "Thigh must be a valid number.";
+  }
+  if (!checkDecimalPlaces(value)) {
+    return "Thigh cannot have more than 2 decimal places.";
+  }
+  if (num < 30 || num > 120) {
+    return "Thigh circumference must be between 30 and 120 cm.";
+  }
+  return null;
+}
+
+/**
+ * Validate calf (20 to 80 cm, max 2 decimals).
+ */
+export function validateCalf(
+  value: number | string | null | undefined
+): string | null {
+  if (value === "" || value === null || value === undefined) {
+    return null;
+  }
+  const num = Number(value);
+  if (isNaN(num)) {
+    return "Calf must be a valid number.";
+  }
+  if (!checkDecimalPlaces(value)) {
+    return "Calf cannot have more than 2 decimal places.";
+  }
+  if (num < 20 || num > 80) {
+    return "Calf circumference must be between 20 and 80 cm.";
+  }
+  return null;
+}
+
+/**
+ * Validate resting heart rate (30 to 220 bpm, whole number).
+ */
+export function validateRestingHeartRate(
+  value: number | string | null | undefined
+): string | null {
+  if (value === "" || value === null || value === undefined) {
+    return null;
+  }
+  const str = String(value).trim();
+  const num = Number(str);
+  if (isNaN(num) || !Number.isInteger(num)) {
+    return "Resting heart rate must be a whole number.";
+  }
+  if (num < 30 || num > 220) {
+    return "Resting heart rate must be between 30 and 220 bpm.";
+  }
+  return null;
+}
+
+/**
+ * Validate body fat % (2 to 70 %, max 2 decimals).
+ */
+export function validateBodyFatPercentage(
+  value: number | string | null | undefined
+): string | null {
+  if (value === "" || value === null || value === undefined) {
+    return null;
+  }
+  const num = Number(value);
+  if (isNaN(num)) {
+    return "Body fat percentage must be a valid number.";
+  }
+  if (!checkDecimalPlaces(value)) {
+    return "Body fat percentage cannot have more than 2 decimal places.";
+  }
+  if (num < 2 || num > 70) {
+    return "Body fat percentage must be between 2 and 70 %.";
+  }
+  return null;
+}
+
+/**
  * Validate payment amount (> 0, <= 10,000,000 ETB, max 2 decimals).
  */
 export function validatePaymentAmount(value: number | string): string | null {

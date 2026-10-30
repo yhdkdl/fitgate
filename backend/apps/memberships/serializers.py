@@ -5,13 +5,19 @@ from rest_framework import serializers
 from apps.accounts.models import User
 from apps.core.validators import (
     validate_and_normalize_phone,
+    validate_bicep,
+    validate_body_fat_percentage,
+    validate_calf,
+    validate_chest,
     validate_date_of_birth,
     validate_email_address,
     validate_height,
     validate_hip,
     validate_name,
     validate_neck,
+    validate_resting_heart_rate,
     validate_text_length,
+    validate_thigh,
     validate_waist,
     validate_weight,
 )
@@ -26,12 +32,16 @@ from apps.memberships.models import (
 class BodyMetricsSerializer(serializers.ModelSerializer):
     """
     Serializer for member body composition metrics.
-    Exposes BMI and US Navy body-fat estimates, explicitly labeled as estimates,
-    along with recording trainer information.
+    Exposes BMI, US Navy body-fat estimates, waist-to-hip ratio, and lean body mass,
+    along with recording trainer information and correction status.
     """
 
     estimated_bmi = serializers.FloatField(read_only=True)
     estimated_body_fat_percentage = serializers.FloatField(read_only=True)
+    waist_to_hip_ratio = serializers.FloatField(read_only=True)
+    lean_body_mass = serializers.FloatField(read_only=True)
+    lean_body_mass_label = serializers.CharField(read_only=True)
+    is_corrected = serializers.SerializerMethodField()
     bmi_label = serializers.SerializerMethodField()
     body_fat_label = serializers.SerializerMethodField()
     trainer_name = serializers.SerializerMethodField()
@@ -52,6 +62,10 @@ class BodyMetricsSerializer(serializers.ModelSerializer):
             "estimated_body_fat_percentage",
             "bmi_label",
             "body_fat_label",
+            "waist_to_hip_ratio",
+            "lean_body_mass",
+            "lean_body_mass_label",
+            "is_corrected",
         ]
         read_only_fields = [
             "id",
@@ -63,12 +77,29 @@ class BodyMetricsSerializer(serializers.ModelSerializer):
             "estimated_body_fat_percentage",
             "bmi_label",
             "body_fat_label",
+            "waist_to_hip_ratio",
+            "lean_body_mass",
+            "lean_body_mass_label",
+            "is_corrected",
         ]
+
+    def get_is_corrected(self, obj: BodyMetrics) -> bool:
+        if not obj.measurements or not isinstance(obj.measurements, dict):
+            return False
+        return bool(
+            obj.measurements.get("is_corrected") or obj.measurements.get("corrected")
+        )
 
     def get_bmi_label(self, obj: BodyMetrics) -> str:
         return "estimate"
 
     def get_body_fat_label(self, obj: BodyMetrics) -> str:
+        if (
+            obj.measurements
+            and isinstance(obj.measurements, dict)
+            and obj.measurements.get("body_fat_percentage") is not None
+        ):
+            return "measured"
         return "estimate"
 
     def get_trainer_name(self, obj: BodyMetrics) -> str:
@@ -87,6 +118,8 @@ class MemberSerializer(serializers.ModelSerializer):
     latest_metrics = BodyMetricsSerializer(read_only=True)
     invitation_status = serializers.SerializerMethodField()
     email_delivery_message = serializers.SerializerMethodField()
+    assigned_trainer = serializers.SerializerMethodField(read_only=True)
+    is_on_trainer_plan = serializers.SerializerMethodField(read_only=True)
 
     class Meta:
         model = Member
@@ -106,6 +139,8 @@ class MemberSerializer(serializers.ModelSerializer):
             "latest_metrics",
             "invitation_status",
             "email_delivery_message",
+            "assigned_trainer",
+            "is_on_trainer_plan",
         ]
         read_only_fields = [
             "id",
@@ -116,6 +151,7 @@ class MemberSerializer(serializers.ModelSerializer):
             "latest_metrics",
             "invitation_status",
             "email_delivery_message",
+            "assigned_trainer",
         ]
 
     def get_invitation_status(self, obj) -> Optional[str]:
@@ -164,6 +200,26 @@ class MemberSerializer(serializers.ModelSerializer):
             return "Fix the address and resend"
         return None
 
+    def get_assigned_trainer(self, obj):
+        active_assignment = (
+            obj.trainer_assignments.filter(ended_at__isnull=True)
+            .select_related("trainer__user")
+            .first()
+        )
+        if active_assignment and active_assignment.trainer:
+            t_user = active_assignment.trainer.user
+            return {
+                "id": str(active_assignment.trainer.id),
+                "name": t_user.full_name or t_user.email,
+                "specialization": active_assignment.trainer.specialization or "",
+                "photo_url": active_assignment.trainer.photo_url or "",
+            }
+        return None
+
+    def get_is_on_trainer_plan(self, obj) -> bool:
+        sub = obj.active_subscription
+        return bool(sub and sub.plan and sub.plan.trainer_inclusive)
+
     def to_representation(self, instance):
         request = self.context.get("request")
         user = getattr(request, "user", None) if request else None
@@ -183,6 +239,27 @@ class MemberSerializer(serializers.ModelSerializer):
         if role in (User.ROLE_RECEPTION, User.ROLE_SUPER_ADMIN):
             data["latest_metrics"] = None
 
+        active_assignment = (
+            instance.trainer_assignments.filter(ended_at__isnull=True)
+            .select_related("trainer__user")
+            .first()
+        )
+        if active_assignment and active_assignment.trainer:
+            t_user = active_assignment.trainer.user
+            data["assigned_trainer"] = {
+                "id": str(active_assignment.trainer.id),
+                "name": t_user.full_name or t_user.email,
+                "specialization": active_assignment.trainer.specialization or "",
+                "photo_url": active_assignment.trainer.photo_url or "",
+            }
+        else:
+            data["assigned_trainer"] = None
+
+        active_sub = instance.active_subscription
+        data["is_on_trainer_plan"] = bool(
+            active_sub and active_sub.plan and active_sub.plan.trainer_inclusive
+        )
+
         return data
 
 
@@ -192,6 +269,8 @@ class MemberDetailSerializer(serializers.ModelSerializer):
     email = serializers.EmailField(source="user.email", read_only=True)
     latest_metrics = BodyMetricsSerializer(read_only=True)
     body_metrics = BodyMetricsSerializer(many=True, read_only=True)
+    assigned_trainer = serializers.SerializerMethodField(read_only=True)
+    is_on_trainer_plan = serializers.SerializerMethodField(read_only=True)
 
     class Meta:
         model = Member
@@ -210,6 +289,8 @@ class MemberDetailSerializer(serializers.ModelSerializer):
             "waiver_accepted_at",
             "latest_metrics",
             "body_metrics",
+            "assigned_trainer",
+            "is_on_trainer_plan",
         ]
         read_only_fields = [
             "id",
@@ -219,7 +300,28 @@ class MemberDetailSerializer(serializers.ModelSerializer):
             "waiver_accepted_at",
             "latest_metrics",
             "body_metrics",
+            "assigned_trainer",
         ]
+
+    def get_assigned_trainer(self, obj):
+        active_assignment = (
+            obj.trainer_assignments.filter(ended_at__isnull=True)
+            .select_related("trainer__user")
+            .first()
+        )
+        if active_assignment and active_assignment.trainer:
+            t_user = active_assignment.trainer.user
+            return {
+                "id": str(active_assignment.trainer.id),
+                "name": t_user.full_name or t_user.email,
+                "specialization": active_assignment.trainer.specialization or "",
+                "photo_url": active_assignment.trainer.photo_url or "",
+            }
+        return None
+
+    def get_is_on_trainer_plan(self, obj) -> bool:
+        sub = obj.active_subscription
+        return bool(sub and sub.plan and sub.plan.trainer_inclusive)
 
     def to_representation(self, instance):
         data = super().to_representation(instance)
@@ -231,6 +333,27 @@ class MemberDetailSerializer(serializers.ModelSerializer):
         if role in (User.ROLE_RECEPTION, User.ROLE_SUPER_ADMIN):
             data["latest_metrics"] = None
             data["body_metrics"] = []
+
+        active_assignment = (
+            instance.trainer_assignments.filter(ended_at__isnull=True)
+            .select_related("trainer__user")
+            .first()
+        )
+        if active_assignment and active_assignment.trainer:
+            t_user = active_assignment.trainer.user
+            data["assigned_trainer"] = {
+                "id": str(active_assignment.trainer.id),
+                "name": t_user.full_name or t_user.email,
+                "specialization": active_assignment.trainer.specialization or "",
+                "photo_url": active_assignment.trainer.photo_url or "",
+            }
+        else:
+            data["assigned_trainer"] = None
+
+        active_sub = instance.active_subscription
+        data["is_on_trainer_plan"] = bool(
+            active_sub and active_sub.plan and active_sub.plan.trainer_inclusive
+        )
 
         return data
 
@@ -434,19 +557,22 @@ class MemberUpdateSerializer(serializers.ModelSerializer):
 
 class RecordBodyMetricsSerializer(serializers.Serializer):
     """
-    Serializer for recording a new body metrics entry by a Trainer.
-    Weight (kg) and height (cm) are required; waist, neck and hip are optional.
+    Serializer for recording or correcting body metrics entries by a Trainer.
+    Weight (kg) and height (cm) are required on new records; all circumference
+    and vitals measurements are optional.
     """
 
     weight_kg = serializers.DecimalField(
         max_digits=5,
         decimal_places=2,
-        required=True,
+        required=False,
+        allow_null=True,
     )
     height_cm = serializers.DecimalField(
         max_digits=5,
         decimal_places=2,
-        required=True,
+        required=False,
+        allow_null=True,
     )
     waist_cm = serializers.DecimalField(
         max_digits=5,
@@ -466,16 +592,72 @@ class RecordBodyMetricsSerializer(serializers.Serializer):
         required=False,
         allow_null=True,
     )
+    chest_cm = serializers.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        required=False,
+        allow_null=True,
+    )
+    bicep_left_cm = serializers.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        required=False,
+        allow_null=True,
+    )
+    bicep_right_cm = serializers.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        required=False,
+        allow_null=True,
+    )
+    thigh_left_cm = serializers.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        required=False,
+        allow_null=True,
+    )
+    thigh_right_cm = serializers.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        required=False,
+        allow_null=True,
+    )
+    calf_left_cm = serializers.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        required=False,
+        allow_null=True,
+    )
+    calf_right_cm = serializers.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        required=False,
+        allow_null=True,
+    )
+    resting_heart_rate = serializers.IntegerField(
+        required=False,
+        allow_null=True,
+    )
+    body_fat_percentage = serializers.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        required=False,
+        allow_null=True,
+    )
     measurements = serializers.DictField(
         required=False,
         allow_null=True,
     )
 
     def validate_weight_kg(self, value):
-        return validate_weight(value)
+        if value is not None:
+            return validate_weight(value)
+        return value
 
     def validate_height_cm(self, value):
-        return validate_height(value)
+        if value is not None:
+            return validate_height(value)
+        return value
 
     def validate_waist_cm(self, value):
         return validate_waist(value)
@@ -485,6 +667,64 @@ class RecordBodyMetricsSerializer(serializers.Serializer):
 
     def validate_hip_cm(self, value):
         return validate_hip(value)
+
+    def validate_chest_cm(self, value):
+        return validate_chest(value)
+
+    def validate_bicep_left_cm(self, value):
+        return validate_bicep(value)
+
+    def validate_bicep_right_cm(self, value):
+        return validate_bicep(value)
+
+    def validate_thigh_left_cm(self, value):
+        return validate_thigh(value)
+
+    def validate_thigh_right_cm(self, value):
+        return validate_thigh(value)
+
+    def validate_calf_left_cm(self, value):
+        return validate_calf(value)
+
+    def validate_calf_right_cm(self, value):
+        return validate_calf(value)
+
+    def validate_resting_heart_rate(self, value):
+        return validate_resting_heart_rate(value)
+
+    def validate_body_fat_percentage(self, value):
+        return validate_body_fat_percentage(value)
+
+    def validate(self, attrs):
+        # Also validate fields passed within measurements dict if provided
+        meas = attrs.get("measurements")
+        if meas and isinstance(meas, dict):
+            if "chest_cm" in meas and attrs.get("chest_cm") is None:
+                attrs["chest_cm"] = validate_chest(meas["chest_cm"])
+            if "bicep_left_cm" in meas and attrs.get("bicep_left_cm") is None:
+                attrs["bicep_left_cm"] = validate_bicep(meas["bicep_left_cm"])
+            if "bicep_right_cm" in meas and attrs.get("bicep_right_cm") is None:
+                attrs["bicep_right_cm"] = validate_bicep(meas["bicep_right_cm"])
+            if "thigh_left_cm" in meas and attrs.get("thigh_left_cm") is None:
+                attrs["thigh_left_cm"] = validate_thigh(meas["thigh_left_cm"])
+            if "thigh_right_cm" in meas and attrs.get("thigh_right_cm") is None:
+                attrs["thigh_right_cm"] = validate_thigh(meas["thigh_right_cm"])
+            if "calf_left_cm" in meas and attrs.get("calf_left_cm") is None:
+                attrs["calf_left_cm"] = validate_calf(meas["calf_left_cm"])
+            if "calf_right_cm" in meas and attrs.get("calf_right_cm") is None:
+                attrs["calf_right_cm"] = validate_calf(meas["calf_right_cm"])
+            if "resting_heart_rate" in meas and attrs.get("resting_heart_rate") is None:
+                attrs["resting_heart_rate"] = validate_resting_heart_rate(
+                    meas["resting_heart_rate"]
+                )
+            if (
+                "body_fat_percentage" in meas
+                and attrs.get("body_fat_percentage") is None
+            ):
+                attrs["body_fat_percentage"] = validate_body_fat_percentage(
+                    meas["body_fat_percentage"]
+                )
+        return attrs
 
 
 class MembershipPlanSerializer(serializers.ModelSerializer):

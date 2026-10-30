@@ -172,6 +172,16 @@ class GymMemberListCreateView(APIView):
             "body_metrics"
         )
 
+        if getattr(request.user, "role", None) == User.ROLE_TRAINER:
+            from apps.trainers.models import TrainerAssignment
+
+            assigned_member_ids = TrainerAssignment.objects.filter(
+                trainer__user=request.user,
+                ended_at__isnull=True,
+                gym=request.tenant,
+            ).values_list("member_id", flat=True)
+            queryset = queryset.filter(id__in=assigned_member_ids)
+
         search = request.query_params.get("search", "").strip()
         if search:
             queryset = queryset.filter(
@@ -278,6 +288,19 @@ class GymMemberDetailView(APIView):
     )
     def get(self, request, pk, *args, **kwargs):
         member = self.get_object(pk, request.tenant)
+        if getattr(request.user, "role", None) == User.ROLE_TRAINER:
+            from apps.trainers.models import TrainerAssignment
+
+            if not TrainerAssignment.objects.filter(
+                trainer__user=request.user,
+                member=member,
+                ended_at__isnull=True,
+                gym=request.tenant,
+            ).exists():
+                raise PermissionDenied(
+                    "Trainers can only view their currently assigned clients."
+                )
+
         return Response(
             MemberDetailSerializer(member, context={"request": request}).data,
             status=status.HTTP_200_OK,
@@ -375,6 +398,20 @@ class GymMemberRecordMetricsView(APIView):
             raise PermissionDenied("Gym tenant context mismatch.")
 
         member = self._get_member_or_check_tenant(pk, request.tenant)
+
+        if role == User.ROLE_TRAINER:
+            from apps.trainers.models import TrainerAssignment
+
+            if not TrainerAssignment.objects.filter(
+                trainer__user=request.user,
+                member=member,
+                ended_at__isnull=True,
+                gym=request.tenant,
+            ).exists():
+                raise PermissionDenied(
+                    "Trainers can only view measurements for their currently assigned clients."
+                )
+
         metrics = member.body_metrics.all().order_by("-recorded_at")
         return Response(
             BodyMetricsSerializer(
@@ -404,16 +441,54 @@ class GymMemberRecordMetricsView(APIView):
 
         member = self._get_member_or_check_tenant(pk, request.tenant)
 
+        from apps.trainers.models import TrainerAssignment
+
+        if not TrainerAssignment.objects.filter(
+            trainer__user=request.user,
+            member=member,
+            ended_at__isnull=True,
+            gym=request.tenant,
+        ).exists():
+            raise PermissionDenied(
+                "Trainers can only record measurements for their currently assigned clients."
+            )
+
         serializer = RecordBodyMetricsSerializer(data=request.data)
         if not serializer.is_valid():
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
         validated = serializer.validated_data
+        if "weight_kg" not in validated or validated["weight_kg"] is None:
+            return Response(
+                {"weight_kg": ["Weight is required."]},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        if "height_cm" not in validated or validated["height_cm"] is None:
+            return Response(
+                {"height_cm": ["Height is required."]},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
         measurements = dict(validated.get("measurements") or {})
-        for field in ("waist_cm", "neck_cm", "hip_cm"):
+        for field in (
+            "waist_cm",
+            "neck_cm",
+            "hip_cm",
+            "chest_cm",
+            "bicep_left_cm",
+            "bicep_right_cm",
+            "thigh_left_cm",
+            "thigh_right_cm",
+            "calf_left_cm",
+            "calf_right_cm",
+            "resting_heart_rate",
+            "body_fat_percentage",
+        ):
             val = validated.get(field)
             if val is not None:
-                measurements[field] = float(val)
+                measurements[field] = (
+                    float(val) if field != "resting_heart_rate" else int(val)
+                )
 
         with transaction.atomic():
             metrics = BodyMetrics.objects.create(
@@ -443,6 +518,124 @@ class GymMemberRecordMetricsView(APIView):
         return Response(
             BodyMetricsSerializer(metrics, context={"request": request}).data,
             status=status.HTTP_201_CREATED,
+        )
+
+    @extend_schema(
+        summary="Correct latest member body metrics",
+        description="Corrects the latest recorded measurement entry for a member. Trainer ONLY. Audit logged and marked corrected.",
+        request=RecordBodyMetricsSerializer,
+        responses={
+            200: BodyMetricsSerializer,
+            400: OpenApiResponse(description="Validation error or not latest entry"),
+            403: OpenApiResponse(
+                description="Forbidden - Trainer only for assigned client"
+            ),
+            404: OpenApiResponse(description="Member or metric not found"),
+        },
+    )
+    def patch(self, request, pk, *args, **kwargs):
+        role = getattr(request.user, "role", None)
+        if role != User.ROLE_TRAINER:
+            raise PermissionDenied(
+                "Only Trainers can correct member body measurements."
+            )
+
+        if getattr(request.user, "gym_id", None) != getattr(request.tenant, "id", None):
+            raise PermissionDenied("Gym tenant context mismatch.")
+
+        member = self._get_member_or_check_tenant(pk, request.tenant)
+
+        from apps.trainers.models import TrainerAssignment
+
+        if not TrainerAssignment.objects.filter(
+            trainer__user=request.user,
+            member=member,
+            ended_at__isnull=True,
+            gym=request.tenant,
+        ).exists():
+            raise PermissionDenied(
+                "Trainers can only correct measurements for their currently assigned clients."
+            )
+
+        latest_metric = member.body_metrics.order_by("-recorded_at").first()
+        if not latest_metric:
+            raise Http404("No measurement record found to correct.")
+
+        metric_id = request.data.get("metric_id")
+        if metric_id and str(latest_metric.id) != str(metric_id):
+            return Response(
+                {
+                    "detail": "Only the latest measurement entry can be corrected. Older entries cannot be changed."
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        serializer = RecordBodyMetricsSerializer(data=request.data, partial=True)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        validated = serializer.validated_data
+        old_values = {
+            "weight_kg": str(latest_metric.weight_kg),
+            "height_cm": str(latest_metric.height_cm),
+            "measurements": dict(latest_metric.measurements or {}),
+        }
+
+        measurements = dict(latest_metric.measurements or {})
+        for field in (
+            "waist_cm",
+            "neck_cm",
+            "hip_cm",
+            "chest_cm",
+            "bicep_left_cm",
+            "bicep_right_cm",
+            "thigh_left_cm",
+            "thigh_right_cm",
+            "calf_left_cm",
+            "calf_right_cm",
+            "resting_heart_rate",
+            "body_fat_percentage",
+        ):
+            if field in validated and validated[field] is not None:
+                measurements[field] = (
+                    float(validated[field])
+                    if field != "resting_heart_rate"
+                    else int(validated[field])
+                )
+
+        if "weight_kg" in validated and validated["weight_kg"] is not None:
+            latest_metric.weight_kg = validated["weight_kg"]
+        if "height_cm" in validated and validated["height_cm"] is not None:
+            latest_metric.height_cm = validated["height_cm"]
+
+        measurements["is_corrected"] = True
+        measurements["corrected_at"] = timezone.now().isoformat()
+        latest_metric.measurements = measurements
+
+        with transaction.atomic():
+            latest_metric.save()
+            record_audit_log(
+                action_type="member_metrics_corrected",
+                affected_record_type="BodyMetrics",
+                affected_record_id=str(latest_metric.id),
+                actor=request.user,
+                gym=request.tenant,
+                metadata={
+                    "member_id": str(member.id),
+                    "old_values": old_values,
+                    "new_values": {
+                        "weight_kg": str(latest_metric.weight_kg),
+                        "height_cm": str(latest_metric.height_cm),
+                        "measurements": latest_metric.measurements,
+                    },
+                    "trainer_id": str(request.user.id),
+                    "trainer_name": request.user.full_name,
+                },
+            )
+
+        return Response(
+            BodyMetricsSerializer(latest_metric, context={"request": request}).data,
+            status=status.HTTP_200_OK,
         )
 
 

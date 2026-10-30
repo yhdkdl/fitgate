@@ -132,6 +132,40 @@ export const App: React.FC = () => {
         />
 
         <Route
+          path="/trainers"
+          element={
+            <ProtectedRoute allowedRoles={["owner", "manager"]}>
+              <DashboardScreen />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/trainers/*"
+          element={
+            <ProtectedRoute allowedRoles={["owner", "manager"]}>
+              <DashboardScreen />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/assignments"
+          element={
+            <ProtectedRoute allowedRoles={["owner", "manager"]}>
+              <DashboardScreen />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/assignments/*"
+          element={
+            <ProtectedRoute allowedRoles={["owner", "manager"]}>
+              <DashboardScreen />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
           path="/freezes"
           element={
             <ProtectedRoute allowedRoles={["owner", "manager"]}>
@@ -187,6 +221,23 @@ export const App: React.FC = () => {
           path="/membership/*"
           element={
             <ProtectedRoute allowedRoles={["member"]}>
+              <DashboardScreen />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/my-clients"
+          element={
+            <ProtectedRoute allowedRoles={["trainer"]}>
+              <DashboardScreen />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/my-clients/*"
+          element={
+            <ProtectedRoute allowedRoles={["trainer"]}>
               <DashboardScreen />
             </ProtectedRoute>
           }

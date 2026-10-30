@@ -808,7 +808,17 @@ class StaffDeactivateView(APIView):
             deactivated = deactivate_staff_member(
                 acting_user=request.user,
                 target_user=target_user,
+                reassignments_data=(
+                    request.data if isinstance(request.data, dict) else None
+                ),
             )
+        except ValidationError as exc:
+            data = (
+                exc.message_dict
+                if hasattr(exc, "message_dict")
+                else {"detail": exc.messages if hasattr(exc, "messages") else str(exc)}
+            )
+            return Response(data, status=status.HTTP_400_BAD_REQUEST)
         except PermissionDenied as exc:
             return Response({"detail": str(exc)}, status=status.HTTP_403_FORBIDDEN)
 

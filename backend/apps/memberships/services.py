@@ -702,6 +702,20 @@ def create_or_renew_subscription(
                 "price_etb": str(plan.price_etb),
             },
         )
+
+        if plan.trainer_inclusive:
+            try:
+                from apps.trainers.services import auto_assign_trainer_for_subscription
+
+                auto_assign_trainer_for_subscription(subscription)
+            except Exception as exc:
+                import logging
+
+                logging.getLogger(__name__).exception(
+                    "Automatic trainer assignment error during subscription creation: %s",
+                    exc,
+                )
+
     return subscription
 
 

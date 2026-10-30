@@ -1,6 +1,9 @@
+from django.core.exceptions import ValidationError as DjangoValidationError
+from django.utils import timezone
 from drf_spectacular.utils import OpenApiResponse, extend_schema
 from rest_framework import status
 from rest_framework.exceptions import NotFound
+from rest_framework.exceptions import ValidationError as DRFValidationError
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -8,17 +11,24 @@ from rest_framework.views import APIView
 from apps.accounts.authentication import FitGateJWTAuthentication
 from apps.accounts.permissions import RequirePasswordChanged
 from apps.accounts.services import record_audit_log
-from apps.trainers.models import Trainer
+from apps.memberships.models import Member, MemberSubscription
+from apps.trainers.models import Trainer, TrainerAssignment
 from apps.trainers.permissions import (
     HasTrainerModule,
     IsOwnerOrManager,
     IsTrainerRole,
 )
 from apps.trainers.serializers import (
+    ManualReassignRequestSerializer,
+    ManualReassignResponseSerializer,
+    TrainerAssignmentDetailSerializer,
     TrainerCapacityUpdateResponseSerializer,
     TrainerCapacityUpdateSerializer,
+    TrainerMyClientSerializer,
     TrainerSerializer,
+    UnassignedMemberSerializer,
 )
+from apps.trainers.services import reassign_trainer
 
 
 class GymTrainerListView(APIView):
@@ -118,7 +128,9 @@ class GymTrainerDetailView(APIView):
         if "max_clients" in serializer.validated_data:
             new_capacity = serializer.validated_data["max_clients"]
             if new_capacity < current_clients:
-                warning = f"Capacity set to {new_capacity}, which is below the current active client count of {current_clients}."
+                raise DRFValidationError(
+                    {"max_clients": ["Reassign some clients first."]}
+                )
             trainer.max_clients = new_capacity
 
         if "specialization" in serializer.validated_data:
@@ -183,3 +195,248 @@ class TrainerMeView(APIView):
         if not trainer:
             raise NotFound({"detail": "Trainer profile not found."})
         return Response(TrainerSerializer(trainer).data)
+
+
+class GymAssignmentListView(APIView):
+    """List trainer assignments for the gym (Owner, Manager only)."""
+
+    authentication_classes = [FitGateJWTAuthentication]
+    permission_classes = [
+        IsAuthenticated,
+        RequirePasswordChanged,
+        HasTrainerModule,
+        IsOwnerOrManager,
+    ]
+
+    @extend_schema(
+        tags=["trainers"],
+        summary="List gym trainer assignments (Owner, Manager)",
+        description="Returns trainer assignments for the gym.",
+        responses={
+            200: TrainerAssignmentDetailSerializer(many=True),
+            401: OpenApiResponse(description="Authentication required"),
+            403: OpenApiResponse(description="Forbidden"),
+        },
+    )
+    def get(self, request, *args, **kwargs):
+        tenant = request.tenant
+        active_only = request.query_params.get("active_only", "true").lower() == "true"
+        qs = TrainerAssignment.all_objects.filter(gym=tenant).select_related(
+            "member", "trainer__user", "assigned_by"
+        )
+        if active_only:
+            qs = qs.filter(ended_at__isnull=True)
+        return Response(TrainerAssignmentDetailSerializer(qs, many=True).data)
+
+
+class GymUnassignedMembersView(APIView):
+    """List members on trainer-inclusive active plans without an assigned trainer."""
+
+    authentication_classes = [FitGateJWTAuthentication]
+    permission_classes = [
+        IsAuthenticated,
+        RequirePasswordChanged,
+        HasTrainerModule,
+        IsOwnerOrManager,
+    ]
+
+    @extend_schema(
+        tags=["trainers"],
+        summary="List unassigned members on trainer plans (Owner, Manager)",
+        description="Returns members who have an active trainer-inclusive plan but no open assignment.",
+        responses={
+            200: UnassignedMemberSerializer(many=True),
+            401: OpenApiResponse(description="Authentication required"),
+            403: OpenApiResponse(description="Forbidden"),
+        },
+    )
+    def get(self, request, *args, **kwargs):
+        tenant = request.tenant
+        today = timezone.localdate()
+
+        active_subs = (
+            MemberSubscription.all_objects.filter(
+                gym=tenant,
+                status=MemberSubscription.STATUS_ACTIVE,
+                plan__trainer_inclusive=True,
+                end_date__gte=today,
+            )
+            .select_related("member", "plan")
+            .order_by("-start_date")
+        )
+
+        # Filter out members who already have an open assignment
+        assigned_member_ids = set(
+            TrainerAssignment.all_objects.filter(
+                gym=tenant, ended_at__isnull=True
+            ).values_list("member_id", flat=True)
+        )
+
+        unassigned_data = []
+        seen_members = set()
+        for sub in active_subs:
+            if (
+                sub.member_id not in assigned_member_ids
+                and sub.member_id not in seen_members
+            ):
+                seen_members.add(sub.member_id)
+                unassigned_data.append(
+                    {
+                        "member_id": sub.member_id,
+                        "full_name": sub.member.full_name,
+                        "phone": sub.member.phone,
+                        "status": sub.member.status,
+                        "plan_name": sub.plan.name,
+                        "subscription_id": sub.id,
+                        "start_date": sub.start_date,
+                        "end_date": sub.end_date,
+                    }
+                )
+
+        return Response(UnassignedMemberSerializer(unassigned_data, many=True).data)
+
+
+class GymReassignTrainerView(APIView):
+    """Manually assign or reassign a trainer to a member."""
+
+    authentication_classes = [FitGateJWTAuthentication]
+    permission_classes = [
+        IsAuthenticated,
+        RequirePasswordChanged,
+        HasTrainerModule,
+        IsOwnerOrManager,
+    ]
+
+    @extend_schema(
+        tags=["trainers"],
+        summary="Manually assign or reassign trainer (Owner, Manager)",
+        description="Closes the previous open assignment and opens a new one.",
+        request=ManualReassignRequestSerializer,
+        responses={
+            200: ManualReassignResponseSerializer,
+            400: OpenApiResponse(
+                description="Validation error or capacity confirmation needed"
+            ),
+            401: OpenApiResponse(description="Authentication required"),
+            403: OpenApiResponse(description="Forbidden"),
+            404: OpenApiResponse(description="Member or Trainer not found"),
+        },
+    )
+    def post(self, request, *args, **kwargs):
+        serializer = ManualReassignRequestSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        member_id = serializer.validated_data["member_id"]
+        trainer_id = serializer.validated_data["trainer_id"]
+        confirm_over_capacity = serializer.validated_data.get(
+            "confirm_over_capacity", False
+        )
+
+        tenant = request.tenant
+        member = Member.all_objects.filter(id=member_id, gym=tenant).first()
+        if not member:
+            return Response(
+                {"detail": "Member not found in this gym."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        trainer = (
+            Trainer.all_objects.filter(id=trainer_id).select_related("user").first()
+        )
+        if not trainer:
+            return Response(
+                {"detail": "Trainer not found."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        try:
+            assignment = reassign_trainer(
+                member=member,
+                new_trainer=trainer,
+                actor=request.user,
+                confirm_over_capacity=confirm_over_capacity,
+            )
+        except DjangoValidationError as exc:
+            msg = (
+                exc.message_dict
+                if hasattr(exc, "message_dict")
+                else {"detail": exc.messages if hasattr(exc, "messages") else str(exc)}
+            )
+            return Response(msg, status=status.HTTP_400_BAD_REQUEST)
+        except DRFValidationError as exc:
+            return Response(exc.detail, status=status.HTTP_400_BAD_REQUEST)
+
+        return Response(
+            {
+                "detail": "Trainer assigned successfully.",
+                "assignment": TrainerAssignmentDetailSerializer(assignment).data,
+            },
+            status=status.HTTP_200_OK,
+        )
+
+
+class TrainerMyClientsView(APIView):
+    """View active clients assigned to the authenticated trainer."""
+
+    authentication_classes = [FitGateJWTAuthentication]
+    permission_classes = [
+        IsAuthenticated,
+        RequirePasswordChanged,
+        HasTrainerModule,
+        IsTrainerRole,
+    ]
+
+    @extend_schema(
+        tags=["trainers"],
+        summary="View own assigned clients (Trainer only)",
+        description="Returns list of active clients assigned to the logged-in trainer.",
+        responses={
+            200: TrainerMyClientSerializer(many=True),
+            401: OpenApiResponse(description="Authentication required"),
+            403: OpenApiResponse(description="Forbidden"),
+        },
+    )
+    def get(self, request, *args, **kwargs):
+        tenant = request.tenant
+        trainer = Trainer.all_objects.filter(user=request.user, gym=tenant).first()
+        if not trainer:
+            raise NotFound({"detail": "Trainer profile not found."})
+
+        active_assignments = (
+            TrainerAssignment.all_objects.filter(
+                trainer=trainer,
+                gym=tenant,
+                ended_at__isnull=True,
+            )
+            .select_related("member")
+            .order_by("-assigned_at")
+        )
+
+        today = timezone.localdate()
+        clients_data = []
+        for a in active_assignments:
+            sub = (
+                MemberSubscription.all_objects.filter(
+                    gym=tenant,
+                    member=a.member,
+                    status=MemberSubscription.STATUS_ACTIVE,
+                    end_date__gte=today,
+                )
+                .order_by("-end_date")
+                .first()
+            )
+            plan_name = sub.plan.name if sub else "—"
+            clients_data.append(
+                {
+                    "assignment_id": a.id,
+                    "member_id": a.member_id,
+                    "member_name": a.member.full_name,
+                    "member_phone": a.member.phone,
+                    "photo_url": a.member.photo_url or "",
+                    "plan_name": plan_name,
+                    "assigned_at": a.assigned_at,
+                    "has_measurements": a.member.body_metrics.exists(),
+                }
+            )
+
+        return Response(TrainerMyClientSerializer(clients_data, many=True).data)

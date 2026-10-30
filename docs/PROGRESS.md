@@ -46,14 +46,15 @@
 - Fix: Chapa checkout initialization character sanitization (customization description and title removing forbidden colons and special characters) (tag `fix-chapa-customization-desc-done`).
 - Fix: Chapa return URL construction with port and scheme, dedicated member payment complete return page with 3s polling, and own-payment status endpoint with RBAC enforcement (tag `fix-chapa-return-flow-done`).
 - Sprint 16: Trainer profile and capacity — `Trainer` model with 1:1 user link, default 20 capacity (range 1-200), derived active client count from `TrainerAssignment` rows, server-side `has_trainer_module` gating, automatic profile creation signal & data migration backfill, Owner/Manager capacity editing with under-capacity warnings and audit logging, Trainer self-profile endpoint, and Owner/Manager "Trainers" management page and navigation (tag `sprint-16-done`).
+- Sprint 17: Trainer assignment (GATE) — automatic assignment (load-balance + least-recently-assigned tie-break, capacity limits, all-full notification), wired into subscription activation across all payment paths (online, cash, bank transfer, renewal) without blocking payment transactions, database-level conditional unique constraint preventing duplicate open assignments per member, candidate trainer row-locking (`select_for_update`) preventing concurrency overruns, manual reassignment with explicit over-capacity confirmation and audit logging, trainer deactivation client reassignment guard, RBAC tenant isolation (Trainer sees own clients, Member sees assigned trainer name, Owner/Manager see all, Reception sees assigned trainer read-only, Super Admin denied), and screens (Owner/Manager "Assignments" and unassigned members views, Trainer "My clients" view, Member "My trainer" card on Home and My membership), scoped client measurements, trainer photo upload, and measurement corrections (tag `sprint-17-done`).
 
 ## Current
 
-- Sprint 17: Trainer assignment (GATE)
+Ready for Increment 4
 
 ## Next
 
-- Increment 3 closeout and acceptance.
+- Increment 4
 
 ## Open manual steps
 
