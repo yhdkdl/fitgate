@@ -153,6 +153,12 @@ class TestTrainerMeasurementsSecurityAndRBAC:
     def test_trainer_can_record_measurements_and_creates_audit_log(
         self, api_client, gym_tenant, trainer_user, gym_member
     ):
+        from apps.trainers.models import Trainer, TrainerAssignment
+
+        trainer = Trainer.all_objects.get(user=trainer_user)
+        TrainerAssignment.objects.create(
+            gym=gym_tenant, member=gym_member, trainer=trainer
+        )
         client = auth_client(api_client, trainer_user, gym_tenant.subdomain)
 
         payload = {
@@ -305,6 +311,12 @@ class TestTrainerMeasurementsSecurityAndRBAC:
     def test_trainer_search_returns_minimal_member_fields(
         self, api_client, gym_tenant, trainer_user, gym_member
     ):
+        from apps.trainers.models import Trainer, TrainerAssignment
+
+        trainer = Trainer.all_objects.get(user=trainer_user)
+        TrainerAssignment.objects.create(
+            gym=gym_tenant, member=gym_member, trainer=trainer
+        )
         client = auth_client(api_client, trainer_user, gym_tenant.subdomain)
         resp = client.get(f"/api/gym/members/?search={gym_member.full_name}")
         assert resp.status_code == 200
@@ -327,12 +339,19 @@ class TestTrainerMeasurementsSecurityAndRBAC:
         gym_member,
     ):
         # Trainer records a measurement
+        from apps.trainers.models import Trainer, TrainerAssignment
+
+        trainer = Trainer.all_objects.get(user=trainer_user)
+        TrainerAssignment.objects.create(
+            gym=gym_tenant, member=gym_member, trainer=trainer
+        )
         tc = auth_client(api_client, trainer_user, gym_tenant.subdomain)
-        tc.post(
+        rec_res = tc.post(
             f"/api/gym/members/{gym_member.id}/metrics/",
             {"weight_kg": 85.0, "height_cm": 182.0},
             format="json",
         )
+        assert rec_res.status_code == 201
 
         for staff in [owner_user, manager_user]:
             sc = auth_client(api_client, staff, gym_tenant.subdomain)
@@ -349,3 +368,266 @@ class TestTrainerMeasurementsSecurityAndRBAC:
                 format="json",
             )
             assert post_resp.status_code == 403
+
+    def test_trainer_cannot_record_or_view_non_assigned_member(
+        self, api_client, gym_tenant, trainer_user, gym_member
+    ):
+        """Item A: Trainer is refused (403) for members not currently assigned to them."""
+        client = auth_client(api_client, trainer_user, gym_tenant.subdomain)
+        get_resp = client.get(f"/api/gym/members/{gym_member.id}/metrics/")
+        assert get_resp.status_code == 403
+
+        post_resp = client.post(
+            f"/api/gym/members/{gym_member.id}/metrics/",
+            {"weight_kg": 75.0, "height_cm": 175.0},
+            format="json",
+        )
+        assert post_resp.status_code == 403
+
+    def test_trainer_cannot_record_or_view_member_after_assignment_ended(
+        self, api_client, gym_tenant, trainer_user, gym_member
+    ):
+        """Item A: Trainer is refused (403) once assignment has ended or moved."""
+        from django.utils import timezone
+
+        from apps.trainers.models import Trainer, TrainerAssignment
+
+        trainer = Trainer.all_objects.get(user=trainer_user)
+        assignment = TrainerAssignment.objects.create(
+            gym=gym_tenant, member=gym_member, trainer=trainer
+        )
+        # End assignment
+        assignment.ended_at = timezone.now()
+        assignment.save(update_fields=["ended_at"])
+
+        client = auth_client(api_client, trainer_user, gym_tenant.subdomain)
+        get_resp = client.get(f"/api/gym/members/{gym_member.id}/metrics/")
+        assert get_resp.status_code == 403
+
+        post_resp = client.post(
+            f"/api/gym/members/{gym_member.id}/metrics/",
+            {"weight_kg": 75.0, "height_cm": 175.0},
+            format="json",
+        )
+        assert post_resp.status_code == 403
+
+    def test_new_trainer_sees_full_history_including_previous_trainer_entries(
+        self, api_client, gym_tenant, trainer_user, gym_member
+    ):
+        """Item A: New trainer sees full measurement history recorded by previous trainer."""
+        from django.utils import timezone
+
+        from apps.trainers.models import Trainer, TrainerAssignment
+
+        old_trainer = Trainer.all_objects.get(user=trainer_user)
+        a1 = TrainerAssignment.objects.create(
+            gym=gym_tenant, member=gym_member, trainer=old_trainer
+        )
+
+        tc1 = auth_client(api_client, trainer_user, gym_tenant.subdomain)
+        tc1.post(
+            f"/api/gym/members/{gym_member.id}/metrics/",
+            {"weight_kg": 80.0, "height_cm": 180.0},
+            format="json",
+        )
+
+        # End old assignment and assign new trainer
+        a1.ended_at = timezone.now()
+        a1.save(update_fields=["ended_at"])
+
+        new_trainer_user = User.objects.create_user(
+            email="newtrainer@bolehub.com",
+            password="TrainerPassword123!",
+            gym=gym_tenant,
+            role=User.ROLE_TRAINER,
+            full_name="Coach New",
+            must_change_password=False,
+        )
+        new_trainer = Trainer.all_objects.get(user=new_trainer_user)
+        TrainerAssignment.objects.create(
+            gym=gym_tenant, member=gym_member, trainer=new_trainer
+        )
+
+        tc2 = auth_client(api_client, new_trainer_user, gym_tenant.subdomain)
+        resp = tc2.get(f"/api/gym/members/{gym_member.id}/metrics/")
+        assert resp.status_code == 200
+        assert len(resp.data) == 1
+        assert float(resp.data[0]["weight_kg"]) == 80.0
+
+    def test_trainer_capacity_editing_rules_and_reassign_guard(
+        self, api_client, gym_tenant, owner_user, trainer_user, gym_member
+    ):
+        """Item I: Owner/Manager can edit capacity 1-100; lowering below active clients refused."""
+        from apps.tenants.models import GymConfig
+        from apps.trainers.models import Trainer, TrainerAssignment
+
+        GymConfig.objects.update_or_create(
+            gym=gym_tenant, defaults={"has_trainer_module": True}
+        )
+        gym_tenant.refresh_from_db()
+
+        trainer = Trainer.all_objects.get(user=trainer_user)
+        TrainerAssignment.objects.create(
+            gym=gym_tenant, member=gym_member, trainer=trainer
+        )
+
+        owner_client = auth_client(api_client, owner_user, gym_tenant.subdomain)
+
+        # Try to set capacity to 0 (below 1) -> 400
+        r_low = owner_client.patch(
+            f"/api/gym/trainers/{trainer.id}/",
+            {"max_clients": 0},
+            format="json",
+        )
+        assert r_low.status_code == 400
+
+        # Try to set capacity to 101 (above 100) -> 400
+        r_high = owner_client.patch(
+            f"/api/gym/trainers/{trainer.id}/",
+            {"max_clients": 101},
+            format="json",
+        )
+        assert r_high.status_code == 400
+
+        # Try to set capacity to 0 while having 1 active client -> refused with "Reassign some clients first"
+        # Since min_value is 1, let's create 3 clients and lower to 2
+        m2, _ = register_member_self_service(
+            gym_tenant,
+            {
+                "full_name": "Almaz Kebede",
+                "email": "almaz@example.com",
+                "phone": "+251911999222",
+                "password": "Password123!",
+                "waiver_accepted": True,
+                "gender": "female",
+            },
+        )
+        TrainerAssignment.objects.create(gym=gym_tenant, member=m2, trainer=trainer)
+        assert trainer.client_count == 2
+
+        r_below = owner_client.patch(
+            f"/api/gym/trainers/{trainer.id}/",
+            {"max_clients": 1},
+            format="json",
+        )
+        assert r_below.status_code == 400
+        assert "Reassign some clients first." in str(r_below.data)
+
+        # Setting valid capacity above active clients succeeds and is audit logged
+        r_ok = owner_client.patch(
+            f"/api/gym/trainers/{trainer.id}/",
+            {"max_clients": 50},
+            format="json",
+        )
+        assert r_ok.status_code == 200
+        trainer.refresh_from_db()
+        assert trainer.max_clients == 50
+
+        # Verify audit log
+        audit = AuditLog.all_objects.filter(
+            action_type="trainer_capacity_updated",
+            actor=owner_user,
+            gym=gym_tenant,
+        ).first()
+        assert audit is not None
+        assert audit.metadata["new_max_clients"] == 50
+
+        # Trainer cannot edit own capacity -> 403
+        tc = auth_client(api_client, trainer_user, gym_tenant.subdomain)
+        r_tr = tc.patch(
+            f"/api/gym/trainers/{trainer.id}/",
+            {"max_clients": 60},
+            format="json",
+        )
+        assert r_tr.status_code == 403
+
+    def test_measurement_correction_workflow_and_derived_values(
+        self, api_client, gym_tenant, trainer_user, gym_member
+    ):
+        """Item K: Correct latest measurement entry, audit log, derived values, older entry locked."""
+        from apps.trainers.models import Trainer, TrainerAssignment
+
+        trainer = Trainer.all_objects.get(user=trainer_user)
+        TrainerAssignment.objects.create(
+            gym=gym_tenant, member=gym_member, trainer=trainer
+        )
+
+        tc = auth_client(api_client, trainer_user, gym_tenant.subdomain)
+
+        # 1. Record first measurement with new optional fields
+        r1 = tc.post(
+            f"/api/gym/members/{gym_member.id}/metrics/",
+            {
+                "weight_kg": 80.0,
+                "height_cm": 180.0,
+                "waist_cm": 80.0,
+                "hip_cm": 100.0,
+                "chest_cm": 105.0,
+                "bicep_left_cm": 35.0,
+                "bicep_right_cm": 35.5,
+                "thigh_left_cm": 55.0,
+                "thigh_right_cm": 55.0,
+                "calf_left_cm": 38.0,
+                "calf_right_cm": 38.0,
+                "resting_heart_rate": 65,
+                "body_fat_percentage": 18.5,
+            },
+            format="json",
+        )
+        assert r1.status_code == 201
+        m1_data = r1.data
+        assert m1_data["waist_to_hip_ratio"] == 0.8  # 80 / 100
+        assert m1_data["lean_body_mass"] == 65.2  # 80 * (1 - 0.185)
+        assert m1_data["lean_body_mass_label"] == "measured"
+        assert m1_data["is_corrected"] is False
+        m1_id = m1_data["id"]
+
+        # 2. Record second measurement
+        r2 = tc.post(
+            f"/api/gym/members/{gym_member.id}/metrics/",
+            {
+                "weight_kg": 79.0,
+                "height_cm": 180.0,
+                "waist_cm": 78.0,
+                "hip_cm": 98.0,
+                "body_fat_percentage": 17.0,
+            },
+            format="json",
+        )
+        assert r2.status_code == 201
+        m2_id = r2.data["id"]
+
+        # 3. Correct latest measurement (m2) -> succeeds
+        rc = tc.patch(
+            f"/api/gym/members/{gym_member.id}/metrics/",
+            {
+                "metric_id": m2_id,
+                "weight_kg": 78.5,
+                "waist_cm": 77.0,
+            },
+            format="json",
+        )
+        assert rc.status_code == 200
+        assert float(rc.data["weight_kg"]) == 78.5
+        assert rc.data["is_corrected"] is True
+
+        # Check audit log for correction
+        audit = AuditLog.all_objects.filter(
+            action_type="member_metrics_corrected",
+            actor=trainer_user,
+            gym=gym_tenant,
+        ).first()
+        assert audit is not None
+        assert audit.metadata["new_values"]["weight_kg"] == "78.50"
+
+        # 4. Attempt to correct older measurement (m1) -> 400
+        r_old = tc.patch(
+            f"/api/gym/members/{gym_member.id}/metrics/",
+            {
+                "metric_id": m1_id,
+                "weight_kg": 81.0,
+            },
+            format="json",
+        )
+        assert r_old.status_code == 400
+        assert "Only the latest measurement entry can be corrected" in str(r_old.data)

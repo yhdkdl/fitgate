@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { getMemberProfileMe, type Member } from "../../api/members";
 import { Alert } from "../ui/Alert";
 import { Badge } from "../ui/Badge";
+import { AuthenticatedImage } from "../ui/AuthenticatedImage";
 import { Button } from "../ui/Button";
 import { Card } from "../ui/Card";
 import { Spinner } from "../ui/Spinner";
@@ -129,6 +130,58 @@ export const MemberSelfSection: React.FC<MemberSelfSectionProps> = ({
         </div>
       )}
 
+      {/* My Trainer Card (Shown on Home and My membership if on a trainer-inclusive plan) */}
+      {(view === "home" || view === "membership" || view === "all") &&
+        profile.is_on_trainer_plan && (
+          <Card className="bg-surface border-border p-5">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div>
+                <span className="text-xs font-semibold uppercase tracking-wider text-text-muted block">
+                  My Trainer
+                </span>
+                {profile.assigned_trainer ? (
+                  <div className="flex items-center gap-3 mt-2">
+                    {profile.assigned_trainer.photo_url ? (
+                      <AuthenticatedImage
+                        src={profile.assigned_trainer.photo_url}
+                        alt={profile.assigned_trainer.name}
+                        className="w-12 h-12 rounded-full object-cover border border-border"
+                      />
+                    ) : (
+                      <div className="w-12 h-12 rounded-full bg-primary/20 text-primary font-bold flex items-center justify-center text-sm border border-border">
+                        {profile.assigned_trainer.name
+                          .split(" ")
+                          .map((n) => n[0])
+                          .join("")
+                          .slice(0, 2)
+                          .toUpperCase()}
+                      </div>
+                    )}
+                    <div>
+                      <p className="text-base font-bold text-text">
+                        {profile.assigned_trainer.name}
+                      </p>
+                      {profile.assigned_trainer.specialization && (
+                        <p className="text-xs text-text-muted mt-0.5">
+                          {profile.assigned_trainer.specialization}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                ) : (
+                  <p className="text-sm font-medium text-amber-500 mt-2 flex items-center gap-2">
+                    <Badge variant="warning">Pending</Badge>
+                    <span>Trainer not assigned yet</span>
+                  </p>
+                )}
+              </div>
+              {profile.assigned_trainer && (
+                <Badge variant="primary">Assigned</Badge>
+              )}
+            </div>
+          </Card>
+        )}
+
       {/* Online Plan Checkout & Renewal */}
       {(view === "membership" || view === "all") && (
         <MemberCheckoutCard
@@ -164,46 +217,66 @@ export const MemberSelfSection: React.FC<MemberSelfSectionProps> = ({
               )}
             </div>
 
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-              <Card className="bg-surface border-border p-4 text-center space-y-1">
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+              <Card className="bg-surface border-border p-3 text-center space-y-1">
                 <span className="text-xs text-text-muted block">Weight</span>
-                <span className="text-xl font-extrabold text-text">
+                <span className="text-lg font-extrabold text-text">
                   {latest?.weight_kg ? `${latest.weight_kg} kg` : "—"}
                 </span>
               </Card>
 
-              <Card className="bg-surface border-border p-4 text-center space-y-1">
+              <Card className="bg-surface border-border p-3 text-center space-y-1">
                 <span className="text-xs text-text-muted block">Height</span>
-                <span className="text-xl font-extrabold text-text">
+                <span className="text-lg font-extrabold text-text">
                   {latest?.height_cm ? `${latest.height_cm} cm` : "—"}
                 </span>
               </Card>
 
-              <Card className="bg-surface border-border p-4 text-center space-y-1">
-                <span className="text-xs text-text-muted block">BMI (Est)</span>
-                <span className="text-xl font-extrabold text-primary">
-                  {latest?.estimated_bmi !== null &&
-                  latest?.estimated_bmi !== undefined
+              <Card className="bg-surface border-border p-3 text-center space-y-1">
+                <span className="text-xs text-text-muted block">BMI</span>
+                <span className="text-lg font-extrabold text-primary">
+                  {latest?.estimated_bmi !== null && latest?.estimated_bmi !== undefined
                     ? latest.estimated_bmi
                     : "—"}
                 </span>
+                <span className="text-[10px] text-text-muted block">Estimate</span>
+              </Card>
+
+              <Card className="bg-surface border-border p-3 text-center space-y-1">
+                <span className="text-xs text-text-muted block">Body Fat</span>
+                <span className="text-lg font-extrabold text-primary">
+                  {latest?.measurements && (latest.measurements as Record<string, unknown>).body_fat_percentage !== undefined
+                    ? `${(latest.measurements as Record<string, unknown>).body_fat_percentage}%`
+                    : latest?.estimated_body_fat_percentage !== null && latest?.estimated_body_fat_percentage !== undefined
+                      ? `${latest.estimated_body_fat_percentage}%`
+                      : "—"}
+                </span>
                 <span className="text-[10px] text-text-muted block">
-                  Estimate
+                  {latest?.measurements && (latest.measurements as Record<string, unknown>).body_fat_percentage !== undefined
+                    ? "Measured"
+                    : "Estimate"}
                 </span>
               </Card>
 
-              <Card className="bg-surface border-border p-4 text-center space-y-1">
-                <span className="text-xs text-text-muted block">
-                  Body Fat (Est)
+              <Card className="bg-surface border-border p-3 text-center space-y-1">
+                <span className="text-xs text-text-muted block">Waist/Hip</span>
+                <span className="text-lg font-extrabold text-text">
+                  {latest?.waist_to_hip_ratio !== null && latest?.waist_to_hip_ratio !== undefined
+                    ? latest.waist_to_hip_ratio
+                    : "—"}
                 </span>
-                <span className="text-xl font-extrabold text-primary">
-                  {latest?.estimated_body_fat_percentage !== null &&
-                  latest?.estimated_body_fat_percentage !== undefined
-                    ? `${latest.estimated_body_fat_percentage}%`
+                <span className="text-[10px] text-text-muted block">Ratio</span>
+              </Card>
+
+              <Card className="bg-surface border-border p-3 text-center space-y-1">
+                <span className="text-xs text-text-muted block">Lean Mass</span>
+                <span className="text-lg font-extrabold text-text">
+                  {latest?.lean_body_mass !== null && latest?.lean_body_mass !== undefined
+                    ? `${latest.lean_body_mass} kg`
                     : "—"}
                 </span>
                 <span className="text-[10px] text-text-muted block">
-                  US Navy Method
+                  {latest?.lean_body_mass_label || "—"}
                 </span>
               </Card>
             </div>
@@ -222,8 +295,11 @@ export const MemberSelfSection: React.FC<MemberSelfSectionProps> = ({
                         <th className="py-2 px-3">Trainer</th>
                         <th className="py-2 px-3">Weight</th>
                         <th className="py-2 px-3">Height</th>
-                        <th className="py-2 px-3">BMI (Est)</th>
-                        <th className="py-2 px-3">Body Fat (Est)</th>
+                        <th className="py-2 px-3">BMI</th>
+                        <th className="py-2 px-3">Body Fat</th>
+                        <th className="py-2 px-3">Waist/Hip</th>
+                        <th className="py-2 px-3">Lean Mass</th>
+                        <th className="py-2 px-3">Status</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-border/60">
@@ -250,9 +326,24 @@ export const MemberSelfSection: React.FC<MemberSelfSectionProps> = ({
                             {m.estimated_bmi ?? "—"}
                           </td>
                           <td className="py-2 px-3 font-semibold text-primary">
-                            {m.estimated_body_fat_percentage
-                              ? `${m.estimated_body_fat_percentage}%`
-                              : "—"}
+                            {m.measurements && (m.measurements as Record<string, unknown>).body_fat_percentage !== undefined
+                              ? `${(m.measurements as Record<string, unknown>).body_fat_percentage}%`
+                              : m.estimated_body_fat_percentage
+                                ? `${m.estimated_body_fat_percentage}%`
+                                : "—"}
+                          </td>
+                          <td className="py-2 px-3 text-text">
+                            {m.waist_to_hip_ratio ?? "—"}
+                          </td>
+                          <td className="py-2 px-3 text-text">
+                            {m.lean_body_mass ? `${m.lean_body_mass} kg` : "—"}
+                          </td>
+                          <td className="py-2 px-3">
+                            {m.is_corrected ? (
+                              <Badge variant="warning">Corrected</Badge>
+                            ) : (
+                              <Badge variant="neutral">Recorded</Badge>
+                            )}
                           </td>
                         </tr>
                       ))}

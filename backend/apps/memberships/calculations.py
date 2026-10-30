@@ -108,3 +108,58 @@ def calculate_us_navy_body_fat(
         return round(max(0.0, bf), 1)
 
     return None
+
+
+def calculate_waist_to_hip_ratio(
+    measurements: Optional[Dict[str, Any]],
+) -> Optional[float]:
+    """
+    Calculate waist-to-hip ratio: waist_cm / hip_cm.
+    Shown only when both exist, as a plain number. No high-risk flag or health verdict.
+    Returns float rounded to 2 decimals or None.
+    """
+    if not measurements or not isinstance(measurements, dict):
+        return None
+
+    def get_val(keys: list[str]) -> Optional[float]:
+        for k in keys:
+            if k in measurements and measurements[k] is not None:
+                try:
+                    v = float(measurements[k])
+                    if v > 0:
+                        return v
+                except (TypeError, ValueError):
+                    pass
+        return None
+
+    waist = get_val(["waist_cm", "waist"])
+    hip = get_val(["hip_cm", "hip"])
+
+    if waist is None or hip is None or hip <= 0:
+        return None
+
+    return round(waist / hip, 2)
+
+
+def calculate_lean_body_mass(
+    weight_kg: Optional[float | int],
+    body_fat_percentage: Optional[float | int],
+) -> Optional[float]:
+    """
+    Calculate lean body mass (kg):
+    LBM = weight_kg * (1 - body_fat_percentage / 100)
+    Returns float rounded to 1 decimal place or None.
+    """
+    if weight_kg is None or body_fat_percentage is None:
+        return None
+    try:
+        w = float(weight_kg)
+        bf = float(body_fat_percentage)
+    except (TypeError, ValueError):
+        return None
+
+    if w <= 0 or bf < 0 or bf > 100:
+        return None
+
+    lbm = w * (1.0 - (bf / 100.0))
+    return round(max(0.0, lbm), 1)

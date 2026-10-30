@@ -546,7 +546,11 @@ def invite_staff_member(
     return user, token_obj, raw_token
 
 
-def deactivate_staff_member(acting_user: User, target_user: User) -> User:
+def deactivate_staff_member(
+    acting_user: User,
+    target_user: User,
+    reassignments_data: Optional[Dict[str, Any]] = None,
+) -> User:
     """
     Deactivate a staff member.
     Immediately blocks login and invalidates existing JWT tokens.
@@ -579,6 +583,15 @@ def deactivate_staff_member(acting_user: User, target_user: User) -> User:
         raise PermissionDenied("Only Gym Owner or Manager can deactivate staff.")
 
     with transaction.atomic():
+        if target_user.role == User.ROLE_TRAINER:
+            from apps.trainers.services import reassign_trainer_clients_on_deactivation
+
+            reassign_trainer_clients_on_deactivation(
+                deactivated_trainer_user=target_user,
+                acting_user=acting_user,
+                reassignments_data=reassignments_data,
+            )
+
         target_user.is_active = False
         target_user.password_changed_at = timezone.now()
         target_user.save(update_fields=["is_active", "password_changed_at"])

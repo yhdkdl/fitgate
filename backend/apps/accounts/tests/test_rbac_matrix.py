@@ -1098,7 +1098,7 @@ class TestSpec2PermissionMatrixParametrizedTable:
         Rows not yet wired skip with an explicit reason.
         Wired rows (Sprint 5) assert directly against real HTTP endpoints.
         """
-        if wired_sprint not in (5, 6, "9a", 10, 11, 12, 13):
+        if wired_sprint not in (5, 6, "9a", 10, 11, 12, 13, 17):
             pytest.skip(
                 f"Row '{row_name}' has no real endpoint yet (scheduled for Sprint {wired_sprint} in docs/SPRINTS.md)"
             )
@@ -1538,6 +1538,79 @@ class TestSpec2PermissionMatrixParametrizedTable:
             resp = client.post(url, payload, format="json", HTTP_HOST=host)
             if expected_allowed:
                 assert resp.status_code in (200, 201, 400)
+            else:
+                assert resp.status_code in (401, 403, 404)
+        elif row_name == "Manually reassign a trainer":
+            from datetime import timedelta
+
+            from django.utils import timezone
+
+            from apps.memberships.models import (
+                Member,
+                MembershipPlan,
+                MemberSubscription,
+            )
+            from apps.trainers.models import Trainer
+
+            gym_tenant.config.has_trainer_module = True
+            gym_tenant.config.save()
+
+            plan, _ = MembershipPlan.all_objects.get_or_create(
+                gym=gym_tenant,
+                name="Matrix Plan Trainer",
+                defaults={
+                    "duration_value": 1,
+                    "duration_unit": "months",
+                    "price_etb": 1000,
+                    "trainer_inclusive": True,
+                    "is_active": True,
+                },
+            )
+            member = Member.all_objects.filter(gym=gym_tenant).first()
+            if not member:
+                member = Member.all_objects.create(
+                    gym=gym_tenant,
+                    user=member_user,
+                    full_name="Matrix Member",
+                    phone="+251911999888",
+                    waiver_accepted_at=timezone.now(),
+                    status=Member.STATUS_ACTIVE,
+                )
+            sub, _ = MemberSubscription.all_objects.get_or_create(
+                gym=gym_tenant,
+                member=member,
+                plan=plan,
+                defaults={
+                    "status": MemberSubscription.STATUS_ACTIVE,
+                    "start_date": timezone.localdate(),
+                    "end_date": timezone.localdate() + timedelta(days=30),
+                },
+            )
+            sub.status = MemberSubscription.STATUS_ACTIVE
+            sub.save()
+
+            trainer = Trainer.all_objects.filter(
+                user=trainer_user, gym=gym_tenant
+            ).first()
+            if not trainer:
+                trainer = Trainer.all_objects.create(
+                    user=trainer_user, gym=gym_tenant, max_clients=20
+                )
+
+            url = "/api/gym/assignments/reassign/"
+            host = (
+                "localhost"
+                if role == User.ROLE_SUPER_ADMIN
+                else f"{gym_tenant.subdomain}.localhost"
+            )
+            payload = {
+                "member_id": str(member.id),
+                "trainer_id": str(trainer.id),
+                "confirm_over_capacity": True,
+            }
+            resp = client.post(url, payload, format="json", HTTP_HOST=host)
+            if expected_allowed:
+                assert resp.status_code == 200
             else:
                 assert resp.status_code in (401, 403, 404)
 

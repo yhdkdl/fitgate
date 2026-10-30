@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { Badge } from "../components/ui/Badge";
 import { Button } from "../components/ui/Button";
@@ -23,7 +23,10 @@ import { MemberSelfSection } from "../components/dashboard/MemberSelfSection";
 import { MemberPaymentCompleteSection } from "../components/member/MemberPaymentCompleteSection";
 import { TrainerMeasurementsSection } from "../components/trainer/TrainerMeasurementsSection";
 import { TrainersManagementSection } from "../components/owner/TrainersManagementSection";
-import { getTrainerProfileMe, type Trainer } from "../api/trainers";
+import { AssignmentsSection } from "../components/owner/AssignmentsSection";
+import { MyClientsSection } from "../components/trainer/MyClientsSection";
+import { getMyClients, getTrainerProfileMe, type Trainer, type TrainerMyClient } from "../api/trainers";
+import { AuthenticatedImage } from "../components/ui/AuthenticatedImage";
 import { AuditLogSection } from "../components/dashboard/AuditLogSection";
 import { AttendanceScannerSection } from "../components/attendance/AttendanceScannerSection";
 import { useAuth } from "../context/AuthContext";
@@ -43,6 +46,7 @@ const ROLE_NAV_ITEMS: Record<string, NavItem[]> = {
     { label: "Bank transfers", path: "/bank-transfers" },
     { label: "Plans", path: "/plans" },
     { label: "Trainers", path: "/trainers" },
+    { label: "Assignments", path: "/assignments" },
     { label: "Freeze requests", path: "/freezes" },
     { label: "Staff", path: "/staff" },
     { label: "Audit log", path: "/audit-log" },
@@ -55,6 +59,7 @@ const ROLE_NAV_ITEMS: Record<string, NavItem[]> = {
     { label: "Payments", path: "/payments" },
     { label: "Plans", path: "/plans" },
     { label: "Trainers", path: "/trainers" },
+    { label: "Assignments", path: "/assignments" },
     { label: "Freeze requests", path: "/freezes" },
     { label: "Staff", path: "/staff" },
     { label: "Audit log", path: "/audit-log" },
@@ -65,6 +70,7 @@ const ROLE_NAV_ITEMS: Record<string, NavItem[]> = {
   ],
   trainer: [
     { label: "Overview", path: "/dashboard" },
+    { label: "My clients", path: "/my-clients" },
     { label: "Member measurements", path: "/measurements" },
   ],
   member: [
@@ -116,6 +122,7 @@ export const DashboardScreen: React.FC = () => {
 
   const [checklistKey, setChecklistKey] = useState(0);
   const [trainerWorkload, setTrainerWorkload] = useState<Trainer | null>(null);
+  const [trainerClients, setTrainerClients] = useState<TrainerMyClient[]>([]);
   const [showMoreMobile, setShowMoreMobile] = useState(false);
   const [prefillGymData, setPrefillGymData] = useState<GymPrefillData | null>(
     null
@@ -127,11 +134,15 @@ export const DashboardScreen: React.FC = () => {
   } | null>(null);
 
   const role = user?.role || "member";
-  const userRoleNav = ROLE_NAV_ITEMS[role] ||
-    dashboardConfig?.navigation || [
-      { label: "Overview", path: "/dashboard" },
-      { label: "Profile", path: "/profile" },
-    ];
+  const userRoleNav = useMemo<Array<{ label: string; path: string; icon?: React.ReactNode }>>(
+    () =>
+      ROLE_NAV_ITEMS[role] ||
+      (dashboardConfig?.navigation as Array<{ label: string; path: string; icon?: React.ReactNode }>) || [
+        { label: "Overview", path: "/dashboard" },
+        { label: "Profile", path: "/profile" },
+      ],
+    [role, dashboardConfig?.navigation]
+  );
 
   const currentPath = location.pathname.replace(/\/+$/, "") || "/dashboard";
 
@@ -161,6 +172,9 @@ export const DashboardScreen: React.FC = () => {
     if (role === "trainer") {
       getTrainerProfileMe()
         .then((t) => setTrainerWorkload(t))
+        .catch(() => {});
+      getMyClients()
+        .then((c) => setTrainerClients(c))
         .catch(() => {});
     }
   }, [role]);
@@ -305,6 +319,15 @@ export const DashboardScreen: React.FC = () => {
       );
     }
 
+    // 6c. Trainer Assignments page
+    if (currentPath.startsWith("/assignments")) {
+      return (
+        <SectionErrorBoundary title="Trainer Assignments">
+          <AssignmentsSection />
+        </SectionErrorBoundary>
+      );
+    }
+
     // 7. Staff Management page
     if (currentPath.startsWith("/staff")) {
       return (
@@ -347,6 +370,15 @@ export const DashboardScreen: React.FC = () => {
             />
           </SectionErrorBoundary>
         </div>
+      );
+    }
+
+    // 10b. Trainer: My clients
+    if (currentPath.startsWith("/my-clients")) {
+      return (
+        <SectionErrorBoundary title="My Clients">
+          <MyClientsSection />
+        </SectionErrorBoundary>
       );
     }
 
@@ -405,59 +437,178 @@ export const DashboardScreen: React.FC = () => {
           </SectionErrorBoundary>
         )}
 
-        {role === "trainer" && trainerWorkload && (
-          <SectionErrorBoundary title="Trainer Profile">
-            <Card className="bg-surface p-5 border-border">
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                <div>
-                  <h3 className="text-base font-bold text-text">
-                    Trainer Profile & Capacity
-                  </h3>
-                  <p className="text-xs text-text-muted mt-1">
-                    Current workload:{" "}
-                    <span className="font-semibold text-text">
-                      {trainerWorkload.client_count} /{" "}
-                      {trainerWorkload.max_clients}
-                    </span>{" "}
-                    active clients
-                    {trainerWorkload.specialization &&
-                      ` • Specialization: ${trainerWorkload.specialization}`}
-                  </p>
-                </div>
-                {trainerWorkload.client_count >= trainerWorkload.max_clients ? (
-                  <Badge variant="warning">At Capacity</Badge>
-                ) : (
-                  <Badge variant="success">Capacity Available</Badge>
-                )}
-              </div>
-            </Card>
-          </SectionErrorBoundary>
-        )}
-
-        {/* Basic summary cards */}
-        <div>
-          <h2 className="text-lg font-semibold text-text mb-4">
-            Operational Overview
-          </h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            {widgets.map((widget) => (
-              <Card
-                key={widget.id}
-                className="bg-surface hover:border-border/80 transition-shadow p-5"
-              >
-                <div className="flex items-center justify-between mb-2">
-                  <h3 className="font-semibold text-sm text-text">
-                    {widget.title}
-                  </h3>
-                  <span className="w-2 h-2 rounded-full bg-primary animate-pulse" />
-                </div>
+        {role === "trainer" ? (
+          <div className="space-y-6">
+            <div className="border-b border-border pb-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+              <div>
+                <h2 className="text-xl font-bold text-text">Trainer Overview</h2>
                 <p className="text-xs text-text-muted">
-                  Live operational tracking
+                  Your live client workload and measurement tracking overview.
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  onClick={() => navigate("/measurements")}
+                >
+                  Member measurements
+                </Button>
+                <Button
+                  size="sm"
+                  variant="primary"
+                  onClick={() => navigate("/my-clients")}
+                >
+                  My clients
+                </Button>
+              </div>
+            </div>
+
+            {/* Overview Stat Cards (Item J: X of Y clients, clients with no measurements) */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <Card className="bg-surface border-border p-5 space-y-1">
+                <span className="text-xs text-text-muted block">Client Workload</span>
+                <div className="flex items-baseline justify-between">
+                  <span className="text-2xl font-bold text-text">
+                    {trainerWorkload
+                      ? `${trainerWorkload.client_count} of ${trainerWorkload.max_clients}`
+                      : `${trainerClients.length} clients`}
+                  </span>
+                  {trainerWorkload && trainerWorkload.client_count >= trainerWorkload.max_clients ? (
+                    <Badge variant="warning">At Capacity</Badge>
+                  ) : (
+                    <Badge variant="success">Capacity Available</Badge>
+                  )}
+                </div>
+                <p className="text-[11px] text-text-muted mt-1">
+                  Active client assignments
                 </p>
               </Card>
-            ))}
+
+              <Card className="bg-surface border-border p-5 space-y-1">
+                <span className="text-xs text-text-muted block">No Measurements Recorded</span>
+                <span className="text-2xl font-bold text-amber-500">
+                  {trainerClients.filter((c) => !c.has_measurements).length}
+                </span>
+                <p className="text-[11px] text-text-muted mt-1">
+                  Assigned clients needing initial intake measurements
+                </p>
+              </Card>
+
+              <Card className="bg-surface border-border p-5 space-y-1">
+                <span className="text-xs text-text-muted block">Measured Clients</span>
+                <span className="text-2xl font-bold text-primary">
+                  {trainerClients.filter((c) => c.has_measurements).length}
+                </span>
+                <p className="text-[11px] text-text-muted mt-1">
+                  Clients with body composition history
+                </p>
+              </Card>
+            </div>
+
+            {/* 5 Newest Assigned Clients (Item J) */}
+            <Card className="bg-surface border-border p-5 space-y-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-sm font-bold text-text uppercase tracking-wider">
+                    Newest Assigned Clients
+                  </h3>
+                  <p className="text-xs text-text-muted mt-0.5">
+                    Your 5 most recently assigned members
+                  </p>
+                </div>
+                {trainerClients.length > 5 && (
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => navigate("/my-clients")}
+                    className="text-xs text-primary"
+                  >
+                    View all ({trainerClients.length}) &rarr;
+                  </Button>
+                )}
+              </div>
+
+              {trainerClients.length === 0 ? (
+                <div className="text-center py-8 text-text-muted text-xs">
+                  You do not have any assigned clients at this time.
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-xs text-left border-collapse">
+                    <thead>
+                      <tr className="border-b border-border text-text-muted">
+                        <th className="py-2 px-3 font-semibold">Client</th>
+                        <th className="py-2 px-3 font-semibold">Phone</th>
+                        <th className="py-2 px-3 font-semibold">Membership Plan</th>
+                        <th className="py-2 px-3 font-semibold">Assigned Date</th>
+                        <th className="py-2 px-3 font-semibold">Measurements</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-border/50">
+                      {trainerClients.slice(0, 5).map((c) => (
+                        <tr key={c.assignment_id} className="hover:bg-surface-2/40">
+                          <td className="py-2.5 px-3 font-medium text-text">
+                            <div className="flex items-center gap-2.5">
+                              {c.photo_url ? (
+                                <AuthenticatedImage
+                                  src={c.photo_url}
+                                  alt={c.member_name}
+                                  className="w-7 h-7 rounded-full object-cover border border-border shrink-0"
+                                />
+                              ) : (
+                                <div className="w-7 h-7 rounded-full bg-primary/20 text-primary font-bold flex items-center justify-center text-[10px] border border-border shrink-0">
+                                  {c.member_name.slice(0, 2).toUpperCase()}
+                                </div>
+                              )}
+                              <span>{c.member_name}</span>
+                            </div>
+                          </td>
+                          <td className="py-2.5 px-3 text-text-muted">{c.member_phone}</td>
+                          <td className="py-2.5 px-3 text-text">{c.plan_name}</td>
+                          <td className="py-2.5 px-3 text-text-muted">
+                            {new Date(c.assigned_at).toLocaleDateString()}
+                          </td>
+                          <td className="py-2.5 px-3">
+                            {c.has_measurements ? (
+                              <Badge variant="success">Recorded</Badge>
+                            ) : (
+                              <Badge variant="warning">No measurements</Badge>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </Card>
           </div>
-        </div>
+        ) : (
+          <div>
+            <h2 className="text-lg font-semibold text-text mb-4">
+              Operational Overview
+            </h2>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              {widgets.map((widget) => (
+                <Card
+                  key={widget.id}
+                  className="bg-surface hover:border-border/80 transition-shadow p-5"
+                >
+                  <div className="flex items-center justify-between mb-2">
+                    <h3 className="font-semibold text-sm text-text">
+                      {widget.title}
+                    </h3>
+                    <span className="w-2 h-2 rounded-full bg-primary animate-pulse" />
+                  </div>
+                  <p className="text-xs text-text-muted">
+                    Live operational tracking
+                  </p>
+                </Card>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
     );
   };

@@ -319,6 +319,117 @@ def validate_hip(value: Optional[Union[Decimal, float, int, str]]) -> Optional[D
     return val
 
 
+def validate_chest(
+    value: Optional[Union[Decimal, float, int, str]],
+) -> Optional[Decimal]:
+    """Chest must be between 50.00 and 200.00 cm, max 2 decimals."""
+    if value is None or value == "":
+        return None
+    try:
+        val = Decimal(str(value))
+    except (InvalidOperation, TypeError, ValueError):
+        raise ValidationError("Chest must be a valid number.")
+
+    if val.as_tuple().exponent < -2:
+        raise ValidationError("Chest cannot have more than 2 decimal places.")
+    if val < Decimal("50.00") or val > Decimal("200.00"):
+        raise ValidationError("Chest circumference must be between 50 and 200 cm.")
+    return val
+
+
+def validate_bicep(
+    value: Optional[Union[Decimal, float, int, str]],
+) -> Optional[Decimal]:
+    """Bicep must be between 15.00 and 80.00 cm, max 2 decimals."""
+    if value is None or value == "":
+        return None
+    try:
+        val = Decimal(str(value))
+    except (InvalidOperation, TypeError, ValueError):
+        raise ValidationError("Bicep must be a valid number.")
+
+    if val.as_tuple().exponent < -2:
+        raise ValidationError("Bicep cannot have more than 2 decimal places.")
+    if val < Decimal("15.00") or val > Decimal("80.00"):
+        raise ValidationError("Bicep circumference must be between 15 and 80 cm.")
+    return val
+
+
+def validate_thigh(
+    value: Optional[Union[Decimal, float, int, str]],
+) -> Optional[Decimal]:
+    """Thigh must be between 30.00 and 120.00 cm, max 2 decimals."""
+    if value is None or value == "":
+        return None
+    try:
+        val = Decimal(str(value))
+    except (InvalidOperation, TypeError, ValueError):
+        raise ValidationError("Thigh must be a valid number.")
+
+    if val.as_tuple().exponent < -2:
+        raise ValidationError("Thigh cannot have more than 2 decimal places.")
+    if val < Decimal("30.00") or val > Decimal("120.00"):
+        raise ValidationError("Thigh circumference must be between 30 and 120 cm.")
+    return val
+
+
+def validate_calf(
+    value: Optional[Union[Decimal, float, int, str]],
+) -> Optional[Decimal]:
+    """Calf must be between 20.00 and 80.00 cm, max 2 decimals."""
+    if value is None or value == "":
+        return None
+    try:
+        val = Decimal(str(value))
+    except (InvalidOperation, TypeError, ValueError):
+        raise ValidationError("Calf must be a valid number.")
+
+    if val.as_tuple().exponent < -2:
+        raise ValidationError("Calf cannot have more than 2 decimal places.")
+    if val < Decimal("20.00") or val > Decimal("80.00"):
+        raise ValidationError("Calf circumference must be between 20 and 80 cm.")
+    return val
+
+
+def validate_resting_heart_rate(
+    value: Optional[Union[int, str, float]],
+) -> Optional[int]:
+    """Resting heart rate must be a whole number between 30 and 220 bpm."""
+    if value is None or value == "":
+        return None
+    try:
+        s = str(value).strip()
+        val = int(s)
+        if float(s) != val:
+            raise ValueError
+    except (TypeError, ValueError):
+        raise ValidationError("Resting heart rate must be a whole number.")
+
+    if val < 30 or val > 220:
+        raise ValidationError("Resting heart rate must be between 30 and 220 bpm.")
+    return val
+
+
+def validate_body_fat_percentage(
+    value: Optional[Union[Decimal, float, int, str]],
+) -> Optional[Decimal]:
+    """Body fat % must be between 2.00 and 70.00 %, max 2 decimals."""
+    if value is None or value == "":
+        return None
+    try:
+        val = Decimal(str(value))
+    except (InvalidOperation, TypeError, ValueError):
+        raise ValidationError("Body fat percentage must be a valid number.")
+
+    if val.as_tuple().exponent < -2:
+        raise ValidationError(
+            "Body fat percentage cannot have more than 2 decimal places."
+        )
+    if val < Decimal("2.00") or val > Decimal("70.00"):
+        raise ValidationError("Body fat percentage must be between 2 and 70 %.")
+    return val
+
+
 def validate_payment_amount(value: Union[Decimal, float, int, str]) -> Decimal:
     """Payment amount must be greater than 0 with at most 2 decimals and <= 10,000,000 ETB."""
     try:

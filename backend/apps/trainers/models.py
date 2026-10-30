@@ -22,10 +22,11 @@ class Trainer(TenantAwareModel):
         on_delete=models.CASCADE,
         related_name="trainer_profile",
     )
+    photo_url = models.CharField(max_length=255, blank=True, default="")
     specialization = models.CharField(max_length=255, blank=True, null=True)
     max_clients = models.PositiveIntegerField(
         default=20,
-        validators=[MinValueValidator(1), MaxValueValidator(200)],
+        validators=[MinValueValidator(1), MaxValueValidator(100)],
     )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

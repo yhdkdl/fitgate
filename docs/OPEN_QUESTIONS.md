@@ -133,3 +133,7 @@ If less than 90% sure how a requirement should be implemented and the doubt does
     - **Question/Context:** SPEC §8 defines `Trainer` with `max_clients`, but does not specify a numerical default.
     - **Chosen Solution:** Default `max_clients` is set to 20 for newly provisioned trainer profiles, with an allowed range of 1 to 200, editable by Owner and Manager.
     - **Reason for choice:** 20 provides an operationally sensible client cap for individual trainers while preventing unbounded assignment overload.
+26. **Trainer Assignment Lifecycle & Subscription Expiry (Sprint 17)**
+    - **Question/Context:** What happens to an active `TrainerAssignment` when a member's subscription expires or ends?
+    - **Chosen Solution:** An active assignment remains open until the trainer-inclusive subscription expires, ends, or is manually reassigned by Owner/Manager. On renewal of a trainer-inclusive plan, the existing assignment is preserved without triggering reassignment. If an assignment is manually changed or the trainer is deactivated with client reassignments, the prior assignment is closed (`ended_at` set to current timestamp) and the new assignment is opened atomically.
+    - **Reason for choice:** Preserves trainer-client continuity across standard renewal cycles while ensuring client counts accurately reflect active assignments.

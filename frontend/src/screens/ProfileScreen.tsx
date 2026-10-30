@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { getProfile } from "../api/auth";
 import { getMemberProfileMe, type Member } from "../api/members";
-import { getTrainerProfileMe, type Trainer } from "../api/trainers";
+import { getTrainerProfileMe, uploadTrainerPhoto, type Trainer } from "../api/trainers";
 import { AuthenticatedImage } from "../components/ui/AuthenticatedImage";
 import { Alert } from "../components/ui/Alert";
 import { Badge } from "../components/ui/Badge";
@@ -36,6 +36,43 @@ export const ProfileScreen: React.FC = () => {
   // Member photo fields
   const [memberData, setMemberData] = useState<Member | null>(null);
   const [trainerData, setTrainerData] = useState<Trainer | null>(null);
+  const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
+  const [photoUploadError, setPhotoUploadError] = useState<string | null>(null);
+  const [photoUploadSuccess, setPhotoUploadSuccess] = useState<string | null>(null);
+
+  const handleTrainerPhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setPhotoUploadError(null);
+    setPhotoUploadSuccess(null);
+
+    if (file.size > 2 * 1024 * 1024) {
+      setPhotoUploadError("Photo must be 2 MB or smaller.");
+      return;
+    }
+    const validTypes = ["image/jpeg", "image/png", "image/webp"];
+    if (!validTypes.includes(file.type)) {
+      setPhotoUploadError("Photo must be JPEG, PNG, or WebP.");
+      return;
+    }
+
+    if (!user?.gym_id) {
+      setPhotoUploadError("Gym tenant context missing.");
+      return;
+    }
+
+    setIsUploadingPhoto(true);
+    try {
+      const res = await uploadTrainerPhoto(user.gym_id, file);
+      setPhotoUploadSuccess("Photo uploaded successfully.");
+      setTrainerData((prev) => (prev ? { ...prev, photo_url: res.photo_url } : null));
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Failed to upload photo.";
+      setPhotoUploadError(msg);
+    } finally {
+      setIsUploadingPhoto(false);
+    }
+  };
 
   // Password fields
   const [currentPassword, setCurrentPassword] = useState("");
@@ -237,6 +274,50 @@ export const ProfileScreen: React.FC = () => {
               {trainerData.client_count >= trainerData.max_clients && (
                 <Badge variant="warning">At Capacity</Badge>
               )}
+            </div>
+
+            {/* Trainer Photo Upload (Item H: optional, up to 2MB, JPEG/PNG/WebP) */}
+            <div className="mt-4 pt-4 border-t border-border flex flex-col sm:flex-row items-center gap-4">
+              {trainerData.photo_url ? (
+                <AuthenticatedImage
+                  src={trainerData.photo_url}
+                  alt={user?.full_name || "Trainer"}
+                  className="w-16 h-16 rounded-full object-cover border border-border"
+                />
+              ) : (
+                <div className="w-16 h-16 rounded-full bg-primary/20 text-primary font-bold flex items-center justify-center text-lg border border-border">
+                  {(user?.full_name || user?.email || "TR")
+                    .slice(0, 2)
+                    .toUpperCase()}
+                </div>
+              )}
+              <div className="flex-1 space-y-2 text-center sm:text-left">
+                <p className="text-xs text-text-muted">
+                  Trainer photo (optional): JPEG, PNG, or WebP up to 2 MB. Visible to management and assigned clients.
+                </p>
+                <div className="flex flex-wrap items-center gap-2">
+                  <input
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp"
+                    className="hidden"
+                    id="trainer-photo-input"
+                    onChange={handleTrainerPhotoUpload}
+                    disabled={isUploadingPhoto}
+                  />
+                  <label
+                    htmlFor="trainer-photo-input"
+                    className="inline-flex items-center justify-center px-3 py-1.5 text-xs font-medium rounded-input border border-border bg-surface-2 hover:bg-border/60 cursor-pointer min-h-[36px]"
+                  >
+                    {isUploadingPhoto ? "Uploading..." : trainerData.photo_url ? "Replace photo" : "Upload photo"}
+                  </label>
+                  {photoUploadError && (
+                    <span className="text-xs text-danger">{photoUploadError}</span>
+                  )}
+                  {photoUploadSuccess && (
+                    <span className="text-xs text-success">{photoUploadSuccess}</span>
+                  )}
+                </div>
+              </div>
             </div>
           </Card>
         )}

@@ -49,11 +49,21 @@
 
 ## Current
 
-- Sprint 17: Trainer assignment (GATE)
+- Sprint 17: Trainer assignment (GATE) — automatic assignment (load-balance + least-recently-assigned tie-break, capacity limits, all-full notification), wired into subscription activation across all payment paths (online, cash, bank transfer, renewal) without blocking payment transactions, database-level conditional unique constraint preventing duplicate open assignments per member, candidate trainer row-locking (`select_for_update`) preventing concurrency overruns, manual reassignment with explicit over-capacity confirmation and audit logging, trainer deactivation client reassignment guard, RBAC tenant isolation (Trainer sees own clients, Member sees assigned trainer name, Owner/Manager see all, Reception sees assigned trainer read-only, Super Admin denied), and screens (Owner/Manager "Assignments" and unassigned members views, Trainer "My clients" view, Member "My trainer" card on Home and My membership).
+- Sprint 17 Gate Fixes & Additions:
+  - Scoped trainers strictly on the server to view, search, record measurements for, and view profile photos of ONLY their currently assigned active clients (HTTP 403 for unassigned/former clients); new trainer sees full measurement history.
+  - Trainer optional photo upload/replace in account settings (JPEG/PNG/WebP, max 2 MB), visible on Owner/Manager Trainers list.
+  - Member "My trainer" card on Home and Membership screens with trainer photo/initials and specialization; private photo route scoped to current trainer only.
+  - Owner/Manager capacity editing (1–100) with active client safety guard ("Reassign some clients first") and audit logging.
+  - Trainer Overview dashboard metrics ("X of Y clients", 5 newest clients, count of unmeasured clients) and client list details.
+  - Extended optional body measurement fields (chest, biceps, thighs, calves, resting heart rate, body fat %) with shared validation.
+  - Automated calculation of waist-to-hip ratio and lean body mass (labeled "measured" with body fat % or "estimate").
+  - Latest measurement entry correction endpoint for assigned trainer with audit logging and history "corrected" flag.
+  - Comprehensive assignment, reassignment, and deactivation audit logging.
 
 ## Next
 
-- Increment 3 closeout and acceptance.
+- Owner approval of Sprint 17 GATE report, followed by merge to develop, full suite re-run, click-through testing script `docs/INCREMENT_3_TEST.md`, tag `sprint-17-done`, and Increment 3 report.
 
 ## Open manual steps
 

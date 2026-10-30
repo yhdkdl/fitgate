@@ -500,46 +500,87 @@ class ServeMemberPhotoView(APIView):
 
         if role == User.ROLE_MEMBER:
             member = getattr(request.user, "member_profile", None)
-            if not member or not member.photo_url:
-                raise PermissionDenied("Members may only view their own photo.")
-            # Exact-match check against member's stored photo
-            stored_filename = os.path.basename(member.photo_url.rstrip("/"))
-            if filename != stored_filename:
-                raise PermissionDenied("Members may only view their own photo.")
-
-        elif role == User.ROLE_TRAINER:
-            # Member photo read access for Trainers must narrow to their assigned members (Sprint 17 wires assignment)
-            from django.db.models import Q
-
-            from apps.memberships.models import Member
-
-            member = Member.objects.filter(
-                Q(photo_url__endswith=f"/{filename}/")
-                | Q(photo_url__endswith=f"/{filename}")
-                | Q(photo_url=filename),
-                gym=request.tenant,
-            ).first()
             if not member:
-                return Response(
-                    {"detail": "Photo not found."}, status=status.HTTP_404_NOT_FOUND
+                raise PermissionDenied(
+                    "Members may only view their own photo or assigned trainer photo."
                 )
 
-            is_assigned = False
-            try:
-                from apps.memberships.models import TrainerAssignment
+            stored_filename = (
+                os.path.basename(member.photo_url.rstrip("/"))
+                if member.photo_url
+                else None
+            )
+            is_own_photo = bool(stored_filename and filename == stored_filename)
+
+            is_current_trainer_photo = False
+            from apps.trainers.models import TrainerAssignment
+
+            current_assignment = (
+                TrainerAssignment.objects.filter(
+                    member=member,
+                    ended_at__isnull=True,
+                    gym=request.tenant,
+                )
+                .select_related("trainer")
+                .first()
+            )
+
+            if (
+                current_assignment
+                and current_assignment.trainer
+                and current_assignment.trainer.photo_url
+            ):
+                trainer_filename = os.path.basename(
+                    current_assignment.trainer.photo_url.rstrip("/")
+                )
+                if filename == trainer_filename:
+                    is_current_trainer_photo = True
+
+            if not is_own_photo and not is_current_trainer_photo:
+                raise PermissionDenied(
+                    "Members may only view their own photo or their current assigned trainer's photo."
+                )
+
+        elif role == User.ROLE_TRAINER:
+            # Trainers can view their own trainer photo or photos of their currently assigned members
+            trainer = getattr(request.user, "trainer_profile", None)
+            stored_trainer_filename = (
+                os.path.basename(trainer.photo_url.rstrip("/"))
+                if (trainer and trainer.photo_url)
+                else None
+            )
+
+            if stored_trainer_filename and filename == stored_trainer_filename:
+                # Trainer's own photo
+                pass
+            else:
+                from django.db.models import Q
+
+                from apps.memberships.models import Member
+                from apps.trainers.models import TrainerAssignment
+
+                member = Member.objects.filter(
+                    Q(photo_url__endswith=f"/{filename}/")
+                    | Q(photo_url__endswith=f"/{filename}")
+                    | Q(photo_url=filename),
+                    gym=request.tenant,
+                ).first()
+                if not member:
+                    return Response(
+                        {"detail": "Photo not found."}, status=status.HTTP_404_NOT_FOUND
+                    )
 
                 is_assigned = TrainerAssignment.objects.filter(
                     trainer__user=request.user,
                     member=member,
                     ended_at__isnull=True,
+                    gym=request.tenant,
                 ).exists()
-            except (ImportError, Exception):
-                is_assigned = False
 
-            if not is_assigned:
-                raise PermissionDenied(
-                    "Trainers may only view photos of their assigned members."
-                )
+                if not is_assigned:
+                    raise PermissionDenied(
+                        "Trainers may only view photos of their assigned members."
+                    )
 
         try:
             stream, content_type = get_authenticated_photo_stream(gym_id, filename)
@@ -611,15 +652,18 @@ class UploadMemberPhotoView(APIView):
         if role == User.ROLE_MEMBER:
             raise PermissionDenied("Members cannot upload or change photos.")
 
-        if role == User.ROLE_TRAINER:
-            raise PermissionDenied("Trainers cannot upload or change member photos.")
-
         if role not in (
             User.ROLE_OWNER,
             User.ROLE_MANAGER,
             User.ROLE_RECEPTION,
+            User.ROLE_TRAINER,
         ):
             raise PermissionDenied("Only gym staff may upload member photos.")
+
+        if role == User.ROLE_TRAINER and (
+            request.data.get("member_id") or request.query_params.get("member_id")
+        ):
+            raise PermissionDenied("Trainers cannot upload or change member photos.")
 
         member_id = request.data.get("member_id") or request.query_params.get(
             "member_id"
@@ -663,7 +707,21 @@ class UploadMemberPhotoView(APIView):
 
         target_member = None
         with transaction.atomic():
-            if role == User.ROLE_MEMBER:
+            if role == User.ROLE_TRAINER:
+                trainer = getattr(request.user, "trainer_profile", None)
+                if not trainer:
+                    raise Http404("Trainer profile not found.")
+                trainer.photo_url = url
+                trainer.save(update_fields=["photo_url"])
+                record_audit_log(
+                    action_type="trainer_photo_uploaded",
+                    affected_record_type="Trainer",
+                    affected_record_id=str(trainer.id),
+                    actor=request.user,
+                    gym=request.tenant,
+                    metadata={"trainer_id": str(trainer.id), "filename": filename},
+                )
+            elif role == User.ROLE_MEMBER:
                 target_member = getattr(request.user, "member_profile", None)
                 if target_member:
                     target_member.photo_url = url
@@ -683,16 +741,17 @@ class UploadMemberPhotoView(APIView):
                     target_member.photo_url = url
                     target_member.save(update_fields=["photo_url"])
 
-            record_audit_log(
-                action_type="member_photo_uploaded",
-                affected_record_type="Member",
-                affected_record_id=(
-                    str(target_member.id) if target_member else str(request.user.id)
-                ),
-                actor=request.user,
-                gym=request.tenant,
-                metadata={"filename": filename},
-            )
+            if role != User.ROLE_TRAINER:
+                record_audit_log(
+                    action_type="member_photo_uploaded",
+                    affected_record_type="Member",
+                    affected_record_id=(
+                        str(target_member.id) if target_member else str(request.user.id)
+                    ),
+                    actor=request.user,
+                    gym=request.tenant,
+                    metadata={"filename": filename},
+                )
 
         return Response(
             {
