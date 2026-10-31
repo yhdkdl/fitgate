@@ -548,6 +548,50 @@ export interface paths {
         patch: operations["gym_members_fitness_profile_partial_update"];
         trace?: never;
     };
+    "/api/gym/members/{member_id}/plans/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List training plans for a member
+         * @description List training plans or generate a new draft for a member.
+         */
+        get: operations["gym_members_plans_list"];
+        put?: never;
+        /**
+         * Generate a training plan draft for a member
+         * @description List training plans or generate a new draft for a member.
+         */
+        post: operations["gym_members_plans_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/gym/members/{member_id}/plans/status/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get plan generation prerequisites status for a member
+         * @description Returns plan generation prerequisites and readiness status for a member.
+         */
+        get: operations["gym_members_plans_status_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/gym/members/{id}/": {
         parameters: {
             query?: never;
@@ -1169,6 +1213,86 @@ export interface paths {
         patch: operations["gym_trainers_partial_update"];
         trace?: never;
     };
+    "/api/gym/training-plans/{id}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get training plan details
+         * @description Retrieve details of a training plan.
+         */
+        get: operations["gym_training_plans_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/gym/training-plans/{id}/approve/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Approve a training plan draft
+         * @description Approve a pending training plan draft.
+         */
+        post: operations["gym_training_plans_approve_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/gym/training-plans/{id}/edit/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Directly edit a pending training plan draft
+         * @description Directly edit exercises or nutrition guidance of a pending training plan draft.
+         */
+        patch: operations["gym_training_plans_edit_partial_update"];
+        trace?: never;
+    };
+    "/api/gym/training-plans/{id}/reject/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Reject a training plan draft and regenerate
+         * @description Reject a pending training plan draft and trigger regeneration.
+         */
+        post: operations["gym_training_plans_reject_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/gym/unassigned-members/": {
         parameters: {
             query?: never;
@@ -1352,6 +1476,27 @@ export interface paths {
          * @description Refused - members cannot enter or edit measurements.
          */
         post: operations["members_me_metrics_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/members/me/plans/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get approved training plans for authenticated member
+         * @description Read-only list of approved training plans for the authenticated member.
+         *     Unapproved drafts and rejected plans are never visible to the member.
+         */
+        get: operations["members_me_plans_list"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -2336,6 +2481,20 @@ export interface components {
          * @enum {string}
          */
         GenderEnum: "male" | "female";
+        GeneratePlanRequestRequest: {
+            /** @default this_week */
+            week_choice: components["schemas"]["WeekChoiceEnum"];
+            /**
+             * @default [
+             *       "no_focus"
+             *     ]
+             */
+            focus_this_week: string[];
+            /** @default  */
+            other_focus: string;
+            /** @default  */
+            trainer_notes: string;
+        };
         /** @description Feature gating and configuration settings of a gym. */
         GymConfig: {
             readonly tier: string;
@@ -2733,6 +2892,11 @@ export interface components {
             status?: components["schemas"]["DemoRequestStatusEnum"];
             notes?: string;
         };
+        PatchedEditPlanRequestRequest: {
+            plan_data?: {
+                [key: string]: unknown;
+            };
+        };
         PatchedFitnessProfileRequest: {
             goal?: string;
             fitness_level?: string;
@@ -3010,6 +3174,11 @@ export interface components {
             amount_etb: string;
             detail: string;
         };
+        RejectPlanRequestRequest: {
+            rejection_reasons: string[];
+            /** @default  */
+            other_rejection_reason: string;
+        };
         /** @description Owner reversal request with mandatory reason. */
         ReverseBankTransferRequest: {
             reason: string;
@@ -3175,6 +3344,47 @@ export interface components {
             readonly phone: string;
             readonly is_active: boolean;
         };
+        TrainingPlan: {
+            /** Format: uuid */
+            readonly id: string;
+            /** Format: uuid */
+            readonly member_id: string;
+            readonly member_name: string;
+            /**
+             * Format: date
+             * @description Monday of the training plan week
+             */
+            readonly week_start_date: string;
+            readonly draft_number: number;
+            readonly status: components["schemas"]["TrainingPlanStatusEnum"];
+            readonly generated_by_model: string;
+            readonly plan_data: unknown;
+            readonly focus_this_week: unknown;
+            readonly other_focus: string;
+            readonly trainer_notes: string;
+            readonly rejection_reasons: unknown;
+            readonly other_rejection_reason: string;
+            readonly has_medical_caution: boolean;
+            readonly was_edited: boolean;
+            readonly is_final_draft: boolean;
+            readonly can_reject: boolean;
+            readonly can_approve: boolean;
+            readonly can_edit: boolean;
+            readonly approved_by_name: string;
+            /** Format: date-time */
+            readonly approved_at: string | null;
+            /** Format: date-time */
+            readonly created_at: string;
+            /** Format: date-time */
+            readonly updated_at: string;
+        };
+        /**
+         * @description * `pending_review` - Pending Review
+         *     * `approved` - Approved
+         *     * `rejected` - Rejected
+         * @enum {string}
+         */
+        TrainingPlanStatusEnum: "pending_review" | "approved" | "rejected";
         UnassignedMember: {
             /** Format: uuid */
             member_id: string;
@@ -3273,6 +3483,12 @@ export interface components {
         VerifyEmailRequestRequest: {
             token: string;
         };
+        /**
+         * @description * `this_week` - this_week
+         *     * `next_week` - next_week
+         * @enum {string}
+         */
+        WeekChoiceEnum: "this_week" | "next_week";
     };
     responses: never;
     parameters: never;
@@ -4237,6 +4453,74 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["FitnessProfile"];
                 };
+            };
+        };
+    };
+    gym_members_plans_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                member_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TrainingPlan"][];
+                };
+            };
+        };
+    };
+    gym_members_plans_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                member_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["GeneratePlanRequestRequest"];
+                "application/x-www-form-urlencoded": components["schemas"]["GeneratePlanRequestRequest"];
+                "multipart/form-data": components["schemas"]["GeneratePlanRequestRequest"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TrainingPlan"];
+                };
+            };
+        };
+    };
+    gym_members_plans_status_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                member_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Prerequisites status */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
         };
     };
@@ -5536,6 +5820,102 @@ export interface operations {
             };
         };
     };
+    gym_training_plans_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TrainingPlan"];
+                };
+            };
+        };
+    };
+    gym_training_plans_approve_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TrainingPlan"];
+                };
+            };
+        };
+    };
+    gym_training_plans_edit_partial_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["PatchedEditPlanRequestRequest"];
+                "application/x-www-form-urlencoded": components["schemas"]["PatchedEditPlanRequestRequest"];
+                "multipart/form-data": components["schemas"]["PatchedEditPlanRequestRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TrainingPlan"];
+                };
+            };
+        };
+    };
+    gym_training_plans_reject_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RejectPlanRequestRequest"];
+                "application/x-www-form-urlencoded": components["schemas"]["RejectPlanRequestRequest"];
+                "multipart/form-data": components["schemas"]["RejectPlanRequestRequest"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TrainingPlan"];
+                };
+            };
+        };
+    };
     gym_unassigned_members_list: {
         parameters: {
             query?: never;
@@ -5871,6 +6251,25 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+        };
+    };
+    members_me_plans_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TrainingPlan"][];
+                };
             };
         };
     };

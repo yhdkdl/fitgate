@@ -647,15 +647,13 @@ def build_ai_generation_context(
 
     age = None
     if member.date_of_birth:
+        dob = member.date_of_birth
+        if isinstance(dob, str):
+            from datetime import date as dt_date
+
+            dob = dt_date.fromisoformat(dob)
         today = timezone.localdate()
-        age = (
-            today.year
-            - member.date_of_birth.year
-            - (
-                (today.month, today.day)
-                < (member.date_of_birth.month, member.date_of_birth.day)
-            )
-        )
+        age = today.year - dob.year - ((today.month, today.day) < (dob.month, dob.day))
 
     meas_data = metrics.measurements or {}
     weight_kg = float(metrics.weight_kg) if metrics.weight_kg else None

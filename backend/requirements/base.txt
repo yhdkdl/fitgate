@@ -25,3 +25,6 @@ redis==8.1.0
 # Storage & Image Processing
 Pillow==12.3.0
 cloudinary==1.46.3
+
+# AI & LLM Provider
+litellm>=1.60.0

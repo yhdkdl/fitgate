@@ -899,6 +899,84 @@ paths:
               schema:
                 $ref: '#/components/schemas/FitnessProfile'
           description: ''
+  /api/gym/members/{member_id}/plans/:
+    get:
+      operationId: gym_members_plans_list
+      description: List training plans or generate a new draft for a member.
+      summary: List training plans for a member
+      parameters:
+      - in: path
+        name: member_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - training-plans
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/TrainingPlan'
+          description: ''
+    post:
+      operationId: gym_members_plans_create
+      description: List training plans or generate a new draft for a member.
+      summary: Generate a training plan draft for a member
+      parameters:
+      - in: path
+        name: member_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - training-plans
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GeneratePlanRequestRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/GeneratePlanRequestRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/GeneratePlanRequestRequest'
+      security:
+      - jwtAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TrainingPlan'
+          description: ''
+  /api/gym/members/{member_id}/plans/status/:
+    get:
+      operationId: gym_members_plans_status_retrieve
+      description: Returns plan generation prerequisites and readiness status for
+        a member.
+      summary: Get plan generation prerequisites status for a member
+      parameters:
+      - in: path
+        name: member_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - training-plans
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: Prerequisites status
   /api/gym/members/{id}/:
     get:
       operationId: gym_members_retrieve
@@ -2013,6 +2091,122 @@ paths:
           description: Permission denied or trainer module not enabled
         '404':
           description: Trainer not found
+  /api/gym/training-plans/{id}/:
+    get:
+      operationId: gym_training_plans_retrieve
+      description: Retrieve details of a training plan.
+      summary: Get training plan details
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - training-plans
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TrainingPlan'
+          description: ''
+  /api/gym/training-plans/{id}/approve/:
+    post:
+      operationId: gym_training_plans_approve_create
+      description: Approve a pending training plan draft.
+      summary: Approve a training plan draft
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - training-plans
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TrainingPlan'
+          description: ''
+  /api/gym/training-plans/{id}/edit/:
+    patch:
+      operationId: gym_training_plans_edit_partial_update
+      description: Directly edit exercises or nutrition guidance of a pending training
+        plan draft.
+      summary: Directly edit a pending training plan draft
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - training-plans
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedEditPlanRequestRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedEditPlanRequestRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedEditPlanRequestRequest'
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TrainingPlan'
+          description: ''
+  /api/gym/training-plans/{id}/reject/:
+    post:
+      operationId: gym_training_plans_reject_create
+      description: Reject a pending training plan draft and trigger regeneration.
+      summary: Reject a training plan draft and regenerate
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - training-plans
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RejectPlanRequestRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/RejectPlanRequestRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/RejectPlanRequestRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TrainingPlan'
+          description: ''
   /api/gym/unassigned-members/:
     get:
       operationId: gym_unassigned_members_list
@@ -2291,6 +2485,26 @@ paths:
       responses:
         '403':
           description: Forbidden
+  /api/members/me/plans/:
+    get:
+      operationId: members_me_plans_list
+      description: |-
+        Read-only list of approved training plans for the authenticated member.
+        Unapproved drafts and rejected plans are never visible to the member.
+      summary: Get approved training plans for authenticated member
+      tags:
+      - training-plans
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/TrainingPlan'
+          description: ''
   /api/members/me/qr-token/:
     get:
       operationId: members_me_qr_token_retrieve
@@ -3989,6 +4203,28 @@ components:
       description: |-
         * `male` - Male
         * `female` - Female
+    GeneratePlanRequestRequest:
+      type: object
+      properties:
+        week_choice:
+          allOf:
+          - $ref: '#/components/schemas/WeekChoiceEnum'
+          default: this_week
+        focus_this_week:
+          type: array
+          items:
+            type: string
+            minLength: 1
+          default:
+          - no_focus
+        other_focus:
+          type: string
+          default: ''
+          maxLength: 200
+        trainer_notes:
+          type: string
+          default: ''
+          maxLength: 500
     GymConfig:
       type: object
       description: Feature gating and configuration settings of a gym.
@@ -4950,6 +5186,12 @@ components:
           $ref: '#/components/schemas/DemoRequestStatusEnum'
         notes:
           type: string
+    PatchedEditPlanRequestRequest:
+      type: object
+      properties:
+        plan_data:
+          type: object
+          additionalProperties: {}
     PatchedFitnessProfileRequest:
       type: object
       properties:
@@ -5629,6 +5871,20 @@ components:
       - payment_id
       - receipt
       - status
+    RejectPlanRequestRequest:
+      type: object
+      properties:
+        rejection_reasons:
+          type: array
+          items:
+            type: string
+            minLength: 1
+        other_rejection_reason:
+          type: string
+          default: ''
+          maxLength: 200
+      required:
+      - rejection_reasons
     ReverseBankTransferRequest:
       type: object
       description: Owner reversal request with mandatory reason.
@@ -6037,6 +6293,118 @@ components:
       - id
       - is_active
       - phone
+    TrainingPlan:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        member_id:
+          type: string
+          format: uuid
+          readOnly: true
+        member_name:
+          type: string
+          readOnly: true
+        week_start_date:
+          type: string
+          format: date
+          readOnly: true
+          description: Monday of the training plan week
+        draft_number:
+          type: integer
+          readOnly: true
+        status:
+          allOf:
+          - $ref: '#/components/schemas/TrainingPlanStatusEnum'
+          readOnly: true
+        generated_by_model:
+          type: string
+          readOnly: true
+        plan_data:
+          readOnly: true
+        focus_this_week:
+          readOnly: true
+        other_focus:
+          type: string
+          readOnly: true
+        trainer_notes:
+          type: string
+          readOnly: true
+        rejection_reasons:
+          readOnly: true
+        other_rejection_reason:
+          type: string
+          readOnly: true
+        has_medical_caution:
+          type: boolean
+          readOnly: true
+        was_edited:
+          type: boolean
+          readOnly: true
+        is_final_draft:
+          type: boolean
+          readOnly: true
+        can_reject:
+          type: boolean
+          readOnly: true
+        can_approve:
+          type: boolean
+          readOnly: true
+        can_edit:
+          type: boolean
+          readOnly: true
+        approved_by_name:
+          type: string
+          readOnly: true
+        approved_at:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - approved_at
+      - approved_by_name
+      - can_approve
+      - can_edit
+      - can_reject
+      - created_at
+      - draft_number
+      - focus_this_week
+      - generated_by_model
+      - has_medical_caution
+      - id
+      - is_final_draft
+      - member_id
+      - member_name
+      - other_focus
+      - other_rejection_reason
+      - plan_data
+      - rejection_reasons
+      - status
+      - trainer_notes
+      - updated_at
+      - was_edited
+      - week_start_date
+    TrainingPlanStatusEnum:
+      enum:
+      - pending_review
+      - approved
+      - rejected
+      type: string
+      description: |-
+        * `pending_review` - Pending Review
+        * `approved` - Approved
+        * `rejected` - Rejected
     UnassignedMember:
       type: object
       properties:
@@ -6268,6 +6636,14 @@ components:
           maxLength: 128
       required:
       - token
+    WeekChoiceEnum:
+      enum:
+      - this_week
+      - next_week
+      type: string
+      description: |-
+        * `this_week` - this_week
+        * `next_week` - next_week
   securitySchemes:
     jwtAuth:
       type: http

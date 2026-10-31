@@ -379,3 +379,93 @@ class FitnessProfileSerializer(serializers.ModelSerializer):
             "bmi": bmi,
             "recorded_at": latest.recorded_at,
         }
+
+
+# ==============================================================================
+# SPRINT 22: TRAINING PLAN SERIALIZERS
+# ==============================================================================
+
+
+class TrainingPlanSerializer(serializers.ModelSerializer):
+    member_id = serializers.UUIDField(source="member.id", read_only=True)
+    member_name = serializers.CharField(source="member.full_name", read_only=True)
+    is_final_draft = serializers.BooleanField(read_only=True)
+    can_reject = serializers.BooleanField(read_only=True)
+    can_approve = serializers.BooleanField(read_only=True)
+    can_edit = serializers.BooleanField(read_only=True)
+    approved_by_name = serializers.CharField(
+        source="approved_by.full_name", read_only=True, default=None
+    )
+
+    class Meta:
+        from apps.trainers.models import TrainingPlan
+
+        model = TrainingPlan
+        fields = [
+            "id",
+            "member_id",
+            "member_name",
+            "week_start_date",
+            "draft_number",
+            "status",
+            "generated_by_model",
+            "plan_data",
+            "focus_this_week",
+            "other_focus",
+            "trainer_notes",
+            "rejection_reasons",
+            "other_rejection_reason",
+            "has_medical_caution",
+            "was_edited",
+            "is_final_draft",
+            "can_reject",
+            "can_approve",
+            "can_edit",
+            "approved_by_name",
+            "approved_at",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = fields
+
+
+class GeneratePlanRequestSerializer(serializers.Serializer):
+    week_choice = serializers.ChoiceField(
+        choices=["this_week", "next_week"],
+        default="this_week",
+        required=False,
+    )
+    focus_this_week = serializers.ListField(
+        child=serializers.CharField(),
+        required=False,
+        default=["no_focus"],
+    )
+    other_focus = serializers.CharField(
+        max_length=200,
+        required=False,
+        allow_blank=True,
+        default="",
+    )
+    trainer_notes = serializers.CharField(
+        max_length=500,
+        required=False,
+        allow_blank=True,
+        default="",
+    )
+
+
+class RejectPlanRequestSerializer(serializers.Serializer):
+    rejection_reasons = serializers.ListField(
+        child=serializers.CharField(),
+        required=True,
+    )
+    other_rejection_reason = serializers.CharField(
+        max_length=200,
+        required=False,
+        allow_blank=True,
+        default="",
+    )
+
+
+class EditPlanRequestSerializer(serializers.Serializer):
+    plan_data = serializers.DictField(required=True)

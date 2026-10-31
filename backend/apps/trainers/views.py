@@ -12,23 +12,35 @@ from apps.accounts.authentication import FitGateJWTAuthentication
 from apps.accounts.permissions import RequirePasswordChanged
 from apps.accounts.services import record_audit_log
 from apps.memberships.models import Member, MemberSubscription
-from apps.trainers.models import FitnessProfile, Trainer, TrainerAssignment
+from apps.trainers.models import (
+    FitnessProfile,
+    Trainer,
+    TrainerAssignment,
+    TrainingPlan,
+)
 from apps.trainers.permissions import (
+    CanAccessMemberApprovedPlans,
     CanAccessMemberFitnessProfile,
     CanAccessMemberSelfFitnessProfile,
+    CanManageMemberTrainingPlans,
+    CanManageTrainingPlanDetail,
     HasTrainerModule,
     IsOwnerOrManager,
     IsTrainerRole,
 )
 from apps.trainers.serializers import (
+    EditPlanRequestSerializer,
     FitnessProfileSerializer,
+    GeneratePlanRequestSerializer,
     ManualReassignRequestSerializer,
     ManualReassignResponseSerializer,
+    RejectPlanRequestSerializer,
     TrainerAssignmentDetailSerializer,
     TrainerCapacityUpdateResponseSerializer,
     TrainerCapacityUpdateSerializer,
     TrainerMyClientSerializer,
     TrainerSerializer,
+    TrainingPlanSerializer,
     UnassignedMemberSerializer,
 )
 from apps.trainers.services import reassign_trainer
@@ -555,4 +567,333 @@ class MemberSelfFitnessProfileView(APIView):
             raise NotFound({"detail": "Fitness profile not found."})
 
         serializer = FitnessProfileSerializer(profile)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+# ==============================================================================
+# SPRINT 22: TRAINING PLAN VIEWS
+# ==============================================================================
+
+
+class GymMemberPlanStatusView(APIView):
+    """
+    Returns plan generation prerequisites and readiness status for a member.
+    """
+
+    authentication_classes = [FitGateJWTAuthentication]
+    permission_classes = [
+        IsAuthenticated,
+        RequirePasswordChanged,
+        HasTrainerModule,
+        CanManageMemberTrainingPlans,
+    ]
+
+    @extend_schema(
+        tags=["training-plans"],
+        summary="Get plan generation prerequisites status for a member",
+        responses={200: OpenApiResponse(description="Prerequisites status")},
+    )
+    def get(self, request, member_id):
+        tenant = request.tenant
+        member = Member.objects.filter(id=member_id, gym=tenant).first()
+        if not member:
+            raise NotFound({"detail": "Member not found."})
+
+        from apps.trainers.services import get_plan_generation_prerequisites
+
+        prereqs = get_plan_generation_prerequisites(member=member, gym=tenant)
+        profile = getattr(member, "fitness_profile", None)
+        has_caution = profile.has_medical_caution if profile else False
+
+        return Response(
+            {
+                "eligible": prereqs["eligible"],
+                "can_generate_this_week": prereqs["can_generate_this_week"],
+                "can_generate_next_week": prereqs["can_generate_next_week"],
+                "missing_requirements": prereqs["missing_requirements"],
+                "this_week_draft_count": prereqs["this_week_draft_count"],
+                "next_week_draft_count": prereqs["next_week_draft_count"],
+                "has_open_draft_this_week": prereqs["has_open_draft_this_week"],
+                "has_open_draft_next_week": prereqs["has_open_draft_next_week"],
+                "open_draft_id_this_week": prereqs["open_draft_id_this_week"],
+                "open_draft_id_next_week": prereqs["open_draft_id_next_week"],
+                "has_medical_caution": has_caution,
+            },
+            status=status.HTTP_200_OK,
+        )
+
+
+class GymMemberTrainingPlanListView(APIView):
+    """
+    List training plans or generate a new draft for a member.
+    """
+
+    authentication_classes = [FitGateJWTAuthentication]
+    permission_classes = [
+        IsAuthenticated,
+        RequirePasswordChanged,
+        HasTrainerModule,
+        CanManageMemberTrainingPlans,
+    ]
+
+    @extend_schema(
+        tags=["training-plans"],
+        summary="List training plans for a member",
+        responses={200: TrainingPlanSerializer(many=True)},
+    )
+    def get(self, request, member_id):
+        tenant = request.tenant
+        member = Member.objects.filter(id=member_id, gym=tenant).first()
+        if not member:
+            raise NotFound({"detail": "Member not found."})
+
+        plans = TrainingPlan.all_objects.filter(member=member, gym=tenant).order_by(
+            "-week_start_date", "-draft_number"
+        )
+        serializer = TrainingPlanSerializer(plans, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+    @extend_schema(
+        tags=["training-plans"],
+        summary="Generate a training plan draft for a member",
+        request=GeneratePlanRequestSerializer,
+        responses={201: TrainingPlanSerializer},
+    )
+    def post(self, request, member_id):
+        tenant = request.tenant
+        member = Member.objects.filter(id=member_id, gym=tenant).first()
+        if not member:
+            raise NotFound({"detail": "Member not found."})
+
+        serializer = GeneratePlanRequestSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        from apps.trainers.services import generate_training_plan
+
+        try:
+            plan = generate_training_plan(
+                member=member,
+                gym=tenant,
+                acting_user=request.user,
+                week_choice=serializer.validated_data.get("week_choice", "this_week"),
+                focus_this_week=serializer.validated_data.get(
+                    "focus_this_week", ["no_focus"]
+                ),
+                other_focus=serializer.validated_data.get("other_focus", ""),
+                trainer_notes=serializer.validated_data.get("trainer_notes", ""),
+            )
+            return Response(
+                TrainingPlanSerializer(plan).data, status=status.HTTP_201_CREATED
+            )
+        except (DjangoValidationError, DRFValidationError) as exc:
+            detail = getattr(
+                exc,
+                "detail",
+                getattr(exc, "message", getattr(exc, "messages", str(exc))),
+            )
+            return Response({"detail": detail}, status=status.HTTP_400_BAD_REQUEST)
+
+
+class GymTrainingPlanDetailView(APIView):
+    """
+    Retrieve details of a training plan.
+    """
+
+    authentication_classes = [FitGateJWTAuthentication]
+    permission_classes = [
+        IsAuthenticated,
+        RequirePasswordChanged,
+        HasTrainerModule,
+        CanManageTrainingPlanDetail,
+    ]
+
+    @extend_schema(
+        tags=["training-plans"],
+        summary="Get training plan details",
+        responses={200: TrainingPlanSerializer},
+    )
+    def get(self, request, pk):
+        tenant = request.tenant
+
+        plan = TrainingPlan.all_objects.filter(id=pk, gym=tenant).first()
+        if not plan:
+            raise NotFound({"detail": "Training plan not found."})
+
+        return Response(TrainingPlanSerializer(plan).data, status=status.HTTP_200_OK)
+
+
+class GymTrainingPlanApproveView(APIView):
+    """
+    Approve a pending training plan draft.
+    """
+
+    authentication_classes = [FitGateJWTAuthentication]
+    permission_classes = [
+        IsAuthenticated,
+        RequirePasswordChanged,
+        HasTrainerModule,
+        CanManageTrainingPlanDetail,
+    ]
+
+    @extend_schema(
+        tags=["training-plans"],
+        summary="Approve a training plan draft",
+        responses={200: TrainingPlanSerializer},
+    )
+    def post(self, request, pk):
+        tenant = request.tenant
+
+        plan = TrainingPlan.all_objects.filter(id=pk, gym=tenant).first()
+        if not plan:
+            raise NotFound({"detail": "Training plan not found."})
+
+        from apps.trainers.services import approve_training_plan
+
+        try:
+            approved_plan = approve_training_plan(plan=plan, acting_user=request.user)
+            return Response(
+                TrainingPlanSerializer(approved_plan).data, status=status.HTTP_200_OK
+            )
+        except (DjangoValidationError, DRFValidationError) as exc:
+            detail = getattr(
+                exc,
+                "detail",
+                getattr(exc, "message", getattr(exc, "messages", str(exc))),
+            )
+            return Response({"detail": detail}, status=status.HTTP_400_BAD_REQUEST)
+
+
+class GymTrainingPlanRejectView(APIView):
+    """
+    Reject a pending training plan draft and trigger regeneration.
+    """
+
+    authentication_classes = [FitGateJWTAuthentication]
+    permission_classes = [
+        IsAuthenticated,
+        RequirePasswordChanged,
+        HasTrainerModule,
+        CanManageTrainingPlanDetail,
+    ]
+
+    @extend_schema(
+        tags=["training-plans"],
+        summary="Reject a training plan draft and regenerate",
+        request=RejectPlanRequestSerializer,
+        responses={201: TrainingPlanSerializer},
+    )
+    def post(self, request, pk):
+        tenant = request.tenant
+
+        plan = TrainingPlan.all_objects.filter(id=pk, gym=tenant).first()
+        if not plan:
+            raise NotFound({"detail": "Training plan not found."})
+
+        serializer = RejectPlanRequestSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        from apps.trainers.services import reject_training_plan
+
+        try:
+            new_draft = reject_training_plan(
+                plan=plan,
+                rejection_reasons=serializer.validated_data.get(
+                    "rejection_reasons", []
+                ),
+                other_rejection_reason=serializer.validated_data.get(
+                    "other_rejection_reason", ""
+                ),
+                acting_user=request.user,
+            )
+            return Response(
+                TrainingPlanSerializer(new_draft).data, status=status.HTTP_201_CREATED
+            )
+        except (DjangoValidationError, DRFValidationError) as exc:
+            detail = getattr(
+                exc,
+                "detail",
+                getattr(exc, "message", getattr(exc, "messages", str(exc))),
+            )
+            return Response({"detail": detail}, status=status.HTTP_400_BAD_REQUEST)
+
+
+class GymTrainingPlanEditView(APIView):
+    """
+    Directly edit exercises or nutrition guidance of a pending training plan draft.
+    """
+
+    authentication_classes = [FitGateJWTAuthentication]
+    permission_classes = [
+        IsAuthenticated,
+        RequirePasswordChanged,
+        HasTrainerModule,
+        CanManageTrainingPlanDetail,
+    ]
+
+    @extend_schema(
+        tags=["training-plans"],
+        summary="Directly edit a pending training plan draft",
+        request=EditPlanRequestSerializer,
+        responses={200: TrainingPlanSerializer},
+    )
+    def patch(self, request, pk):
+        tenant = request.tenant
+
+        plan = TrainingPlan.all_objects.filter(id=pk, gym=tenant).first()
+        if not plan:
+            raise NotFound({"detail": "Training plan not found."})
+
+        serializer = EditPlanRequestSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        from apps.trainers.services import edit_training_plan_draft
+
+        try:
+            edited_plan = edit_training_plan_draft(
+                plan=plan,
+                plan_data=serializer.validated_data["plan_data"],
+                acting_user=request.user,
+            )
+            return Response(
+                TrainingPlanSerializer(edited_plan).data, status=status.HTTP_200_OK
+            )
+        except (DjangoValidationError, DRFValidationError) as exc:
+            detail = getattr(
+                exc,
+                "detail",
+                getattr(exc, "message", getattr(exc, "messages", str(exc))),
+            )
+            return Response({"detail": detail}, status=status.HTTP_400_BAD_REQUEST)
+
+
+class MemberSelfTrainingPlanListView(APIView):
+    """
+    Read-only list of approved training plans for the authenticated member.
+    Unapproved drafts and rejected plans are never visible to the member.
+    """
+
+    authentication_classes = [FitGateJWTAuthentication]
+    permission_classes = [
+        IsAuthenticated,
+        RequirePasswordChanged,
+        CanAccessMemberApprovedPlans,
+    ]
+
+    @extend_schema(
+        tags=["training-plans"],
+        summary="Get approved training plans for authenticated member",
+        responses={200: TrainingPlanSerializer(many=True)},
+    )
+    def get(self, request):
+        tenant = request.tenant
+
+        plans = TrainingPlan.all_objects.filter(
+            member__user=request.user,
+            gym=tenant,
+            status=TrainingPlan.STATUS_APPROVED,
+        ).order_by("-week_start_date")
+        serializer = TrainingPlanSerializer(plans, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)

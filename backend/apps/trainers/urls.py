@@ -3,11 +3,18 @@ from django.urls import path
 from apps.trainers.views import (
     GymAssignmentListView,
     GymMemberFitnessProfileView,
+    GymMemberPlanStatusView,
+    GymMemberTrainingPlanListView,
     GymReassignTrainerView,
     GymTrainerDetailView,
     GymTrainerListView,
+    GymTrainingPlanApproveView,
+    GymTrainingPlanDetailView,
+    GymTrainingPlanEditView,
+    GymTrainingPlanRejectView,
     GymUnassignedMembersView,
     MemberSelfFitnessProfileView,
+    MemberSelfTrainingPlanListView,
     TrainerMeView,
     TrainerMyClientsView,
 )
@@ -49,5 +56,41 @@ urlpatterns = [
         "api/members/me/fitness-profile/",
         MemberSelfFitnessProfileView.as_view(),
         name="member-self-fitness-profile",
+    ),
+    # Sprint 22 Training Plan URLs
+    path(
+        "api/gym/members/<uuid:member_id>/plans/status/",
+        GymMemberPlanStatusView.as_view(),
+        name="gym-member-plan-status",
+    ),
+    path(
+        "api/gym/members/<uuid:member_id>/plans/",
+        GymMemberTrainingPlanListView.as_view(),
+        name="gym-member-plans",
+    ),
+    path(
+        "api/gym/training-plans/<uuid:pk>/",
+        GymTrainingPlanDetailView.as_view(),
+        name="gym-training-plan-detail",
+    ),
+    path(
+        "api/gym/training-plans/<uuid:pk>/approve/",
+        GymTrainingPlanApproveView.as_view(),
+        name="gym-training-plan-approve",
+    ),
+    path(
+        "api/gym/training-plans/<uuid:pk>/reject/",
+        GymTrainingPlanRejectView.as_view(),
+        name="gym-training-plan-reject",
+    ),
+    path(
+        "api/gym/training-plans/<uuid:pk>/edit/",
+        GymTrainingPlanEditView.as_view(),
+        name="gym-training-plan-edit",
+    ),
+    path(
+        "api/members/me/plans/",
+        MemberSelfTrainingPlanListView.as_view(),
+        name="member-self-plans",
     ),
 ]
