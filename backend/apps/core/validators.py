@@ -530,3 +530,95 @@ def validate_text_length(
     if len(trimmed) > max_len:
         raise ValidationError(f"{field_name} cannot exceed {max_len} characters.")
     return trimmed
+
+
+VALID_GOALS = ["fat_loss", "muscle_gain", "strength", "endurance", "general_fitness"]
+VALID_FITNESS_LEVELS = ["beginner", "intermediate", "advanced"]
+VALID_SESSION_LENGTHS = [30, 45, 60, 90]
+
+
+def validate_goal(value: str) -> str:
+    """Validate goal selection against allowed choices."""
+    if not value or not str(value).strip():
+        raise ValidationError("Goal is required.")
+    val = str(value).strip().lower()
+    if val not in VALID_GOALS:
+        raise ValidationError(
+            f"Invalid goal: '{val}'. Must be one of {', '.join(VALID_GOALS)}."
+        )
+    return val
+
+
+def validate_fitness_level(value: str) -> str:
+    """Validate self-reported / trainer-assessed fitness level."""
+    if not value or not str(value).strip():
+        raise ValidationError("Fitness level is required.")
+    val = str(value).strip().lower()
+    if val not in VALID_FITNESS_LEVELS:
+        raise ValidationError(
+            f"Invalid fitness level: '{val}'. Must be one of {', '.join(VALID_FITNESS_LEVELS)}."
+        )
+    return val
+
+
+def validate_training_days_per_week(value: Union[int, str]) -> int:
+    """Validate training days per week (whole number 2 to 6)."""
+    try:
+        val = int(value)
+    except (ValueError, TypeError):
+        raise ValidationError("Training days must be a whole number between 2 and 6.")
+    if val < 2 or val > 6:
+        raise ValidationError("Training days must be a whole number between 2 and 6.")
+    return val
+
+
+def validate_session_length(value: Union[int, str]) -> int:
+    """Validate session length (30, 45, 60, or 90 minutes)."""
+    try:
+        val = int(value)
+    except (ValueError, TypeError):
+        raise ValidationError("Session length must be 30, 45, 60, or 90 minutes.")
+    if val not in VALID_SESSION_LENGTHS:
+        raise ValidationError("Session length must be 30, 45, 60, or 90 minutes.")
+    return val
+
+
+def validate_dietary_notes(value: Optional[str]) -> str:
+    """Validate optional dietary notes up to 1000 characters."""
+    if not value:
+        return ""
+    val = str(value).strip()
+    if len(val) > 1000:
+        raise ValidationError("Dietary notes cannot exceed 1000 characters.")
+    return val
+
+
+def validate_trainer_note_for_week(value: Optional[str]) -> str:
+    """Validate optional weekly focus note up to 500 characters."""
+    if not value:
+        return ""
+    val = str(value).strip()
+    if len(val) > 500:
+        raise ValidationError("Trainer note cannot exceed 500 characters.")
+    return val
+
+
+def validate_rejection_reason(value: str) -> str:
+    """Validate required rejection reason between 5 and 500 characters."""
+    if not value or not str(value).strip():
+        raise ValidationError("Reason must be between 5 and 500 characters.")
+    val = str(value).strip()
+    if len(val) < 5 or len(val) > 500:
+        raise ValidationError("Reason must be between 5 and 500 characters.")
+    return val
+
+
+def validate_checkin_score(value: Union[int, str], field_name: str = "Score") -> int:
+    """Validate check-in score between 1 and 5."""
+    try:
+        val = int(value)
+    except (ValueError, TypeError):
+        raise ValidationError(f"{field_name} must be an integer between 1 and 5.")
+    if val < 1 or val > 5:
+        raise ValidationError(f"{field_name} must be an integer between 1 and 5.")
+    return val

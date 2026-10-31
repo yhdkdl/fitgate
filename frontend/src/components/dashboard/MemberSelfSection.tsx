@@ -10,6 +10,7 @@ import { Spinner } from "../ui/Spinner";
 import { MemberQrCard } from "../attendance/MemberQrCard";
 import { AttendanceLogCard } from "../attendance/AttendanceLogCard";
 import { MemberCheckoutCard } from "../member/MemberCheckoutCard";
+import { MemberFitnessProfileCard } from "../member/MemberFitnessProfileCard";
 import { MemberPaymentHistoryCard } from "../member/MemberPaymentHistoryCard";
 
 interface MemberSelfSectionProps {
@@ -181,6 +182,11 @@ export const MemberSelfSection: React.FC<MemberSelfSectionProps> = ({
           </Card>
         )}
 
+      {/* Fitness Profile (Read-Only) */}
+      {profile.is_on_trainer_plan && (view === "home" || view === "all") && (
+        <MemberFitnessProfileCard />
+      )}
+
       {/* Online Plan Checkout & Renewal */}
       {(view === "membership" || view === "all") && (
         <MemberCheckoutCard
@@ -234,24 +240,32 @@ export const MemberSelfSection: React.FC<MemberSelfSectionProps> = ({
               <Card className="bg-surface border-border p-3 text-center space-y-1">
                 <span className="text-xs text-text-muted block">BMI</span>
                 <span className="text-lg font-extrabold text-primary">
-                  {latest?.estimated_bmi !== null && latest?.estimated_bmi !== undefined
+                  {latest?.estimated_bmi !== null &&
+                  latest?.estimated_bmi !== undefined
                     ? latest.estimated_bmi
                     : "—"}
                 </span>
-                <span className="text-[10px] text-text-muted block">Estimate</span>
+                <span className="text-[10px] text-text-muted block">
+                  Estimate
+                </span>
               </Card>
 
               <Card className="bg-surface border-border p-3 text-center space-y-1">
                 <span className="text-xs text-text-muted block">Body Fat</span>
                 <span className="text-lg font-extrabold text-primary">
-                  {latest?.measurements && (latest.measurements as Record<string, unknown>).body_fat_percentage !== undefined
+                  {latest?.measurements &&
+                  (latest.measurements as Record<string, unknown>)
+                    .body_fat_percentage !== undefined
                     ? `${(latest.measurements as Record<string, unknown>).body_fat_percentage}%`
-                    : latest?.estimated_body_fat_percentage !== null && latest?.estimated_body_fat_percentage !== undefined
+                    : latest?.estimated_body_fat_percentage !== null &&
+                        latest?.estimated_body_fat_percentage !== undefined
                       ? `${latest.estimated_body_fat_percentage}%`
                       : "—"}
                 </span>
                 <span className="text-[10px] text-text-muted block">
-                  {latest?.measurements && (latest.measurements as Record<string, unknown>).body_fat_percentage !== undefined
+                  {latest?.measurements &&
+                  (latest.measurements as Record<string, unknown>)
+                    .body_fat_percentage !== undefined
                     ? "Measured"
                     : "Estimate"}
                 </span>
@@ -260,7 +274,8 @@ export const MemberSelfSection: React.FC<MemberSelfSectionProps> = ({
               <Card className="bg-surface border-border p-3 text-center space-y-1">
                 <span className="text-xs text-text-muted block">Waist/Hip</span>
                 <span className="text-lg font-extrabold text-text">
-                  {latest?.waist_to_hip_ratio !== null && latest?.waist_to_hip_ratio !== undefined
+                  {latest?.waist_to_hip_ratio !== null &&
+                  latest?.waist_to_hip_ratio !== undefined
                     ? latest.waist_to_hip_ratio
                     : "—"}
                 </span>
@@ -270,7 +285,8 @@ export const MemberSelfSection: React.FC<MemberSelfSectionProps> = ({
               <Card className="bg-surface border-border p-3 text-center space-y-1">
                 <span className="text-xs text-text-muted block">Lean Mass</span>
                 <span className="text-lg font-extrabold text-text">
-                  {latest?.lean_body_mass !== null && latest?.lean_body_mass !== undefined
+                  {latest?.lean_body_mass !== null &&
+                  latest?.lean_body_mass !== undefined
                     ? `${latest.lean_body_mass} kg`
                     : "—"}
                 </span>
@@ -325,7 +341,9 @@ export const MemberSelfSection: React.FC<MemberSelfSectionProps> = ({
                             {m.estimated_bmi ?? "—"}
                           </td>
                           <td className="py-2 px-3 font-semibold text-primary">
-                            {m.measurements && (m.measurements as Record<string, unknown>).body_fat_percentage !== undefined
+                            {m.measurements &&
+                            (m.measurements as Record<string, unknown>)
+                              .body_fat_percentage !== undefined
                               ? `${(m.measurements as Record<string, unknown>).body_fat_percentage}%`
                               : m.estimated_body_fat_percentage
                                 ? `${m.estimated_body_fat_percentage}%`
@@ -362,7 +380,6 @@ export const MemberSelfSection: React.FC<MemberSelfSectionProps> = ({
             </p>
           </Card>
         ))}
-
 
       {/* Payment History & Receipts */}
       {(view === "payments" || view === "all") && <MemberPaymentHistoryCard />}

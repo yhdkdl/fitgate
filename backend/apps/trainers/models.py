@@ -91,3 +91,77 @@ class TrainerAssignment(TenantAwareModel):
 
     def __str__(self):
         return f"{self.member.full_name} -> {self.trainer.user.full_name or self.trainer.user.email}"
+
+
+class FitnessProfile(TenantAwareModel):
+    """
+    Fitness profile entered exclusively by assigned trainer on the client's page.
+    Owner/Manager can view/edit; Member has read-only visibility.
+    SPEC §8:
+    - member_id (PK+FK -> memberships.Member, CASCADE)
+    - gym_id (FK -> tenants.GymTenant, CASCADE)
+    - goal (fat_loss, muscle_gain, strength, endurance, general_fitness)
+    - fitness_level (beginner, intermediate, advanced)
+    - health_limitations (text, optional)
+    - equipment_access (text, optional)
+    - training_days_per_week (integer 2 to 6)
+    - session_length_minutes (30, 45, 60, or 90)
+    - dietary_notes (text, optional, max 1000 characters)
+    - created_at, updated_at
+    """
+
+    GOAL_FAT_LOSS = "fat_loss"
+    GOAL_MUSCLE_GAIN = "muscle_gain"
+    GOAL_STRENGTH = "strength"
+    GOAL_ENDURANCE = "endurance"
+    GOAL_GENERAL_FITNESS = "general_fitness"
+    GOAL_CHOICES = [
+        (GOAL_FAT_LOSS, "Fat Loss"),
+        (GOAL_MUSCLE_GAIN, "Muscle Gain"),
+        (GOAL_STRENGTH, "Strength"),
+        (GOAL_ENDURANCE, "Endurance"),
+        (GOAL_GENERAL_FITNESS, "General Fitness"),
+    ]
+
+    LEVEL_BEGINNER = "beginner"
+    LEVEL_INTERMEDIATE = "intermediate"
+    LEVEL_ADVANCED = "advanced"
+    LEVEL_CHOICES = [
+        (LEVEL_BEGINNER, "Beginner"),
+        (LEVEL_INTERMEDIATE, "Intermediate"),
+        (LEVEL_ADVANCED, "Advanced"),
+    ]
+
+    SESSION_LENGTH_CHOICES = [
+        (30, "30 minutes"),
+        (45, "45 minutes"),
+        (60, "60 minutes"),
+        (90, "90 minutes"),
+    ]
+
+    member = models.OneToOneField(
+        "memberships.Member",
+        on_delete=models.CASCADE,
+        primary_key=True,
+        related_name="fitness_profile",
+    )
+    goal = models.CharField(max_length=50, choices=GOAL_CHOICES)
+    fitness_level = models.CharField(max_length=50, choices=LEVEL_CHOICES)
+    health_limitations = models.TextField(blank=True, default="")
+    equipment_access = models.TextField(blank=True, default="")
+    training_days_per_week = models.PositiveSmallIntegerField(
+        validators=[MinValueValidator(2), MaxValueValidator(6)]
+    )
+    session_length_minutes = models.PositiveSmallIntegerField(
+        validators=[MinValueValidator(30), MaxValueValidator(90)]
+    )
+    dietary_notes = models.TextField(max_length=1000, blank=True, default="")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Fitness Profile"
+        verbose_name_plural = "Fitness Profiles"
+
+    def __str__(self):
+        return f"FitnessProfile({self.member.full_name} - {self.goal}, {self.fitness_level})"

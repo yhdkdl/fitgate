@@ -169,13 +169,24 @@ Grouped as in the source document's §3.2.1.
 
 **AI Personal Training Engine** (Growth/Pro, trainer-inclusive plans only)
 
-- Initial fitness profile collected at registration (by the member or by reception): goal, self-reported fitness level, health limitations, equipment access, preferred training days. The assigned trainer can review and correct it from the plan review screen.
-- The rules engine determines phase (Foundation/Build/Peak) from the elapsed proportion of the member's active plan; computes intensity from the phase, adjusted by the recent weekly check-in trend (progressive overload); excludes `out_of_service` and `under_maintenance` equipment; reads history (prior exercises and loads) from the member's earlier approved plans; builds a structured prompt; and calls LiteLLM.
-- Returned exercise and nutrition content is stored. Nutrition guidance is based on locally available Ethiopian foods; the trainer can adapt it during review (the source ships no validated food database).
-- Every new plan is `pending_review` and notifies the assigned trainer. The member cannot view it until the trainer approves. Rejection stores the trainer's notes and regenerates a new plan that incorporates them. Approval and rejection are audit-logged.
-- Monday check-in form (energy, recovery, motivation, 1–5). If missed by Monday evening: default intensity for the phase, previous load held, and a reminder notification. A completed check-in triggers regeneration of next week's plan.
-- If the AI call fails after three attempts, the owner is notified and the failure is logged, with no disruption to other operations.
-- Known limitation: not validated for edge-case profiles (disabilities, chronic conditions); trainer review is the safeguard.
+- **The AI is the trainer's assistant, not a replacement.** The trainer stays in control.
+- **Fitness profile entered by the trainer:** Replaces "collected at registration by the member or Reception" and "self + staff-captured". The assigned trainer enters it on the client's page, in a "Fitness profile" section next to the measurements, in the same first visit. Owner and Manager can view and edit it. The member sees it read-only on their own page. Unrelated trainers, Reception, Super Admin, and other gyms are refused on the server (403). Registration screens are not changed.
+  - Fields: `goal`, `fitness_level`, `health_limitations`, `equipment_access`, `training_days_per_week` (whole number 2 to 6 only), `session_length_minutes` (30, 45, 60, or 90 minutes), and `dietary_notes` (optional text, max 1000 characters: restrictions, allergies, Orthodox fasting periods).
+  - `goal`, `fitness_level`, `training_days_per_week`, and `session_length_minutes` are required and reject submission when missing, with shared validation rules in docs/DESIGN.md.
+  - Height, weight, body fat %, lean body mass, and resting heart rate come strictly from the latest trainer-recorded measurements and are never typed again. The measurement form is not changed.
+- **Generate plan:** The assigned trainer or Owner/Manager presses "Generate plan" on the member's page and on the plan review screen. Members and Reception can never request a plan. The button works only when the gym has AI plans enabled (`has_ai_plans`), the member is on a trainer-inclusive plan, the profile is complete, and at least one measurement exists; otherwise it says exactly what is missing. The screen has an optional "Trainer note for this week" (max 500 characters, e.g. "focus on legs"), sent to the AI as plain data and shown on the review screen. The trainer chooses "This week" (default) or "Next week".
+- **One week per plan:** `TrainingPlan` carries `week_start_date` (the Monday of the covered week). A plan is a set of sessions, one per training day of the profile, named Session A, Session B, and so on, NOT tied to weekdays. A member who joins mid-week can get a plan for the current week the same day, with the default intensity for the phase when there is no check-in yet. The plan also contains general nutrition guidance: meal patterns using locally available Ethiopian foods, no calorie precision, respecting dietary notes including Orthodox fasting periods.
+- **The AI drafts:** The rules engine (phase from elapsed plan duration, intensity from phase adjusted by check-in, equipment filter, history from prior approved plans) builds the structured prompt and the AI fills in exercises and nutrition. The draft is saved as `pending_review` and the assigned trainer is notified. The member cannot see it.
+- **The trainer edits, approves, or rejects:** The trainer can edit the draft directly (exercises and nutrition) and then approve, or reject with a written reason (5 to 500 characters, same rule as override reason): the reason is stored as `trainer_notes` and one new draft is generated using it. Only the assigned trainer or Owner/Manager can edit, approve, or reject. Editing, approval, and rejection are audit-logged, including whether the plan was edited before approval (`was_edited`), because the plan is training and food advice for a real person and the Owner must be able to see who approved what.
+- **Draft limit & rate limit:** At most 3 drafts per member per plan week: the initial draft plus up to 2 regenerations. The third draft cannot be rejected: it can only be edited and approved, and the screen displays "Edit this draft yourself". Failed provider attempts do not count as drafts. Only one open draft per member per week: a new request while a draft is pending is refused with a clear message. A gym-wide limit of 20 generations per hour protects the free AI quota; over the limit the user sees a clear message. This replaces any daily per-member limit.
+- **What the member sees:** Only approved plans: the approved plan for the current week; if the new week is not approved yet, the last approved plan labelled with its week; if there has never been one, "Waiting for your trainer". The member is notified when a plan is approved.
+- **Weekly check-in:** Monday form capturing energy, recovery, motivation (each 1 to 5); a second check-in for the same week is refused. A completed check-in does NOT create a plan: it notifies the assigned trainer and feeds the intensity when the trainer requests the next plan. A low-recovery/low-energy check-in must measurably lower the next computed intensity versus a high one with the same profile. If no check-in is submitted by Monday evening, the existing scheduled command sends the member one reminder (idempotent) and the next plan uses the default intensity for the phase with previous load held constant. This replaces the old line "a completed check-in triggers regeneration of next week's plan".
+- **Trainer overview:** Shows "clients with no approved plan for this week" so trainers are actively reminded.
+- **Safety & privacy:**
+  - No personal identifiers (name, phone, email, member id) are ever sent to the AI provider. Only age, gender, goal, fitness level, training days, session length, equipment, limitations, dietary notes, trainer note, and latest trainer-recorded measurements (weight, height, body fat %, lean body mass, resting heart rate).
+  - Free-text fields are treated strictly as plain data inside the prompt, never as instructions, and have length limits.
+  - The provider's answer must match a fixed plan structure before it is saved. Anything else counts as one failed provider attempt. Users never see raw provider errors, only "generation failed, try again later". After three failed provider attempts in one request, the owner is notified, the failure is logged, and no plan is created. Other operations remain unaffected.
+  - Generation requires the member to be on a trainer-inclusive plan with an assigned trainer; plans are drafts until the trainer approves. Known limitation stays documented: not validated for disabilities or chronic conditions; the trainer's review is the safeguard.
 
 **Equipment management**
 
@@ -268,9 +279,10 @@ Each entry: goal — key business rule(s).
 
 **AI training engine**
 
-- Member fitness intake — at registration or later, editable by the assigned trainer.
-- Generate AI plan (FG-UC-06) — rules engine → LiteLLM → plan `pending_review`. Runs synchronously inside the request on Passenger WSGI; if the chosen model is too slow for the request timeout, generation moves to the DB-backed job table + cron-poll.
-- Approve/reject plan; view training plan (most recent approved, or "pending trainer review"); weekly check-in.
+- Trainer fitness profile entry (FG-UC-06-INTAKE) — assigned trainer enters profile on client's page during first visit; Owner/Manager can view and edit; member view-only; Super Admin and Reception denied.
+- Generate AI plan (FG-UC-06) — assigned trainer or Owner/Manager triggers generation on client page or plan review screen; rules engine → LiteLLM/Mock → plan `pending_review`. 3-draft weekly limit, 20/hr gym rate limit, PII-free prompt. Runs synchronously inside the request on Passenger WSGI; if chosen model is too slow for request timeout, generation moves to DB-backed job table + cron-poll.
+- Trainer plan review (FG-UC-06-REVIEW) — assigned trainer or Owner/Manager directly edits and approves, or rejects with reason (generating 1 new draft up to 3 drafts total; 3rd draft must be edited and approved directly); audit-logged with edit tracking; member sees only approved plans.
+- Weekly check-in (FG-UC-06-CHECKIN) — Monday member check-in (energy/recovery/motivation 1-5); notifies assigned trainer and adjusts rules engine intensity on next generation (does not auto-generate plan); Monday evening reminder cron.
 
 **Equipment, classes (deferred, see §10), analytics, communication**
 
@@ -328,11 +340,11 @@ All tables carry `id` (uuid, PK) unless noted. Every gym-scoped table carries `g
 
 **Message** _(deferred, see §10)_ — `gym_id`, `member_id`, `trainer_id`, `sender_id`, `body`, `sent_at` (one thread per member-trainer pair)
 
-**FitnessProfile** — `member_id` (PK+FK), `gym_id`, `goal`, `fitness_level`, `limitations`, `equipment_prefs`, `training_days_per_week`, `updated_at`
+**FitnessProfile** — `member_id` (PK+FK), `gym_id`, `goal`, `fitness_level`, `health_limitations`, `equipment_access`, `training_days_per_week` (2–6), `session_length_minutes` (30, 45, 60, 90), `dietary_notes` (max 1000, nullable), `created_at`, `updated_at`
 
-**TrainingPlan** — `member_id`, `trainer_id`, `gym_id`, `phase` (foundation/build/peak), `intensity`, `status` (pending_review/approved/rejected), `content` (jsonb), `trainer_notes` (nullable), `generated_at`, `approved_at` (nullable)
+**TrainingPlan** — `member_id`, `trainer_id`, `gym_id`, `week_start_date` (date, Monday of covered week), `phase` (foundation/build/peak), `intensity`, `status` (pending_review/approved/rejected), `content` (jsonb), `trainer_notes` (nullable, max 500 rejection reason), `trainer_note_for_week` (nullable, max 500 generation focus note), `draft_number` (1 to 3), `was_edited` (boolean, default false), `generated_at`, `approved_at` (nullable), `decided_by` (FK → User, nullable)
 
-**WeeklyCheckIn** — `member_id`, `gym_id`, `week_start_date`, `energy` (1–5), `recovery` (1–5), `motivation` (1–5), `submitted_at`
+**WeeklyCheckIn** — `member_id`, `gym_id`, `week_start_date` (Monday), `energy` (1–5), `recovery` (1–5), `motivation` (1–5), `submitted_at` (unique constraint on member_id + week_start_date)
 
 **Equipment** — `gym_id`, `branch_id` (nullable; _new_), `name`, `category` (nullable), `quantity`, `min_qty_threshold` (nullable), `condition` (good/needs_maintenance/under_maintenance/out_of_service), `purchase_date` (nullable; required by the source's FR but missing from its Table 4.16)
 

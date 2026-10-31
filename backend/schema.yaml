@@ -747,6 +747,158 @@ paths:
           description: Permission denied
         '404':
           description: Member or freeze not found
+  /api/gym/members/{member_id}/fitness-profile/:
+    get:
+      operationId: gym_members_fitness_profile_retrieve
+      description: |-
+        Fitness profile endpoint for a gym member.
+        GET: Retrieves the fitness profile along with latest trainer measurements.
+        POST / PUT: Creates or updates the fitness profile.
+        Access strictly enforced:
+        - Assigned Trainer: Allowed
+        - Owner / Manager: Allowed
+        - Unrelated Trainer, Reception, Super Admin, other gyms, Member: 403 Forbidden.
+      summary: Get member fitness profile
+      parameters:
+      - in: path
+        name: member_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - gym
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FitnessProfile'
+          description: ''
+    post:
+      operationId: gym_members_fitness_profile_create
+      description: |-
+        Fitness profile endpoint for a gym member.
+        GET: Retrieves the fitness profile along with latest trainer measurements.
+        POST / PUT: Creates or updates the fitness profile.
+        Access strictly enforced:
+        - Assigned Trainer: Allowed
+        - Owner / Manager: Allowed
+        - Unrelated Trainer, Reception, Super Admin, other gyms, Member: 403 Forbidden.
+      summary: Create or update member fitness profile
+      parameters:
+      - in: path
+        name: member_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - gym
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FitnessProfileRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/FitnessProfileRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/FitnessProfileRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FitnessProfile'
+          description: ''
+    put:
+      operationId: gym_members_fitness_profile_update
+      description: |-
+        Fitness profile endpoint for a gym member.
+        GET: Retrieves the fitness profile along with latest trainer measurements.
+        POST / PUT: Creates or updates the fitness profile.
+        Access strictly enforced:
+        - Assigned Trainer: Allowed
+        - Owner / Manager: Allowed
+        - Unrelated Trainer, Reception, Super Admin, other gyms, Member: 403 Forbidden.
+      summary: Update member fitness profile
+      parameters:
+      - in: path
+        name: member_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - gym
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FitnessProfileRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/FitnessProfileRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/FitnessProfileRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FitnessProfile'
+          description: ''
+    patch:
+      operationId: gym_members_fitness_profile_partial_update
+      description: |-
+        Fitness profile endpoint for a gym member.
+        GET: Retrieves the fitness profile along with latest trainer measurements.
+        POST / PUT: Creates or updates the fitness profile.
+        Access strictly enforced:
+        - Assigned Trainer: Allowed
+        - Owner / Manager: Allowed
+        - Unrelated Trainer, Reception, Super Admin, other gyms, Member: 403 Forbidden.
+      summary: Partially update member fitness profile
+      parameters:
+      - in: path
+        name: member_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - gym
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedFitnessProfileRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedFitnessProfileRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedFitnessProfileRequest'
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FitnessProfile'
+          description: ''
   /api/gym/members/{id}/:
     get:
       operationId: gym_members_retrieve
@@ -2093,6 +2245,22 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/AttendanceLogResponse'
+          description: ''
+  /api/members/me/fitness-profile/:
+    get:
+      operationId: members_me_fitness_profile_retrieve
+      description: Read-only fitness profile view for the authenticated member.
+      summary: Get authenticated member own fitness profile
+      tags:
+      - members
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FitnessProfile'
           description: ''
   /api/members/me/metrics/:
     get:
@@ -3699,6 +3867,79 @@ components:
       - dismissed_at
       - is_dismissed
       - items
+    FitnessProfile:
+      type: object
+      properties:
+        member_id:
+          type: string
+          format: uuid
+          readOnly: true
+        goal:
+          type: string
+        fitness_level:
+          type: string
+        health_limitations:
+          type: string
+          default: ''
+        equipment_access:
+          type: string
+          default: ''
+        training_days_per_week:
+          type: integer
+        session_length_minutes:
+          type: integer
+        dietary_notes:
+          type: string
+          default: ''
+          maxLength: 1000
+        latest_measurements:
+          type: string
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - created_at
+      - fitness_level
+      - goal
+      - latest_measurements
+      - member_id
+      - session_length_minutes
+      - training_days_per_week
+      - updated_at
+    FitnessProfileRequest:
+      type: object
+      properties:
+        goal:
+          type: string
+          minLength: 1
+        fitness_level:
+          type: string
+          minLength: 1
+        health_limitations:
+          type: string
+          default: ''
+        equipment_access:
+          type: string
+          default: ''
+        training_days_per_week:
+          type: integer
+        session_length_minutes:
+          type: integer
+        dietary_notes:
+          type: string
+          default: ''
+          maxLength: 1000
+      required:
+      - fitness_level
+      - goal
+      - session_length_minutes
+      - training_days_per_week
     GenderEnum:
       enum:
       - male
@@ -4668,6 +4909,29 @@ components:
           $ref: '#/components/schemas/DemoRequestStatusEnum'
         notes:
           type: string
+    PatchedFitnessProfileRequest:
+      type: object
+      properties:
+        goal:
+          type: string
+          minLength: 1
+        fitness_level:
+          type: string
+          minLength: 1
+        health_limitations:
+          type: string
+          default: ''
+        equipment_access:
+          type: string
+          default: ''
+        training_days_per_week:
+          type: integer
+        session_length_minutes:
+          type: integer
+        dietary_notes:
+          type: string
+          default: ''
+          maxLength: 1000
     PatchedGymPaymentConfigUpdateRequest:
       type: object
       description: Input serializer for gym owner configuring Chapa credentials.

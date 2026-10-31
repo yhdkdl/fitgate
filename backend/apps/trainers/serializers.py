@@ -136,3 +136,199 @@ class ManualReassignRequestSerializer(serializers.Serializer):
 class ManualReassignResponseSerializer(serializers.Serializer):
     detail = serializers.CharField()
     assignment = TrainerAssignmentDetailSerializer()
+
+
+class LatestMeasurementsSummarySerializer(serializers.Serializer):
+    weight_kg = serializers.DecimalField(
+        max_digits=5, decimal_places=2, allow_null=True
+    )
+    height_cm = serializers.DecimalField(
+        max_digits=5, decimal_places=2, allow_null=True
+    )
+    waist_cm = serializers.DecimalField(
+        max_digits=5, decimal_places=2, allow_null=True, required=False
+    )
+    neck_cm = serializers.DecimalField(
+        max_digits=5, decimal_places=2, allow_null=True, required=False
+    )
+    hip_cm = serializers.DecimalField(
+        max_digits=5, decimal_places=2, allow_null=True, required=False
+    )
+    chest_cm = serializers.DecimalField(
+        max_digits=5, decimal_places=2, allow_null=True, required=False
+    )
+    bicep_left_cm = serializers.DecimalField(
+        max_digits=5, decimal_places=2, allow_null=True, required=False
+    )
+    bicep_right_cm = serializers.DecimalField(
+        max_digits=5, decimal_places=2, allow_null=True, required=False
+    )
+    thigh_left_cm = serializers.DecimalField(
+        max_digits=5, decimal_places=2, allow_null=True, required=False
+    )
+    thigh_right_cm = serializers.DecimalField(
+        max_digits=5, decimal_places=2, allow_null=True, required=False
+    )
+    calf_left_cm = serializers.DecimalField(
+        max_digits=5, decimal_places=2, allow_null=True, required=False
+    )
+    calf_right_cm = serializers.DecimalField(
+        max_digits=5, decimal_places=2, allow_null=True, required=False
+    )
+    resting_heart_rate = serializers.IntegerField(allow_null=True, required=False)
+    body_fat_percentage = serializers.DecimalField(
+        max_digits=4, decimal_places=2, allow_null=True, required=False
+    )
+    lean_body_mass_kg = serializers.DecimalField(
+        max_digits=5, decimal_places=2, allow_null=True, required=False
+    )
+    bmi = serializers.DecimalField(
+        max_digits=4, decimal_places=2, allow_null=True, required=False
+    )
+    recorded_at = serializers.DateTimeField(allow_null=True)
+
+
+class FitnessProfileSerializer(serializers.ModelSerializer):
+    member_id = serializers.UUIDField(source="member.id", read_only=True)
+    goal = serializers.CharField(required=True)
+    fitness_level = serializers.CharField(required=True)
+    health_limitations = serializers.CharField(
+        required=False, allow_blank=True, default=""
+    )
+    equipment_access = serializers.CharField(
+        required=False, allow_blank=True, default=""
+    )
+    training_days_per_week = serializers.IntegerField(required=True)
+    session_length_minutes = serializers.IntegerField(required=True)
+    dietary_notes = serializers.CharField(
+        required=False, allow_blank=True, max_length=1000, default=""
+    )
+    latest_measurements = serializers.SerializerMethodField()
+
+    class Meta:
+        from apps.trainers.models import FitnessProfile
+
+        model = FitnessProfile
+        fields = [
+            "member_id",
+            "goal",
+            "fitness_level",
+            "health_limitations",
+            "equipment_access",
+            "training_days_per_week",
+            "session_length_minutes",
+            "dietary_notes",
+            "latest_measurements",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = [
+            "member_id",
+            "created_at",
+            "updated_at",
+            "latest_measurements",
+        ]
+
+    def validate_goal(self, value):
+        from apps.core.validators import validate_goal
+
+        try:
+            return validate_goal(value)
+        except Exception as e:
+            detail = getattr(e, "detail", getattr(e, "messages", str(e)))
+            if isinstance(detail, list):
+                detail = detail[0]
+            raise serializers.ValidationError(detail)
+
+    def validate_fitness_level(self, value):
+        from apps.core.validators import validate_fitness_level
+
+        try:
+            return validate_fitness_level(value)
+        except Exception as e:
+            detail = getattr(e, "detail", getattr(e, "messages", str(e)))
+            if isinstance(detail, list):
+                detail = detail[0]
+            raise serializers.ValidationError(detail)
+
+    def validate_training_days_per_week(self, value):
+        from apps.core.validators import validate_training_days_per_week
+
+        try:
+            return validate_training_days_per_week(value)
+        except Exception as e:
+            detail = getattr(e, "detail", getattr(e, "messages", str(e)))
+            if isinstance(detail, list):
+                detail = detail[0]
+            raise serializers.ValidationError(detail)
+
+    def validate_session_length_minutes(self, value):
+        from apps.core.validators import validate_session_length
+
+        try:
+            return validate_session_length(value)
+        except Exception as e:
+            detail = getattr(e, "detail", getattr(e, "messages", str(e)))
+            if isinstance(detail, list):
+                detail = detail[0]
+            raise serializers.ValidationError(detail)
+
+    def validate_dietary_notes(self, value):
+        from apps.core.validators import validate_dietary_notes
+
+        try:
+            return validate_dietary_notes(value)
+        except Exception as e:
+            detail = getattr(e, "detail", getattr(e, "messages", str(e)))
+            if isinstance(detail, list):
+                detail = detail[0]
+            raise serializers.ValidationError(detail)
+
+    def get_latest_measurements(self, obj):
+        from apps.memberships.models import BodyMetrics
+
+        member = obj.member
+        latest = (
+            BodyMetrics.objects.filter(member=member, gym_id=obj.gym_id)
+            .order_by("-recorded_at")
+            .first()
+        )
+        if not latest:
+            return None
+        measurements = latest.measurements or {}
+        weight_kg = latest.weight_kg
+        height_cm = latest.height_cm
+        body_fat = measurements.get("body_fat_percentage")
+        lean_mass = None
+        if weight_kg is not None and body_fat is not None:
+            try:
+                lean_mass = round(float(weight_kg) * (1 - float(body_fat) / 100), 2)
+            except (ValueError, TypeError):
+                lean_mass = None
+        bmi = None
+        if weight_kg and height_cm:
+            try:
+                height_m = float(height_cm) / 100
+                bmi = round(float(weight_kg) / (height_m * height_m), 2)
+            except (ValueError, TypeError, ZeroDivisionError):
+                bmi = None
+
+        return {
+            "weight_kg": weight_kg,
+            "height_cm": height_cm,
+            "waist_cm": measurements.get("waist_cm"),
+            "neck_cm": measurements.get("neck_cm"),
+            "hip_cm": measurements.get("hip_cm"),
+            "chest_cm": measurements.get("chest_cm"),
+            "bicep_left_cm": measurements.get("bicep_left_cm"),
+            "bicep_right_cm": measurements.get("bicep_right_cm"),
+            "thigh_left_cm": measurements.get("thigh_left_cm"),
+            "thigh_right_cm": measurements.get("thigh_right_cm"),
+            "calf_left_cm": measurements.get("calf_left_cm"),
+            "calf_right_cm": measurements.get("calf_right_cm"),
+            "resting_heart_rate": measurements.get("resting_heart_rate"),
+            "body_fat_percentage": body_fat,
+            "lean_body_mass_kg": lean_mass,
+            "bmi": bmi,
+            "recorded_at": latest.recorded_at,
+        }
