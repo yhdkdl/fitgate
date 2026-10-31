@@ -2,10 +2,12 @@ from django.urls import path
 
 from apps.trainers.views import (
     GymAssignmentListView,
+    GymMemberFitnessProfileView,
     GymReassignTrainerView,
     GymTrainerDetailView,
     GymTrainerListView,
     GymUnassignedMembersView,
+    MemberSelfFitnessProfileView,
     TrainerMeView,
     TrainerMyClientsView,
 )
@@ -39,23 +41,13 @@ urlpatterns = [
         name="gym-unassigned-members",
     ),
     path(
-        "api/trainers/me/clients/",
-        TrainerMyClientsView.as_view(),
-        name="trainer-me-clients",
+        "api/gym/members/<uuid:member_id>/fitness-profile/",
+        GymMemberFitnessProfileView.as_view(),
+        name="gym-member-fitness-profile",
     ),
     path(
-        "api/gym/assignments/",
-        GymAssignmentListView.as_view(),
-        name="gym-assignments-list",
-    ),
-    path(
-        "api/gym/assignments/reassign/",
-        GymReassignTrainerView.as_view(),
-        name="gym-assignments-reassign",
-    ),
-    path(
-        "api/gym/unassigned-members/",
-        GymUnassignedMembersView.as_view(),
-        name="gym-unassigned-members",
+        "api/members/me/fitness-profile/",
+        MemberSelfFitnessProfileView.as_view(),
+        name="member-self-fitness-profile",
     ),
 ]

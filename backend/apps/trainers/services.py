@@ -426,3 +426,63 @@ def reassign_trainer_clients_on_deactivation(
         )
 
     return len(active_assignments)
+
+
+def save_fitness_profile(
+    *,
+    member: Member,
+    gym: Any,
+    data: dict,
+    acting_user: User,
+):
+    """
+    Save or update fitness profile for a member.
+    Enforces shared validators on all fields.
+    Audit-logged with 'fitness_profile_saved'.
+    """
+    from apps.core.validators import (
+        validate_dietary_notes,
+        validate_fitness_level,
+        validate_goal,
+        validate_session_length,
+        validate_training_days_per_week,
+    )
+    from apps.trainers.models import FitnessProfile
+
+    goal = validate_goal(data.get("goal"))
+    fitness_level = validate_fitness_level(data.get("fitness_level"))
+    training_days = validate_training_days_per_week(data.get("training_days_per_week"))
+    session_length = validate_session_length(data.get("session_length_minutes"))
+    dietary_notes = validate_dietary_notes(data.get("dietary_notes"))
+    health_limitations = str(data.get("health_limitations") or "").strip()
+    equipment_access = str(data.get("equipment_access") or "").strip()
+
+    with transaction.atomic():
+        profile, created = FitnessProfile.objects.update_or_create(
+            member=member,
+            gym=gym,
+            defaults={
+                "goal": goal,
+                "fitness_level": fitness_level,
+                "health_limitations": health_limitations,
+                "equipment_access": equipment_access,
+                "training_days_per_week": training_days,
+                "session_length_minutes": session_length,
+                "dietary_notes": dietary_notes,
+            },
+        )
+        record_audit_log(
+            actor=acting_user,
+            action_type="fitness_profile_saved",
+            affected_record_type="FitnessProfile",
+            affected_record_id=str(member.id),
+            gym=gym,
+            metadata={
+                "created": created,
+                "goal": goal,
+                "fitness_level": fitness_level,
+                "training_days": training_days,
+                "session_length": session_length,
+            },
+        )
+    return profile

@@ -12,13 +12,16 @@ from apps.accounts.authentication import FitGateJWTAuthentication
 from apps.accounts.permissions import RequirePasswordChanged
 from apps.accounts.services import record_audit_log
 from apps.memberships.models import Member, MemberSubscription
-from apps.trainers.models import Trainer, TrainerAssignment
+from apps.trainers.models import FitnessProfile, Trainer, TrainerAssignment
 from apps.trainers.permissions import (
+    CanAccessMemberFitnessProfile,
+    CanAccessMemberSelfFitnessProfile,
     HasTrainerModule,
     IsOwnerOrManager,
     IsTrainerRole,
 )
 from apps.trainers.serializers import (
+    FitnessProfileSerializer,
     ManualReassignRequestSerializer,
     ManualReassignResponseSerializer,
     TrainerAssignmentDetailSerializer,
@@ -440,3 +443,116 @@ class TrainerMyClientsView(APIView):
             )
 
         return Response(TrainerMyClientSerializer(clients_data, many=True).data)
+
+
+class GymMemberFitnessProfileView(APIView):
+    """
+    Fitness profile endpoint for a gym member.
+    GET: Retrieves the fitness profile along with latest trainer measurements.
+    POST / PUT: Creates or updates the fitness profile.
+    Access strictly enforced:
+    - Assigned Trainer: Allowed
+    - Owner / Manager: Allowed
+    - Unrelated Trainer, Reception, Super Admin, other gyms, Member: 403 Forbidden.
+    """
+
+    permission_classes = [CanAccessMemberFitnessProfile]
+
+    @extend_schema(
+        summary="Get member fitness profile",
+        responses={200: FitnessProfileSerializer},
+    )
+    def get(self, request, member_id):
+        tenant = request.tenant
+        member = Member.objects.filter(id=member_id, gym=tenant).first()
+        if not member:
+            raise NotFound({"detail": "Member not found."})
+
+        profile = FitnessProfile.objects.filter(member=member, gym=tenant).first()
+        if not profile:
+            dummy_profile = FitnessProfile(member=member, gym=tenant)
+            dummy_serializer = FitnessProfileSerializer(dummy_profile)
+            return Response(
+                {
+                    "detail": "Fitness profile not found.",
+                    "member_id": str(member.id),
+                    "latest_measurements": dummy_serializer.data.get(
+                        "latest_measurements"
+                    ),
+                },
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        serializer = FitnessProfileSerializer(profile)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+    @extend_schema(
+        summary="Create or update member fitness profile",
+        request=FitnessProfileSerializer,
+        responses={200: FitnessProfileSerializer},
+    )
+    def post(self, request, member_id):
+        return self.save_profile(request, member_id)
+
+    @extend_schema(
+        summary="Update member fitness profile",
+        request=FitnessProfileSerializer,
+        responses={200: FitnessProfileSerializer},
+    )
+    def put(self, request, member_id):
+        return self.save_profile(request, member_id)
+
+    @extend_schema(
+        summary="Partially update member fitness profile",
+        request=FitnessProfileSerializer,
+        responses={200: FitnessProfileSerializer},
+    )
+    def patch(self, request, member_id):
+        return self.save_profile(request, member_id)
+
+    def save_profile(self, request, member_id):
+        tenant = request.tenant
+        member = Member.objects.filter(id=member_id, gym=tenant).first()
+        if not member:
+            raise NotFound({"detail": "Member not found."})
+
+        serializer = FitnessProfileSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        from apps.trainers.services import save_fitness_profile
+
+        profile = save_fitness_profile(
+            member=member,
+            gym=tenant,
+            data=serializer.validated_data,
+            acting_user=request.user,
+        )
+        return Response(
+            FitnessProfileSerializer(profile).data, status=status.HTTP_200_OK
+        )
+
+
+class MemberSelfFitnessProfileView(APIView):
+    """
+    Read-only fitness profile view for the authenticated member.
+    """
+
+    permission_classes = [CanAccessMemberSelfFitnessProfile]
+
+    @extend_schema(
+        summary="Get authenticated member own fitness profile",
+        responses={200: FitnessProfileSerializer},
+    )
+    def get(self, request):
+        tenant = request.tenant
+        member = Member.objects.filter(user=request.user, gym=tenant).first()
+        if not member:
+            raise NotFound({"detail": "Member profile not found."})
+
+        profile = FitnessProfile.objects.filter(member=member, gym=tenant).first()
+        if not profile:
+            raise NotFound({"detail": "Fitness profile not found."})
+
+        serializer = FitnessProfileSerializer(profile)
+        return Response(serializer.data, status=status.HTTP_200_OK)

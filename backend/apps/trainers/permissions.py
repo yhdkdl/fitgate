@@ -72,3 +72,82 @@ class IsTrainerRole(BasePermission):
             )
 
         return request.user.role == User.ROLE_TRAINER
+
+
+class CanAccessMemberFitnessProfile(BasePermission):
+    """
+    Grants access to Gym Owner, Manager, or the assigned Trainer of the member.
+    Super Admin, Reception, Member, unrelated trainers, and cross-tenant users receive 403 Forbidden.
+    """
+
+    message = "You do not have permission to access this fitness profile."
+
+    def has_permission(self, request, view):
+        if not request.user or not request.user.is_authenticated:
+            return False
+
+        if request.user.role == User.ROLE_SUPER_ADMIN:
+            raise PermissionDenied(
+                "Super Admin cannot access member fitness profile data."
+            )
+
+        tenant = getattr(request, "tenant", None)
+        if not tenant:
+            return False
+
+        if getattr(request.user, "gym_id", None) != tenant.id:
+            return False
+
+        # Role check
+        if request.user.role in (User.ROLE_OWNER, User.ROLE_MANAGER):
+            return True
+
+        if request.user.role == User.ROLE_TRAINER:
+            member_id = view.kwargs.get("member_id")
+            if not member_id:
+                return False
+            from apps.trainers.models import TrainerAssignment
+
+            is_assigned = TrainerAssignment.objects.filter(
+                trainer__user=request.user,
+                member_id=member_id,
+                ended_at__isnull=True,
+                gym=tenant,
+            ).exists()
+            if not is_assigned:
+                raise PermissionDenied(
+                    "Trainers can only access fitness profiles for their currently assigned clients."
+                )
+            return True
+
+        return False
+
+
+class CanAccessMemberSelfFitnessProfile(BasePermission):
+    """
+    Allows a Member to view their own fitness profile read-only (GET only).
+    Write methods receive 403 Forbidden.
+    """
+
+    message = "You do not have permission to access this fitness profile."
+
+    def has_permission(self, request, view):
+        if not request.user or not request.user.is_authenticated:
+            return False
+
+        if request.user.role == User.ROLE_SUPER_ADMIN:
+            raise PermissionDenied("Super Admin cannot access member fitness profiles.")
+
+        tenant = getattr(request, "tenant", None)
+        if not tenant or getattr(request.user, "gym_id", None) != tenant.id:
+            return False
+
+        if request.user.role != User.ROLE_MEMBER:
+            return False
+
+        if request.method not in ("GET", "HEAD", "OPTIONS"):
+            raise PermissionDenied(
+                "Members cannot edit their fitness profile directly."
+            )
+
+        return True

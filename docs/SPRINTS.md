@@ -412,10 +412,11 @@ _Increment 3 = Sprints 16 and 17 only; Sprints 18 and 19 are deferred to a futur
 
 - Sprint 22 (OpenRouter free API key; fallback: mock AI provider)
 
-20. **FitnessProfile intake** — self + staff-captured, trainer-editable.
-    - The profile is editable by the member's assigned trainer (including from the plan review screen), and rejected for an unrelated trainer or another member.
-    - Required fields (`goal`, `fitness_level`, `training_days_per_week`) reject submission when missing, rather than silently defaulting.
-    - Height and weight come from the latest Trainer-recorded measurements; if none exist the intake says a trainer must record them first.
+20. **FitnessProfile intake** — entered exclusively by assigned trainer on client page, Owner/Manager view/edit, member read-only.
+    - The assigned trainer enters the profile on the client's page, in a "Fitness profile" section next to measurements during the first visit. Owner and Manager can view and edit it. The member sees it read-only on their own page. Unrelated trainers, Reception, Super Admin, and other gyms are refused on the server (403). Registration screens are not changed.
+    - Fields: `goal`, `fitness_level`, `health_limitations`, `equipment_access`, `training_days_per_week` (whole number 2 to 6 only), `session_length_minutes` (30, 45, 60, or 90 minutes), and `dietary_notes` (optional text, max 1000 characters: restrictions, allergies, Orthodox fasting periods).
+    - Required fields (`goal`, `fitness_level`, `training_days_per_week`, `session_length_minutes`) reject submission when missing, rather than silently defaulting, with shared validation rules and error messages in docs/DESIGN.md.
+    - Height, weight, body fat %, lean body mass, and resting heart rate come strictly from the latest trainer-recorded measurements and are never typed again. If none exist, the intake displays that a trainer must record measurements first. The measurement form is not changed.
 
 21. **Rules engine** — phase/intensity/equipment-filter computation (pure Python, test-heavy; implement the Strategy pattern here for swappable intensity logic).
     - Phase is derived from the elapsed proportion of the member's active plan; intensity is derived from the phase, adjusted by the recent weekly check-in trend (progressive overload).
@@ -425,24 +426,29 @@ _Increment 3 = Sprints 16 and 17 only; Sprints 18 and 19 are deferred to a futur
     - The engine refuses members who are not on a trainer-inclusive plan in a gym with `has_ai_plans`.
     - Two different intensity strategies can be plugged in and produce different outputs from the same input with no change to the calling code — tested directly.
 
-22. **LiteLLM integration layer** — self-hosted in the Django backend, called from behind the swappable-provider interface. Prompt construction, content storage, retry/fallback. **Runs synchronously within the request** (no worker on shared hosting); LiteLLM's retry/fallback happens inline. If the chosen model's response time does not fit comfortably within the Passenger WSGI request timeout, generation moves to a DB-backed job table polled by a cron-triggered command.
-    - **Model selection:** candidate models are trialled (OpenRouter free tier) on a fixed set of standard member profiles and scored on valid structured output, exercise safety, and use of locally available Ethiopian foods; the cheapest model that passes is configured in LiteLLM. Swapping models changes configuration only.
-    - Generation requires `has_ai_plans`, a trainer-inclusive plan, a complete profile and an assigned trainer; otherwise it is refused.
-    - A simulated provider failure on the primary deployment falls through to the next configured deployment (mocked error). After three failed attempts overall, the owner is notified, the failure is logged, no plan is created, and other operations are unaffected.
-    - Generated content is stored on a `TrainingPlan` in `pending_review`, the assigned trainer is notified, and it is not fetchable by the member before approval.
-    - The prompt includes an instruction to base nutrition guidance on locally available Ethiopian foods (tested at the prompt-construction level).
-    - Total provider failure produces a clear "generation failed" state, never a hang or an incorrectly approved plan.
+22. **LiteLLM integration layer & plan generation flow (STRICT)** — mock AI provider first, LiteLLM/OpenRouter with candidate model trial, plan generation flow, 3-draft weekly limit, and hourly gym rate limit.
+    - Mock AI provider built first: produces a valid structured plan matching the required schema with no internet connection and no API key.
+    - Real LiteLLM and OpenRouter path with candidate model trial: models evaluated and scored on valid structured output, exercise safety, Ethiopian nutrition context, and cost; cheapest passing model configured in LiteLLM.
+    - Assigned trainer or Owner/Manager presses "Generate plan" on member's page and plan review screen. Members and Reception are refused (403).
+    - Generation requires gym `has_ai_plans`, a trainer-inclusive plan, a complete fitness profile, at least one recorded measurement, and an assigned trainer; otherwise the screen and API state exactly what is missing.
+    - Trainer selects "This week" (default) or "Next week", with an optional "Trainer note for this week" (max 500 characters, e.g. "focus on legs") sent to AI as plain data.
+    - Plans are weekly with `week_start_date` set to the Monday of the covered week; sessions named Session A, Session B, etc. (one per training day of profile, not tied to weekdays); general Ethiopian nutrition guidance respecting fasting periods without calorie precision.
+    - Draft limit: at most 3 drafts per member per plan week (first draft + 2 regenerations). The third draft cannot be rejected: it can only be edited and approved, and the screen says "Edit this draft yourself". Failed provider attempts do not count as drafts.
+    - Only one open draft per member per week: a new request while a draft is pending is refused with a clear message.
+    - Gym-wide rate limit of 20 generations per hour protects free AI quota; exceeding returns a clear throttling message.
+    - Strict safety & privacy: no personal identifiers (name, phone, email, member id) sent to provider; only age, gender, goal, fitness level, training days, session length, equipment, limitations, dietary notes, trainer note, and latest measurements. Free text treated strictly as plain data. Fixed plan structure enforced; provider errors masked as "generation failed, try again later". Three failed provider attempts in one request notifies owner, logs failure, and creates no plan.
 
-23. **Trainer review workflow** — `TrainingPlan` approve/reject state machine, gated member visibility.
-    - A member cannot fetch a `pending_review` plan — tested as a direct permission check.
-    - Rejecting preserves `trainer_notes` and the rejected content, and triggers regeneration of a new `pending_review` plan that incorporates those notes. Approval and rejection are audit-logged, and the member is notified on approval.
-    - Only the assigned trainer (or Owner/Manager) can approve/reject.
+23. **Trainer review workflow** — direct edit, approval, rejection state machine, and gated member visibility.
+    - The assigned trainer or Owner/Manager can directly edit the draft (exercises and nutrition) and approve, or reject with a written reason (5 to 500 characters) stored as `trainer_notes` which generates one new draft incorporating the notes (up to the 3-draft weekly limit). On draft 3, rejection is blocked and the UI requires editing and approving directly ("Edit this draft yourself").
+    - Only the assigned trainer or Owner/Manager can edit, approve, or reject. All actions are audit-logged, including tracking whether the plan was edited before approval (`was_edited`).
+    - Gated member visibility: a member cannot fetch or view a `pending_review` plan (tested with 403 / excluded query).
+    - What the member sees: approved plan for the current week; if new week not approved yet, last approved plan labelled with its week; if no approved plan exists, "Waiting for your trainer". Member is notified when a plan is approved.
 
-24. **Weekly check-in** — energy/recovery/motivation capture, feeds intensity adjustment.
-    - A second check-in for the same `week_start_date` and member is rejected.
-    - A low-recovery/low-energy check-in measurably changes the next computed intensity versus a high one, given the same profile.
-    - A completed check-in triggers regeneration of next week's plan.
-    - If no check-in is submitted by Monday evening, the scheduled command (Sprint 14) sends a reminder once and applies the default intensity for the phase with the previous load held constant — idempotent.
+24. **Weekly check-in** — Monday check-in capture, intensity adjustment, and reminder.
+    - Monday check-in form captures energy, recovery, motivation (each 1 to 5); a second check-in for the same `week_start_date` is refused.
+    - A completed check-in does NOT create a plan: it notifies the assigned trainer and feeds the intensity when the trainer requests the next plan. A low-recovery/low-energy check-in measurably lowers the next computed intensity versus a high one with the same profile.
+    - If no check-in is submitted by Monday evening, the existing scheduled command (Sprint 14) sends the member one reminder (idempotent) and the next plan uses the default intensity for the phase with previous load held constant.
+    - Trainer Overview dashboard shows "clients with no approved plan for this week".
 
 - [ ] All sprints in this increment complete
 

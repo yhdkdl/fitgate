@@ -648,3 +648,115 @@ export function focusFirstInvalidField(
     }
   }
 }
+
+export const VALID_GOALS = [
+  "fat_loss",
+  "muscle_gain",
+  "strength",
+  "endurance",
+  "general_fitness",
+] as const;
+
+export const VALID_FITNESS_LEVELS = [
+  "beginner",
+  "intermediate",
+  "advanced",
+] as const;
+
+export const VALID_SESSION_LENGTHS = [30, 45, 60, 90] as const;
+
+export function validateGoal(value: string): string | null {
+  if (!value || !value.trim()) {
+    return "Goal is required.";
+  }
+  const clean = value.trim().toLowerCase();
+  if (!VALID_GOALS.includes(clean as (typeof VALID_GOALS)[number])) {
+    return "Goal is required.";
+  }
+  return null;
+}
+
+export function validateFitnessLevel(value: string): string | null {
+  if (!value || !value.trim()) {
+    return "Fitness level is required.";
+  }
+  const clean = value.trim().toLowerCase();
+  if (
+    !VALID_FITNESS_LEVELS.includes(
+      clean as (typeof VALID_FITNESS_LEVELS)[number]
+    )
+  ) {
+    return "Fitness level is required.";
+  }
+  return null;
+}
+
+export function validateTrainingDaysPerWeek(
+  value: number | string
+): string | null {
+  if (value === "" || value === null || value === undefined) {
+    return "Training days must be a whole number between 2 and 6.";
+  }
+  const parsed =
+    typeof value === "number" ? value : parseInt(String(value), 10);
+  if (isNaN(parsed) || !Number.isInteger(parsed) || parsed < 2 || parsed > 6) {
+    return "Training days must be a whole number between 2 and 6.";
+  }
+  return null;
+}
+
+export function validateSessionLength(value: number | string): string | null {
+  if (value === "" || value === null || value === undefined) {
+    return "Session length must be 30, 45, 60, or 90 minutes.";
+  }
+  const parsed =
+    typeof value === "number" ? value : parseInt(String(value), 10);
+  if (isNaN(parsed) || ![30, 45, 60, 90].includes(parsed)) {
+    return "Session length must be 30, 45, 60, or 90 minutes.";
+  }
+  return null;
+}
+
+export function validateDietaryNotes(value: string): string | null {
+  if (!value) return null;
+  const clean = value.trim();
+  if (clean.length > 1000) {
+    return "Dietary notes cannot exceed 1000 characters.";
+  }
+  return null;
+}
+
+export function validateTrainerNote(value: string): string | null {
+  if (!value) return null;
+  const clean = value.trim();
+  if (clean.length > 500) {
+    return "Trainer note cannot exceed 500 characters.";
+  }
+  return null;
+}
+
+export function validateRejectionReason(value: string): string | null {
+  if (!value || !value.trim()) {
+    return "Reason must be between 5 and 500 characters.";
+  }
+  const clean = value.trim();
+  if (clean.length < 5 || clean.length > 500) {
+    return "Reason must be between 5 and 500 characters.";
+  }
+  return null;
+}
+
+export function validateCheckinScore(
+  value: number | string,
+  fieldName: string = "Score"
+): string | null {
+  if (value === "" || value === null || value === undefined) {
+    return `${fieldName} must be an integer between 1 and 5.`;
+  }
+  const parsed =
+    typeof value === "number" ? value : parseInt(String(value), 10);
+  if (isNaN(parsed) || parsed < 1 || parsed > 5) {
+    return `${fieldName} must be an integer between 1 and 5.`;
+  }
+  return null;
+}
