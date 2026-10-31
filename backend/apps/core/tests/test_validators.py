@@ -296,6 +296,12 @@ def test_representative_endpoint_2_body_metrics_refuses_out_of_range_values(
         waiver_accepted_at=datetime.datetime.now(datetime.timezone.utc),
     )
 
+    from apps.trainers.models import TrainerAssignment
+
+    TrainerAssignment.objects.create(
+        gym=gym_tenant, member=member, trainer=trainer.trainer_profile
+    )
+
     api_client.force_authenticate(user=trainer)
     api_client.defaults["HTTP_HOST"] = f"{gym_tenant.subdomain}.localhost"
 

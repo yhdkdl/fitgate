@@ -168,7 +168,47 @@ export const App: React.FC = () => {
         <Route
           path="/freezes"
           element={
-            <ProtectedRoute allowedRoles={["owner", "manager"]}>
+            <ProtectedRoute allowedRoles={["owner", "manager", "member"]}>
+              <DashboardScreen />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/freezes/*"
+          element={
+            <ProtectedRoute allowedRoles={["owner", "manager", "member"]}>
+              <DashboardScreen />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/freeze-request"
+          element={
+            <ProtectedRoute allowedRoles={["member"]}>
+              <DashboardScreen />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/freeze-request/*"
+          element={
+            <ProtectedRoute allowedRoles={["member"]}>
+              <DashboardScreen />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/freeze"
+          element={
+            <ProtectedRoute allowedRoles={["member"]}>
+              <DashboardScreen />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/freeze/*"
+          element={
+            <ProtectedRoute allowedRoles={["member"]}>
               <DashboardScreen />
             </ProtectedRoute>
           }

@@ -11,7 +11,6 @@ import { MemberQrCard } from "../attendance/MemberQrCard";
 import { AttendanceLogCard } from "../attendance/AttendanceLogCard";
 import { MemberCheckoutCard } from "../member/MemberCheckoutCard";
 import { MemberPaymentHistoryCard } from "../member/MemberPaymentHistoryCard";
-import { MemberFreezeCard } from "../member/MemberFreezeCard";
 
 interface MemberSelfSectionProps {
   view?: "home" | "membership" | "payments" | "all";
@@ -364,12 +363,6 @@ export const MemberSelfSection: React.FC<MemberSelfSectionProps> = ({
           </Card>
         ))}
 
-      {/* Membership Freeze Management */}
-      {(view === "membership" || view === "all") &&
-        profile.status !== "suspended" &&
-        profile.status !== "frozen" && (
-          <MemberFreezeCard memberStatus={profile.status} />
-        )}
 
       {/* Payment History & Receipts */}
       {(view === "payments" || view === "all") && <MemberPaymentHistoryCard />}

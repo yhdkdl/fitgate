@@ -14,6 +14,7 @@ from rest_framework.views import APIView
 
 from apps.accounts.models import User
 from apps.accounts.permissions import (
+    CanEndFreezeEarly,
     IsGymStaff,
     IsMember,
     IsOwnerOrManager,
@@ -45,6 +46,7 @@ from apps.memberships.serializers import (
 )
 from apps.memberships.services import (
     approve_membership_freeze,
+    end_membership_freeze_early,
     get_member_freeze_allowance,
     reactivate_member,
     register_member_self_service,
@@ -1040,6 +1042,26 @@ class MemberReactivateView(APIView):
         )
 
 
+def _format_validation_error_response(exc: ValidationError) -> Response:
+    """Format ValidationError into a Response with a clean human-readable detail string and field keys."""
+    if hasattr(exc, "message_dict"):
+        err_dict = exc.message_dict
+        messages = [
+            str(err)
+            for errs in err_dict.values()
+            for err in (errs if isinstance(errs, (list, tuple)) else [errs])
+        ]
+        clean_detail = " ".join(messages) if messages else "Validation error."
+        return Response(
+            {"detail": clean_detail, **err_dict},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+    if hasattr(exc, "messages") and exc.messages:
+        clean_detail = " ".join(str(m) for m in exc.messages)
+        return Response({"detail": clean_detail}, status=status.HTTP_400_BAD_REQUEST)
+    return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+
+
 class MemberFreezeRequestView(APIView):
     """
     Submit a membership freeze request for the logged-in member.
@@ -1093,8 +1115,7 @@ class MemberFreezeRequestView(APIView):
                 reason=reason,
             )
         except ValidationError as exc:
-            detail = exc.message_dict if hasattr(exc, "message_dict") else exc.messages
-            return Response({"detail": detail}, status=status.HTTP_400_BAD_REQUEST)
+            return _format_validation_error_response(exc)
 
         return Response(
             MemberFreezeSerializer(freeze).data,
@@ -1260,8 +1281,7 @@ class GymFreezeApproveView(APIView):
                 gym=tenant,
             )
         except ValidationError as exc:
-            detail = exc.message_dict if hasattr(exc, "message_dict") else exc.messages
-            return Response({"detail": detail}, status=status.HTTP_400_BAD_REQUEST)
+            return _format_validation_error_response(exc)
         except PermissionDenied as exc:
             return Response({"detail": str(exc)}, status=status.HTTP_403_FORBIDDEN)
 
@@ -1318,8 +1338,7 @@ class GymFreezeRejectView(APIView):
                 gym=tenant,
             )
         except ValidationError as exc:
-            detail = exc.message_dict if hasattr(exc, "message_dict") else exc.messages
-            return Response({"detail": detail}, status=status.HTTP_400_BAD_REQUEST)
+            return _format_validation_error_response(exc)
         except PermissionDenied as exc:
             return Response({"detail": str(exc)}, status=status.HTTP_403_FORBIDDEN)
 
@@ -1327,6 +1346,132 @@ class GymFreezeRejectView(APIView):
             {
                 "detail": "Freeze request has been rejected.",
                 "freeze": MemberFreezeSerializer(freeze).data,
+            },
+            status=status.HTTP_200_OK,
+        )
+
+
+class GymFreezeEndEarlyView(APIView):
+    """
+    Staff endpoint to end an approved member freeze early.
+    Allowed: Owner, Manager, Reception of that gym.
+    Denied: Member, Trainer, Super Admin, other gyms (403).
+    """
+
+    permission_classes = [IsAuthenticated, RequirePasswordChanged, CanEndFreezeEarly]
+
+    @extend_schema(
+        summary="End a freeze early (Owner, Manager, Reception)",
+        description="Ends an approved member freeze early, reduces extension by unused days, returns unused days to allowance, and reactivates member pass immediately.",
+        responses={
+            200: MemberFreezeSerializer,
+            400: OpenApiResponse(description="Validation error"),
+            403: OpenApiResponse(description="Permission denied"),
+        },
+    )
+    def post(self, request, freeze_id, *args, **kwargs):
+        try:
+            freeze = end_membership_freeze_early(
+                freeze_id=str(freeze_id),
+                staff_user=request.user,
+            )
+        except ValidationError as exc:
+            msg = (
+                exc.messages[0]
+                if hasattr(exc, "messages") and len(exc.messages) == 1
+                else (
+                    exc.messages
+                    if hasattr(exc, "messages")
+                    else (
+                        exc.message_dict if hasattr(exc, "message_dict") else str(exc)
+                    )
+                )
+            )
+            return Response({"detail": msg}, status=status.HTTP_400_BAD_REQUEST)
+        except PermissionDenied as exc:
+            return Response({"detail": str(exc)}, status=status.HTTP_403_FORBIDDEN)
+
+        return Response(
+            {
+                "detail": "Membership freeze ended early successfully. Member pass is now active.",
+                "freeze": MemberFreezeSerializer(freeze).data,
+            },
+            status=status.HTTP_200_OK,
+        )
+
+
+class GymMemberEndFreezeEarlyView(APIView):
+    """
+    Staff endpoint on a member record to end their current or upcoming approved freeze early.
+    Allowed: Owner, Manager, Reception of that gym.
+    Denied: Member, Trainer, Super Admin, other gyms (403).
+    """
+
+    permission_classes = [IsAuthenticated, RequirePasswordChanged, CanEndFreezeEarly]
+
+    @extend_schema(
+        summary="End a member's freeze early (Owner, Manager, Reception)",
+        description="Finds the approved freeze for a member and ends it early, returning unused days to allowance and reactivating their pass immediately.",
+        responses={
+            200: MemberFreezeSerializer,
+            400: OpenApiResponse(description="Validation error"),
+            403: OpenApiResponse(description="Permission denied"),
+            404: OpenApiResponse(description="Member or freeze not found"),
+        },
+    )
+    def post(self, request, member_id, *args, **kwargs):
+        tenant = getattr(request, "tenant", None)
+        if not tenant:
+            return Response(
+                {"detail": "Tenant required."}, status=status.HTTP_400_BAD_REQUEST
+            )
+
+        member = Member.all_objects.filter(id=member_id, gym=tenant).first()
+        if not member:
+            return Response(
+                {"detail": "Member not found."}, status=status.HTTP_404_NOT_FOUND
+            )
+
+        freeze = (
+            MemberFreeze.all_objects.filter(
+                member=member,
+                gym=tenant,
+                status=MemberFreeze.STATUS_APPROVED,
+            )
+            .order_by("-created_at")
+            .first()
+        )
+        if not freeze:
+            return Response(
+                {"detail": "No active or approved freeze found for this member."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            updated_freeze = end_membership_freeze_early(
+                freeze_id=str(freeze.id),
+                staff_user=request.user,
+            )
+        except ValidationError as exc:
+            msg = (
+                exc.messages[0]
+                if hasattr(exc, "messages") and len(exc.messages) == 1
+                else (
+                    exc.messages
+                    if hasattr(exc, "messages")
+                    else (
+                        exc.message_dict if hasattr(exc, "message_dict") else str(exc)
+                    )
+                )
+            )
+            return Response({"detail": msg}, status=status.HTTP_400_BAD_REQUEST)
+        except PermissionDenied as exc:
+            return Response({"detail": str(exc)}, status=status.HTTP_403_FORBIDDEN)
+
+        return Response(
+            {
+                "detail": "Membership freeze ended early successfully. Member pass is now active.",
+                "freeze": MemberFreezeSerializer(updated_freeze).data,
             },
             status=status.HTTP_200_OK,
         )

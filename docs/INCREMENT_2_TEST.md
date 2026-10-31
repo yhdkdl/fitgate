@@ -134,32 +134,33 @@ This document is a comprehensive, numbered click-through guide for project owner
 8. Verify the subscription is activated and a receipt (`REC-000003`) is generated.
 9. Attempt to record another payment using the exact same reference `CBE-TX-998811` (or `cbe-tx-998811` in lowercase); verify the system immediately rejects the duplicate reference.
 
-### 3.2 Owner Statement Reconciliation
+### 3.2 Owner-Only Payment Reversal
 
-1. Sign in as **Owner** and navigate to **Bank transfers** (`/bank-transfers`).
-2. Notice the payment `CBE-TX-998811` is listed under **Unreconciled Bank Transfers**.
-3. Check the item and click **Mark as Reconciled**.
-4. Verify the transfer status updates to `Reconciled` with the timestamp and owner's name recorded.
+1. Record an erroneous bank transfer payment (e.g. `CBE-TX-998812`) or use an unreconciled transfer.
+2. As **Owner**, select the unreconciled bank transfer payment and click **Reverse Payment**.
+3. Enter the required reason for reversal: `Customer bounced cheque / incorrect account credit`.
+4. Confirm the reversal.
+5. Verify:
+   - The payment is marked as `Reversed`.
+   - The member's subscription is restored to its exact prior state (if first purchase, returned to `pending` with pass deactivated; if renewal, restored to prior expiration date).
+   - The bank reference remains permanently burned and cannot be reused.
+   - An audit log entry is recorded naming the owner and reason.
+   - Reception and staff cannot see or use the reversal button.
 
 ### 3.3 7-Day Unreconciled Flagging Command
 
-1. In the terminal, execute the daily check:
-   ```bash
-   docker compose exec backend python manage.py flag_unreconciled_transfers
+1. In the terminal (PowerShell or Bash), execute the daily check:
+   ```powershell
+   docker compose exec backend python manage.py flag_unreconciled_bank_transfers
    ```
 2. Verify bank transfers older than 7 days that remain unreconciled are flagged for owner review, and a single summary notification is dispatched to the gym owner without spamming.
 
-### 3.4 Owner-Only Payment Reversal
+### 3.4 Owner Statement Reconciliation
 
-1. As **Owner**, select an unreconciled or erroneous bank transfer payment and click **Reverse Payment**.
-2. Enter the required reason for reversal: `Customer bounced cheque / incorrect account credit`.
-3. Confirm the reversal.
-4. Verify:
-   - The payment is marked as `Reversed`.
-   - The member's subscription is restored to its exact prior state (if first purchase, returned to `pending` with pass deactivated; if renewal, restored to prior expiration date).
-   - The bank reference `CBE-TX-998811` remains permanently burned and cannot be reused.
-   - An audit log entry is recorded naming the owner and reason.
-   - Reception and staff cannot see or use the reversal button.
+1. Sign in as **Owner** and navigate to **Bank transfers** (`/bank-transfers`).
+2. Notice the valid transfer `CBE-TX-998811` is listed under **Unreconciled Bank Transfers**.
+3. Check the item and click **Mark as Reconciled**.
+4. Verify the transfer status updates to `Reconciled` with the timestamp and owner's name recorded.
 
 ---
 
@@ -205,10 +206,23 @@ This document is a comprehensive, numbered click-through guide for project owner
 ### 4.4 Unfreeze Processing
 
 1. To simulate freeze completion, run the unfreeze command:
-   ```bash
+   ```powershell
    docker compose exec backend python manage.py process_unfreezes
    ```
 2. Verify completed freezes return the member's status to `active` and check-in passes are re-enabled.
+
+### 4.5 Ending a Freeze Early (Staff Only)
+
+1. Sign in as **Owner**, **Manager**, or **Reception** at `http://<gym-subdomain>.localhost:5173`.
+2. Navigate to **Members** and open the detail modal for a currently frozen member (or go to **Freeze requests** `/freezes`).
+3. Click the amber **End freeze early** button on the frozen member's card (or **End Early** in the freezes list).
+4. Review the confirmation prompt and confirm.
+5. Verify:
+   - For an active freeze: actual days used are calculated from the start date to today (minimum 0). The subscription end date is reduced by the unused days, unused days return to the member's freeze allowance, the member's status returns to `active` immediately via the shared status engine, and their QR check-in pass works immediately.
+   - For an approved future freeze that hasn't started yet: the freeze is cancelled completely, all extended days are removed from the subscription end date, and full freeze allowance is restored.
+   - Idempotency & Concurrency: Clicking the button a second time or running `process_unfreezes` does not shorten the subscription twice or modify allowance again.
+   - Audit logging & Notifications: An audit log entry is recorded with actor, member, days used, days returned, and old/new end dates; the member receives an in-app notification confirming the early freeze end.
+   - Role enforcement: Members, Trainers, and Super Admin are refused on the server (HTTP 403) and cannot see or use the early unfreeze button.
 
 ---
 
@@ -335,11 +349,12 @@ This document is a comprehensive, numbered click-through guide for project owner
 3. Resend the invite 3 times on the same calendar day.
 4. Attempt a 4th resend: verify the system blocks the action with a clear rate limit message: `Daily resend limit reached (3 per day). Please wait until tomorrow.`
 5. Simulate a Brevo bounce webhook:
-   ```bash
-   curl -X POST http://localhost:8000/api/webhooks/brevo/ \
-     -H "Content-Type: application/json" \
-     -H "X-Brevo-Webhook-Secret: <configured_secret>" \
-     -d '{"event": "hardBounce", "email": "bounced@example.com"}'
+   ```powershell
+   # In PowerShell:
+   Invoke-RestMethod -Method Post -Uri "http://localhost:8000/api/webhooks/brevo/" -ContentType "application/json" -Headers @{ "X-Brevo-Webhook-Secret" = "<configured_secret>" } -Body '{"event": "hardBounce", "email": "bounced@example.com"}'
+
+   # Or using curl in Windows CMD / PowerShell:
+   curl -X POST http://localhost:8000/api/webhooks/brevo/ -H "Content-Type: application/json" -H "X-Brevo-Webhook-Secret: <configured_secret>" -d "{"event": "hardBounce", "email": "bounced@example.com"}"
    ```
 6. Verify future invite attempts to `bounced@example.com` are suppressed immediately, showing `Email delivery suppressed due to prior bounce`.
 
@@ -363,3 +378,61 @@ The following items are configured with verified mock/console fallbacks in devel
 - [ ] **QR Asymmetric Signature Keys**: Local key generator command available; production key pair to be generated and stored in staging `.env`.
 - [ ] **Camera Device Permissions**: Verified in modern browsers on localhost/HTTPS; final multi-device physical tablet checks at gym entrance.
 - [ ] **Chapa Production Merchant Credentials**: Tested with signed mock webhooks; production live/test keys to be connected when merchant accounts are issued.
+
+---
+
+## Appendix: Time-Dependent Steps (Django Shell Snippets)
+
+To test time-dependent logic without waiting days in real time, use the following Windows-safe PowerShell Django shell snippets to adjust database timestamps:
+
+### A.1 Flagging 7-Day Unreconciled Bank Transfers
+
+Simulate a bank transfer payment recorded 8 days ago that has not yet been reconciled:
+
+```powershell
+docker compose exec backend python manage.py shell -c "from datetime import timedelta; from django.utils import timezone; from apps.payments.models import Payment; p = Payment.objects.filter(payment_method='bank_transfer', status='confirmed', reconciled_at__isnull=True).order_by('-created_at').first(); Payment.objects.filter(id=p.id).update(created_at=timezone.now() - timedelta(days=8)) if p else None; print(f'Payment {p.receipt_number} backdated to 8 days ago' if p else 'No unreconciled transfer found')"
+```
+
+Then run the flagging command:
+
+```powershell
+docker compose exec backend python manage.py flag_unreconciled_bank_transfers
+```
+
+### A.2 Ending a Freeze (Scheduled Unfreeze)
+
+Advance an active approved freeze so its end date passed yesterday:
+
+```powershell
+docker compose exec backend python manage.py shell -c "from datetime import timedelta; from django.utils import timezone; from apps.memberships.models import MemberFreeze; f = MemberFreeze.objects.filter(status='approved').order_by('-start_date').first(); MemberFreeze.objects.filter(id=f.id).update(start_date=timezone.localdate() - timedelta(days=8), end_date=timezone.localdate() - timedelta(days=1)) if f else None; print(f'Freeze {f.id} backdated to end yesterday' if f else 'No approved freeze found')"
+```
+
+Then process the unfreezes:
+
+```powershell
+docker compose exec backend python manage.py process_unfreezes
+```
+
+### A.3 Expiring a Subscription (Nightly Sweep)
+
+Advance an active subscription so its expiration date was yesterday:
+
+```powershell
+docker compose exec backend python manage.py shell -c "from datetime import timedelta; from django.utils import timezone; from apps.memberships.models import MemberSubscription; s = MemberSubscription.objects.filter(status='active').order_by('-created_at').first(); MemberSubscription.objects.filter(id=s.id).update(end_date=timezone.localdate() - timedelta(days=1)) if s else None; print(f'Subscription {s.id} end date set to yesterday' if s else 'No active subscription found')"
+```
+
+Then run the daily sweep:
+
+```powershell
+docker compose exec backend python manage.py daily_membership_sweep
+```
+
+### A.4 Ending a Freeze Early (Day 4 of a 7-Day Freeze)
+
+Simulate a 7-day freeze that started 3 days ago so today is Day 4:
+
+```powershell
+docker compose exec backend python manage.py shell -c "from datetime import timedelta; from django.utils import timezone; from apps.memberships.models import MemberFreeze, MemberSubscription; f = MemberFreeze.objects.filter(status='approved').order_by('-created_at').first(); (MemberFreeze.objects.filter(id=f.id).update(start_date=timezone.localdate() - timedelta(days=3), end_date=timezone.localdate() + timedelta(days=3)), MemberSubscription.objects.filter(id=f.subscription_id).update(freeze_start_date=timezone.localdate() - timedelta(days=3))) if f else None; print(f'Freeze {f.id} set to Day 4 (started 3 days ago)' if f else 'No approved freeze found')"
+```
+
+Then in the UI, log in as **Reception**, **Manager**, or **Owner**, open the frozen member's details, and click **End freeze early**.

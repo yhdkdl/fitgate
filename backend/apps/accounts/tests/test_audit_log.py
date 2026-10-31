@@ -896,6 +896,13 @@ class TestActionAuditLogging:
         self, api_client, gym_trainer, gym_tenant, member_with_active_sub
     ):
         """GymMemberRecordMetricsView.post produces exactly 1 row."""
+        from apps.trainers.models import TrainerAssignment
+
+        TrainerAssignment.objects.create(
+            gym=gym_tenant,
+            member=member_with_active_sub,
+            trainer=gym_trainer.trainer_profile,
+        )
         client = auth_client(api_client, gym_trainer)
         count_before = AuditLog.all_objects.count()
         resp = client.post(

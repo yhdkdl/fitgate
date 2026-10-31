@@ -35,6 +35,9 @@ export const GymBrandingSection: React.FC<GymBrandingSectionProps> = ({
   const [showUnavailableEquipment, setShowUnavailableEquipment] =
     useState(false);
   const [memberReminderDays, setMemberReminderDays] = useState("7, 2");
+  const [freezeDaysAllowed, setFreezeDaysAllowed] = useState<number>(0);
+  const [freezeDaysCap, setFreezeDaysCap] = useState<number>(30);
+  const [gymTier, setGymTier] = useState<string>("");
 
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -54,6 +57,9 @@ export const GymBrandingSection: React.FC<GymBrandingSectionProps> = ({
         if (Array.isArray(res.member_reminder_days)) {
           setMemberReminderDays(res.member_reminder_days.join(", "));
         }
+        setFreezeDaysAllowed(res.freeze_days_allowed !== undefined ? res.freeze_days_allowed : 0);
+        setFreezeDaysCap(res.freeze_days_cap !== undefined ? res.freeze_days_cap : 30);
+        setGymTier((res as { tier?: string }).tier || "");
       } catch (err: unknown) {
         if (!isMounted) return;
         const msg =
@@ -123,6 +129,18 @@ export const GymBrandingSection: React.FC<GymBrandingSectionProps> = ({
         "Reminder days must be comma-separated numbers between 0 and 365.";
     }
 
+    if (gymTier === "starter") {
+      if (freezeDaysAllowed > 0) {
+        errors.freeze_days_allowed = "Starter gyms cannot use membership freeze.";
+      }
+    } else {
+      if (freezeDaysAllowed < 0) {
+        errors.freeze_days_allowed = "Freeze days allowed cannot be negative.";
+      } else if (freezeDaysAllowed > freezeDaysCap) {
+        errors.freeze_days_allowed = `Cannot exceed maximum freeze allowance cap of ${freezeDaysCap} days.`;
+      }
+    }
+
     if (Object.keys(errors).length > 0) {
       setFieldErrors(errors);
       focusFirstInvalidField(errors);
@@ -138,6 +156,7 @@ export const GymBrandingSection: React.FC<GymBrandingSectionProps> = ({
           brand_color: trimmedColor || null,
           show_unavailable_equipment: showUnavailableEquipment,
           member_reminder_days: reminderDays.length ? reminderDays : undefined,
+          freeze_days_allowed: gymTier === "starter" ? 0 : Number(freezeDaysAllowed),
         },
         gymId
       );
@@ -269,8 +288,41 @@ export const GymBrandingSection: React.FC<GymBrandingSectionProps> = ({
           </div>
         </div>
 
-        {/* Member Reminder Days */}
+        {/* Freeze Days Allowed & Member Reminder Days */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-2 border-t border-border">
+          <FormField
+            id="freeze_days_allowed"
+            label="Freeze days allowed"
+            helpText={
+              gymTier === "starter"
+                ? "Starter gyms cannot use membership freeze."
+                : `Annual freeze days allowed per member (0 up to the gym cap of ${freezeDaysCap} days).`
+            }
+            error={fieldErrors.freeze_days_allowed}
+          >
+            {gymTier === "starter" ? (
+              <div className="p-3 bg-surface-2/60 border border-border rounded-lg text-xs text-text-muted">
+                Membership freeze is not available on the Starter plan.
+              </div>
+            ) : (
+              <div className="space-y-1">
+                <Input
+                  id="freeze_days_allowed"
+                  type="number"
+                  min={0}
+                  max={freezeDaysCap}
+                  value={freezeDaysAllowed}
+                  onChange={(e) => setFreezeDaysAllowed(parseInt(e.target.value, 10) || 0)}
+                  error={fieldErrors.freeze_days_allowed}
+                  className="text-sm"
+                />
+                <span className="text-[11px] text-text-muted">
+                  Platform Cap: {freezeDaysCap} days (set by Super Admin)
+                </span>
+              </div>
+            )}
+          </FormField>
+
           <FormField
             id="member_reminder_days"
             label="Member Renewal Reminder Days"
@@ -286,22 +338,22 @@ export const GymBrandingSection: React.FC<GymBrandingSectionProps> = ({
               error={fieldErrors.member_reminder_days}
             />
           </FormField>
+        </div>
 
-          <div className="flex items-center gap-3 pt-6">
-            <input
-              type="checkbox"
-              id="show_unavailable_equipment"
-              checked={showUnavailableEquipment}
-              onChange={(e) => setShowUnavailableEquipment(e.target.checked)}
-              className="w-5 h-5 rounded border-border bg-surface-2 text-primary focus:ring-ring cursor-pointer"
-            />
-            <label
-              htmlFor="show_unavailable_equipment"
-              className="text-sm text-text cursor-pointer select-none"
-            >
-              Show unavailable equipment to members in catalog
-            </label>
-          </div>
+        <div className="flex items-center gap-3 pt-2">
+          <input
+            type="checkbox"
+            id="show_unavailable_equipment"
+            checked={showUnavailableEquipment}
+            onChange={(e) => setShowUnavailableEquipment(e.target.checked)}
+            className="w-5 h-5 rounded border-border bg-surface-2 text-primary focus:ring-ring cursor-pointer"
+          />
+          <label
+            htmlFor="show_unavailable_equipment"
+            className="text-sm text-text cursor-pointer select-none"
+          >
+            Show unavailable equipment to members in catalog
+          </label>
         </div>
 
         <div className="flex justify-end pt-4 border-t border-border">

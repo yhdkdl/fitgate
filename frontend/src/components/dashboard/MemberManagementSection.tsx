@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useState } from "react";
+import { endMemberFreezeEarly } from "../../api/freeze";
 import {
   getGymMemberDetail,
   listGymMembers,
@@ -104,6 +105,9 @@ export const MemberManagementSection: React.FC<Props> = ({
   const [actionLoading, setActionLoading] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
   const [actionSuccess, setActionSuccess] = useState<string | null>(null);
+  const [unfreezingMember, setUnfreezingMember] = useState(false);
+  const [unfreezeMessage, setUnfreezeMessage] = useState<string | null>(null);
+  const [unfreezeError, setUnfreezeError] = useState<string | null>(null);
 
   // Unified payment modal state (Item 18)
   const [showPaymentModal, setShowPaymentModal] = useState(false);
@@ -583,6 +587,34 @@ export const MemberManagementSection: React.FC<Props> = ({
       );
     } finally {
       setActionLoading(false);
+    }
+  };
+
+  const handleEndFreezeEarly = async () => {
+    if (!selectedMember) return;
+    if (
+      !window.confirm(
+        `End freeze early for ${selectedMember.full_name}? Unused days will be returned to their subscription and freeze allowance, and their pass will become active immediately.`
+      )
+    ) {
+      return;
+    }
+
+    try {
+      setUnfreezingMember(true);
+      setUnfreezeMessage(null);
+      setUnfreezeError(null);
+      const res = await endMemberFreezeEarly(selectedMember.id);
+      setUnfreezeMessage(res.detail || "Membership freeze ended early successfully.");
+      setSelectedMember((prev) => (prev ? { ...prev, status: "active" } : null));
+      await fetchMembers();
+    } catch (err: unknown) {
+      const errObj = err as { detail?: string; message?: string; data?: { detail?: string } };
+      setUnfreezeError(
+        errObj?.detail || errObj?.data?.detail || errObj?.message || "Failed to end freeze early."
+      );
+    } finally {
+      setUnfreezingMember(false);
     }
   };
 
@@ -1449,6 +1481,41 @@ export const MemberManagementSection: React.FC<Props> = ({
                 {actionSuccess && (
                   <Alert variant="success" className="text-xs py-2">
                     {actionSuccess}
+                  </Alert>
+                )}
+              </div>
+            )}
+
+            {/* Early Unfreeze Action for Frozen Members */}
+            {selectedMember.status === "frozen" && canRegister && (
+              <div className="p-4 bg-surface-2/40 border border-border rounded-lg space-y-3">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div>
+                    <h4 className="text-xs font-bold uppercase tracking-wider text-text">
+                      Membership Freeze
+                    </h4>
+                    <p className="text-xs text-text-muted mt-0.5">
+                      This member is currently frozen. Ending the freeze early will
+                      immediately reactivate their pass and restore unused days to their allowance.
+                    </p>
+                  </div>
+                  <Button
+                    variant="primary"
+                    size="sm"
+                    disabled={unfreezingMember}
+                    onClick={handleEndFreezeEarly}
+                  >
+                    {unfreezingMember ? "Ending freeze..." : "End freeze early"}
+                  </Button>
+                </div>
+                {unfreezeMessage && (
+                  <Alert variant="success" className="text-xs py-2">
+                    {unfreezeMessage}
+                  </Alert>
+                )}
+                {unfreezeError && (
+                  <Alert variant="danger" className="text-xs py-2">
+                    {unfreezeError}
                   </Alert>
                 )}
               </div>

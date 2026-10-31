@@ -41,6 +41,7 @@ FitGate is a multi-tenant gym management platform for the Ethiopian market (deve
 | Create/edit membership plans and pricing                                                                                | —                | Yes   | Yes     |
 | Suspend or reactivate a member                                                                                          | —                | Yes   | Yes     |
 | Approve or reject a freeze request                                                                                      | —                | Yes   | Yes     |
+| End a freeze early (staff only; Reception also allowed)                                                                 | —                | Yes   | Yes     |
 | Manually reassign a trainer                                                                                             | —                | Yes   | Yes     |
 | View analytics dashboard, audit log, and payment history                                                                | All gyms         | Yes   | Yes     |
 | Confirm a manual cash payment                                                                                           | —                | Yes   | Yes     |
@@ -132,6 +133,7 @@ Grouped as in the source document's §3.2.1.
 - Owner/Manager create plans: name, duration (a number of **days or months**), price, optional trainer-inclusive flag. Trainer-inclusive plans cost more and trigger automatic trainer assignment on activation. A deactivated plan stays linked to existing subscriptions but is hidden from new members. Saving a trainer-inclusive plan when the gym has no trainers shows a warning. Editing a price never changes recorded payments.
 - Start date and expiry are calculated and stored on activation.
 - **Freeze:** a member requests a freeze (days + reason); Owner/Manager approve or reject; approval freezes, deactivates the QR token, records the start, and extends expiry by the frozen days; membership and QR reactivate automatically at the freeze end date. Growth/Pro only.
+- **End freeze early:** staff (Owner, Manager, Reception) can end an approved or active freeze before its scheduled end date. For an active freeze, actual days used = days from start date to today (min 0), unused days are deducted from the subscription end date and returned to the member's freeze allowance, the member returns to active status immediately via `update_member_status()`, and the QR pass works immediately. For an approved future freeze not yet started, it is cancelled completely with all extended days removed and full allowance returned. Safe against concurrent repeat clicks (row locking), cron sweeps do not re-process, action is audit-logged, and member receives an in-app notification. Members, Trainers, and Super Admin are refused.
 - **Member renewal reminders** go to the member and to Reception on the days set in the gym's `member_reminder_days` (an Owner setting, default 7 and 2). The QR token deactivates at expiry.
 
 **QR check-in and attendance**

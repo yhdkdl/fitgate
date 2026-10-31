@@ -82,6 +82,9 @@ export const GymManagementSection: React.FC<GymManagementSectionProps> = ({
   const [hasTrainerModule, setHasTrainerModule] = useState(false);
   const [hasAiPlans, setHasAiPlans] = useState(false);
   const [hasAnalytics, setHasAnalytics] = useState(false);
+  const [freezeDaysCap, setFreezeDaysCap] = useState<number>(30);
+  const [paymentGraceDays, setPaymentGraceDays] = useState<number>(7);
+  const [subscriptionReminderDays, setSubscriptionReminderDays] = useState<string>("14, 7");
   const [savingConfig, setSavingConfig] = useState(false);
   const [configSuccessMsg, setConfigSuccessMsg] = useState<string | null>(null);
   const [configErrorMsg, setConfigErrorMsg] = useState<string | null>(null);
@@ -96,10 +99,20 @@ export const GymManagementSection: React.FC<GymManagementSectionProps> = ({
       setHasTrainerModule(Boolean(cfg.has_trainer_module));
       setHasAiPlans(Boolean(cfg.has_ai_plans));
       setHasAnalytics(Boolean(cfg.has_analytics));
+      setFreezeDaysCap(cfg.freeze_days_cap !== undefined ? cfg.freeze_days_cap : 30);
+      setPaymentGraceDays(cfg.payment_grace_days !== undefined ? cfg.payment_grace_days : 7);
+      setSubscriptionReminderDays(
+        Array.isArray(cfg.subscription_reminder_days)
+          ? cfg.subscription_reminder_days.join(", ")
+          : "14, 7"
+      );
     } catch {
       setHasTrainerModule(false);
       setHasAiPlans(false);
       setHasAnalytics(false);
+      setFreezeDaysCap(30);
+      setPaymentGraceDays(7);
+      setSubscriptionReminderDays("14, 7");
     }
   };
 
@@ -110,10 +123,19 @@ export const GymManagementSection: React.FC<GymManagementSectionProps> = ({
     setConfigSuccessMsg(null);
     setConfigErrorMsg(null);
     try {
+      const reminderParts = subscriptionReminderDays
+        .split(",")
+        .map((s) => s.trim())
+        .filter(Boolean)
+        .map((s) => parseInt(s, 10));
+
       const payload: Record<string, unknown> = {
         has_trainer_module: hasTrainerModule,
         has_ai_plans: hasAiPlans,
         has_analytics: hasAnalytics,
+        freeze_days_cap: Number(freezeDaysCap),
+        payment_grace_days: Number(paymentGraceDays),
+        subscription_reminder_days: reminderParts.length ? reminderParts : [14, 7],
       };
       if (selectedGymForConfig.tier !== "pro") {
         payload.tier = configTier;
@@ -813,6 +835,53 @@ export const GymManagementSection: React.FC<GymManagementSectionProps> = ({
                     <option value="growth">Growth</option>
                   </select>
                 )}
+              </div>
+
+              {/* Entitlement Numbers (Freeze Cap, Grace, Reminders) */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
+                <div>
+                  <label className="block text-xs font-semibold uppercase tracking-wider text-text-muted mb-1.5">
+                    Freeze Days Cap (0-365)
+                  </label>
+                  <input
+                    type="number"
+                    min={0}
+                    max={365}
+                    value={freezeDaysCap}
+                    onChange={(e) => setFreezeDaysCap(Math.max(0, Math.min(365, parseInt(e.target.value, 10) || 0)))}
+                    className="w-full bg-surface-2 border border-border rounded-input px-3 py-2 text-text text-sm focus:outline-none focus:ring-2 focus:ring-primary min-h-[44px]"
+                  />
+                  <p className="text-[11px] text-text-muted mt-1">Platform freeze cap for owner (default 30).</p>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold uppercase tracking-wider text-text-muted mb-1.5">
+                    Payment Grace Days
+                  </label>
+                  <input
+                    type="number"
+                    min={0}
+                    max={365}
+                    value={paymentGraceDays}
+                    onChange={(e) => setPaymentGraceDays(Math.max(0, Math.min(365, parseInt(e.target.value, 10) || 0)))}
+                    className="w-full bg-surface-2 border border-border rounded-input px-3 py-2 text-text text-sm focus:outline-none focus:ring-2 focus:ring-primary min-h-[44px]"
+                  />
+                  <p className="text-[11px] text-text-muted mt-1">Days before gym access cuts off (default 7).</p>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold uppercase tracking-wider text-text-muted mb-1.5">
+                  Subscription Reminder Days
+                </label>
+                <input
+                  type="text"
+                  value={subscriptionReminderDays}
+                  onChange={(e) => setSubscriptionReminderDays(e.target.value)}
+                  placeholder="14, 7"
+                  className="w-full bg-surface-2 border border-border rounded-input px-3 py-2 text-text text-sm focus:outline-none focus:ring-2 focus:ring-primary min-h-[44px]"
+                />
+                <p className="text-[11px] text-text-muted mt-1">Comma-separated days before expiry for renewal reminders.</p>
               </div>
 
               {/* Feature Entitlements */}

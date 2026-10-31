@@ -6,24 +6,61 @@ function getAuthHeader(): Record<string, string> {
   return token ? { Authorization: `Bearer ${token}` } : {};
 }
 
+export function formatApiErrorMessage(
+  errorData: unknown,
+  fallbackMessage: string
+): string {
+  if (typeof errorData === "string" && errorData.trim() !== "") {
+    return errorData;
+  }
+  if (typeof errorData === "object" && errorData !== null) {
+    const dataObj = errorData as Record<string, unknown>;
+    if ("detail" in dataObj) {
+      const d = dataObj.detail;
+      if (typeof d === "string" && d.trim() !== "") {
+        return d;
+      }
+      if (Array.isArray(d)) {
+        return d.map(String).join(" ");
+      }
+      if (typeof d === "object" && d !== null) {
+        const nested = Object.values(d as Record<string, unknown>)
+          .flatMap((v) => (Array.isArray(v) ? v : [v]))
+          .map(String)
+          .filter(Boolean);
+        if (nested.length > 0) return nested.join(" ");
+      }
+    }
+    if ("rejection_reason" in dataObj && dataObj.rejection_reason) {
+      return String(dataObj.rejection_reason);
+    }
+    if ("reason" in dataObj && dataObj.reason) {
+      if (typeof dataObj.reason === "string") return dataObj.reason;
+      if (Array.isArray(dataObj.reason)) return dataObj.reason.map(String).join(" ");
+    }
+    const messages: string[] = [];
+    for (const [key, val] of Object.entries(dataObj)) {
+      if (key === "detail" || key === "reason" || key === "rejection_reason") continue;
+      if (Array.isArray(val)) {
+        messages.push(...val.map(String));
+      } else if (typeof val === "string") {
+        messages.push(val);
+      }
+    }
+    if (messages.length > 0) {
+      return messages.join(" ");
+    }
+  }
+  return fallbackMessage;
+}
+
 async function handleResponse<T>(
   res: Response,
   fallbackMessage: string
 ): Promise<T> {
   if (!res.ok) {
     const errorData = await parseResponseBody(res);
-    let detail = fallbackMessage;
-    if (typeof errorData === "object" && errorData !== null) {
-      if ("detail" in errorData) {
-        detail = String((errorData as { detail: unknown }).detail);
-      } else if ("rejection_reason" in errorData) {
-        detail = String((errorData as { rejection_reason: unknown }).rejection_reason);
-      } else if ("reason" in errorData) {
-        detail = String((errorData as { reason: unknown }).reason);
-      }
-    } else if (typeof errorData === "string" && errorData.trim() !== "") {
-      detail = errorData;
-    }
+    const detail = formatApiErrorMessage(errorData, fallbackMessage);
     throw new ApiError(res.status, detail, errorData);
   }
   if (res.status === 204) {
@@ -165,5 +202,43 @@ export async function rejectFreeze(
   return handleResponse<{ detail: string; freeze: MemberFreeze }>(
     res,
     "Failed to reject freeze request"
+  );
+}
+
+/**
+ * Staff (Owner, Manager, Reception) ends an approved freeze early.
+ */
+export async function endFreezeEarly(
+  freezeId: string
+): Promise<{ detail: string; freeze?: MemberFreeze }> {
+  const res = await fetch(`/api/gym/freezes/${freezeId}/end-early/`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...getAuthHeader(),
+    },
+  });
+  return handleResponse<{ detail: string; freeze?: MemberFreeze }>(
+    res,
+    "Failed to end freeze early"
+  );
+}
+
+/**
+ * Staff (Owner, Manager, Reception) ends a member's active approved freeze early.
+ */
+export async function endMemberFreezeEarly(
+  memberId: string
+): Promise<{ detail: string; freeze?: MemberFreeze }> {
+  const res = await fetch(`/api/gym/members/${memberId}/end-freeze-early/`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...getAuthHeader(),
+    },
+  });
+  return handleResponse<{ detail: string; freeze?: MemberFreeze }>(
+    res,
+    "Failed to end member freeze early"
   );
 }

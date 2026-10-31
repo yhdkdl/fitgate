@@ -18,6 +18,7 @@ import { MembershipPlansSection } from "../components/owner/MembershipPlansSecti
 import { PaymentGatewaySection } from "../components/owner/PaymentGatewaySection";
 import { GymPaymentsSection } from "../components/staff/GymPaymentsSection";
 import { GymFreezesSection } from "../components/staff/GymFreezesSection";
+import { MemberFreezeSection } from "../components/member/MemberFreezeSection";
 import { MemberManagementSection } from "../components/dashboard/MemberManagementSection";
 import { MemberSelfSection } from "../components/dashboard/MemberSelfSection";
 import { MemberPaymentCompleteSection } from "../components/member/MemberPaymentCompleteSection";
@@ -76,6 +77,7 @@ const ROLE_NAV_ITEMS: Record<string, NavItem[]> = {
   member: [
     { label: "Home", path: "/dashboard" },
     { label: "My membership", path: "/membership" },
+    { label: "Freeze request", path: "/freeze-request" },
     { label: "My payments", path: "/payments" },
     { label: "Profile", path: "/profile" },
   ],
@@ -301,7 +303,21 @@ export const DashboardScreen: React.FC = () => {
       );
     }
 
-    // 6. Freeze requests page
+    // 6. Freeze requests page (Staff) & Freeze request page (Member)
+    if (
+      currentPath === "/freeze-request" ||
+      currentPath.startsWith("/freeze-request/") ||
+      currentPath === "/freeze" ||
+      currentPath.startsWith("/freeze/") ||
+      (role === "member" && currentPath.startsWith("/freezes"))
+    ) {
+      return (
+        <SectionErrorBoundary title="Freeze Request">
+          <MemberFreezeSection />
+        </SectionErrorBoundary>
+      );
+    }
+
     if (currentPath.startsWith("/freezes")) {
       return (
         <SectionErrorBoundary title="Freeze Requests">

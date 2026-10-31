@@ -111,6 +111,7 @@ describe("GymManagementSection", () => {
         updated_at: "2026-10-11T12:00:00Z",
       },
       config: {
+        tier: "pro",
         has_trainer_module: false,
         has_ai_plans: false,
         has_analytics: false,

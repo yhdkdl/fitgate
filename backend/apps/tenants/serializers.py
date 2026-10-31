@@ -64,9 +64,12 @@ class GymTenantSummarySerializer(serializers.ModelSerializer):
 class GymConfigSerializer(serializers.ModelSerializer):
     """Feature gating and configuration settings of a gym."""
 
+    tier = serializers.CharField(source="gym.tier", read_only=True)
+
     class Meta:
         model = GymConfig
         fields = [
+            "tier",
             "has_trainer_module",
             "has_ai_plans",
             "has_analytics",

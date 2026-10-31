@@ -53,16 +53,43 @@ export async function parseResponseBody(response: Response): Promise<unknown> {
 }
 
 function extractErrorMessage(status: number, data: unknown): string {
+  if (typeof data === "string" && data.trim() !== "") {
+    return data;
+  }
   if (typeof data === "object" && data !== null) {
     const dataObj = data as Record<string, unknown>;
     if (typeof dataObj.detail === "string" && dataObj.detail.trim() !== "") {
       return dataObj.detail;
     }
+    if (Array.isArray(dataObj.detail)) {
+      return dataObj.detail.map(String).join(" ");
+    }
+    if (typeof dataObj.detail === "object" && dataObj.detail !== null) {
+      const nested = Object.values(dataObj.detail as Record<string, unknown>)
+        .flatMap((v) => (Array.isArray(v) ? v : [v]))
+        .map(String)
+        .filter(Boolean);
+      if (nested.length > 0) return nested.join(" ");
+    }
     if (typeof dataObj.reason === "string" && dataObj.reason.trim() !== "") {
       return dataObj.reason;
     }
-  } else if (typeof data === "string" && data.trim() !== "") {
-    return data;
+    if (typeof dataObj.rejection_reason === "string" && dataObj.rejection_reason.trim() !== "") {
+      return dataObj.rejection_reason;
+    }
+    // Collect all field errors
+    const messages: string[] = [];
+    for (const [key, val] of Object.entries(dataObj)) {
+      if (key === "detail" || key === "reason" || key === "rejection_reason") continue;
+      if (Array.isArray(val)) {
+        messages.push(...val.map(String));
+      } else if (typeof val === "string") {
+        messages.push(val);
+      }
+    }
+    if (messages.length > 0) {
+      return messages.join(" ");
+    }
   }
   return `HTTP ${status}`;
 }

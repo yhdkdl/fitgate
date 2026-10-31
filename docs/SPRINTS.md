@@ -165,7 +165,7 @@ Trainer specialization and photo are delivered in the Trainer and storage sprint
 
 5. **RBAC framework (GATE)** — permission classes + Owner/Manager permission matrix enforcement.
    - For every role in the permission matrix (SPEC §2), both an allowed action (succeeds) and a denied action (403, not 200) are covered by a test.
-   - **Entitlements vs. settings:** an Owner's attempt to change `tier`, any `has_*` flag, `freeze_days_allowed`, `payment_grace_days` or `subscription_reminder_days` is rejected (403) at the API level; the same Owner can change `brand_color`, `member_reminder_days` and their payment credentials; a Manager can change none of them. Super Admin can change the entitlements.
+   - **Entitlements vs. settings:** an Owner may change `freeze_days_allowed` up to the gym's `freeze_days_cap` (values above cap rejected with 400), `brand_color`, `member_reminder_days` and their payment credentials; an Owner's attempt to change `tier`, any `has_*` flag, `freeze_days_cap`, `payment_grace_days` or `subscription_reminder_days` is rejected (403) at the API level; a Manager can change none of them. Super Admin can change the entitlements.
    - **Super Admin vs. gym settings:** Per SPEC §2 Table 3.1a, Super Admin modifies entitlements only (`/api/platform/gyms/<id>/config/`) and cannot edit gym operational settings (`brand_color`, reminder days, logo) or access the Owner checklist on gym subdomains.
 
 - [x] Status: done — merged to develop (tag sprint-5-done)
@@ -348,6 +348,7 @@ Preparation for deploying the Increment 1 milestone to the real Yegara cPanel st
     - Gym owners and managers can review, approve, or reject freeze requests (with an explanation for rejections).
     - Approving a freeze pauses the member's QR pass and extends their membership end date by the frozen days, and a notification is recorded for the member.
     - Rejecting a freeze request leaves the pass active with an explanation, and a notification is recorded for the member.
+    - Staff (Owner, Manager, Reception) can end a freeze early: for active freezes, subscription end date is reduced by unused days, unused days return to member allowance, member status returns to active immediately via update_member_status(), and pass is re-enabled; approved future freezes are cancelled completely. Row-locked, idempotent, audited, and member notified; Members, Trainers, Super Admin, and other gyms refused.
 
 14. **Scheduled jobs (automated daily maintenance tasks)** — Requires Sprint 9b (email safety) to be built first, because Sprint 14 sends the first automatic emails. What gym users can do after this sprint:
     - Subscriptions past their end date automatically expire, deactivating check-in passes, and frozen memberships automatically reactivate when the freeze ends.
@@ -495,6 +496,7 @@ _Increment 5 = Sprints 25, 27, 28, 29, 29a; Sprints 26 and 28a are deferred to a
     - **Suspension:** Super Admin confirms suspension of a lapse-flagged gym (it is never automatic). A suspended gym's staff and members cannot log in, while its data stays intact and visible to Super Admin — both halves tested. Its Owner can still log in for 7 days to export (Sprint 29), after which login is refused; nothing is deleted.
     - Platform reports: tenant summary, platform revenue (confirmed `gym_subscription` payments, excluding demo gyms), subscription status overview. Platform-wide notices (an `Announcement` with null gym) appear on every Owner's dashboard.
     - Super Admin can edit a gym's `payment_grace_days` and `subscription_reminder_days`.
+    - Super Admin can edit a gym's name, location and contact; gyms are never deleted, only suspended.
 
 36. **GymConfig feature-flag enforcement** — backend permission layer + frontend render gating, for every tier-gated feature above.
     - Full regression pass: every previously-built tier-gated endpoint (trainer module, AI plans, premium analytics [revenue by plan], freeze, and entitlement edits) is re-verified to reject a gym missing the corresponding flag, and every entitlement edit by an Owner is re-verified to be rejected. A clean pass here is the actual proof the gating is complete. Group classes are deferred. Note: multi-branch is verified at the end of Increment 6 if Increment 6 ships (Sprint 36's multi-branch regression check and Sprint 38's final-release re-check are run again after Sprint 34).

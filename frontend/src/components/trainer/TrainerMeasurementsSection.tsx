@@ -614,7 +614,7 @@ export const TrainerMeasurementsSection: React.FC = () => {
                         step="0.1"
                         inputMode="decimal"
                         required
-                        placeholder="20 to 400 kg"
+                        placeholder="e.g. 75.0 (20 to 400 kg)"
                         value={weightKg}
                         onChange={(e) => setWeightKg(e.target.value)}
                         error={fieldErrors["metric-weight"]}
@@ -634,7 +634,7 @@ export const TrainerMeasurementsSection: React.FC = () => {
                         step="0.1"
                         inputMode="decimal"
                         required
-                        placeholder="50 to 260 cm"
+                        placeholder="e.g. 180.0 (50 to 260 cm)"
                         value={heightCm}
                         onChange={(e) => setHeightCm(e.target.value)}
                         error={fieldErrors["metric-height"]}
@@ -659,7 +659,7 @@ export const TrainerMeasurementsSection: React.FC = () => {
                           type="number"
                           step="0.1"
                           inputMode="decimal"
-                          placeholder="40 to 200"
+                          placeholder="e.g. 84.0 (40 to 200 cm)"
                           value={waistCm}
                           onChange={(e) => setWaistCm(e.target.value)}
                           error={fieldErrors["metric-waist"]}
@@ -677,7 +677,7 @@ export const TrainerMeasurementsSection: React.FC = () => {
                           type="number"
                           step="0.1"
                           inputMode="decimal"
-                          placeholder="20 to 80"
+                          placeholder="e.g. 38.0 (20 to 80 cm)"
                           value={neckCm}
                           onChange={(e) => setNeckCm(e.target.value)}
                           error={fieldErrors["metric-neck"]}
@@ -895,7 +895,7 @@ export const TrainerMeasurementsSection: React.FC = () => {
                         ? "Saving..."
                         : isCorrectionMode
                           ? "Save Correction"
-                          : "Save Measurements"}
+                          : "Record Measurements"}
                     </Button>
                   </div>
                 </form>
