@@ -468,7 +468,7 @@ describe("Sprint 7: Member Registration & Body Metrics UI", () => {
       // Shows not measured yet
       expect(
         await screen.findByText(
-          "Not measured yet. A trainer records measurements."
+          "Not measured yet. Record physical measurements below."
         )
       ).toBeInTheDocument();
 

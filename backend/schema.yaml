@@ -600,6 +600,34 @@ paths:
           description: Validation error
         '403':
           description: Permission denied
+  /api/gym/freezes/{freeze_id}/end-early/:
+    post:
+      operationId: gym_freezes_end_early_create
+      description: Ends an approved member freeze early, reduces extension by unused
+        days, returns unused days to allowance, and reactivates member pass immediately.
+      summary: End a freeze early (Owner, Manager, Reception)
+      parameters:
+      - in: path
+        name: freeze_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - gym
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MemberFreeze'
+          description: ''
+        '400':
+          description: Validation error
+        '403':
+          description: Permission denied
   /api/gym/freezes/{freeze_id}/reject/:
     post:
       operationId: gym_freezes_reject_create
@@ -689,6 +717,36 @@ paths:
           description: Validation error or duplicate
         '403':
           description: Forbidden - Trainers cannot register members
+  /api/gym/members/{member_id}/end-freeze-early/:
+    post:
+      operationId: gym_members_end_freeze_early_create
+      description: Finds the approved freeze for a member and ends it early, returning
+        unused days to allowance and reactivating their pass immediately.
+      summary: End a member's freeze early (Owner, Manager, Reception)
+      parameters:
+      - in: path
+        name: member_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - gym
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MemberFreeze'
+          description: ''
+        '400':
+          description: Validation error
+        '403':
+          description: Permission denied
+        '404':
+          description: Member or freeze not found
   /api/gym/members/{id}/:
     get:
       operationId: gym_members_retrieve
@@ -3653,6 +3711,9 @@ components:
       type: object
       description: Feature gating and configuration settings of a gym.
       properties:
+        tier:
+          type: string
+          readOnly: true
         has_trainer_module:
           type: boolean
           readOnly: true
@@ -3712,6 +3773,7 @@ components:
       - payment_grace_days
       - show_unavailable_equipment
       - subscription_reminder_days
+      - tier
     GymDetailResponse:
       type: object
       properties:

@@ -169,7 +169,8 @@ describe("Sprint 4c: Gym branding, entry page, first-run checklist", () => {
 
   describe("GymBrandingSection", () => {
     const mockConfig: gymsApi.GymConfig = {
-      has_trainer_module: false,
+      tier: "pro",
+        has_trainer_module: false,
       has_ai_plans: false,
       has_analytics: false,
       has_group_classes: false,

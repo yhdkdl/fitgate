@@ -750,6 +750,11 @@ class TestBodyCompositionCalculationsOnRead:
         assert me_before.data["latest_metrics"] is None
 
         # Trainer records measurements
+        from apps.trainers.models import TrainerAssignment
+
+        TrainerAssignment.objects.create(
+            gym=gym_tenant, member=member, trainer=trainer_user.trainer_profile
+        )
         tc = auth_client(api_client, trainer_user, gym_tenant.subdomain)
         rec_resp = tc.post(
             f"/api/gym/members/{member.id}/metrics/",

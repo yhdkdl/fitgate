@@ -17,7 +17,7 @@ describe("Sprint 11 - PaymentGatewaySection", () => {
     masked_public_key: "CHAPUBK_TEST-****1234",
     has_secret_key: true,
     has_webhook_secret: true,
-    use_mock: true,
+    use_mock: false,
     detected_mode: "Test",
   };
 

@@ -827,6 +827,8 @@ def get_member_freeze_allowance(member: Member) -> Dict[str, Any]:
 
     config = GymConfig.objects.filter(gym=member.gym).first()
     total_allowed = config.freeze_days_allowed if config else 0
+    if member.gym.tier == GymTenant.TIER_STARTER:
+        total_allowed = 0
 
     sub = (
         MemberSubscription.all_objects.filter(gym=member.gym, member=member)
@@ -876,6 +878,8 @@ def request_membership_freeze(
     """
     from apps.tenants.models import GymConfig
 
+    if member.gym.tier == GymTenant.TIER_STARTER:
+        raise ValidationError({"detail": "Starter gyms cannot use membership freeze."})
     config = GymConfig.objects.filter(gym=member.gym).first()
     total_allowed = config.freeze_days_allowed if config else 0
     if total_allowed <= 0:
@@ -1010,6 +1014,10 @@ def approve_membership_freeze(
         # Lock member row for concurrency control
         member = Member.all_objects.select_for_update().get(id=freeze.member_id)
 
+        if gym.tier == GymTenant.TIER_STARTER:
+            raise ValidationError(
+                {"detail": "Starter gyms cannot use membership freeze."}
+            )
         config = GymConfig.objects.filter(gym=gym).first()
         total_allowed = config.freeze_days_allowed if config else 0
         if total_allowed <= 0:
@@ -1160,6 +1168,143 @@ def reject_membership_freeze(
             notification_type="freeze_rejected",
             message=f"Your membership freeze request was rejected. Reason: {trimmed_reason}",
             gym=gym,
+        )
+
+        return freeze
+
+
+def end_membership_freeze_early(
+    freeze_id: str,
+    staff_user: User,
+    today: Optional[date] = None,
+) -> MemberFreeze:
+    """
+    End an active or upcoming approved member freeze before its scheduled end date.
+    Allowed only for Gym Owner, Manager, or Reception of the same gym.
+    Refused for Members, Trainers, Super Admin, and other gyms (403 Forbidden).
+
+    - Currently frozen member: actual days used = days from freeze start date to today (minimum 0).
+      Unused days = freeze.days - actual_days_used.
+      Subscription end date is reduced by unused days.
+      Freeze days total is reduced by unused days.
+      Member status returns to active through shared update_member_status().
+      QR pass works immediately.
+    - Approved freeze that has not started yet (today < start_date):
+      Cancelled completely (full extension removed, full allowance returned).
+    - Freeze that already finished or is not approved:
+      Refused with clear message.
+    - Safe to repeat: ending twice never shortens twice (select_for_update row locking).
+    - Audit log + in-app notification recorded.
+    """
+    from apps.accounts.notifications import create_notification
+    from apps.accounts.services import record_audit_log
+
+    if today is None:
+        today = timezone.localdate()
+
+    if getattr(staff_user, "role", None) == User.ROLE_SUPER_ADMIN or getattr(
+        staff_user, "is_superuser", False
+    ):
+        raise PermissionDenied("Super Admin cannot end member freezes.")
+
+    if getattr(staff_user, "role", None) not in [
+        User.ROLE_OWNER,
+        User.ROLE_MANAGER,
+        User.ROLE_RECEPTION,
+    ]:
+        raise PermissionDenied(
+            "Only gym staff (Owner, Manager, Reception) can end a freeze early."
+        )
+
+    with transaction.atomic():
+        freeze = (
+            MemberFreeze.all_objects.select_for_update().filter(id=freeze_id).first()
+        )
+        if not freeze:
+            raise ValidationError({"detail": "Freeze request not found."})
+
+        if staff_user.gym_id != freeze.gym_id:
+            raise PermissionDenied("Cannot modify a freeze for another gym.")
+
+        if freeze.status != MemberFreeze.STATUS_APPROVED:
+            if freeze.status == MemberFreeze.STATUS_COMPLETED:
+                raise ValidationError({"detail": "This freeze has already finished."})
+            raise ValidationError(
+                {
+                    "detail": f"Cannot end freeze early: freeze status is '{freeze.status}'."
+                }
+            )
+
+        member = Member.all_objects.select_for_update().get(id=freeze.member_id)
+        sub = (
+            MemberSubscription.all_objects.select_for_update()
+            .filter(id=freeze.subscription_id)
+            .first()
+        )
+        if not sub:
+            raise ValidationError(
+                {"detail": "Subscription record not found for this freeze."}
+            )
+
+        if today < freeze.start_date:
+            actual_days_used = 0
+            unused_days = freeze.days
+        else:
+            days_from_start = (today - freeze.start_date).days
+            actual_days_used = min(freeze.days, max(0, days_from_start))
+            unused_days = freeze.days - actual_days_used
+
+        old_end_date = sub.end_date
+        if unused_days > 0 and freeze.extension_applied:
+            sub.end_date = sub.end_date - timedelta(days=unused_days)
+            sub.frozen_days_total = max(0, sub.frozen_days_total - unused_days)
+
+        if sub.status == MemberSubscription.STATUS_FROZEN:
+            sub.status = MemberSubscription.STATUS_ACTIVE
+        sub.freeze_start_date = None
+        sub.save(
+            update_fields=[
+                "status",
+                "end_date",
+                "frozen_days_total",
+                "freeze_start_date",
+            ]
+        )
+
+        freeze.status = MemberFreeze.STATUS_COMPLETED
+        freeze.days = actual_days_used
+        if today >= freeze.start_date:
+            freeze.end_date = min(freeze.end_date, today)
+        freeze.unfrozen_at = timezone.now()
+        freeze.save(
+            update_fields=["status", "days", "end_date", "unfrozen_at", "updated_at"]
+        )
+
+        update_member_status(member, today=today)
+
+        record_audit_log(
+            action_type="freeze_ended_early",
+            affected_record_type="MemberFreeze",
+            affected_record_id=str(freeze.id),
+            actor=staff_user,
+            gym=freeze.gym,
+            metadata={
+                "member_id": str(member.id),
+                "days_used": actual_days_used,
+                "days_returned": unused_days,
+                "old_end_date": str(old_end_date),
+                "new_end_date": str(sub.end_date),
+            },
+        )
+
+        create_notification(
+            recipient=member.user,
+            notification_type="freeze_ended_early",
+            message=(
+                f"Your membership freeze has ended early. {unused_days} day(s) have been returned to your allowance "
+                f"and your subscription is active through {sub.end_date}."
+            ),
+            gym=freeze.gym,
         )
 
         return freeze

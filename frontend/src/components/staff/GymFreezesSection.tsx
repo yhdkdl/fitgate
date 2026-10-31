@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useState } from "react";
 import {
   approveFreeze,
+  endFreezeEarly,
   getGymFreezes,
   rejectFreeze,
   type MemberFreeze,
@@ -67,6 +68,32 @@ export const GymFreezesSection: React.FC = () => {
     } catch (err: unknown) {
       setError(
         err instanceof Error ? err.message : "Failed to approve freeze request."
+      );
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleEndEarly = async (freeze: MemberFreeze) => {
+    const memberName = freeze.member?.full_name || "the member";
+    if (
+      !window.confirm(
+        `End freeze early for ${memberName}? Unused days will be returned to their subscription and freeze allowance, and their pass will become active immediately.`
+      )
+    ) {
+      return;
+    }
+
+    setActionLoading(true);
+    setError(null);
+    setSuccessMessage(null);
+    try {
+      const res = await endFreezeEarly(freeze.id);
+      setSuccessMessage(res.detail || "Freeze ended early successfully.");
+      await fetchFreezes();
+    } catch (err: unknown) {
+      setError(
+        err instanceof Error ? err.message : "Failed to end freeze early."
       );
     } finally {
       setActionLoading(false);
@@ -245,6 +272,19 @@ export const GymFreezesSection: React.FC = () => {
                           className="h-7 text-xs px-2 text-danger hover:bg-danger/10"
                         >
                           Reject
+                        </Button>
+                      </div>
+                    )}
+                    {f.status === "approved" && (
+                      <div className="flex items-center justify-end">
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          disabled={actionLoading}
+                          onClick={() => handleEndEarly(f)}
+                          className="h-7 text-xs px-2 text-warning hover:bg-warning/10"
+                        >
+                          End Early
                         </Button>
                       </div>
                     )}

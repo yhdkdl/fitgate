@@ -408,6 +408,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/gym/freezes/{freeze_id}/end-early/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * End a freeze early (Owner, Manager, Reception)
+         * @description Ends an approved member freeze early, reduces extension by unused days, returns unused days to allowance, and reactivates member pass immediately.
+         */
+        post: operations["gym_freezes_end_early_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/gym/freezes/{freeze_id}/reject/": {
         parameters: {
             query?: never;
@@ -446,6 +466,26 @@ export interface paths {
          * @description Registers a new member with set-password invitation link. Allowed for Owner, Manager, Reception.
          */
         post: operations["gym_members_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/gym/members/{member_id}/end-freeze-early/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * End a member's freeze early (Owner, Manager, Reception)
+         * @description Finds the approved freeze for a member and ends it early, returning unused days to allowance and reactivating their pass immediately.
+         */
+        post: operations["gym_members_end_freeze_early_create"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2184,6 +2224,7 @@ export interface components {
         GenderEnum: "male" | "female";
         /** @description Feature gating and configuration settings of a gym. */
         GymConfig: {
+            readonly tier: string;
             readonly has_trainer_module: boolean;
             readonly has_ai_plans: boolean;
             readonly has_analytics: boolean;
@@ -3792,6 +3833,41 @@ export interface operations {
             };
         };
     };
+    gym_freezes_end_early_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                freeze_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MemberFreeze"];
+                };
+            };
+            /** @description Validation error */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Permission denied */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     gym_freezes_reject_create: {
         parameters: {
             query?: never;
@@ -3884,6 +3960,48 @@ export interface operations {
             };
             /** @description Forbidden - Trainers cannot register members */
             403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    gym_members_end_freeze_early_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                member_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MemberFreeze"];
+                };
+            };
+            /** @description Validation error */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Permission denied */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Member or freeze not found */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };

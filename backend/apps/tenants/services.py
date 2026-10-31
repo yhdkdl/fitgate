@@ -475,7 +475,20 @@ def update_gym_settings(
         update_fields.append("member_reminder_days")
 
     if "freeze_days_allowed" in data:
-        val = int(data["freeze_days_allowed"])
+        try:
+            val = int(data["freeze_days_allowed"])
+        except (ValueError, TypeError):
+            raise ValidationError(
+                {"freeze_days_allowed": ["Freeze days allowed must be a whole number."]}
+            )
+        if val < 0:
+            raise ValidationError(
+                {"freeze_days_allowed": ["Freeze days allowed cannot be negative."]}
+            )
+        if not is_super_admin and gym.tier == GymTenant.TIER_STARTER and val > 0:
+            raise ValidationError(
+                {"freeze_days_allowed": ["Starter gyms cannot use membership freeze."]}
+            )
         if not is_super_admin and val > config.freeze_days_cap:
             raise ValidationError(
                 {
@@ -488,19 +501,90 @@ def update_gym_settings(
         update_fields.append("freeze_days_allowed")
 
     if is_super_admin:
-        # Entitlements editable by Super Admin
+        if "freeze_days_cap" in data:
+            try:
+                cap_val = int(data["freeze_days_cap"])
+            except (ValueError, TypeError):
+                raise ValidationError(
+                    {
+                        "freeze_days_cap": [
+                            "Freeze days cap must be a valid whole number."
+                        ]
+                    }
+                )
+            if cap_val < 0 or cap_val > 365:
+                raise ValidationError(
+                    {
+                        "freeze_days_cap": [
+                            "Freeze days cap must be between 0 and 365 days."
+                        ]
+                    }
+                )
+            config.freeze_days_cap = cap_val
+            if config.freeze_days_allowed > cap_val:
+                config.freeze_days_allowed = cap_val
+                if "freeze_days_allowed" not in update_fields:
+                    update_fields.append("freeze_days_allowed")
+            update_fields.append("freeze_days_cap")
+
+        if "payment_grace_days" in data:
+            try:
+                grace_val = int(data["payment_grace_days"])
+            except (ValueError, TypeError):
+                raise ValidationError(
+                    {
+                        "payment_grace_days": [
+                            "Payment grace days must be a valid whole number."
+                        ]
+                    }
+                )
+            if grace_val < 0 or grace_val > 365:
+                raise ValidationError(
+                    {
+                        "payment_grace_days": [
+                            "Payment grace days must be between 0 and 365."
+                        ]
+                    }
+                )
+            config.payment_grace_days = grace_val
+            update_fields.append("payment_grace_days")
+
+        if "subscription_reminder_days" in data:
+            rem_val = data["subscription_reminder_days"]
+            if isinstance(rem_val, str):
+                parts = [p.strip() for p in rem_val.split(",") if p.strip()]
+                try:
+                    rem_val = [int(p) for p in parts]
+                except ValueError:
+                    raise ValidationError(
+                        {
+                            "subscription_reminder_days": [
+                                "Subscription reminder days must be whole numbers."
+                            ]
+                        }
+                    )
+            if not isinstance(rem_val, list) or not all(
+                isinstance(x, int) and 0 <= x <= 365 for x in rem_val
+            ):
+                raise ValidationError(
+                    {
+                        "subscription_reminder_days": [
+                            "Subscription reminder days must be a list of whole numbers between 0 and 365."
+                        ]
+                    }
+                )
+            config.subscription_reminder_days = rem_val
+            update_fields.append("subscription_reminder_days")
+
         for field in [
             "has_trainer_module",
             "has_ai_plans",
             "has_analytics",
             "has_group_classes",
             "has_multi_branch",
-            "freeze_days_cap",
-            "payment_grace_days",
-            "subscription_reminder_days",
         ]:
             if field in data:
-                setattr(config, field, data[field])
+                setattr(config, field, bool(data[field]))
                 update_fields.append(field)
 
     if update_fields:

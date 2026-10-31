@@ -4,9 +4,11 @@ from django.urls import path
 
 from apps.memberships.views import (
     GymFreezeApproveView,
+    GymFreezeEndEarlyView,
     GymFreezeListView,
     GymFreezeRejectView,
     GymMemberDetailView,
+    GymMemberEndFreezeEarlyView,
     GymMemberListCreateView,
     GymMemberRecordMetricsView,
     MemberFreezeAllowanceView,
@@ -135,5 +137,15 @@ urlpatterns = [
         "api/gym/freezes/<uuid:freeze_id>/reject/",
         GymFreezeRejectView.as_view(),
         name="gym-freeze-reject",
+    ),
+    path(
+        "api/gym/freezes/<uuid:freeze_id>/end-early/",
+        GymFreezeEndEarlyView.as_view(),
+        name="gym-freeze-end-early",
+    ),
+    path(
+        "api/gym/members/<uuid:member_id>/end-freeze-early/",
+        GymMemberEndFreezeEarlyView.as_view(),
+        name="gym-member-end-freeze-early",
     ),
 ]

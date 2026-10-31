@@ -3,9 +3,18 @@ import {
   getMyFreezes,
   getMemberFreezeAllowance,
   requestFreeze,
+  formatApiErrorMessage,
+  ApiError,
   type MemberFreeze,
   type MemberFreezeAllowance,
 } from "../../api/freeze";
+
+export function getLocalDateString(d: Date = new Date()): string {
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
 import { Alert } from "../ui/Alert";
 import { Badge } from "../ui/Badge";
 import { Button } from "../ui/Button";
@@ -54,8 +63,10 @@ export const MemberFreezeCard: React.FC<MemberFreezeCardProps> = ({ memberStatus
   }, []);
 
   const openModal = () => {
-    const today = new Date().toISOString().split("T")[0];
-    const defaultEnd = new Date(Date.now() + 7 * 86400000).toISOString().split("T")[0];
+    const today = getLocalDateString();
+    const endD = new Date();
+    endD.setDate(endD.getDate() + 7);
+    const defaultEnd = getLocalDateString(endD);
     setStartDate(today);
     setEndDate(defaultEnd);
     setReason("");
@@ -94,7 +105,13 @@ export const MemberFreezeCard: React.FC<MemberFreezeCardProps> = ({ memberStatus
       setModalOpen(false);
       await fetchData();
     } catch (err: unknown) {
-      setFormError(err instanceof Error ? err.message : "Failed to submit freeze request.");
+      if (err instanceof ApiError) {
+        setFormError(err.message || formatApiErrorMessage(err.data, "Failed to submit freeze request."));
+      } else if (err instanceof Error) {
+        setFormError(err.message);
+      } else {
+        setFormError("Failed to submit freeze request.");
+      }
     } finally {
       setSubmitting(false);
     }
@@ -254,28 +271,30 @@ export const MemberFreezeCard: React.FC<MemberFreezeCardProps> = ({ memberStatus
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs font-medium text-text mb-1">
+              <label htmlFor="freeze-start-date" className="block text-xs font-medium text-text mb-1">
                 Start Date *
               </label>
               <input
+                id="freeze-start-date"
                 type="date"
                 required
                 value={startDate}
-                min={new Date().toISOString().split("T")[0]}
+                min={getLocalDateString()}
                 onChange={(e) => setStartDate(e.target.value)}
                 className="w-full px-3 py-2 bg-surface-2 border border-border rounded-input text-text text-sm focus:outline-none focus:border-primary"
               />
             </div>
 
             <div>
-              <label className="block text-xs font-medium text-text mb-1">
+              <label htmlFor="freeze-end-date" className="block text-xs font-medium text-text mb-1">
                 End Date *
               </label>
               <input
+                id="freeze-end-date"
                 type="date"
                 required
                 value={endDate}
-                min={startDate || new Date().toISOString().split("T")[0]}
+                min={startDate || getLocalDateString()}
                 onChange={(e) => setEndDate(e.target.value)}
                 className="w-full px-3 py-2 bg-surface-2 border border-border rounded-input text-text text-sm focus:outline-none focus:border-primary"
               />
@@ -283,10 +302,11 @@ export const MemberFreezeCard: React.FC<MemberFreezeCardProps> = ({ memberStatus
           </div>
 
           <div>
-            <label className="block text-xs font-medium text-text mb-1">
+            <label htmlFor="freeze-reason" className="block text-xs font-medium text-text mb-1">
               Reason (5 to 500 characters) *
             </label>
             <textarea
+              id="freeze-reason"
               required
               rows={3}
               value={reason}
