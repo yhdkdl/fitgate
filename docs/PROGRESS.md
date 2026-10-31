@@ -48,14 +48,17 @@
 - Sprint 16: Trainer profile and capacity — `Trainer` model with 1:1 user link, default 20 capacity (range 1-200), derived active client count from `TrainerAssignment` rows, server-side `has_trainer_module` gating, automatic profile creation signal & data migration backfill, Owner/Manager capacity editing with under-capacity warnings and audit logging, Trainer self-profile endpoint, and Owner/Manager "Trainers" management page and navigation (tag `sprint-16-done`).
 - Fix: Gym configuration settings and early freeze termination — Super Admin Configure Gym screen inputs for freeze cap (freeze_days_cap, 0-365, default 30), payment grace days (default 7), and subscription reminder days; Owner Gym Settings screen freeze days allowed up to cap and member reminder days (Starter tier blocked); member freeze request reflecting real gym allowance and remaining days; staff early unfreeze (Owner, Manager, Reception) with proportional subscription date adjustment, unused allowance return, immediate reactivation, future freeze cancellation, row-level locking, and full audit logging (branch fix/gym-config-and-early-freeze).
 - Sprint 17: Trainer assignment (GATE) — automatic assignment (load-balance + least-recently-assigned tie-break, capacity limits, all-full notification), wired into subscription activation across all payment paths (online, cash, bank transfer, renewal) without blocking payment transactions, database-level conditional unique constraint preventing duplicate open assignments per member, candidate trainer row-locking (`select_for_update`) preventing concurrency overruns, manual reassignment with explicit over-capacity confirmation and audit logging, trainer deactivation client reassignment guard, RBAC tenant isolation (Trainer sees own clients, Member sees assigned trainer name, Owner/Manager see all, Reception sees assigned trainer read-only, Super Admin denied), and screens (Owner/Manager "Assignments" and unassigned members views, Trainer "My clients" view, Member "My trainer" card on Home and My membership), scoped client measurements, trainer photo upload, and measurement corrections (tag `sprint-17-done`).
+- Sprint 20: FitnessProfile intake — entered exclusively by assigned trainer on client page, Owner/Manager view/edit, member read-only on dashboard, shared form validation across frontend and backend, automatic biometrics prefill from latest BodyMetrics, 403 server-enforced RBAC for unrelated trainers, Reception, Super Admin, and cross-tenants, and audit logging (`fitness_profile_saved`) (tag `sprint-20-done`).
+- Sprint 21: Rules engine — phase derivation from elapsed active subscription proportion (foundation 0-33%, build 34-66%, peak 67-100%), pure Python rules engine with Strategy pattern for swappable intensity logic (`LinearPeriodizationStrategy` and `AdaptiveRecoveryStrategy` producing different outputs from identical input), equipment and injury limitation filtering (lower back, knees, shoulder impingement, dumbbell-only access), out-of-service / maintenance exclusions, gatekeeper eligibility checks, and zero-PII sanitization for prompt payload (tag `sprint-21-done`).
 
 ## Current
 
-Ready for Increment 4
+Ready for Sprint 22 (LiteLLM integration layer & plan generation flow - STRICT GATE)
 
 ## Next
 
-- Increment 4
+- Sprint 22 (STRICT GATE)
+- Sprints 23 and 24
 
 ## Open manual steps
 
