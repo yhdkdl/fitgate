@@ -8,9 +8,12 @@ export interface FitnessProfilePayload {
   fitness_level: string;
   training_days_per_week: number;
   session_length_minutes: number;
-  dietary_notes?: string;
-  health_limitations?: string;
-  equipment_access?: string;
+  health_limitations: string[];
+  other_limitations?: string;
+  equipment_access: string[];
+  other_equipment?: string;
+  dietary_notes: string[];
+  other_dietary?: string;
 }
 
 export async function getMemberFitnessProfile(

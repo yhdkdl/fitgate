@@ -6,7 +6,7 @@ equipment/injury filtering, history aggregation, and prompt context building.
 
 from abc import ABC, abstractmethod
 from datetime import date
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Union
 
 from django.apps import apps
 from django.utils import timezone
@@ -294,19 +294,147 @@ def determine_training_phase(
 
 
 def filter_prescribed_equipment(
-    equipment_access: str,
-    health_limitations: str,
+    equipment_codes: Optional[Union[List[str], str]] = None,
+    limitation_codes: Optional[Union[List[str], str]] = None,
     unavailable_equipment: Optional[List[str]] = None,
+    *,
+    equipment_access: Optional[Union[List[str], str]] = None,
+    health_limitations: Optional[Union[List[str], str]] = None,
 ) -> Dict[str, Any]:
+    if equipment_codes is None and equipment_access is not None:
+        equipment_codes = equipment_access
+    if limitation_codes is None and health_limitations is not None:
+        limitation_codes = health_limitations
     """
-    Filters equipment categories based on member access, reported injuries/limitations,
-    and gym out_of_service / under_maintenance equipment list.
+    Filters equipment categories based on member selectable equipment codes,
+    body-area limitation codes, and gym out_of_service / under_maintenance equipment.
+    'Other' free text is not used here for algorithmic guessing; it is passed directly to the AI as plain data.
     """
-    access_text = (equipment_access or "").lower()
-    limits_text = (health_limitations or "").lower()
-    unavailable = [e.lower() for e in (unavailable_equipment or [])]
+    # Handle backward-compatible string input if passed
+    if isinstance(equipment_codes, str):
+        equipment_codes = [equipment_codes]
+    if isinstance(limitation_codes, str):
+        limitation_codes = [limitation_codes]
 
-    all_categories = [
+    equip_set = {str(c).strip().lower() for c in (equipment_codes or [])}
+    limit_set = {str(c).strip().lower() for c in (limitation_codes or [])}
+    unavailable = [str(e).strip().lower() for e in (unavailable_equipment or [])]
+
+    EQUIP_CODE_MAP = {
+        "full_gym": {
+            "barbell",
+            "dumbbells",
+            "cable_machine",
+            "resistance_bands",
+            "kettlebells",
+            "pull_up_bar",
+            "bench",
+            "leg_press",
+            "squat_rack",
+            "cardio_machines",
+            "bodyweight",
+        },
+        "free_weights": {
+            "barbell",
+            "dumbbells",
+            "bench",
+            "bodyweight",
+            "pull_up_bar",
+        },
+        "machines": {
+            "cable_machine",
+            "leg_press",
+            "cardio_machines",
+            "bench",
+            "bodyweight",
+        },
+        "cables": {
+            "cable_machine",
+            "pull_up_bar",
+            "bodyweight",
+        },
+        "kettlebells": {
+            "kettlebells",
+            "bodyweight",
+        },
+        "resistance_bands": {
+            "resistance_bands",
+            "bodyweight",
+        },
+        "cardio_machines": {
+            "cardio_machines",
+            "bodyweight",
+        },
+        "bodyweight_only": {
+            "bodyweight",
+            "pull_up_bar",
+        },
+        "other": {
+            "bodyweight",
+        },
+    }
+
+    available = set()
+    for code in equip_set:
+        available.update(EQUIP_CODE_MAP.get(code, {"bodyweight"}))
+
+    if not available:
+        available = {"bodyweight"}
+
+    excluded = set()
+    exclusion_reasons = {}
+
+    # Deterministic exclusions from body-area limitation codes
+    LIMIT_EXCLUSIONS = {
+        "lower_back": (
+            {"barbell", "squat_rack"},
+            "Excluded spinal axial loading and heavy unsupported hinging due to lower back limitation.",
+        ),
+        "knee": (
+            {"leg_press"},
+            "Excluded deep fixed knee extension shear due to knee limitation.",
+        ),
+        "shoulder": (
+            {"barbell"},
+            "Excluded fixed straight barbell overhead pressing due to shoulder limitation.",
+        ),
+        "neck": (
+            {"barbell", "squat_rack"},
+            "Excluded cervical spine and upper trapezius compression due to neck limitation.",
+        ),
+        "hip": (
+            {"leg_press", "squat_rack"},
+            "Excluded extreme hip flexion and impingement angles due to hip limitation.",
+        ),
+        "ankle_foot": (
+            {"squat_rack"},
+            "Excluded heavy dorsiflexion axial loading due to ankle/foot limitation.",
+        ),
+        "wrist_elbow": (
+            {"barbell"},
+            "Excluded rigid straight-bar wrist loading due to wrist/elbow limitation.",
+        ),
+    }
+
+    for limit_code, (excl_items, reason) in LIMIT_EXCLUSIONS.items():
+        if limit_code in limit_set:
+            for item in excl_items:
+                if item in available:
+                    available.remove(item)
+                    excluded.add(item)
+                    exclusion_reasons[item] = reason
+
+    # Gym maintenance / out-of-service exclusions
+    for unavail in unavailable:
+        for cat in list(available):
+            if cat in unavail or unavail in cat:
+                available.remove(cat)
+                excluded.add(cat)
+                exclusion_reasons[cat] = (
+                    f"Gym equipment item '{unavail}' is currently out of service or under maintenance."
+                )
+
+    ALL_CATALOG_EQUIPMENT = {
         "barbell",
         "dumbbells",
         "cable_machine",
@@ -316,78 +444,16 @@ def filter_prescribed_equipment(
         "bench",
         "leg_press",
         "squat_rack",
+        "cardio_machines",
         "bodyweight",
-    ]
+    }
 
-    available = set(all_categories)
-    excluded = set()
-    exclusion_reasons = {}
-
-    # 1. Access constraints
-    if "dumbbell" in access_text and not any(
-        k in access_text for k in ["full", "barbell", "all"]
-    ):
-        for item in ["barbell", "cable_machine", "leg_press", "squat_rack"]:
-            if item in available:
-                available.remove(item)
-                excluded.add(item)
-                exclusion_reasons[item] = (
-                    "Not accessible based on member equipment profile."
-                )
-
-    if "bodyweight only" in access_text or (
-        "home" in access_text
-        and "dumbbell" not in access_text
-        and not any(k in access_text for k in ["full", "gym"])
-    ):
-        for item in [
-            "barbell",
-            "dumbbells",
-            "cable_machine",
-            "leg_press",
-            "squat_rack",
-        ]:
-            if item in available:
-                available.remove(item)
-                excluded.add(item)
-                exclusion_reasons[item] = "Bodyweight only access indicated."
-
-    # 2. Health limitations & injury constraints
-    if any(k in limits_text for k in ["lower back", "spine", "herniated", "lumbar"]):
-        for item in ["barbell", "squat_rack"]:
-            if item in available:
-                available.remove(item)
-                excluded.add(item)
-                exclusion_reasons[item] = (
-                    "Excluded to prevent spinal axial loading due to lower back limitation."
-                )
-
-    if any(
-        k in limits_text
-        for k in ["shoulder impingement", "rotator cuff", "shoulder pain"]
-    ):
-        exclusion_reasons["barbell_overhead"] = (
-            "Avoid strict barbell overhead press due to shoulder limitation."
-        )
-
-    if any(k in limits_text for k in ["knee", "patellar", "meniscus"]):
-        for item in ["leg_press"]:
-            if item in available:
-                available.remove(item)
-                excluded.add(item)
-                exclusion_reasons[item] = (
-                    "Excluded heavy fixed leg press due to knee limitation."
-                )
-
-    # 3. Gym out-of-service / maintenance exclusions
-    for unavail in unavailable:
-        for cat in list(available):
-            if cat in unavail or unavail in cat:
-                available.remove(cat)
-                excluded.add(cat)
-                exclusion_reasons[cat] = (
-                    f"Gym equipment item '{unavail}' is currently out of service or under maintenance."
-                )
+    for item in ALL_CATALOG_EQUIPMENT - available:
+        excluded.add(item)
+        if item not in exclusion_reasons:
+            exclusion_reasons[item] = (
+                "Excluded based on member's accessible equipment selection."
+            )
 
     return {
         "available_equipment": sorted(list(available)),
@@ -574,8 +640,8 @@ def build_ai_generation_context(
     )
 
     equipment_info = filter_prescribed_equipment(
-        equipment_access=profile.equipment_access,
-        health_limitations=profile.health_limitations,
+        equipment_codes=profile.equipment_access,
+        limitation_codes=profile.health_limitations,
         unavailable_equipment=unavailable_equipment,
     )
 
@@ -603,8 +669,6 @@ def build_ai_generation_context(
             lean_mass = None
 
     sanitized_trainer_note = (trainer_note_for_week or "").strip()[:500]
-    sanitized_dietary_notes = (profile.dietary_notes or "").strip()[:1000]
-    sanitized_limitations = (profile.health_limitations or "").strip()[:500]
 
     return {
         "demographics": {
@@ -624,8 +688,14 @@ def build_ai_generation_context(
             "fitness_level": profile.fitness_level,
             "training_days_per_week": profile.training_days_per_week,
             "session_length_minutes": profile.session_length_minutes,
-            "dietary_notes": sanitized_dietary_notes,
-            "health_limitations": sanitized_limitations,
+            "health_limitations": profile.health_limitations,
+            "other_limitations": profile.other_limitations,
+            "has_medical_caution": profile.has_medical_caution,
+            "has_other_limitation": bool(profile.other_limitations),
+            "equipment_access": profile.equipment_access,
+            "other_equipment": profile.other_equipment,
+            "dietary_notes": profile.dietary_notes,
+            "other_dietary": profile.other_dietary,
         },
         "plan_parameters": {
             "week_start_date": str(week_start_date),

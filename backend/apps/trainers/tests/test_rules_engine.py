@@ -106,9 +106,12 @@ def member_bundle(db, gym_tenant, trainer_user):
         fitness_level="beginner",
         training_days_per_week=4,
         session_length_minutes=60,
-        health_limitations="Mild lower back stiffness on heavy loads",
-        equipment_access="Full commercial gym",
-        dietary_notes="Orthodox fasting observed (Wednesday and Friday vegan)",
+        health_limitations=["lower_back"],
+        other_limitations="Mild lower back stiffness on heavy loads",
+        equipment_access=["full_gym"],
+        other_equipment="",
+        dietary_notes=["orthodox_fasting"],
+        other_dietary="Wednesday and Friday vegan",
     )
     metrics = BodyMetrics.objects.create(
         gym=gym_tenant,
@@ -211,27 +214,27 @@ class TestRulesEnginePhaseAndStrategies:
     def test_equipment_filter_with_limitations_and_out_of_service(self):
         # Case A: Lower back limitation excludes barbell and squat rack
         res_back = filter_prescribed_equipment(
-            equipment_access="full gym",
-            health_limitations="Lower back lumbar tension",
+            equipment_codes=["full_gym"],
+            limitation_codes=["lower_back"],
         )
         assert "barbell" in res_back["excluded_equipment"]
         assert "squat_rack" in res_back["excluded_equipment"]
         assert "dumbbells" in res_back["available_equipment"]
         assert "spinal axial loading" in res_back["exclusion_reasons"]["barbell"]
 
-        # Case B: Dumbbell-only access
-        res_db = filter_prescribed_equipment(
-            equipment_access="Dumbbells only at home",
-            health_limitations="None",
+        # Case B: Bodyweight-only access
+        res_bw = filter_prescribed_equipment(
+            equipment_codes=["bodyweight_only"],
+            limitation_codes=["none"],
         )
-        assert "barbell" in res_db["excluded_equipment"]
-        assert "cable_machine" in res_db["excluded_equipment"]
-        assert "dumbbells" in res_db["available_equipment"]
+        assert "barbell" in res_bw["excluded_equipment"]
+        assert "cable_machine" in res_bw["excluded_equipment"]
+        assert "bodyweight" in res_bw["available_equipment"]
 
         # Case C: Gym out of service / under maintenance equipment
         res_maint = filter_prescribed_equipment(
-            equipment_access="full gym",
-            health_limitations="None",
+            equipment_codes=["full_gym"],
+            limitation_codes=["none"],
             unavailable_equipment=["leg_press", "cable_machine"],
         )
         assert "leg_press" in res_maint["excluded_equipment"]

@@ -4,6856 +4,6858 @@
  */
 
 export interface paths {
-  "/api/attendance/public-key/": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    /**
-     * Get QR Verification Public Key
-     * @description Returns the RSA public key used to verify asymmetric QR check-in tokens offline.
-     */
-    get: operations["attendance_public_key_retrieve"];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/auth/change-password/": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    get?: never;
-    put?: never;
-    /**
-     * Change user password
-     * @description Validates current password and updates to new password, invalidating older tokens.
-     */
-    post: operations["auth_change_password_create"];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/auth/login/": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    get?: never;
-    put?: never;
-    /**
-     * User login
-     * @description Authenticates user with email and password, returning tokens and dashboard config.
-     */
-    post: operations["auth_login_create"];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/auth/logout/": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    get?: never;
-    put?: never;
-    /**
-     * User logout
-     * @description Blacklists the provided refresh token.
-     */
-    post: operations["auth_logout_create"];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/auth/me/": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    /**
-     * Get current user profile
-     * @description Returns profile information for the authenticated caller.
-     */
-    get: operations["auth_me_retrieve"];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    /**
-     * Update current user profile
-     * @description Updates full_name and/or phone for the authenticated caller. Rejects privileged fields.
-     */
-    patch: operations["auth_me_partial_update"];
-    trace?: never;
-  };
-  "/api/auth/password-reset/": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    get?: never;
-    put?: never;
-    /**
-     * Request password reset
-     * @description Initiates password reset process for the specified email. Always returns 200.
-     */
-    post: operations["auth_password_reset_create"];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/auth/password-reset/confirm/": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    get?: never;
-    put?: never;
-    /**
-     * Confirm password reset
-     * @description Resets user password using a single-use token and strong new password.
-     */
-    post: operations["auth_password_reset_confirm_create"];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/auth/refresh/": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    get?: never;
-    put?: never;
-    /**
-     * Refresh access token
-     * @description Issues a fresh access token given a valid refresh token.
-     */
-    post: operations["auth_refresh_create"];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/auth/set-password/": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    get?: never;
-    put?: never;
-    /**
-     * Set password from invite
-     * @description Consumes a single-use invite token and sets initial password for an invited user.
-     */
-    post: operations["auth_set_password_create"];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/auth/verify-email/": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    get?: never;
-    put?: never;
-    /**
-     * Verify member email
-     * @description Validates single-use token to verify self-registered member email address.
-     */
-    post: operations["auth_verify_email_create"];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/gym/assignments/": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    /**
-     * List gym trainer assignments (Owner, Manager)
-     * @description Returns trainer assignments for the gym.
-     */
-    get: operations["gym_assignments_list"];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/gym/assignments/reassign/": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    get?: never;
-    put?: never;
-    /**
-     * Manually assign or reassign trainer (Owner, Manager)
-     * @description Closes the previous open assignment and opens a new one.
-     */
-    post: operations["gym_assignments_reassign_create"];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/gym/attendance/manual-override/": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    get?: never;
-    put?: never;
-    /**
-     * Manual Check-in Override
-     * @description Records a manual attendance check-in when QR cannot be used. Audit-logged.
-     */
-    post: operations["gym_attendance_manual_override_create"];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/gym/attendance/scan/": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    get?: never;
-    put?: never;
-    /**
-     * Scan QR Check-in Token
-     * @description Validates a member QR token, records attendance, and issues replacement token.
-     */
-    post: operations["gym_attendance_scan_create"];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/gym/attendance/today/": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    /**
-     * List Today's Check-ins
-     * @description Returns today's attendance check-in list ordered newest first (max 50) and total count. Supports optional 'since' parameter.
-     */
-    get: operations["gym_attendance_today_retrieve"];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/gym/audit-logs/": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    /**
-     * List gym audit logs
-     * @description Returns paginated, newest-first audit log events for the current gym tenant.
-     */
-    get: operations["gym_audit_logs_list"];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/gym/checklist/": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    /**
-     * Get first-run onboarding checklist
-     * @description Returns first-run checklist progress for the gym Owner.
-     */
-    get: operations["gym_checklist_retrieve"];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/gym/checklist/dismiss/": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    get?: never;
-    put?: never;
-    /**
-     * Dismiss first-run onboarding checklist
-     * @description Persists dismissal of onboarding checklist for the gym.
-     */
-    post: operations["gym_checklist_dismiss_create"];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/gym/freezes/": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    /**
-     * List gym freeze requests (Owner, Manager)
-     * @description Returns all freeze requests for the gym, filterable by status.
-     */
-    get: operations["gym_freezes_list"];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/gym/freezes/{freeze_id}/approve/": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    get?: never;
-    put?: never;
-    /**
-     * Approve a freeze request (Owner, Manager)
-     * @description Approves a member freeze, pauses pass, extends subscription end date once, and notifies member.
-     */
-    post: operations["gym_freezes_approve_create"];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/gym/freezes/{freeze_id}/end-early/": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    get?: never;
-    put?: never;
-    /**
-     * End a freeze early (Owner, Manager, Reception)
-     * @description Ends an approved member freeze early, reduces extension by unused days, returns unused days to allowance, and reactivates member pass immediately.
-     */
-    post: operations["gym_freezes_end_early_create"];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/gym/freezes/{freeze_id}/reject/": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    get?: never;
-    put?: never;
-    /**
-     * Reject a freeze request (Owner, Manager)
-     * @description Rejects a member freeze request with explanation and notifies member.
-     */
-    post: operations["gym_freezes_reject_create"];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/gym/members/": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    /**
-     * List gym members
-     * @description Retrieves a list of members belonging to the current gym tenant.
-     */
-    get: operations["gym_members_list"];
-    put?: never;
-    /**
-     * Staff-assisted member registration
-     * @description Registers a new member with set-password invitation link. Allowed for Owner, Manager, Reception.
-     */
-    post: operations["gym_members_create"];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/gym/members/{member_id}/end-freeze-early/": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    get?: never;
-    put?: never;
-    /**
-     * End a member's freeze early (Owner, Manager, Reception)
-     * @description Finds the approved freeze for a member and ends it early, returning unused days to allowance and reactivating their pass immediately.
-     */
-    post: operations["gym_members_end_freeze_early_create"];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/gym/members/{member_id}/fitness-profile/": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    /**
-     * Get member fitness profile
-     * @description Fitness profile endpoint for a gym member.
-     *     GET: Retrieves the fitness profile along with latest trainer measurements.
-     *     POST / PUT: Creates or updates the fitness profile.
-     *     Access strictly enforced:
-     *     - Assigned Trainer: Allowed
-     *     - Owner / Manager: Allowed
-     *     - Unrelated Trainer, Reception, Super Admin, other gyms, Member: 403 Forbidden.
-     */
-    get: operations["gym_members_fitness_profile_retrieve"];
-    /**
-     * Update member fitness profile
-     * @description Fitness profile endpoint for a gym member.
-     *     GET: Retrieves the fitness profile along with latest trainer measurements.
-     *     POST / PUT: Creates or updates the fitness profile.
-     *     Access strictly enforced:
-     *     - Assigned Trainer: Allowed
-     *     - Owner / Manager: Allowed
-     *     - Unrelated Trainer, Reception, Super Admin, other gyms, Member: 403 Forbidden.
-     */
-    put: operations["gym_members_fitness_profile_update"];
-    /**
-     * Create or update member fitness profile
-     * @description Fitness profile endpoint for a gym member.
-     *     GET: Retrieves the fitness profile along with latest trainer measurements.
-     *     POST / PUT: Creates or updates the fitness profile.
-     *     Access strictly enforced:
-     *     - Assigned Trainer: Allowed
-     *     - Owner / Manager: Allowed
-     *     - Unrelated Trainer, Reception, Super Admin, other gyms, Member: 403 Forbidden.
-     */
-    post: operations["gym_members_fitness_profile_create"];
-    delete?: never;
-    options?: never;
-    head?: never;
-    /**
-     * Partially update member fitness profile
-     * @description Fitness profile endpoint for a gym member.
-     *     GET: Retrieves the fitness profile along with latest trainer measurements.
-     *     POST / PUT: Creates or updates the fitness profile.
-     *     Access strictly enforced:
-     *     - Assigned Trainer: Allowed
-     *     - Owner / Manager: Allowed
-     *     - Unrelated Trainer, Reception, Super Admin, other gyms, Member: 403 Forbidden.
-     */
-    patch: operations["gym_members_fitness_profile_partial_update"];
-    trace?: never;
-  };
-  "/api/gym/members/{id}/": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    /**
-     * Get member details
-     * @description Retrieves detailed member profile with body metrics history and estimates.
-     */
-    get: operations["gym_members_retrieve"];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    /**
-     * Update member profile
-     * @description Allows Owner, Manager, or Reception to update member information.
-     */
-    patch: operations["gym_members_partial_update"];
-    trace?: never;
-  };
-  "/api/gym/members/{id}/attendance/": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    /**
-     * Get Member Attendance Calendar Log
-     * @description Returns daily attendance status (✓ present, ✗ absent, blank outside subscription) for a date range.
-     */
-    get: operations["gym_members_attendance_retrieve"];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/gym/members/{id}/metrics/": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    /**
-     * List member body metrics
-     * @description Retrieves body metrics history for a member. Allowed for Trainer, Owner, Manager.
-     */
-    get: operations["gym_members_metrics_list"];
-    put?: never;
-    /**
-     * Record member body metrics
-     * @description Records new measurements for a member. Allowed for Trainer ONLY.
-     */
-    post: operations["gym_members_metrics_create"];
-    delete?: never;
-    options?: never;
-    head?: never;
-    /**
-     * Correct latest member body metrics
-     * @description Corrects the latest recorded measurement entry for a member. Trainer ONLY. Audit logged and marked corrected.
-     */
-    patch: operations["gym_members_metrics_partial_update"];
-    trace?: never;
-  };
-  "/api/gym/members/{id}/reactivate/": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    get?: never;
-    put?: never;
-    /**
-     * Reactivate a suspended member
-     * @description Owner or Manager reactivates a suspended member.
-     */
-    post: operations["gym_members_reactivate_create"];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/gym/members/{id}/suspend/": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    get?: never;
-    put?: never;
-    /**
-     * Suspend a member
-     * @description Owner or Manager suspends a member. Moves subscription status to suspended.
-     */
-    post: operations["gym_members_suspend_create"];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/gym/membership-plans/": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    /**
-     * List gym membership plans
-     * @description Returns membership plans configured for the gym.
-     */
-    get: operations["gym_membership_plans_list"];
-    put?: never;
-    /**
-     * Create gym membership plan
-     * @description Owner or Manager creates a new membership plan. Warns if trainer-inclusive with no trainers.
-     */
-    post: operations["gym_membership_plans_create"];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/gym/membership-plans/{id}/": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    /**
-     * Retrieve membership plan details
-     * @description Retrieve, update, or deactivate a membership plan.
-     *     Read: Gym Staff.
-     *     Write/Deactivate: Owner and Manager only.
-     */
-    get: operations["gym_membership_plans_retrieve"];
-    put?: never;
-    post?: never;
-    /**
-     * Deactivate membership plan
-     * @description Owner or Manager deactivates plan. Existing subscriptions remain intact.
-     */
-    delete: operations["gym_membership_plans_destroy"];
-    options?: never;
-    head?: never;
-    /**
-     * Update membership plan
-     * @description Owner or Manager updates a plan. Price changes do not affect past payments or existing subscriptions.
-     */
-    patch: operations["gym_membership_plans_partial_update"];
-    trace?: never;
-  };
-  "/api/gym/membership-plans/public/": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    /**
-     * List active plans publicly
-     * @description Visitors can view all active plans and prices without logging in.
-     */
-    get: operations["gym_membership_plans_public_list"];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/gym/payment-config/": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    /**
-     * Retrieve gym payment gateway configuration (masked)
-     * @description Returns masked configuration state. Plaintext secrets are never returned.
-     */
-    get: operations["gym_payment_config_retrieve"];
-    /**
-     * @description Manage payment gateway credentials for the active gym.
-     *     Restricted strictly to the Gym Owner of the active tenant.
-     *     Super Admins, Managers, Receptionists, and Members are blocked.
-     */
-    put: operations["gym_payment_config_update"];
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    /**
-     * Update gym payment credentials
-     * @description Encrypts keys at rest using TENANT_CREDENTIALS_KEY and records an audit log.
-     */
-    patch: operations["gym_payment_config_partial_update"];
-    trace?: never;
-  };
-  "/api/gym/payment-config/test/": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    get?: never;
-    put?: never;
-    /**
-     * Test Chapa payment credentials
-     * @description Performs an external verification call against Chapa API. Sets is_verified flag.
-     */
-    post: operations["gym_payment_config_test_create"];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/gym/payments/": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    /**
-     * List gym payments & revenue summary (Owner, Manager)
-     * @description Filter payments by date range, payment method, status, and member. Returns confirmed revenue total.
-     */
-    get: operations["gym_payments_retrieve"];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/gym/payments/{payment_id}/reverse/": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    get?: never;
-    put?: never;
-    /**
-     * Reverse bank transfer payment
-     * @description Reverses an unreconciled bank transfer, restores subscription state, and creates immutable reversal record. Owner only.
-     */
-    post: operations["gym_payments_reverse_create"];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/gym/payments/bank-transfer/": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    get?: never;
-    put?: never;
-    /**
-     * Record member bank-transfer payment
-     * @description Records a bank-transfer payment for a member with bank reference, transfer date, and channel.
-     */
-    post: operations["gym_payments_bank_transfer_create"];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/gym/payments/bank-transfers/{payment_id}/screenshot/": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    /**
-     * Stream bank transfer screenshot
-     * @description Stream bank transfer screenshot image for staff verification.
-     */
-    get: operations["gym_payments_bank_transfers_screenshot_retrieve"];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/gym/payments/bank-transfers/reconcile/": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    get?: never;
-    put?: never;
-    /**
-     * Reconcile bank transfers
-     * @description Marks bank transfers as reconciled. Owner only.
-     */
-    post: operations["gym_payments_bank_transfers_reconcile_create"];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/gym/payments/bank-transfers/unreconciled/": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    /**
-     * List unreconciled bank transfers
-     * @description Returns unreconciled bank transfers for owner reconciliation. Owner only.
-     */
-    get: operations["gym_payments_bank_transfers_unreconciled_list"];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/gym/payments/cash/": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    get?: never;
-    put?: never;
-    /**
-     * Record manual cash payment (Owner, Manager, Reception)
-     * @description Records staff-confirmed cash payment, creates subscription, and generates digital receipt in one transaction.
-     */
-    post: operations["gym_payments_cash_create"];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/gym/payments/public-status/": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    /**
-     * Check gym online payment status
-     * @description Returns whether online payment is configured and verified for the tenant gym.
-     */
-    get: operations["gym_payments_public_status_retrieve"];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/gym/plans/": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    /**
-     * List gym membership plans
-     * @description Returns membership plans configured for the gym.
-     */
-    get: operations["gym_plans_list"];
-    put?: never;
-    /**
-     * Create gym membership plan
-     * @description Owner or Manager creates a new membership plan. Warns if trainer-inclusive with no trainers.
-     */
-    post: operations["gym_plans_create"];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/gym/plans/{id}/": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    /**
-     * Retrieve membership plan details
-     * @description Retrieve, update, or deactivate a membership plan.
-     *     Read: Gym Staff.
-     *     Write/Deactivate: Owner and Manager only.
-     */
-    get: operations["gym_plans_retrieve"];
-    put?: never;
-    post?: never;
-    /**
-     * Deactivate membership plan
-     * @description Owner or Manager deactivates plan. Existing subscriptions remain intact.
-     */
-    delete: operations["gym_plans_destroy"];
-    options?: never;
-    head?: never;
-    /**
-     * Update membership plan
-     * @description Owner or Manager updates a plan. Price changes do not affect past payments or existing subscriptions.
-     */
-    patch: operations["gym_plans_partial_update"];
-    trace?: never;
-  };
-  "/api/gym/receipts/{receipt_id}/": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    /**
-     * Retrieve digital receipt details
-     * @description Returns receipt details for staff or the member who owns the payment.
-     */
-    get: operations["gym_receipts_retrieve"];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/gym/settings/": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    /**
-     * Get gym settings
-     * @description Returns gym configuration and branding settings for Owner.
-     */
-    get: operations["gym_settings_retrieve"];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    /**
-     * Update gym settings
-     * @description Updates Owner-editable gym settings (branding, reminders). Entitlement modifications by Owner return 403.
-     */
-    patch: operations["gym_settings_partial_update"];
-    trace?: never;
-  };
-  "/api/gym/staff/": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    /**
-     * List gym staff members
-     * @description Returns list of all staff members (Owner, Manager, Trainer, Reception) belonging to the active gym tenant.
-     */
-    get: operations["gym_staff_list"];
-    put?: never;
-    /**
-     * Invite a staff member
-     * @description Invites a staff member (Manager, Trainer, or Reception) and generates a single-use set-password token.
-     */
-    post: operations["gym_staff_create"];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/gym/staff/{user_id}/deactivate/": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    get?: never;
-    put?: never;
-    /**
-     * Deactivate a staff member
-     * @description Deactivates a staff member, invalidating all existing JWT sessions and blocking future logins.
-     */
-    post: operations["gym_staff_deactivate_create"];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/gym/staff/{user_id}/reactivate/": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    get?: never;
-    put?: never;
-    /**
-     * Reactivate a staff member
-     * @description Reactivates a previously deactivated staff member.
-     */
-    post: operations["gym_staff_reactivate_create"];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/gym/staff/{user_id}/resend-invite/": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    get?: never;
-    put?: never;
-    /**
-     * Resend staff member invitation
-     * @description Resends the invitation email with a fresh set-password link to a pending staff member. Capped at 3 resends per day.
-     */
-    post: operations["gym_staff_resend_invite_create"];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/gym/trainers/": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    /**
-     * List gym trainers (Owner, Manager)
-     * @description Returns all trainers for the gym with their active client count and capacity.
-     */
-    get: operations["gym_trainers_list"];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/gym/trainers/{id}/": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    /**
-     * Get trainer details (Owner, Manager)
-     * @description Returns details, capacity, and active client count for a trainer.
-     */
-    get: operations["gym_trainers_retrieve"];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    /**
-     * Update trainer capacity (Owner, Manager)
-     * @description Updates a trainer's maximum client capacity (1 to 200). Warns if set below current client count.
-     */
-    patch: operations["gym_trainers_partial_update"];
-    trace?: never;
-  };
-  "/api/gym/unassigned-members/": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    /**
-     * List unassigned members on trainer plans (Owner, Manager)
-     * @description Returns members who have an active trainer-inclusive plan but no open assignment.
-     */
-    get: operations["gym_unassigned_members_list"];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/health/": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    /**
-     * Health check
-     * @description Returns the operational status of the FitGate backend service.
-     */
-    get: operations["health_retrieve"];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/media/gym-logo/{gym_id}/": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    get?: never;
-    put?: never;
-    /**
-     * Upload gym logo
-     * @description Uploads and optimizes gym logo (public asset). Only accessible by gym Owner.
-     */
-    post: operations["media_gym_logo_create"];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/media/member-photos/{gym_id}/": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    /** @description Photo list endpoint: only gym staff permitted. */
-    get: operations["media_member_photos_retrieve"];
-    put?: never;
-    /**
-     * Upload member photo
-     * @description Validates image format and size (<= 2 MB), strips EXIF, resizes, and saves to gym-scoped authenticated storage.
-     */
-    post: operations["media_member_photos_create"];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/media/member-photos/{gym_id}/{filename}/": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    /**
-     * Serve authenticated member photo
-     * @description Serves member photo stream only to users belonging to the specified gym.
-     */
-    get: operations["media_member_photos_retrieve_2"];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/members/me/": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    /**
-     * View own member profile
-     * @description Retrieves the logged-in member's profile and body metrics calculations.
-     */
-    get: operations["members_me_retrieve"];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    /**
-     * Update own member contact info
-     * @description Refused - members cannot edit personal details. Only password changes are permitted.
-     */
-    patch: operations["members_me_partial_update"];
-    trace?: never;
-  };
-  "/api/members/me/attendance/": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    /**
-     * Get Self Attendance Calendar Log
-     * @description Returns member's daily attendance status for a date range.
-     */
-    get: operations["members_me_attendance_retrieve"];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/members/me/fitness-profile/": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    /**
-     * Get authenticated member own fitness profile
-     * @description Read-only fitness profile view for the authenticated member.
-     */
-    get: operations["members_me_fitness_profile_retrieve"];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/members/me/metrics/": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    /**
-     * List own body metrics history
-     * @description Retrieves past body metrics records for the logged-in member.
-     */
-    get: operations["members_me_metrics_list"];
-    put?: never;
-    /**
-     * Record own body metrics
-     * @description Refused - members cannot enter or edit measurements.
-     */
-    post: operations["members_me_metrics_create"];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/members/me/qr-token/": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    /**
-     * Get Active Member QR Token
-     * @description Generates a signed RS256 QR check-in token (90s window) for the authenticated member.
-     */
-    get: operations["members_me_qr_token_retrieve"];
-    put?: never;
-    /**
-     * Rotate Member QR Token
-     * @description Explicitly issues a rotated QR check-in token for the member.
-     */
-    post: operations["members_me_qr_token_create"];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/memberships/freezes/": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    get?: never;
-    put?: never;
-    /**
-     * Submit a membership freeze request (Member only)
-     * @description Submits a freeze request for the authenticated member's active subscription.
-     */
-    post: operations["memberships_freezes_create"];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/memberships/freezes/allowance/": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    /**
-     * Check member freeze allowance (Member only)
-     * @description Returns total allowed, used, and remaining freeze days.
-     */
-    get: operations["memberships_freezes_allowance_retrieve"];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/memberships/freezes/mine/": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    /**
-     * List my freeze requests (Member only)
-     * @description Returns all freeze requests for the logged-in member.
-     */
-    get: operations["memberships_freezes_mine_list"];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/notifications/": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    /**
-     * List user notifications
-     * @description Returns list of in-app notifications for the authenticated user with unread count.
-     */
-    get: operations["notifications_list"];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/notifications/{id}/read/": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    get?: never;
-    put?: never;
-    /**
-     * Mark notification as read
-     * @description Marks a single notification as read for the authenticated user.
-     */
-    post: operations["notifications_read_create"];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/notifications/mark-all-read/": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    get?: never;
-    put?: never;
-    /**
-     * Mark all notifications as read
-     * @description Marks all unread notifications as read for the authenticated user.
-     */
-    post: operations["notifications_mark_all_read_create"];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/payments/checkout/chapa/": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    get?: never;
-    put?: never;
-    /**
-     * Initiate online Chapa checkout session
-     * @description Initiate an online Chapa checkout session for a membership plan.
-     *     Requires verified gym credentials; otherwise refuses and prompts front-desk cash payment.
-     */
-    post: operations["payments_checkout_chapa_create"];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/payments/history/": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    /**
-     * View member personal payment history
-     * @description Returns the logged-in member's complete payment history with dates, amounts, and receipt references.
-     */
-    get: operations["payments_history_list"];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/payments/status/{reference}/": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    /**
-     * Check member own payment status
-     * @description Returns payment status, receipt id, and plan name for a member's own payment reference.
-     */
-    get: operations["payments_status_retrieve"];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/platform/audit-logs/": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    /**
-     * List platform audit logs
-     * @description Returns paginated, newest-first audit log events across the entire platform.
-     */
-    get: operations["platform_audit_logs_list"];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/platform/demo-requests/": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    /**
-     * List demo requests
-     * @description Super Admin endpoint to view and filter demo request leads.
-     */
-    get: operations["platform_demo_requests_list"];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/platform/demo-requests/{id}/": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    /**
-     * Get demo request detail
-     * @description Super Admin endpoint to retrieve and update demo request status/notes.
-     */
-    get: operations["platform_demo_requests_retrieve"];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    /**
-     * Update demo request status or notes
-     * @description Super Admin endpoint to retrieve and update demo request status/notes.
-     */
-    patch: operations["platform_demo_requests_partial_update"];
-    trace?: never;
-  };
-  "/api/platform/demo-requests/{id}/convert/": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    /**
-     * Convert demo request to gym form data
-     * @description Super Admin endpoint returning pre-filled data to convert a lead to a gym.
-     */
-    get: operations["platform_demo_requests_convert_retrieve"];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/platform/demo-requests/public/": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    get?: never;
-    put?: never;
-    /**
-     * Submit demo request
-     * @description Public endpoint to request a demo for a gym. Only accepted on the apex domain.
-     */
-    post: operations["platform_demo_requests_public_create"];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/platform/gyms/": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    /**
-     * List gym tenants
-     * @description Lists all gym tenants on the platform for Super Admin.
-     */
-    get: operations["platform_gyms_list"];
-    put?: never;
-    /**
-     * Create gym tenant
-     * @description Super Admin creates an active gym tenant, records bank transfer payment, and provisions subdomain.
-     */
-    post: operations["platform_gyms_create"];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/platform/gyms/{gym_id}/": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    /**
-     * Get gym tenant details
-     * @description Retrieves a specific gym tenant and its configuration.
-     */
-    get: operations["platform_gyms_retrieve"];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/platform/gyms/{gym_id}/config/": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    /**
-     * Get gym config (platform)
-     * @description Super Admin views configuration and entitlements of a gym tenant at apex platform.
-     */
-    get: operations["platform_gyms_config_retrieve"];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    /**
-     * Update gym entitlements (platform)
-     * @description Super Admin updates gym tier and feature entitlements at apex platform.
-     */
-    patch: operations["platform_gyms_config_partial_update"];
-    trace?: never;
-  };
-  "/api/platform/gyms/{gym_id}/confirm-tls/": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    get?: never;
-    put?: never;
-    /**
-     * Confirm gym TLS certificate
-     * @description Confirms subdomain TLS certificate, activating login access and establishing subscription expiry.
-     */
-    post: operations["platform_gyms_confirm_tls_create"];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/platform/gyms/{gym_id}/payment-status/": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    /**
-     * View gym payment mode (Super Admin)
-     * @description Returns whether the gym is running in test or live mode. Never exposes keys.
-     */
-    get: operations["platform_gyms_payment_status_retrieve"];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/platform/gyms/propose-subdomain/": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    /**
-     * Propose candidate subdomain
-     * @description Generates a sanitized DNS label candidate for a proposed gym name.
-     */
-    get: operations["platform_gyms_propose_subdomain_retrieve"];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/platform/super-admins/": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    get?: never;
-    put?: never;
-    /**
-     * Create additional Super Admin
-     * @description Creates a new Super Admin account. Requires active Super Admin credentials.
-     */
-    post: operations["platform_super_admins_create"];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/public/gym-entry/": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    /**
-     * Public gym entry page
-     * @description Public endpoint returning gym branding, details, and active plans on the gym subdomain. Shows 503 if TLS is pending.
-     */
-    get: operations["public_gym_entry_retrieve"];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/public/members/register/": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    get?: never;
-    put?: never;
-    /**
-     * Self-service member registration
-     * @description Public registration for new gym members on a gym subdomain. Requires health waiver.
-     */
-    post: operations["public_members_register_create"];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/public/plans/": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    /**
-     * List active plans publicly
-     * @description Visitors can view all active plans and prices without logging in.
-     */
-    get: operations["public_plans_list"];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/trainers/me/": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    /**
-     * Get own trainer profile (Trainer only)
-     * @description Returns the authenticated trainer's profile, client count, and capacity.
-     */
-    get: operations["trainers_me_retrieve"];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/trainers/me/clients/": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    /**
-     * View own assigned clients (Trainer only)
-     * @description Returns list of active clients assigned to the logged-in trainer.
-     */
-    get: operations["trainers_me_clients_list"];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/webhooks/brevo/": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    get?: never;
-    put?: never;
-    /**
-     * @description Webhook endpoint on apex domain for Brevo transactional delivery event webhooks.
-     *     Accepts POST at /api/webhooks/brevo/, authenticated with BREVO_WEBHOOK_SECRET.
-     *     Secret passed via:
-     *     - Header: X-Webhook-Secret
-     *     - Header: Authorization: Bearer <secret>
-     *     - Query parameter: ?secret=<secret>
-     *
-     *     Wrong or missing secret returns the exact same response as an unknown event:
-     *     {"status": "ignored"} with HTTP 200 OK.
-     *
-     *     Suppression events (hardBounce, blocked, spam, invalid) record the email
-     *     in EmailDeliveryStatus with status='suppressed'.
-     *     Returns {"status": "processed"} with HTTP 200 OK.
-     */
-    post: operations["webhooks_brevo_create"];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/webhooks/chapa/": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    get?: never;
-    put?: never;
-    /**
-     * Chapa payment webhook notification
-     * @description Processes Chapa webhook notifications with HMAC verification and idempotency.
-     */
-    post: operations["webhooks_chapa_create"];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
+    "/api/attendance/public-key/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get QR Verification Public Key
+         * @description Returns the RSA public key used to verify asymmetric QR check-in tokens offline.
+         */
+        get: operations["attendance_public_key_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/auth/change-password/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Change user password
+         * @description Validates current password and updates to new password, invalidating older tokens.
+         */
+        post: operations["auth_change_password_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/auth/login/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * User login
+         * @description Authenticates user with email and password, returning tokens and dashboard config.
+         */
+        post: operations["auth_login_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/auth/logout/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * User logout
+         * @description Blacklists the provided refresh token.
+         */
+        post: operations["auth_logout_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/auth/me/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get current user profile
+         * @description Returns profile information for the authenticated caller.
+         */
+        get: operations["auth_me_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Update current user profile
+         * @description Updates full_name and/or phone for the authenticated caller. Rejects privileged fields.
+         */
+        patch: operations["auth_me_partial_update"];
+        trace?: never;
+    };
+    "/api/auth/password-reset/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Request password reset
+         * @description Initiates password reset process for the specified email. Always returns 200.
+         */
+        post: operations["auth_password_reset_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/auth/password-reset/confirm/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Confirm password reset
+         * @description Resets user password using a single-use token and strong new password.
+         */
+        post: operations["auth_password_reset_confirm_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/auth/refresh/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Refresh access token
+         * @description Issues a fresh access token given a valid refresh token.
+         */
+        post: operations["auth_refresh_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/auth/set-password/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Set password from invite
+         * @description Consumes a single-use invite token and sets initial password for an invited user.
+         */
+        post: operations["auth_set_password_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/auth/verify-email/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Verify member email
+         * @description Validates single-use token to verify self-registered member email address.
+         */
+        post: operations["auth_verify_email_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/gym/assignments/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List gym trainer assignments (Owner, Manager)
+         * @description Returns trainer assignments for the gym.
+         */
+        get: operations["gym_assignments_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/gym/assignments/reassign/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Manually assign or reassign trainer (Owner, Manager)
+         * @description Closes the previous open assignment and opens a new one.
+         */
+        post: operations["gym_assignments_reassign_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/gym/attendance/manual-override/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Manual Check-in Override
+         * @description Records a manual attendance check-in when QR cannot be used. Audit-logged.
+         */
+        post: operations["gym_attendance_manual_override_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/gym/attendance/scan/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Scan QR Check-in Token
+         * @description Validates a member QR token, records attendance, and issues replacement token.
+         */
+        post: operations["gym_attendance_scan_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/gym/attendance/today/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Today's Check-ins
+         * @description Returns today's attendance check-in list ordered newest first (max 50) and total count. Supports optional 'since' parameter.
+         */
+        get: operations["gym_attendance_today_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/gym/audit-logs/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List gym audit logs
+         * @description Returns paginated, newest-first audit log events for the current gym tenant.
+         */
+        get: operations["gym_audit_logs_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/gym/checklist/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get first-run onboarding checklist
+         * @description Returns first-run checklist progress for the gym Owner.
+         */
+        get: operations["gym_checklist_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/gym/checklist/dismiss/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Dismiss first-run onboarding checklist
+         * @description Persists dismissal of onboarding checklist for the gym.
+         */
+        post: operations["gym_checklist_dismiss_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/gym/freezes/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List gym freeze requests (Owner, Manager)
+         * @description Returns all freeze requests for the gym, filterable by status.
+         */
+        get: operations["gym_freezes_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/gym/freezes/{freeze_id}/approve/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Approve a freeze request (Owner, Manager)
+         * @description Approves a member freeze, pauses pass, extends subscription end date once, and notifies member.
+         */
+        post: operations["gym_freezes_approve_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/gym/freezes/{freeze_id}/end-early/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * End a freeze early (Owner, Manager, Reception)
+         * @description Ends an approved member freeze early, reduces extension by unused days, returns unused days to allowance, and reactivates member pass immediately.
+         */
+        post: operations["gym_freezes_end_early_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/gym/freezes/{freeze_id}/reject/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Reject a freeze request (Owner, Manager)
+         * @description Rejects a member freeze request with explanation and notifies member.
+         */
+        post: operations["gym_freezes_reject_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/gym/members/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List gym members
+         * @description Retrieves a list of members belonging to the current gym tenant.
+         */
+        get: operations["gym_members_list"];
+        put?: never;
+        /**
+         * Staff-assisted member registration
+         * @description Registers a new member with set-password invitation link. Allowed for Owner, Manager, Reception.
+         */
+        post: operations["gym_members_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/gym/members/{member_id}/end-freeze-early/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * End a member's freeze early (Owner, Manager, Reception)
+         * @description Finds the approved freeze for a member and ends it early, returning unused days to allowance and reactivating their pass immediately.
+         */
+        post: operations["gym_members_end_freeze_early_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/gym/members/{member_id}/fitness-profile/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get member fitness profile
+         * @description Fitness profile endpoint for a gym member.
+         *     GET: Retrieves the fitness profile along with latest trainer measurements.
+         *     POST / PUT: Creates or updates the fitness profile.
+         *     Access strictly enforced:
+         *     - Assigned Trainer: Allowed
+         *     - Owner / Manager: Allowed
+         *     - Unrelated Trainer, Reception, Super Admin, other gyms, Member: 403 Forbidden.
+         */
+        get: operations["gym_members_fitness_profile_retrieve"];
+        /**
+         * Update member fitness profile
+         * @description Fitness profile endpoint for a gym member.
+         *     GET: Retrieves the fitness profile along with latest trainer measurements.
+         *     POST / PUT: Creates or updates the fitness profile.
+         *     Access strictly enforced:
+         *     - Assigned Trainer: Allowed
+         *     - Owner / Manager: Allowed
+         *     - Unrelated Trainer, Reception, Super Admin, other gyms, Member: 403 Forbidden.
+         */
+        put: operations["gym_members_fitness_profile_update"];
+        /**
+         * Create or update member fitness profile
+         * @description Fitness profile endpoint for a gym member.
+         *     GET: Retrieves the fitness profile along with latest trainer measurements.
+         *     POST / PUT: Creates or updates the fitness profile.
+         *     Access strictly enforced:
+         *     - Assigned Trainer: Allowed
+         *     - Owner / Manager: Allowed
+         *     - Unrelated Trainer, Reception, Super Admin, other gyms, Member: 403 Forbidden.
+         */
+        post: operations["gym_members_fitness_profile_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Partially update member fitness profile
+         * @description Fitness profile endpoint for a gym member.
+         *     GET: Retrieves the fitness profile along with latest trainer measurements.
+         *     POST / PUT: Creates or updates the fitness profile.
+         *     Access strictly enforced:
+         *     - Assigned Trainer: Allowed
+         *     - Owner / Manager: Allowed
+         *     - Unrelated Trainer, Reception, Super Admin, other gyms, Member: 403 Forbidden.
+         */
+        patch: operations["gym_members_fitness_profile_partial_update"];
+        trace?: never;
+    };
+    "/api/gym/members/{id}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get member details
+         * @description Retrieves detailed member profile with body metrics history and estimates.
+         */
+        get: operations["gym_members_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Update member profile
+         * @description Allows Owner, Manager, or Reception to update member information.
+         */
+        patch: operations["gym_members_partial_update"];
+        trace?: never;
+    };
+    "/api/gym/members/{id}/attendance/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Member Attendance Calendar Log
+         * @description Returns daily attendance status (✓ present, ✗ absent, blank outside subscription) for a date range.
+         */
+        get: operations["gym_members_attendance_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/gym/members/{id}/metrics/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List member body metrics
+         * @description Retrieves body metrics history for a member. Allowed for Trainer, Owner, Manager.
+         */
+        get: operations["gym_members_metrics_list"];
+        put?: never;
+        /**
+         * Record member body metrics
+         * @description Records new measurements for a member. Allowed for Trainer ONLY.
+         */
+        post: operations["gym_members_metrics_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Correct latest member body metrics
+         * @description Corrects the latest recorded measurement entry for a member. Trainer ONLY. Audit logged and marked corrected.
+         */
+        patch: operations["gym_members_metrics_partial_update"];
+        trace?: never;
+    };
+    "/api/gym/members/{id}/reactivate/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Reactivate a suspended member
+         * @description Owner or Manager reactivates a suspended member.
+         */
+        post: operations["gym_members_reactivate_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/gym/members/{id}/suspend/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Suspend a member
+         * @description Owner or Manager suspends a member. Moves subscription status to suspended.
+         */
+        post: operations["gym_members_suspend_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/gym/membership-plans/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List gym membership plans
+         * @description Returns membership plans configured for the gym.
+         */
+        get: operations["gym_membership_plans_list"];
+        put?: never;
+        /**
+         * Create gym membership plan
+         * @description Owner or Manager creates a new membership plan. Warns if trainer-inclusive with no trainers.
+         */
+        post: operations["gym_membership_plans_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/gym/membership-plans/{id}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Retrieve membership plan details
+         * @description Retrieve, update, or deactivate a membership plan.
+         *     Read: Gym Staff.
+         *     Write/Deactivate: Owner and Manager only.
+         */
+        get: operations["gym_membership_plans_retrieve"];
+        put?: never;
+        post?: never;
+        /**
+         * Deactivate membership plan
+         * @description Owner or Manager deactivates plan. Existing subscriptions remain intact.
+         */
+        delete: operations["gym_membership_plans_destroy"];
+        options?: never;
+        head?: never;
+        /**
+         * Update membership plan
+         * @description Owner or Manager updates a plan. Price changes do not affect past payments or existing subscriptions.
+         */
+        patch: operations["gym_membership_plans_partial_update"];
+        trace?: never;
+    };
+    "/api/gym/membership-plans/public/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List active plans publicly
+         * @description Visitors can view all active plans and prices without logging in.
+         */
+        get: operations["gym_membership_plans_public_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/gym/payment-config/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Retrieve gym payment gateway configuration (masked)
+         * @description Returns masked configuration state. Plaintext secrets are never returned.
+         */
+        get: operations["gym_payment_config_retrieve"];
+        /**
+         * @description Manage payment gateway credentials for the active gym.
+         *     Restricted strictly to the Gym Owner of the active tenant.
+         *     Super Admins, Managers, Receptionists, and Members are blocked.
+         */
+        put: operations["gym_payment_config_update"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Update gym payment credentials
+         * @description Encrypts keys at rest using TENANT_CREDENTIALS_KEY and records an audit log.
+         */
+        patch: operations["gym_payment_config_partial_update"];
+        trace?: never;
+    };
+    "/api/gym/payment-config/test/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Test Chapa payment credentials
+         * @description Performs an external verification call against Chapa API. Sets is_verified flag.
+         */
+        post: operations["gym_payment_config_test_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/gym/payments/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List gym payments & revenue summary (Owner, Manager)
+         * @description Filter payments by date range, payment method, status, and member. Returns confirmed revenue total.
+         */
+        get: operations["gym_payments_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/gym/payments/{payment_id}/reverse/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Reverse bank transfer payment
+         * @description Reverses an unreconciled bank transfer, restores subscription state, and creates immutable reversal record. Owner only.
+         */
+        post: operations["gym_payments_reverse_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/gym/payments/bank-transfer/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Record member bank-transfer payment
+         * @description Records a bank-transfer payment for a member with bank reference, transfer date, and channel.
+         */
+        post: operations["gym_payments_bank_transfer_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/gym/payments/bank-transfers/{payment_id}/screenshot/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Stream bank transfer screenshot
+         * @description Stream bank transfer screenshot image for staff verification.
+         */
+        get: operations["gym_payments_bank_transfers_screenshot_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/gym/payments/bank-transfers/reconcile/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Reconcile bank transfers
+         * @description Marks bank transfers as reconciled. Owner only.
+         */
+        post: operations["gym_payments_bank_transfers_reconcile_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/gym/payments/bank-transfers/unreconciled/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List unreconciled bank transfers
+         * @description Returns unreconciled bank transfers for owner reconciliation. Owner only.
+         */
+        get: operations["gym_payments_bank_transfers_unreconciled_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/gym/payments/cash/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Record manual cash payment (Owner, Manager, Reception)
+         * @description Records staff-confirmed cash payment, creates subscription, and generates digital receipt in one transaction.
+         */
+        post: operations["gym_payments_cash_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/gym/payments/public-status/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Check gym online payment status
+         * @description Returns whether online payment is configured and verified for the tenant gym.
+         */
+        get: operations["gym_payments_public_status_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/gym/plans/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List gym membership plans
+         * @description Returns membership plans configured for the gym.
+         */
+        get: operations["gym_plans_list"];
+        put?: never;
+        /**
+         * Create gym membership plan
+         * @description Owner or Manager creates a new membership plan. Warns if trainer-inclusive with no trainers.
+         */
+        post: operations["gym_plans_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/gym/plans/{id}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Retrieve membership plan details
+         * @description Retrieve, update, or deactivate a membership plan.
+         *     Read: Gym Staff.
+         *     Write/Deactivate: Owner and Manager only.
+         */
+        get: operations["gym_plans_retrieve"];
+        put?: never;
+        post?: never;
+        /**
+         * Deactivate membership plan
+         * @description Owner or Manager deactivates plan. Existing subscriptions remain intact.
+         */
+        delete: operations["gym_plans_destroy"];
+        options?: never;
+        head?: never;
+        /**
+         * Update membership plan
+         * @description Owner or Manager updates a plan. Price changes do not affect past payments or existing subscriptions.
+         */
+        patch: operations["gym_plans_partial_update"];
+        trace?: never;
+    };
+    "/api/gym/receipts/{receipt_id}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Retrieve digital receipt details
+         * @description Returns receipt details for staff or the member who owns the payment.
+         */
+        get: operations["gym_receipts_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/gym/settings/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get gym settings
+         * @description Returns gym configuration and branding settings for Owner.
+         */
+        get: operations["gym_settings_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Update gym settings
+         * @description Updates Owner-editable gym settings (branding, reminders). Entitlement modifications by Owner return 403.
+         */
+        patch: operations["gym_settings_partial_update"];
+        trace?: never;
+    };
+    "/api/gym/staff/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List gym staff members
+         * @description Returns list of all staff members (Owner, Manager, Trainer, Reception) belonging to the active gym tenant.
+         */
+        get: operations["gym_staff_list"];
+        put?: never;
+        /**
+         * Invite a staff member
+         * @description Invites a staff member (Manager, Trainer, or Reception) and generates a single-use set-password token.
+         */
+        post: operations["gym_staff_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/gym/staff/{user_id}/deactivate/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Deactivate a staff member
+         * @description Deactivates a staff member, invalidating all existing JWT sessions and blocking future logins.
+         */
+        post: operations["gym_staff_deactivate_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/gym/staff/{user_id}/reactivate/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Reactivate a staff member
+         * @description Reactivates a previously deactivated staff member.
+         */
+        post: operations["gym_staff_reactivate_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/gym/staff/{user_id}/resend-invite/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Resend staff member invitation
+         * @description Resends the invitation email with a fresh set-password link to a pending staff member. Capped at 3 resends per day.
+         */
+        post: operations["gym_staff_resend_invite_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/gym/trainers/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List gym trainers (Owner, Manager)
+         * @description Returns all trainers for the gym with their active client count and capacity.
+         */
+        get: operations["gym_trainers_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/gym/trainers/{id}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get trainer details (Owner, Manager)
+         * @description Returns details, capacity, and active client count for a trainer.
+         */
+        get: operations["gym_trainers_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Update trainer capacity (Owner, Manager)
+         * @description Updates a trainer's maximum client capacity (1 to 200). Warns if set below current client count.
+         */
+        patch: operations["gym_trainers_partial_update"];
+        trace?: never;
+    };
+    "/api/gym/unassigned-members/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List unassigned members on trainer plans (Owner, Manager)
+         * @description Returns members who have an active trainer-inclusive plan but no open assignment.
+         */
+        get: operations["gym_unassigned_members_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/health/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Health check
+         * @description Returns the operational status of the FitGate backend service.
+         */
+        get: operations["health_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/media/gym-logo/{gym_id}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Upload gym logo
+         * @description Uploads and optimizes gym logo (public asset). Only accessible by gym Owner.
+         */
+        post: operations["media_gym_logo_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/media/member-photos/{gym_id}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Photo list endpoint: only gym staff permitted. */
+        get: operations["media_member_photos_retrieve"];
+        put?: never;
+        /**
+         * Upload member photo
+         * @description Validates image format and size (<= 2 MB), strips EXIF, resizes, and saves to gym-scoped authenticated storage.
+         */
+        post: operations["media_member_photos_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/media/member-photos/{gym_id}/{filename}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Serve authenticated member photo
+         * @description Serves member photo stream only to users belonging to the specified gym.
+         */
+        get: operations["media_member_photos_retrieve_2"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/members/me/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * View own member profile
+         * @description Retrieves the logged-in member's profile and body metrics calculations.
+         */
+        get: operations["members_me_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Update own member contact info
+         * @description Refused - members cannot edit personal details. Only password changes are permitted.
+         */
+        patch: operations["members_me_partial_update"];
+        trace?: never;
+    };
+    "/api/members/me/attendance/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Self Attendance Calendar Log
+         * @description Returns member's daily attendance status for a date range.
+         */
+        get: operations["members_me_attendance_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/members/me/fitness-profile/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get authenticated member own fitness profile
+         * @description Read-only fitness profile view for the authenticated member.
+         */
+        get: operations["members_me_fitness_profile_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/members/me/metrics/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List own body metrics history
+         * @description Retrieves past body metrics records for the logged-in member.
+         */
+        get: operations["members_me_metrics_list"];
+        put?: never;
+        /**
+         * Record own body metrics
+         * @description Refused - members cannot enter or edit measurements.
+         */
+        post: operations["members_me_metrics_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/members/me/qr-token/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Active Member QR Token
+         * @description Generates a signed RS256 QR check-in token (90s window) for the authenticated member.
+         */
+        get: operations["members_me_qr_token_retrieve"];
+        put?: never;
+        /**
+         * Rotate Member QR Token
+         * @description Explicitly issues a rotated QR check-in token for the member.
+         */
+        post: operations["members_me_qr_token_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/memberships/freezes/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Submit a membership freeze request (Member only)
+         * @description Submits a freeze request for the authenticated member's active subscription.
+         */
+        post: operations["memberships_freezes_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/memberships/freezes/allowance/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Check member freeze allowance (Member only)
+         * @description Returns total allowed, used, and remaining freeze days.
+         */
+        get: operations["memberships_freezes_allowance_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/memberships/freezes/mine/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List my freeze requests (Member only)
+         * @description Returns all freeze requests for the logged-in member.
+         */
+        get: operations["memberships_freezes_mine_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/notifications/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List user notifications
+         * @description Returns list of in-app notifications for the authenticated user with unread count.
+         */
+        get: operations["notifications_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/notifications/{id}/read/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Mark notification as read
+         * @description Marks a single notification as read for the authenticated user.
+         */
+        post: operations["notifications_read_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/notifications/mark-all-read/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Mark all notifications as read
+         * @description Marks all unread notifications as read for the authenticated user.
+         */
+        post: operations["notifications_mark_all_read_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/payments/checkout/chapa/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Initiate online Chapa checkout session
+         * @description Initiate an online Chapa checkout session for a membership plan.
+         *     Requires verified gym credentials; otherwise refuses and prompts front-desk cash payment.
+         */
+        post: operations["payments_checkout_chapa_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/payments/history/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * View member personal payment history
+         * @description Returns the logged-in member's complete payment history with dates, amounts, and receipt references.
+         */
+        get: operations["payments_history_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/payments/status/{reference}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Check member own payment status
+         * @description Returns payment status, receipt id, and plan name for a member's own payment reference.
+         */
+        get: operations["payments_status_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/platform/audit-logs/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List platform audit logs
+         * @description Returns paginated, newest-first audit log events across the entire platform.
+         */
+        get: operations["platform_audit_logs_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/platform/demo-requests/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List demo requests
+         * @description Super Admin endpoint to view and filter demo request leads.
+         */
+        get: operations["platform_demo_requests_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/platform/demo-requests/{id}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get demo request detail
+         * @description Super Admin endpoint to retrieve and update demo request status/notes.
+         */
+        get: operations["platform_demo_requests_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Update demo request status or notes
+         * @description Super Admin endpoint to retrieve and update demo request status/notes.
+         */
+        patch: operations["platform_demo_requests_partial_update"];
+        trace?: never;
+    };
+    "/api/platform/demo-requests/{id}/convert/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Convert demo request to gym form data
+         * @description Super Admin endpoint returning pre-filled data to convert a lead to a gym.
+         */
+        get: operations["platform_demo_requests_convert_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/platform/demo-requests/public/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Submit demo request
+         * @description Public endpoint to request a demo for a gym. Only accepted on the apex domain.
+         */
+        post: operations["platform_demo_requests_public_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/platform/gyms/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List gym tenants
+         * @description Lists all gym tenants on the platform for Super Admin.
+         */
+        get: operations["platform_gyms_list"];
+        put?: never;
+        /**
+         * Create gym tenant
+         * @description Super Admin creates an active gym tenant, records bank transfer payment, and provisions subdomain.
+         */
+        post: operations["platform_gyms_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/platform/gyms/{gym_id}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get gym tenant details
+         * @description Retrieves a specific gym tenant and its configuration.
+         */
+        get: operations["platform_gyms_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/platform/gyms/{gym_id}/config/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get gym config (platform)
+         * @description Super Admin views configuration and entitlements of a gym tenant at apex platform.
+         */
+        get: operations["platform_gyms_config_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Update gym entitlements (platform)
+         * @description Super Admin updates gym tier and feature entitlements at apex platform.
+         */
+        patch: operations["platform_gyms_config_partial_update"];
+        trace?: never;
+    };
+    "/api/platform/gyms/{gym_id}/confirm-tls/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Confirm gym TLS certificate
+         * @description Confirms subdomain TLS certificate, activating login access and establishing subscription expiry.
+         */
+        post: operations["platform_gyms_confirm_tls_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/platform/gyms/{gym_id}/payment-status/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * View gym payment mode (Super Admin)
+         * @description Returns whether the gym is running in test or live mode. Never exposes keys.
+         */
+        get: operations["platform_gyms_payment_status_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/platform/gyms/propose-subdomain/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Propose candidate subdomain
+         * @description Generates a sanitized DNS label candidate for a proposed gym name.
+         */
+        get: operations["platform_gyms_propose_subdomain_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/platform/super-admins/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Create additional Super Admin
+         * @description Creates a new Super Admin account. Requires active Super Admin credentials.
+         */
+        post: operations["platform_super_admins_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/public/gym-entry/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Public gym entry page
+         * @description Public endpoint returning gym branding, details, and active plans on the gym subdomain. Shows 503 if TLS is pending.
+         */
+        get: operations["public_gym_entry_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/public/members/register/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Self-service member registration
+         * @description Public registration for new gym members on a gym subdomain. Requires health waiver.
+         */
+        post: operations["public_members_register_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/public/plans/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List active plans publicly
+         * @description Visitors can view all active plans and prices without logging in.
+         */
+        get: operations["public_plans_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/trainers/me/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get own trainer profile (Trainer only)
+         * @description Returns the authenticated trainer's profile, client count, and capacity.
+         */
+        get: operations["trainers_me_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/trainers/me/clients/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * View own assigned clients (Trainer only)
+         * @description Returns list of active clients assigned to the logged-in trainer.
+         */
+        get: operations["trainers_me_clients_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/webhooks/brevo/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description Webhook endpoint on apex domain for Brevo transactional delivery event webhooks.
+         *     Accepts POST at /api/webhooks/brevo/, authenticated with BREVO_WEBHOOK_SECRET.
+         *     Secret passed via:
+         *     - Header: X-Webhook-Secret
+         *     - Header: Authorization: Bearer <secret>
+         *     - Query parameter: ?secret=<secret>
+         *
+         *     Wrong or missing secret returns the exact same response as an unknown event:
+         *     {"status": "ignored"} with HTTP 200 OK.
+         *
+         *     Suppression events (hardBounce, blocked, spam, invalid) record the email
+         *     in EmailDeliveryStatus with status='suppressed'.
+         *     Returns {"status": "processed"} with HTTP 200 OK.
+         */
+        post: operations["webhooks_brevo_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/webhooks/chapa/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Chapa payment webhook notification
+         * @description Processes Chapa webhook notifications with HMAC verification and idempotency.
+         */
+        post: operations["webhooks_chapa_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
-  schemas: {
-    /** @description Response serializer for attendance calendar log. */
-    AttendanceLogResponse: {
-      /** Format: uuid */
-      member_id: string;
-      member_name: string;
-      /** Format: date */
-      start_date: string;
-      /** Format: date */
-      end_date: string;
-      subscription_period: {
-        [key: string]: unknown;
-      };
-      days: components["schemas"]["DailyAttendanceItem"][];
-    };
-    /** @description Request serializer for manual attendance override by reception. */
-    AttendanceManualOverrideRequestRequest: {
-      /**
-       * Format: uuid
-       * @description UUID of the member to check in.
-       */
-      member_id: string;
-      /** @description Explanation for manual override (5 to 500 characters). */
-      reason: string;
-      /**
-       * Format: uuid
-       * @description Optional branch UUID.
-       */
-      branch_id?: string | null;
-    };
-    /** @description Response serializer for manual attendance override. */
-    AttendanceManualOverrideResponse: {
-      /** @default success */
-      status: string;
-      message: string;
-      member: components["schemas"]["AttendanceScanResultMember"];
-      attendance: components["schemas"]["AttendanceRecord"];
-    };
-    /** @description Response serializer for public key export. */
-    AttendancePublicKeyResponse: {
-      /** @description PEM-encoded Ed25519 public key for offline QR signature verification. */
-      public_key: string;
-      /** @default EdDSA */
-      algorithm: string;
-    };
-    /** @description Attendance record details. */
-    AttendanceRecord: {
-      /** Format: uuid */
-      id: string;
-      /** Format: date */
-      date: string;
-      /** Format: date-time */
-      checked_in_at: string;
-      method: string;
-      is_override: boolean;
-      override_reason?: string;
-    };
-    AttendanceScanErrorResponse: {
-      detail: string;
-      reason: string;
-      member?: components["schemas"]["AttendanceScanResultMember"];
-    };
-    /** @description Request serializer for QR attendance scan. */
-    AttendanceScanRequestRequest: {
-      /** @description Scanned QR token string (EdDSA JWT). */
-      token: string;
-      /**
-       * Format: uuid
-       * @description Optional branch UUID for multi-branch check-ins.
-       */
-      branch_id?: string | null;
-    };
-    /** @description Success response serializer for QR scan. */
-    AttendanceScanResponse: {
-      /** @default success */
-      status: string;
-      message: string;
-      member: components["schemas"]["AttendanceScanResultMember"];
-      attendance: components["schemas"]["AttendanceRecord"];
-      /** @description Newly rotated token issued for the member. */
-      next_token: string;
-    };
-    /** @description Member details returned upon scan. */
-    AttendanceScanResultMember: {
-      /** Format: uuid */
-      id: string;
-      full_name: string;
-      photo_url: string;
-      status: string;
-      phone?: string;
-    };
-    /** @description Entry in Today's Check-ins list. */
-    AttendanceTodayItem: {
-      /** Format: uuid */
-      id: string;
-      /** Format: uuid */
-      member_id: string;
-      member_name: string;
-      member_photo_url: string;
-      /** Format: date-time */
-      checked_in_at: string;
-      method: string;
-      is_override: boolean;
-      override_reason?: string;
-      recorded_by_name?: string | null;
-    };
-    /** @description Response serializer for live Today's Check-ins list. */
-    AttendanceTodayListResponse: {
-      /** @description Total number of members checked in today. */
-      total_count: number;
-      results: components["schemas"]["AttendanceTodayItem"][];
-    };
-    /** @description Read-only representation of an AuditLog entry. */
-    AuditLog: {
-      /** Format: uuid */
-      readonly id: string;
-      /** Format: uuid */
-      readonly gym_id: string | null;
-      readonly gym_name: string | null;
-      readonly actor: components["schemas"]["AuditLogActor"];
-      readonly action_type: string;
-      readonly affected_record_type: string;
-      readonly affected_record_id: string;
-      /** Format: date-time */
-      readonly timestamp: string;
-      readonly metadata: unknown;
-    };
-    /** @description Summary of the actor associated with an audit log entry. */
-    AuditLogActor: {
-      /** Format: uuid */
-      readonly id: string;
-      /** Format: email */
-      readonly email: string;
-      readonly full_name: string;
-      readonly role: components["schemas"]["UserRoleEnum"];
-    };
-    /** @enum {unknown} */
-    BlankEnum: "";
-    /**
-     * @description Serializer for member body composition metrics.
-     *     Exposes BMI, US Navy body-fat estimates, waist-to-hip ratio, and lean body mass,
-     *     along with recording trainer information and correction status.
-     */
-    BodyMetrics: {
-      /** Format: uuid */
-      readonly id: string;
-      /** Format: decimal */
-      weight_kg?: string | null;
-      /** Format: decimal */
-      height_cm?: string | null;
-      measurements?: unknown;
-      /** Format: date-time */
-      readonly recorded_at: string;
-      /** Format: uuid */
-      readonly recorded_by: string | null;
-      readonly trainer_name: string;
-      readonly recorded_by_name: string;
-      /** Format: double */
-      readonly estimated_bmi: number;
-      /** Format: double */
-      readonly estimated_body_fat_percentage: number;
-      readonly bmi_label: string;
-      readonly body_fat_label: string;
-      /** Format: double */
-      readonly waist_to_hip_ratio: number;
-      /** Format: double */
-      readonly lean_body_mass: number;
-      readonly lean_body_mass_label: string;
-      readonly is_corrected: boolean;
-    };
-    /** @description Payload for changing user password. */
-    ChangePasswordRequestRequest: {
-      current_password: string;
-      new_password: string;
-    };
-    /** @description Response containing refreshed JWT pair and user summary. */
-    ChangePasswordResponse: {
-      access: string;
-      refresh: string;
-      user: components["schemas"]["UserSummary"];
-    };
-    /** @description Input serializer for initiating online subscription checkout. */
-    ChapaCheckoutRequestRequest: {
-      /** Format: uuid */
-      plan_id: string;
-    };
-    /** @description Output serializer for online subscription checkout session. */
-    ChapaCheckoutResponse: {
-      /** Format: uri */
-      checkout_url: string;
-      tx_ref: string;
-      /** Format: uuid */
-      payment_id: string;
-    };
-    /** @description Item in first-run onboarding checklist. */
-    ChecklistItem: {
-      label: string;
-      completed: boolean;
-    };
-    /** @description Response returned upon TLS certificate confirmation. */
-    ConfirmTLSResponse: {
-      gym: components["schemas"]["GymTenantSummary"];
-      message: string;
-    };
-    /** @description Payload for Super Admin gym creation. */
-    CreateGymRequestRequest: {
-      name: string;
-      subdomain: string;
-      tier: components["schemas"]["TierEnum"];
-      /** @default  */
-      location: string;
-      /** @default  */
-      contact_name: string;
-      /** @default  */
-      contact_phone: string;
-      contact_email?: string;
-      /** @default  */
-      owner_name: string;
-      /** Format: email */
-      owner_email: string;
-      owner_email_confirm?: string;
-      /** Format: decimal */
-      payment_amount: string;
-      payment_reference: string;
-      /** @default bank_transfer */
-      payment_method: string;
-      demo_request_id?: string | null;
-    };
-    /** @description Response returned upon successful gym tenant creation. */
-    CreateGymResponse: {
-      gym: components["schemas"]["GymTenantSummary"];
-      config: components["schemas"]["GymConfig"];
-      owner: components["schemas"]["UserSummary"];
-      /** Format: uuid */
-      payment_id: string;
-      gym_url?: string;
-    };
-    /** @description Payload for creating an additional Super Admin account. */
-    CreateSuperAdminRequestRequest: {
-      /** Format: email */
-      email: string;
-      password: string;
-      current_password: string;
-    };
-    /** @description Daily check-in status within the calendar log. */
-    DailyAttendanceItem: {
-      /** Format: date */
-      date: string;
-      /** @description 'present', 'absent', or 'blank' */
-      status: string;
-      /** @description '✓', '✗', or empty for days outside subscription */
-      symbol: string;
-      attended: boolean;
-      /** Format: date-time */
-      checked_in_at?: string | null;
-      method?: string;
-      is_override?: boolean;
-    };
-    /** @description Serializer for Super Admin lead management. */
-    DemoRequest: {
-      /** Format: uuid */
-      readonly id: string;
-      readonly gym_name: string;
-      readonly contact_name: string;
-      readonly phone: string;
-      readonly city: string;
-      /** Format: email */
-      readonly email: string;
-      readonly message: string;
-      status?: components["schemas"]["DemoRequestStatusEnum"];
-      notes?: string;
-      /** Format: uuid */
-      readonly handled_by: string | null;
-      readonly handled_by_email: string | null;
-      /** Format: uuid */
-      readonly converted_gym: string | null;
-      readonly converted_gym_subdomain: string | null;
-      /** Format: date-time */
-      readonly created_at: string;
-      /** Format: date-time */
-      readonly updated_at: string;
-    };
-    /** @description Data returned to pre-fill the Create Gym form from a demo request. */
-    DemoRequestConvertResponse: {
-      /** Format: uuid */
-      demo_request_id: string;
-      name: string;
-      contact_name: string;
-      contact_phone: string;
-      /** Format: email */
-      contact_email: string;
-      location: string;
-    };
-    /**
-     * @description * `new` - New
-     *     * `contacted` - Contacted
-     *     * `demo_done` - Demo Done
-     *     * `converted` - Converted
-     *     * `lost` - Lost
-     * @enum {string}
-     */
-    DemoRequestStatusEnum:
-      "new" | "contacted" | "demo_done" | "converted" | "lost";
-    DismissChecklistResponse: {
-      is_dismissed: boolean;
-      /** Format: date-time */
-      dismissed_at: string;
-    };
-    /**
-     * @description * `days` - Days
-     *     * `months` - Months
-     * @enum {string}
-     */
-    DurationUnitEnum: "days" | "months";
-    /** @description First-run onboarding checklist progress for gym Owner. */
-    FirstRunChecklistResponse: {
-      is_dismissed: boolean;
-      /** Format: date-time */
-      dismissed_at: string | null;
-      all_completed: boolean;
-      items: {
-        [key: string]: components["schemas"]["ChecklistItem"];
-      };
-    };
-    FitnessProfile: {
-      /** Format: uuid */
-      readonly member_id: string;
-      goal: string;
-      fitness_level: string;
-      /** @default  */
-      health_limitations: string;
-      /** @default  */
-      equipment_access: string;
-      training_days_per_week: number;
-      session_length_minutes: number;
-      /** @default  */
-      dietary_notes: string;
-      readonly latest_measurements: string;
-      /** Format: date-time */
-      readonly created_at: string;
-      /** Format: date-time */
-      readonly updated_at: string;
-    };
-    FitnessProfileRequest: {
-      goal: string;
-      fitness_level: string;
-      /** @default  */
-      health_limitations: string;
-      /** @default  */
-      equipment_access: string;
-      training_days_per_week: number;
-      session_length_minutes: number;
-      /** @default  */
-      dietary_notes: string;
-    };
-    /**
-     * @description * `male` - Male
-     *     * `female` - Female
-     * @enum {string}
-     */
-    GenderEnum: "male" | "female";
-    /** @description Feature gating and configuration settings of a gym. */
-    GymConfig: {
-      readonly tier: string;
-      readonly has_trainer_module: boolean;
-      readonly has_ai_plans: boolean;
-      readonly has_analytics: boolean;
-      readonly has_group_classes: boolean;
-      readonly has_multi_branch: boolean;
-      readonly freeze_days_allowed: number;
-      readonly freeze_days_cap: number;
-      readonly payment_grace_days: number;
-      readonly subscription_reminder_days: unknown;
-      readonly member_reminder_days: unknown;
-      readonly brand_color: string | null;
-      readonly logo: string | null;
-      readonly show_unavailable_equipment: boolean;
-      /** Format: date-time */
-      readonly first_run_dismissed_at: string | null;
-    };
-    GymDetailResponse: {
-      gym: components["schemas"]["GymTenantSummary"];
-      config: components["schemas"]["GymConfig"];
-    };
-    /** @description Safe read-only representation of gym payment configuration. */
-    GymPaymentConfig: {
-      readonly is_configured: boolean;
-      readonly is_test_mode: boolean;
-      readonly is_verified: boolean;
-      /** Format: date-time */
-      readonly verified_at: string | null;
-      readonly masked_public_key: string;
-      readonly has_secret_key: boolean;
-      readonly has_webhook_secret: boolean;
-      readonly use_mock: boolean;
-      readonly detected_mode: string;
-    };
-    /** @description Public details returned on the gym subdomain entry page. */
-    GymPublicEntryResponse: {
-      still_securing: boolean;
-      /** Format: uuid */
-      gym_id?: string;
-      name: string;
-      subdomain?: string;
-      brand_color?: string | null;
-      logo?: string | null;
-      phone?: string;
-      location?: string;
-      currency?: string;
-      message?: string;
-      /** @default false */
-      online_payment_verified: boolean;
-    };
-    /**
-     * @description * `pending` - Pending
-     *     * `active` - Active
-     *     * `suspended` - Suspended
-     *     * `terminated` - Terminated
-     * @enum {string}
-     */
-    GymStatusEnum: "pending" | "active" | "suspended" | "terminated";
-    /** @description Summary of a gym tenant. */
-    GymTenantSummary: {
-      /** Format: uuid */
-      readonly id: string;
-      readonly name: string;
-      readonly subdomain: string;
-      readonly url: string;
-      readonly status: components["schemas"]["GymStatusEnum"];
-      readonly tier: components["schemas"]["TierEnum"];
-      readonly currency: string;
-      readonly location: string;
-      readonly contact_name: string;
-      readonly contact_phone: string;
-      /** Format: email */
-      readonly contact_email: string;
-      readonly owner_email: string;
-      /** Format: date-time */
-      readonly subscription_expires_at: string | null;
-      /** Format: date-time */
-      readonly tls_confirmed_at: string | null;
-      /** Format: date-time */
-      readonly created_at: string;
-      /** Format: date-time */
-      readonly updated_at: string;
-    };
-    HealthCheckResponse: {
-      /** @default ok */
-      status: string;
-      /** @default FitGate API */
-      app: string;
-    };
-    /** @description Payload for inviting a staff member (Manager, Trainer, or Reception). */
-    InviteStaffRequestRequest: {
-      /** Format: email */
-      email: string;
-      role: components["schemas"]["InviteStaffRequestRoleEnum"];
-      /** @default  */
-      full_name: string;
-      /** @default  */
-      phone: string;
-    };
-    /**
-     * @description * `manager` - Manager
-     *     * `trainer` - Trainer
-     *     * `reception` - Reception
-     * @enum {string}
-     */
-    InviteStaffRequestRoleEnum: "manager" | "trainer" | "reception";
-    /** @description Response returned upon successful staff invitation. */
-    InviteStaffResponse: {
-      detail: string;
-      user: components["schemas"]["StaffMember"];
-    };
-    /** @description Payload for user authentication. */
-    LoginRequestRequest: {
-      /** Format: email */
-      email: string;
-      password: string;
-    };
-    /** @description Response containing JWT tokens, user summary, and role dashboard. */
-    LoginResponse: {
-      access: string;
-      refresh: string;
-      user: components["schemas"]["UserSummary"];
-      dashboard: {
-        [key: string]: unknown;
-      };
-    };
-    /** @description Payload for user logout. */
-    LogoutRequestRequest: {
-      refresh: string;
-    };
-    ManualReassignRequestRequest: {
-      /** Format: uuid */
-      member_id: string;
-      /** Format: uuid */
-      trainer_id: string;
-      /** @default false */
-      confirm_over_capacity: boolean;
-    };
-    ManualReassignResponse: {
-      detail: string;
-      assignment: components["schemas"]["TrainerAssignmentDetail"];
-    };
-    /** @description Summary serializer for gym members. */
-    Member: {
-      /** Format: uuid */
-      readonly id: string;
-      /** Format: email */
-      readonly email: string;
-      full_name: string;
-      phone: string;
-      /** Format: date */
-      date_of_birth?: string | null;
-      gender?:
-        | components["schemas"]["GenderEnum"]
-        | components["schemas"]["BlankEnum"];
-      emergency_contact?: string;
-      referral_source?: string;
-      photo_url?: string;
-      readonly status: components["schemas"]["Status1d7Enum"];
-      /** Format: date-time */
-      readonly joined_at: string;
-      /** Format: date-time */
-      readonly waiver_accepted_at: string;
-      readonly latest_metrics: components["schemas"]["BodyMetrics"];
-      readonly invitation_status: string | null;
-      readonly email_delivery_message: string | null;
-      readonly assigned_trainer: string;
-      readonly is_on_trainer_plan: boolean;
-    };
-    /** @description Detailed member profile including historical body metrics and calculations. */
-    MemberDetail: {
-      /** Format: uuid */
-      readonly id: string;
-      /** Format: email */
-      readonly email: string;
-      full_name: string;
-      phone: string;
-      /** Format: date */
-      date_of_birth?: string | null;
-      gender?:
-        | components["schemas"]["GenderEnum"]
-        | components["schemas"]["BlankEnum"];
-      emergency_contact?: string;
-      referral_source?: string;
-      photo_url?: string;
-      readonly status: components["schemas"]["Status1d7Enum"];
-      /** Format: date-time */
-      readonly joined_at: string;
-      /** Format: date-time */
-      readonly waiver_accepted_at: string;
-      readonly latest_metrics: components["schemas"]["BodyMetrics"];
-      readonly body_metrics: components["schemas"]["BodyMetrics"][];
-      readonly assigned_trainer: string;
-      readonly is_on_trainer_plan: boolean;
-    };
-    /** @description Detailed read serializer for MemberFreeze records. */
-    MemberFreeze: {
-      /** Format: uuid */
-      readonly id: string;
-      readonly member: string;
-      /** Format: uuid */
-      readonly member_id: string;
-      readonly member_name: string;
-      readonly member_phone: string;
-      /** Format: uuid */
-      readonly subscription_id: string;
-      /** Format: date */
-      readonly start_date: string;
-      /** Format: date */
-      readonly end_date: string;
-      readonly days: number;
-      readonly reason: string;
-      readonly status: components["schemas"]["MemberFreezeStatusEnum"];
-      /** Format: uuid */
-      readonly approved_by_id: string | null;
-      readonly approved_by_name: string;
-      /** Format: date-time */
-      readonly reviewed_at: string | null;
-      readonly rejection_reason: string;
-      readonly extension_applied: boolean;
-      /** Format: date-time */
-      readonly unfrozen_at: string | null;
-      /** Format: date-time */
-      readonly created_at: string;
-      /** Format: date-time */
-      readonly updated_at: string;
-    };
-    /** @description Read serializer for member freeze allowance. */
-    MemberFreezeAllowance: {
-      total_allowed: number;
-      used_days: number;
-      remaining_days: number;
-      has_active_subscription: boolean;
-      freeze_allowed: boolean;
-      subscription_id?: string | null;
-    };
-    /** @description Request serializer for rejecting a membership freeze. */
-    MemberFreezeRejectRequest: {
-      /** @description Explanation for rejecting the freeze request (5 to 500 characters). */
-      rejection_reason: string;
-    };
-    /** @description Request serializer for submitting a membership freeze. */
-    MemberFreezeRequestRequest: {
-      /**
-       * Format: date
-       * @description First day of membership freeze.
-       */
-      start_date: string;
-      /**
-       * Format: date
-       * @description Last day of membership freeze.
-       */
-      end_date: string;
-      /** @description Reason for the freeze request (5 to 500 characters). */
-      reason: string;
-    };
-    /**
-     * @description * `pending` - Pending
-     *     * `approved` - Approved
-     *     * `rejected` - Rejected
-     *     * `completed` - Completed
-     * @enum {string}
-     */
-    MemberFreezeStatusEnum: "pending" | "approved" | "rejected" | "completed";
-    /** @description Member self-service view of their own payment history. */
-    MemberPaymentHistoryItem: {
-      /** Format: uuid */
-      id: string;
-      /** Format: date-time */
-      created_at: string;
-      plan_name: string;
-      method: string;
-      /** Format: decimal */
-      amount_etb: string;
-      currency: string;
-      status: string;
-      receipt_number: string;
-      /** @default  */
-      bank_reference: string;
-      /** @default false */
-      is_reversed: boolean;
-      /** Format: date-time */
-      reversed_at?: string | null;
-      /** Format: date */
-      subscription_start_date: string | null;
-      /** Format: date */
-      subscription_end_date: string | null;
-    };
-    /** @description Read-only payment status for member self-service return page. */
-    MemberPaymentStatus: {
-      status: string;
-      receipt_id: string | null;
-      plan_name: string;
-    };
-    MemberQrTokenErrorResponse: {
-      detail: string;
-      reason: string;
-    };
-    /** @description Response serializer for member QR token generation. */
-    MemberQrTokenResponse: {
-      /** @description Signed EdDSA JWT QR token. */
-      token: string;
-      /**
-       * Format: date-time
-       * @description Timestamp when this token expires.
-       */
-      expires_at: string;
-      /**
-       * @description Token validity window in seconds.
-       * @default 90
-       */
-      valid_seconds: number;
-      /** Format: uuid */
-      member_id: string;
-    };
-    /** @description Request serializer for suspending a member. */
-    MemberSuspendRequestRequest: {
-      /** @description Optional reason for suspending member. */
-      reason?: string;
-    };
-    /** @description Serializer for gym membership plans. */
-    MembershipPlan: {
-      /** Format: uuid */
-      readonly id: string;
-      name: string;
-      description?: string;
-      duration_value: number;
-      duration_unit?: components["schemas"]["DurationUnitEnum"];
-      /** Format: decimal */
-      price_etb: string;
-      trainer_inclusive?: boolean;
-      is_active?: boolean;
-      readonly warning: string;
-      /** @default false */
-      readonly has_no_trainers_warning: boolean;
-      /** Format: date-time */
-      readonly created_at: string;
-      /** Format: date-time */
-      readonly updated_at: string;
-    };
-    /** @description Serializer for gym membership plans. */
-    MembershipPlanRequest: {
-      name: string;
-      description?: string;
-      duration_value: number;
-      duration_unit?: components["schemas"]["DurationUnitEnum"];
-      /** Format: decimal */
-      price_etb: string;
-      trainer_inclusive?: boolean;
-      is_active?: boolean;
-    };
-    /** @description Read-only representation of an in-app user notification. */
-    Notification: {
-      /** Format: uuid */
-      readonly id: string;
-      readonly type: string;
-      readonly message: string;
-      readonly is_read: boolean;
-      /** Format: date-time */
-      readonly created_at: string;
-    };
-    PaginatedAuditLogList: {
-      /** @example 123 */
-      count: number;
-      /**
-       * Format: uri
-       * @example http://api.example.org/accounts/?page=4
-       */
-      next?: string | null;
-      /**
-       * Format: uri
-       * @example http://api.example.org/accounts/?page=2
-       */
-      previous?: string | null;
-      results: components["schemas"]["AuditLog"][];
-    };
-    /** @description Payload for confirming a password reset. */
-    PasswordResetConfirmRequestRequest: {
-      token: string;
-      new_password: string;
-    };
-    /** @description Response returned upon successful password reset completion. */
-    PasswordResetConfirmResponse: {
-      detail: string;
-    };
-    /** @description Payload for requesting a password reset email. */
-    PasswordResetRequestRequest: {
-      /** Format: email */
-      email: string;
-    };
-    /** @description Uniform response for password reset requests. */
-    PasswordResetResponse: {
-      detail: string;
-    };
-    /** @description Serializer for updating status and internal notes on a demo request. */
-    PatchedDemoRequestUpdateRequest: {
-      status?: components["schemas"]["DemoRequestStatusEnum"];
-      notes?: string;
-    };
-    PatchedFitnessProfileRequest: {
-      goal?: string;
-      fitness_level?: string;
-      /** @default  */
-      health_limitations: string;
-      /** @default  */
-      equipment_access: string;
-      training_days_per_week?: number;
-      session_length_minutes?: number;
-      /** @default  */
-      dietary_notes: string;
-    };
-    /** @description Input serializer for gym owner configuring Chapa credentials. */
-    PatchedGymPaymentConfigUpdateRequest: {
-      public_key?: string;
-      secret_key?: string;
-      webhook_secret?: string;
-    };
-    /**
-     * @description Serializer for Owner-editable gym settings with strict allow-list enforcement.
-     *     Any attempt to modify entitlement fields is rejected with 403 PermissionDenied.
-     *     Any other unallowed or unknown field is rejected with 400 ValidationError.
-     */
-    PatchedGymSettingsUpdateRequest: {
-      brand_color?: string | null;
-      show_unavailable_equipment?: boolean;
-      member_reminder_days?: number[];
-      freeze_days_allowed?: number;
-    };
-    /** @description Serializer for updating member profile details by gym staff. */
-    PatchedMemberUpdateRequest: {
-      full_name?: string;
-      phone?: string;
-      /** Format: date */
-      date_of_birth?: string | null;
-      gender?:
-        | components["schemas"]["GenderEnum"]
-        | components["schemas"]["BlankEnum"];
-      emergency_contact?: string;
-      referral_source?: string;
-      photo_url?: string;
-    };
-    /** @description Serializer for gym membership plans. */
-    PatchedMembershipPlanRequest: {
-      name?: string;
-      description?: string;
-      duration_value?: number;
-      duration_unit?: components["schemas"]["DurationUnitEnum"];
-      /** Format: decimal */
-      price_etb?: string;
-      trainer_inclusive?: boolean;
-      is_active?: boolean;
-    };
-    /**
-     * @description Serializer for recording or correcting body metrics entries by a Trainer.
-     *     Weight (kg) and height (cm) are required on new records; all circumference
-     *     and vitals measurements are optional.
-     */
-    PatchedRecordBodyMetricsRequest: {
-      /** Format: decimal */
-      weight_kg?: string | null;
-      /** Format: decimal */
-      height_cm?: string | null;
-      /** Format: decimal */
-      waist_cm?: string | null;
-      /** Format: decimal */
-      neck_cm?: string | null;
-      /** Format: decimal */
-      hip_cm?: string | null;
-      /** Format: decimal */
-      chest_cm?: string | null;
-      /** Format: decimal */
-      bicep_left_cm?: string | null;
-      /** Format: decimal */
-      bicep_right_cm?: string | null;
-      /** Format: decimal */
-      thigh_left_cm?: string | null;
-      /** Format: decimal */
-      thigh_right_cm?: string | null;
-      /** Format: decimal */
-      calf_left_cm?: string | null;
-      /** Format: decimal */
-      calf_right_cm?: string | null;
-      resting_heart_rate?: number | null;
-      /** Format: decimal */
-      body_fat_percentage?: string | null;
-      measurements?: {
-        [key: string]: unknown;
-      } | null;
-    };
-    PatchedTrainerCapacityUpdateRequest: {
-      max_clients?: number;
-      specialization?: string | null;
-    };
-    /** @description Payload for updating user profile (full_name and phone only). */
-    PatchedUserProfileUpdateRequest: {
-      full_name?: string;
-      phone?: string;
-    };
-    /**
-     * @description * `cash` - cash
-     *     * `bank_transfer` - bank_transfer
-     *     * `none` - none
-     *     * `no_payment` - no_payment
-     * @enum {string}
-     */
-    PaymentMethodEnum: "cash" | "bank_transfer" | "none" | "no_payment";
-    /** @description Response containing proposed candidate subdomain. */
-    ProposeSubdomainResponse: {
-      subdomain: string;
-    };
-    /** @description Public serializer for lead demo request submissions with honeypot field. */
-    PublicDemoRequestRequest: {
-      gym_name: string;
-      contact_name: string;
-      phone: string;
-      /** @default  */
-      city: string;
-      email?: string;
-      /** @default  */
-      message: string;
-      /** @default  */
-      website: string;
-    };
-    PublicDemoRequestResponse: {
-      detail: string;
-      id?: string;
-    };
-    /**
-     * @description Serializer for public self-service registration on gym subdomains.
-     *     Requires health waiver acceptance and password. Registration captures no body measurements.
-     */
-    PublicMemberRegistrationRequest: {
-      full_name: string;
-      /** Format: email */
-      email: string;
-      phone: string;
-      password: string;
-      waiver_accepted: boolean;
-      /** Format: date */
-      date_of_birth?: string | null;
-      gender: components["schemas"]["GenderEnum"];
-      emergency_contact?: string;
-      referral_source?: string;
-      photo_url?: string;
-    };
-    /** @description Public read-only serializer for active membership plans. */
-    PublicPlan: {
-      /** Format: uuid */
-      readonly id: string;
-      readonly name: string;
-      readonly description: string;
-      readonly duration_value: number;
-      readonly duration_unit: components["schemas"]["DurationUnitEnum"];
-      /** Format: decimal */
-      readonly price_etb: string;
-      readonly trainer_inclusive: boolean;
-    };
-    /** @description Read-only digital receipt representation. */
-    Receipt: {
-      /** Format: uuid */
-      readonly id: string;
-      readonly receipt_number: string;
-      readonly sequence_number: number;
-      /** Format: date-time */
-      readonly issued_at: string;
-      /** Format: uuid */
-      readonly issued_by_id: string | null;
-      readonly issued_by_name: string;
-      /** Format: decimal */
-      readonly amount_etb: string;
-      readonly currency: string;
-      readonly payment_method: string;
-      readonly bank_reference: string | null;
-      readonly transfer_channel: string | null;
-      readonly is_reversed: boolean;
-      readonly reversed_at: string;
-      readonly reversal_reason: string;
-      readonly member_name: string;
-      readonly member_phone: string;
-      readonly plan_name: string;
-      readonly plan_duration: string;
-      readonly notes: string;
-      readonly gym_name: string;
-      readonly gym_subdomain: string;
-    };
-    /** @description Owner bulk or single reconciliation request. */
-    ReconcileBankTransfersRequest: {
-      payment_ids: string[];
-    };
-    /** @description Input serializer to record a bank-transfer payment. */
-    RecordBankTransferPaymentRequestRequest: {
-      /** Format: uuid */
-      member_id: string;
-      /** Format: uuid */
-      plan_id: string;
-      bank_reference: string;
-      /** Format: date */
-      transfer_date: string;
-      /** @default  */
-      channel: string;
-      /** @default  */
-      notes: string;
-      /** @default  */
-      idempotency_key: string;
-    };
-    /** @description Output serializer for bank-transfer payment confirmation. */
-    RecordBankTransferResponse: {
-      /** Format: uuid */
-      payment_id: string;
-      receipt: components["schemas"]["Receipt"];
-      status: string;
-      /** Format: decimal */
-      amount_etb: string;
-      bank_reference: string;
-      is_reconciled: boolean;
-      detail: string;
-    };
-    /**
-     * @description Serializer for recording or correcting body metrics entries by a Trainer.
-     *     Weight (kg) and height (cm) are required on new records; all circumference
-     *     and vitals measurements are optional.
-     */
-    RecordBodyMetricsRequest: {
-      /** Format: decimal */
-      weight_kg?: string | null;
-      /** Format: decimal */
-      height_cm?: string | null;
-      /** Format: decimal */
-      waist_cm?: string | null;
-      /** Format: decimal */
-      neck_cm?: string | null;
-      /** Format: decimal */
-      hip_cm?: string | null;
-      /** Format: decimal */
-      chest_cm?: string | null;
-      /** Format: decimal */
-      bicep_left_cm?: string | null;
-      /** Format: decimal */
-      bicep_right_cm?: string | null;
-      /** Format: decimal */
-      thigh_left_cm?: string | null;
-      /** Format: decimal */
-      thigh_right_cm?: string | null;
-      /** Format: decimal */
-      calf_left_cm?: string | null;
-      /** Format: decimal */
-      calf_right_cm?: string | null;
-      resting_heart_rate?: number | null;
-      /** Format: decimal */
-      body_fat_percentage?: string | null;
-      measurements?: {
-        [key: string]: unknown;
-      } | null;
-    };
-    /** @description Input serializer for gym staff recording a cash payment. */
-    RecordCashPaymentRequestRequest: {
-      /** Format: uuid */
-      member_id: string;
-      /** Format: uuid */
-      plan_id: string;
-      /** @default  */
-      notes: string;
-      /** @default  */
-      idempotency_key: string;
-    };
-    /** @description Output serializer for cash payment confirmation. */
-    RecordCashPaymentResponse: {
-      /** Format: uuid */
-      payment_id: string;
-      receipt: components["schemas"]["Receipt"];
-      status: string;
-      /** Format: decimal */
-      amount_etb: string;
-      detail: string;
-    };
-    /** @description Owner reversal request with mandatory reason. */
-    ReverseBankTransferRequest: {
-      reason: string;
-    };
-    /** @description Payload for setting initial password from an invite token. */
-    SetPasswordFromInviteRequestRequest: {
-      token: string;
-      new_password: string;
-    };
-    /** @description Response returned upon successful invite password completion. */
-    SetPasswordFromInviteResponse: {
-      detail: string;
-    };
-    /** @description Response returned upon staff deactivation or reactivation. */
-    StaffActionResponse: {
-      detail: string;
-      user: components["schemas"]["StaffMember"];
-    };
-    /** @description Serializer representing a staff member in the gym tenant. */
-    StaffMember: {
-      /** Format: uuid */
-      readonly id: string;
-      /** Format: email */
-      readonly email: string;
-      readonly role: components["schemas"]["UserRoleEnum"];
-      /** Format: uuid */
-      readonly gym_id: string | null;
-      readonly full_name: string;
-      readonly phone: string;
-      readonly is_active: boolean;
-      /** Format: date-time */
-      readonly email_verified_at: string | null;
-      /** Format: date-time */
-      readonly created_at: string;
-      readonly invitation_status: string;
-      readonly email_delivery_message: string | null;
-    };
-    /**
-     * @description Serializer for staff-assisted member registration (Owner, Manager, Reception).
-     *     Does not require a password; generates set-password invite link instead.
-     *     Integrates optional upfront payment (Cash, Bank transfer, or None).
-     */
-    StaffMemberRegistrationRequest: {
-      full_name: string;
-      /** Format: email */
-      email: string;
-      phone: string;
-      waiver_accepted: boolean;
-      /** Format: date */
-      date_of_birth?: string | null;
-      gender: components["schemas"]["GenderEnum"];
-      emergency_contact?: string;
-      referral_source?: string;
-      photo_url?: string;
-      /** @default none */
-      payment_method: components["schemas"]["PaymentMethodEnum"];
-      /** Format: uuid */
-      plan_id?: string | null;
-      idempotency_key?: string;
-      notes?: string;
-      bank_reference?: string;
-      /** Format: date */
-      transfer_date?: string | null;
-      channel?: string;
-      /** Format: binary */
-      screenshot?: string | null;
-    };
-    /**
-     * @description * `pending` - Pending
-     *     * `active` - Active
-     *     * `expired` - Expired
-     *     * `frozen` - Frozen
-     *     * `suspended` - Suspended
-     * @enum {string}
-     */
-    Status1d7Enum: "pending" | "active" | "expired" | "frozen" | "suspended";
-    /** @description Platform administration view of gym payment mode (test vs live) without exposing keys. */
-    SuperAdminGymPaymentStatus: {
-      /** Format: uuid */
-      gym_id: string;
-      gym_name: string;
-      subdomain: string;
-      is_configured: boolean;
-      is_test_mode: boolean;
-      is_verified: boolean;
-    };
-    /** @description Response for created Super Admin. */
-    SuperAdminResponse: {
-      /** Format: uuid */
-      readonly id: string;
-      /** Format: email */
-      readonly email: string;
-      readonly role: components["schemas"]["UserRoleEnum"];
-      readonly must_change_password: boolean;
-      /** Format: date-time */
-      readonly created_at: string;
-    };
-    /**
-     * @description * `starter` - Starter
-     *     * `growth` - Growth
-     *     * `pro` - Pro
-     * @enum {string}
-     */
-    TierEnum: "starter" | "growth" | "pro";
-    /** @description Payload for token refresh. */
-    TokenRefreshRequestRequest: {
-      refresh: string;
-    };
-    /** @description Response containing refreshed access token. */
-    TokenRefreshResponse: {
-      access: string;
-    };
-    Trainer: {
-      /** Format: uuid */
-      readonly id: string;
-      readonly user: components["schemas"]["TrainerUser"];
-      readonly photo_url: string;
-      specialization?: string | null;
-      max_clients: number;
-      readonly client_count: number;
-      /** Format: date-time */
-      readonly created_at: string;
-      /** Format: date-time */
-      readonly updated_at: string;
-    };
-    TrainerAssignmentDetail: {
-      /** Format: uuid */
-      readonly id: string;
-      readonly member: string;
-      readonly trainer: components["schemas"]["Trainer"];
-      /** Format: date-time */
-      assigned_at?: string;
-      /** Format: date-time */
-      ended_at?: string | null;
-      readonly assigned_by: components["schemas"]["TrainerUser"];
-    };
-    TrainerCapacityUpdateResponse: {
-      detail: string;
-      warning?: string | null;
-      trainer: components["schemas"]["Trainer"];
-    };
-    TrainerMyClient: {
-      /** Format: uuid */
-      assignment_id: string;
-      /** Format: uuid */
-      member_id: string;
-      member_name: string;
-      member_phone: string;
-      /** @default  */
-      photo_url: string;
-      plan_name: string;
-      /** Format: date-time */
-      assigned_at: string;
-      /** @default false */
-      has_measurements: boolean;
-    };
-    TrainerUser: {
-      /** Format: uuid */
-      readonly id: string;
-      /** Format: email */
-      readonly email: string;
-      readonly full_name: string;
-      readonly phone: string;
-      readonly is_active: boolean;
-    };
-    UnassignedMember: {
-      /** Format: uuid */
-      member_id: string;
-      full_name: string;
-      phone: string;
-      status: string;
-      plan_name: string;
-      /** Format: uuid */
-      subscription_id: string;
-      /** Format: date */
-      start_date: string;
-      /** Format: date */
-      end_date: string;
-    };
-    /** @description Owner view of an unreconciled bank transfer. */
-    UnreconciledBankTransferItem: {
-      /** Format: uuid */
-      id: string;
-      /** Format: date */
-      transfer_date: string | null;
-      /** Format: date-time */
-      created_at: string;
-      bank_reference: string;
-      channel: string;
-      /** Format: decimal */
-      amount_etb: string;
-      /** Format: uuid */
-      member_id: string | null;
-      member_name: string;
-      member_phone: string;
-      /** Format: uuid */
-      confirmed_by_id: string | null;
-      confirmed_by_name: string;
-      receipt_number: string;
-      /** @default false */
-      has_screenshot: boolean;
-      screenshot_url?: string | null;
-    };
-    /** @description Upload serializer for gym logo. */
-    UploadGymLogoRequest: {
-      /** Format: binary */
-      logo: string;
-    };
-    /** @description Response returned upon gym logo upload. */
-    UploadGymLogoResponse: {
-      url: string;
-    };
-    /** @description Upload serializer for member photos. */
-    UploadMemberPhotoRequest: {
-      /** Format: binary */
-      photo: string;
-    };
-    /** @description Response returned upon member photo upload. */
-    UploadMemberPhotoResponse: {
-      file_path: string;
-      filename: string;
-      url: string;
-    };
-    /** @description Profile representation of authenticated user. */
-    UserProfile: {
-      /** Format: uuid */
-      readonly id: string;
-      /** Format: email */
-      readonly email: string;
-      readonly role: components["schemas"]["UserRoleEnum"];
-      /** Format: uuid */
-      readonly gym_id: string | null;
-      readonly full_name: string;
-      readonly phone: string;
-      readonly must_change_password: boolean;
-    };
-    /**
-     * @description * `super_admin` - Super Admin
-     *     * `owner` - Owner
-     *     * `manager` - Manager
-     *     * `trainer` - Trainer
-     *     * `reception` - Reception
-     *     * `member` - Member
-     * @enum {string}
-     */
-    UserRoleEnum:
-      "super_admin" | "owner" | "manager" | "trainer" | "reception" | "member";
-    /** @description Minimal representation of authenticated user. */
-    UserSummary: {
-      /** Format: uuid */
-      readonly id: string;
-      /** Format: email */
-      readonly email: string;
-      readonly role: components["schemas"]["UserRoleEnum"];
-      /** Format: uuid */
-      readonly gym_id: string | null;
-      readonly full_name: string;
-      readonly phone: string;
-      readonly must_change_password: boolean;
-    };
-    /** @description Serializer for email verification request. */
-    VerifyEmailRequestRequest: {
-      token: string;
-    };
-  };
-  responses: never;
-  parameters: never;
-  requestBodies: never;
-  headers: never;
-  pathItems: never;
+    schemas: {
+        /** @description Response serializer for attendance calendar log. */
+        AttendanceLogResponse: {
+            /** Format: uuid */
+            member_id: string;
+            member_name: string;
+            /** Format: date */
+            start_date: string;
+            /** Format: date */
+            end_date: string;
+            subscription_period: {
+                [key: string]: unknown;
+            };
+            days: components["schemas"]["DailyAttendanceItem"][];
+        };
+        /** @description Request serializer for manual attendance override by reception. */
+        AttendanceManualOverrideRequestRequest: {
+            /**
+             * Format: uuid
+             * @description UUID of the member to check in.
+             */
+            member_id: string;
+            /** @description Explanation for manual override (5 to 500 characters). */
+            reason: string;
+            /**
+             * Format: uuid
+             * @description Optional branch UUID.
+             */
+            branch_id?: string | null;
+        };
+        /** @description Response serializer for manual attendance override. */
+        AttendanceManualOverrideResponse: {
+            /** @default success */
+            status: string;
+            message: string;
+            member: components["schemas"]["AttendanceScanResultMember"];
+            attendance: components["schemas"]["AttendanceRecord"];
+        };
+        /** @description Response serializer for public key export. */
+        AttendancePublicKeyResponse: {
+            /** @description PEM-encoded Ed25519 public key for offline QR signature verification. */
+            public_key: string;
+            /** @default EdDSA */
+            algorithm: string;
+        };
+        /** @description Attendance record details. */
+        AttendanceRecord: {
+            /** Format: uuid */
+            id: string;
+            /** Format: date */
+            date: string;
+            /** Format: date-time */
+            checked_in_at: string;
+            method: string;
+            is_override: boolean;
+            override_reason?: string;
+        };
+        AttendanceScanErrorResponse: {
+            detail: string;
+            reason: string;
+            member?: components["schemas"]["AttendanceScanResultMember"];
+        };
+        /** @description Request serializer for QR attendance scan. */
+        AttendanceScanRequestRequest: {
+            /** @description Scanned QR token string (EdDSA JWT). */
+            token: string;
+            /**
+             * Format: uuid
+             * @description Optional branch UUID for multi-branch check-ins.
+             */
+            branch_id?: string | null;
+        };
+        /** @description Success response serializer for QR scan. */
+        AttendanceScanResponse: {
+            /** @default success */
+            status: string;
+            message: string;
+            member: components["schemas"]["AttendanceScanResultMember"];
+            attendance: components["schemas"]["AttendanceRecord"];
+            /** @description Newly rotated token issued for the member. */
+            next_token: string;
+        };
+        /** @description Member details returned upon scan. */
+        AttendanceScanResultMember: {
+            /** Format: uuid */
+            id: string;
+            full_name: string;
+            photo_url: string;
+            status: string;
+            phone?: string;
+        };
+        /** @description Entry in Today's Check-ins list. */
+        AttendanceTodayItem: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            member_id: string;
+            member_name: string;
+            member_photo_url: string;
+            /** Format: date-time */
+            checked_in_at: string;
+            method: string;
+            is_override: boolean;
+            override_reason?: string;
+            recorded_by_name?: string | null;
+        };
+        /** @description Response serializer for live Today's Check-ins list. */
+        AttendanceTodayListResponse: {
+            /** @description Total number of members checked in today. */
+            total_count: number;
+            results: components["schemas"]["AttendanceTodayItem"][];
+        };
+        /** @description Read-only representation of an AuditLog entry. */
+        AuditLog: {
+            /** Format: uuid */
+            readonly id: string;
+            /** Format: uuid */
+            readonly gym_id: string | null;
+            readonly gym_name: string | null;
+            readonly actor: components["schemas"]["AuditLogActor"];
+            readonly action_type: string;
+            readonly affected_record_type: string;
+            readonly affected_record_id: string;
+            /** Format: date-time */
+            readonly timestamp: string;
+            readonly metadata: unknown;
+        };
+        /** @description Summary of the actor associated with an audit log entry. */
+        AuditLogActor: {
+            /** Format: uuid */
+            readonly id: string;
+            /** Format: email */
+            readonly email: string;
+            readonly full_name: string;
+            readonly role: components["schemas"]["UserRoleEnum"];
+        };
+        /** @enum {unknown} */
+        BlankEnum: "";
+        /**
+         * @description Serializer for member body composition metrics.
+         *     Exposes BMI, US Navy body-fat estimates, waist-to-hip ratio, and lean body mass,
+         *     along with recording trainer information and correction status.
+         */
+        BodyMetrics: {
+            /** Format: uuid */
+            readonly id: string;
+            /** Format: decimal */
+            weight_kg?: string | null;
+            /** Format: decimal */
+            height_cm?: string | null;
+            measurements?: unknown;
+            /** Format: date-time */
+            readonly recorded_at: string;
+            /** Format: uuid */
+            readonly recorded_by: string | null;
+            readonly trainer_name: string;
+            readonly recorded_by_name: string;
+            /** Format: double */
+            readonly estimated_bmi: number;
+            /** Format: double */
+            readonly estimated_body_fat_percentage: number;
+            readonly bmi_label: string;
+            readonly body_fat_label: string;
+            /** Format: double */
+            readonly waist_to_hip_ratio: number;
+            /** Format: double */
+            readonly lean_body_mass: number;
+            readonly lean_body_mass_label: string;
+            readonly is_corrected: boolean;
+        };
+        /** @description Payload for changing user password. */
+        ChangePasswordRequestRequest: {
+            current_password: string;
+            new_password: string;
+        };
+        /** @description Response containing refreshed JWT pair and user summary. */
+        ChangePasswordResponse: {
+            access: string;
+            refresh: string;
+            user: components["schemas"]["UserSummary"];
+        };
+        /** @description Input serializer for initiating online subscription checkout. */
+        ChapaCheckoutRequestRequest: {
+            /** Format: uuid */
+            plan_id: string;
+        };
+        /** @description Output serializer for online subscription checkout session. */
+        ChapaCheckoutResponse: {
+            /** Format: uri */
+            checkout_url: string;
+            tx_ref: string;
+            /** Format: uuid */
+            payment_id: string;
+        };
+        /** @description Item in first-run onboarding checklist. */
+        ChecklistItem: {
+            label: string;
+            completed: boolean;
+        };
+        /** @description Response returned upon TLS certificate confirmation. */
+        ConfirmTLSResponse: {
+            gym: components["schemas"]["GymTenantSummary"];
+            message: string;
+        };
+        /** @description Payload for Super Admin gym creation. */
+        CreateGymRequestRequest: {
+            name: string;
+            subdomain: string;
+            tier: components["schemas"]["TierEnum"];
+            /** @default  */
+            location: string;
+            /** @default  */
+            contact_name: string;
+            /** @default  */
+            contact_phone: string;
+            contact_email?: string;
+            /** @default  */
+            owner_name: string;
+            /** Format: email */
+            owner_email: string;
+            owner_email_confirm?: string;
+            /** Format: decimal */
+            payment_amount: string;
+            payment_reference: string;
+            /** @default bank_transfer */
+            payment_method: string;
+            demo_request_id?: string | null;
+        };
+        /** @description Response returned upon successful gym tenant creation. */
+        CreateGymResponse: {
+            gym: components["schemas"]["GymTenantSummary"];
+            config: components["schemas"]["GymConfig"];
+            owner: components["schemas"]["UserSummary"];
+            /** Format: uuid */
+            payment_id: string;
+            gym_url?: string;
+        };
+        /** @description Payload for creating an additional Super Admin account. */
+        CreateSuperAdminRequestRequest: {
+            /** Format: email */
+            email: string;
+            password: string;
+            current_password: string;
+        };
+        /** @description Daily check-in status within the calendar log. */
+        DailyAttendanceItem: {
+            /** Format: date */
+            date: string;
+            /** @description 'present', 'absent', or 'blank' */
+            status: string;
+            /** @description '✓', '✗', or empty for days outside subscription */
+            symbol: string;
+            attended: boolean;
+            /** Format: date-time */
+            checked_in_at?: string | null;
+            method?: string;
+            is_override?: boolean;
+        };
+        /** @description Serializer for Super Admin lead management. */
+        DemoRequest: {
+            /** Format: uuid */
+            readonly id: string;
+            readonly gym_name: string;
+            readonly contact_name: string;
+            readonly phone: string;
+            readonly city: string;
+            /** Format: email */
+            readonly email: string;
+            readonly message: string;
+            status?: components["schemas"]["DemoRequestStatusEnum"];
+            notes?: string;
+            /** Format: uuid */
+            readonly handled_by: string | null;
+            readonly handled_by_email: string | null;
+            /** Format: uuid */
+            readonly converted_gym: string | null;
+            readonly converted_gym_subdomain: string | null;
+            /** Format: date-time */
+            readonly created_at: string;
+            /** Format: date-time */
+            readonly updated_at: string;
+        };
+        /** @description Data returned to pre-fill the Create Gym form from a demo request. */
+        DemoRequestConvertResponse: {
+            /** Format: uuid */
+            demo_request_id: string;
+            name: string;
+            contact_name: string;
+            contact_phone: string;
+            /** Format: email */
+            contact_email: string;
+            location: string;
+        };
+        /**
+         * @description * `new` - New
+         *     * `contacted` - Contacted
+         *     * `demo_done` - Demo Done
+         *     * `converted` - Converted
+         *     * `lost` - Lost
+         * @enum {string}
+         */
+        DemoRequestStatusEnum: "new" | "contacted" | "demo_done" | "converted" | "lost";
+        DismissChecklistResponse: {
+            is_dismissed: boolean;
+            /** Format: date-time */
+            dismissed_at: string;
+        };
+        /**
+         * @description * `days` - Days
+         *     * `months` - Months
+         * @enum {string}
+         */
+        DurationUnitEnum: "days" | "months";
+        /** @description First-run onboarding checklist progress for gym Owner. */
+        FirstRunChecklistResponse: {
+            is_dismissed: boolean;
+            /** Format: date-time */
+            dismissed_at: string | null;
+            all_completed: boolean;
+            items: {
+                [key: string]: components["schemas"]["ChecklistItem"];
+            };
+        };
+        FitnessProfile: {
+            /** Format: uuid */
+            readonly member_id: string;
+            goal: string;
+            fitness_level: string;
+            health_limitations: string[];
+            /** @default  */
+            other_limitations: string;
+            equipment_access: string[];
+            /** @default  */
+            other_equipment: string;
+            training_days_per_week: number;
+            session_length_minutes: number;
+            dietary_notes: string[];
+            /** @default  */
+            other_dietary: string;
+            readonly has_medical_caution: boolean;
+            readonly latest_measurements: string;
+            /** Format: date-time */
+            readonly created_at: string;
+            /** Format: date-time */
+            readonly updated_at: string;
+        };
+        FitnessProfileRequest: {
+            goal: string;
+            fitness_level: string;
+            health_limitations: string[];
+            /** @default  */
+            other_limitations: string;
+            equipment_access: string[];
+            /** @default  */
+            other_equipment: string;
+            training_days_per_week: number;
+            session_length_minutes: number;
+            dietary_notes: string[];
+            /** @default  */
+            other_dietary: string;
+        };
+        /**
+         * @description * `male` - Male
+         *     * `female` - Female
+         * @enum {string}
+         */
+        GenderEnum: "male" | "female";
+        /** @description Feature gating and configuration settings of a gym. */
+        GymConfig: {
+            readonly tier: string;
+            readonly has_trainer_module: boolean;
+            readonly has_ai_plans: boolean;
+            readonly has_analytics: boolean;
+            readonly has_group_classes: boolean;
+            readonly has_multi_branch: boolean;
+            readonly freeze_days_allowed: number;
+            readonly freeze_days_cap: number;
+            readonly payment_grace_days: number;
+            readonly subscription_reminder_days: unknown;
+            readonly member_reminder_days: unknown;
+            readonly brand_color: string | null;
+            readonly logo: string | null;
+            readonly show_unavailable_equipment: boolean;
+            /** Format: date-time */
+            readonly first_run_dismissed_at: string | null;
+        };
+        GymDetailResponse: {
+            gym: components["schemas"]["GymTenantSummary"];
+            config: components["schemas"]["GymConfig"];
+        };
+        /** @description Safe read-only representation of gym payment configuration. */
+        GymPaymentConfig: {
+            readonly is_configured: boolean;
+            readonly is_test_mode: boolean;
+            readonly is_verified: boolean;
+            /** Format: date-time */
+            readonly verified_at: string | null;
+            readonly masked_public_key: string;
+            readonly has_secret_key: boolean;
+            readonly has_webhook_secret: boolean;
+            readonly use_mock: boolean;
+            readonly detected_mode: string;
+        };
+        /** @description Public details returned on the gym subdomain entry page. */
+        GymPublicEntryResponse: {
+            still_securing: boolean;
+            /** Format: uuid */
+            gym_id?: string;
+            name: string;
+            subdomain?: string;
+            brand_color?: string | null;
+            logo?: string | null;
+            phone?: string;
+            location?: string;
+            currency?: string;
+            message?: string;
+            /** @default false */
+            online_payment_verified: boolean;
+        };
+        /**
+         * @description * `pending` - Pending
+         *     * `active` - Active
+         *     * `suspended` - Suspended
+         *     * `terminated` - Terminated
+         * @enum {string}
+         */
+        GymStatusEnum: "pending" | "active" | "suspended" | "terminated";
+        /** @description Summary of a gym tenant. */
+        GymTenantSummary: {
+            /** Format: uuid */
+            readonly id: string;
+            readonly name: string;
+            readonly subdomain: string;
+            readonly url: string;
+            readonly status: components["schemas"]["GymStatusEnum"];
+            readonly tier: components["schemas"]["TierEnum"];
+            readonly currency: string;
+            readonly location: string;
+            readonly contact_name: string;
+            readonly contact_phone: string;
+            /** Format: email */
+            readonly contact_email: string;
+            readonly owner_email: string;
+            /** Format: date-time */
+            readonly subscription_expires_at: string | null;
+            /** Format: date-time */
+            readonly tls_confirmed_at: string | null;
+            /** Format: date-time */
+            readonly created_at: string;
+            /** Format: date-time */
+            readonly updated_at: string;
+        };
+        HealthCheckResponse: {
+            /** @default ok */
+            status: string;
+            /** @default FitGate API */
+            app: string;
+        };
+        /** @description Payload for inviting a staff member (Manager, Trainer, or Reception). */
+        InviteStaffRequestRequest: {
+            /** Format: email */
+            email: string;
+            role: components["schemas"]["InviteStaffRequestRoleEnum"];
+            /** @default  */
+            full_name: string;
+            /** @default  */
+            phone: string;
+        };
+        /**
+         * @description * `manager` - Manager
+         *     * `trainer` - Trainer
+         *     * `reception` - Reception
+         * @enum {string}
+         */
+        InviteStaffRequestRoleEnum: "manager" | "trainer" | "reception";
+        /** @description Response returned upon successful staff invitation. */
+        InviteStaffResponse: {
+            detail: string;
+            user: components["schemas"]["StaffMember"];
+        };
+        /** @description Payload for user authentication. */
+        LoginRequestRequest: {
+            /** Format: email */
+            email: string;
+            password: string;
+        };
+        /** @description Response containing JWT tokens, user summary, and role dashboard. */
+        LoginResponse: {
+            access: string;
+            refresh: string;
+            user: components["schemas"]["UserSummary"];
+            dashboard: {
+                [key: string]: unknown;
+            };
+        };
+        /** @description Payload for user logout. */
+        LogoutRequestRequest: {
+            refresh: string;
+        };
+        ManualReassignRequestRequest: {
+            /** Format: uuid */
+            member_id: string;
+            /** Format: uuid */
+            trainer_id: string;
+            /** @default false */
+            confirm_over_capacity: boolean;
+        };
+        ManualReassignResponse: {
+            detail: string;
+            assignment: components["schemas"]["TrainerAssignmentDetail"];
+        };
+        /** @description Summary serializer for gym members. */
+        Member: {
+            /** Format: uuid */
+            readonly id: string;
+            /** Format: email */
+            readonly email: string;
+            full_name: string;
+            phone: string;
+            /** Format: date */
+            date_of_birth?: string | null;
+            gender?: components["schemas"]["GenderEnum"] | components["schemas"]["BlankEnum"];
+            emergency_contact?: string;
+            referral_source?: string;
+            photo_url?: string;
+            readonly status: components["schemas"]["Status1d7Enum"];
+            /** Format: date-time */
+            readonly joined_at: string;
+            /** Format: date-time */
+            readonly waiver_accepted_at: string;
+            readonly latest_metrics: components["schemas"]["BodyMetrics"];
+            readonly invitation_status: string | null;
+            readonly email_delivery_message: string | null;
+            readonly assigned_trainer: string;
+            readonly is_on_trainer_plan: boolean;
+        };
+        /** @description Detailed member profile including historical body metrics and calculations. */
+        MemberDetail: {
+            /** Format: uuid */
+            readonly id: string;
+            /** Format: email */
+            readonly email: string;
+            full_name: string;
+            phone: string;
+            /** Format: date */
+            date_of_birth?: string | null;
+            gender?: components["schemas"]["GenderEnum"] | components["schemas"]["BlankEnum"];
+            emergency_contact?: string;
+            referral_source?: string;
+            photo_url?: string;
+            readonly status: components["schemas"]["Status1d7Enum"];
+            /** Format: date-time */
+            readonly joined_at: string;
+            /** Format: date-time */
+            readonly waiver_accepted_at: string;
+            readonly latest_metrics: components["schemas"]["BodyMetrics"];
+            readonly body_metrics: components["schemas"]["BodyMetrics"][];
+            readonly assigned_trainer: string;
+            readonly is_on_trainer_plan: boolean;
+        };
+        /** @description Detailed read serializer for MemberFreeze records. */
+        MemberFreeze: {
+            /** Format: uuid */
+            readonly id: string;
+            readonly member: string;
+            /** Format: uuid */
+            readonly member_id: string;
+            readonly member_name: string;
+            readonly member_phone: string;
+            /** Format: uuid */
+            readonly subscription_id: string;
+            /** Format: date */
+            readonly start_date: string;
+            /** Format: date */
+            readonly end_date: string;
+            readonly days: number;
+            readonly reason: string;
+            readonly status: components["schemas"]["MemberFreezeStatusEnum"];
+            /** Format: uuid */
+            readonly approved_by_id: string | null;
+            readonly approved_by_name: string;
+            /** Format: date-time */
+            readonly reviewed_at: string | null;
+            readonly rejection_reason: string;
+            readonly extension_applied: boolean;
+            /** Format: date-time */
+            readonly unfrozen_at: string | null;
+            /** Format: date-time */
+            readonly created_at: string;
+            /** Format: date-time */
+            readonly updated_at: string;
+        };
+        /** @description Read serializer for member freeze allowance. */
+        MemberFreezeAllowance: {
+            total_allowed: number;
+            used_days: number;
+            remaining_days: number;
+            has_active_subscription: boolean;
+            freeze_allowed: boolean;
+            subscription_id?: string | null;
+        };
+        /** @description Request serializer for rejecting a membership freeze. */
+        MemberFreezeRejectRequest: {
+            /** @description Explanation for rejecting the freeze request (5 to 500 characters). */
+            rejection_reason: string;
+        };
+        /** @description Request serializer for submitting a membership freeze. */
+        MemberFreezeRequestRequest: {
+            /**
+             * Format: date
+             * @description First day of membership freeze.
+             */
+            start_date: string;
+            /**
+             * Format: date
+             * @description Last day of membership freeze.
+             */
+            end_date: string;
+            /** @description Reason for the freeze request (5 to 500 characters). */
+            reason: string;
+        };
+        /**
+         * @description * `pending` - Pending
+         *     * `approved` - Approved
+         *     * `rejected` - Rejected
+         *     * `completed` - Completed
+         * @enum {string}
+         */
+        MemberFreezeStatusEnum: "pending" | "approved" | "rejected" | "completed";
+        /** @description Member self-service view of their own payment history. */
+        MemberPaymentHistoryItem: {
+            /** Format: uuid */
+            id: string;
+            /** Format: date-time */
+            created_at: string;
+            plan_name: string;
+            method: string;
+            /** Format: decimal */
+            amount_etb: string;
+            currency: string;
+            status: string;
+            receipt_number: string;
+            /** @default  */
+            bank_reference: string;
+            /** @default false */
+            is_reversed: boolean;
+            /** Format: date-time */
+            reversed_at?: string | null;
+            /** Format: date */
+            subscription_start_date: string | null;
+            /** Format: date */
+            subscription_end_date: string | null;
+        };
+        /** @description Read-only payment status for member self-service return page. */
+        MemberPaymentStatus: {
+            status: string;
+            receipt_id: string | null;
+            plan_name: string;
+        };
+        MemberQrTokenErrorResponse: {
+            detail: string;
+            reason: string;
+        };
+        /** @description Response serializer for member QR token generation. */
+        MemberQrTokenResponse: {
+            /** @description Signed EdDSA JWT QR token. */
+            token: string;
+            /**
+             * Format: date-time
+             * @description Timestamp when this token expires.
+             */
+            expires_at: string;
+            /**
+             * @description Token validity window in seconds.
+             * @default 90
+             */
+            valid_seconds: number;
+            /** Format: uuid */
+            member_id: string;
+        };
+        /** @description Request serializer for suspending a member. */
+        MemberSuspendRequestRequest: {
+            /** @description Optional reason for suspending member. */
+            reason?: string;
+        };
+        /** @description Serializer for gym membership plans. */
+        MembershipPlan: {
+            /** Format: uuid */
+            readonly id: string;
+            name: string;
+            description?: string;
+            duration_value: number;
+            duration_unit?: components["schemas"]["DurationUnitEnum"];
+            /** Format: decimal */
+            price_etb: string;
+            trainer_inclusive?: boolean;
+            is_active?: boolean;
+            readonly warning: string;
+            /** @default false */
+            readonly has_no_trainers_warning: boolean;
+            /** Format: date-time */
+            readonly created_at: string;
+            /** Format: date-time */
+            readonly updated_at: string;
+        };
+        /** @description Serializer for gym membership plans. */
+        MembershipPlanRequest: {
+            name: string;
+            description?: string;
+            duration_value: number;
+            duration_unit?: components["schemas"]["DurationUnitEnum"];
+            /** Format: decimal */
+            price_etb: string;
+            trainer_inclusive?: boolean;
+            is_active?: boolean;
+        };
+        /** @description Read-only representation of an in-app user notification. */
+        Notification: {
+            /** Format: uuid */
+            readonly id: string;
+            readonly type: string;
+            readonly message: string;
+            readonly is_read: boolean;
+            /** Format: date-time */
+            readonly created_at: string;
+        };
+        PaginatedAuditLogList: {
+            /** @example 123 */
+            count: number;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?page=4
+             */
+            next?: string | null;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?page=2
+             */
+            previous?: string | null;
+            results: components["schemas"]["AuditLog"][];
+        };
+        /** @description Payload for confirming a password reset. */
+        PasswordResetConfirmRequestRequest: {
+            token: string;
+            new_password: string;
+        };
+        /** @description Response returned upon successful password reset completion. */
+        PasswordResetConfirmResponse: {
+            detail: string;
+        };
+        /** @description Payload for requesting a password reset email. */
+        PasswordResetRequestRequest: {
+            /** Format: email */
+            email: string;
+        };
+        /** @description Uniform response for password reset requests. */
+        PasswordResetResponse: {
+            detail: string;
+        };
+        /** @description Serializer for updating status and internal notes on a demo request. */
+        PatchedDemoRequestUpdateRequest: {
+            status?: components["schemas"]["DemoRequestStatusEnum"];
+            notes?: string;
+        };
+        PatchedFitnessProfileRequest: {
+            goal?: string;
+            fitness_level?: string;
+            health_limitations?: string[];
+            /** @default  */
+            other_limitations: string;
+            equipment_access?: string[];
+            /** @default  */
+            other_equipment: string;
+            training_days_per_week?: number;
+            session_length_minutes?: number;
+            dietary_notes?: string[];
+            /** @default  */
+            other_dietary: string;
+        };
+        /** @description Input serializer for gym owner configuring Chapa credentials. */
+        PatchedGymPaymentConfigUpdateRequest: {
+            public_key?: string;
+            secret_key?: string;
+            webhook_secret?: string;
+        };
+        /**
+         * @description Serializer for Owner-editable gym settings with strict allow-list enforcement.
+         *     Any attempt to modify entitlement fields is rejected with 403 PermissionDenied.
+         *     Any other unallowed or unknown field is rejected with 400 ValidationError.
+         */
+        PatchedGymSettingsUpdateRequest: {
+            brand_color?: string | null;
+            show_unavailable_equipment?: boolean;
+            member_reminder_days?: number[];
+            freeze_days_allowed?: number;
+        };
+        /** @description Serializer for updating member profile details by gym staff. */
+        PatchedMemberUpdateRequest: {
+            full_name?: string;
+            phone?: string;
+            /** Format: date */
+            date_of_birth?: string | null;
+            gender?: components["schemas"]["GenderEnum"] | components["schemas"]["BlankEnum"];
+            emergency_contact?: string;
+            referral_source?: string;
+            photo_url?: string;
+        };
+        /** @description Serializer for gym membership plans. */
+        PatchedMembershipPlanRequest: {
+            name?: string;
+            description?: string;
+            duration_value?: number;
+            duration_unit?: components["schemas"]["DurationUnitEnum"];
+            /** Format: decimal */
+            price_etb?: string;
+            trainer_inclusive?: boolean;
+            is_active?: boolean;
+        };
+        /**
+         * @description Serializer for recording or correcting body metrics entries by a Trainer.
+         *     Weight (kg) and height (cm) are required on new records; all circumference
+         *     and vitals measurements are optional.
+         */
+        PatchedRecordBodyMetricsRequest: {
+            /** Format: decimal */
+            weight_kg?: string | null;
+            /** Format: decimal */
+            height_cm?: string | null;
+            /** Format: decimal */
+            waist_cm?: string | null;
+            /** Format: decimal */
+            neck_cm?: string | null;
+            /** Format: decimal */
+            hip_cm?: string | null;
+            /** Format: decimal */
+            chest_cm?: string | null;
+            /** Format: decimal */
+            bicep_left_cm?: string | null;
+            /** Format: decimal */
+            bicep_right_cm?: string | null;
+            /** Format: decimal */
+            thigh_left_cm?: string | null;
+            /** Format: decimal */
+            thigh_right_cm?: string | null;
+            /** Format: decimal */
+            calf_left_cm?: string | null;
+            /** Format: decimal */
+            calf_right_cm?: string | null;
+            resting_heart_rate?: number | null;
+            /** Format: decimal */
+            body_fat_percentage?: string | null;
+            measurements?: {
+                [key: string]: unknown;
+            } | null;
+        };
+        PatchedTrainerCapacityUpdateRequest: {
+            max_clients?: number;
+            specialization?: string | null;
+        };
+        /** @description Payload for updating user profile (full_name and phone only). */
+        PatchedUserProfileUpdateRequest: {
+            full_name?: string;
+            phone?: string;
+        };
+        /**
+         * @description * `cash` - cash
+         *     * `bank_transfer` - bank_transfer
+         *     * `none` - none
+         *     * `no_payment` - no_payment
+         * @enum {string}
+         */
+        PaymentMethodEnum: "cash" | "bank_transfer" | "none" | "no_payment";
+        /** @description Response containing proposed candidate subdomain. */
+        ProposeSubdomainResponse: {
+            subdomain: string;
+        };
+        /** @description Public serializer for lead demo request submissions with honeypot field. */
+        PublicDemoRequestRequest: {
+            gym_name: string;
+            contact_name: string;
+            phone: string;
+            /** @default  */
+            city: string;
+            email?: string;
+            /** @default  */
+            message: string;
+            /** @default  */
+            website: string;
+        };
+        PublicDemoRequestResponse: {
+            detail: string;
+            id?: string;
+        };
+        /**
+         * @description Serializer for public self-service registration on gym subdomains.
+         *     Requires health waiver acceptance and password. Registration captures no body measurements.
+         */
+        PublicMemberRegistrationRequest: {
+            full_name: string;
+            /** Format: email */
+            email: string;
+            phone: string;
+            password: string;
+            waiver_accepted: boolean;
+            /** Format: date */
+            date_of_birth?: string | null;
+            gender: components["schemas"]["GenderEnum"];
+            emergency_contact?: string;
+            referral_source?: string;
+            photo_url?: string;
+        };
+        /** @description Public read-only serializer for active membership plans. */
+        PublicPlan: {
+            /** Format: uuid */
+            readonly id: string;
+            readonly name: string;
+            readonly description: string;
+            readonly duration_value: number;
+            readonly duration_unit: components["schemas"]["DurationUnitEnum"];
+            /** Format: decimal */
+            readonly price_etb: string;
+            readonly trainer_inclusive: boolean;
+        };
+        /** @description Read-only digital receipt representation. */
+        Receipt: {
+            /** Format: uuid */
+            readonly id: string;
+            readonly receipt_number: string;
+            readonly sequence_number: number;
+            /** Format: date-time */
+            readonly issued_at: string;
+            /** Format: uuid */
+            readonly issued_by_id: string | null;
+            readonly issued_by_name: string;
+            /** Format: decimal */
+            readonly amount_etb: string;
+            readonly currency: string;
+            readonly payment_method: string;
+            readonly bank_reference: string | null;
+            readonly transfer_channel: string | null;
+            readonly is_reversed: boolean;
+            readonly reversed_at: string;
+            readonly reversal_reason: string;
+            readonly member_name: string;
+            readonly member_phone: string;
+            readonly plan_name: string;
+            readonly plan_duration: string;
+            readonly notes: string;
+            readonly gym_name: string;
+            readonly gym_subdomain: string;
+        };
+        /** @description Owner bulk or single reconciliation request. */
+        ReconcileBankTransfersRequest: {
+            payment_ids: string[];
+        };
+        /** @description Input serializer to record a bank-transfer payment. */
+        RecordBankTransferPaymentRequestRequest: {
+            /** Format: uuid */
+            member_id: string;
+            /** Format: uuid */
+            plan_id: string;
+            bank_reference: string;
+            /** Format: date */
+            transfer_date: string;
+            /** @default  */
+            channel: string;
+            /** @default  */
+            notes: string;
+            /** @default  */
+            idempotency_key: string;
+        };
+        /** @description Output serializer for bank-transfer payment confirmation. */
+        RecordBankTransferResponse: {
+            /** Format: uuid */
+            payment_id: string;
+            receipt: components["schemas"]["Receipt"];
+            status: string;
+            /** Format: decimal */
+            amount_etb: string;
+            bank_reference: string;
+            is_reconciled: boolean;
+            detail: string;
+        };
+        /**
+         * @description Serializer for recording or correcting body metrics entries by a Trainer.
+         *     Weight (kg) and height (cm) are required on new records; all circumference
+         *     and vitals measurements are optional.
+         */
+        RecordBodyMetricsRequest: {
+            /** Format: decimal */
+            weight_kg?: string | null;
+            /** Format: decimal */
+            height_cm?: string | null;
+            /** Format: decimal */
+            waist_cm?: string | null;
+            /** Format: decimal */
+            neck_cm?: string | null;
+            /** Format: decimal */
+            hip_cm?: string | null;
+            /** Format: decimal */
+            chest_cm?: string | null;
+            /** Format: decimal */
+            bicep_left_cm?: string | null;
+            /** Format: decimal */
+            bicep_right_cm?: string | null;
+            /** Format: decimal */
+            thigh_left_cm?: string | null;
+            /** Format: decimal */
+            thigh_right_cm?: string | null;
+            /** Format: decimal */
+            calf_left_cm?: string | null;
+            /** Format: decimal */
+            calf_right_cm?: string | null;
+            resting_heart_rate?: number | null;
+            /** Format: decimal */
+            body_fat_percentage?: string | null;
+            measurements?: {
+                [key: string]: unknown;
+            } | null;
+        };
+        /** @description Input serializer for gym staff recording a cash payment. */
+        RecordCashPaymentRequestRequest: {
+            /** Format: uuid */
+            member_id: string;
+            /** Format: uuid */
+            plan_id: string;
+            /** @default  */
+            notes: string;
+            /** @default  */
+            idempotency_key: string;
+        };
+        /** @description Output serializer for cash payment confirmation. */
+        RecordCashPaymentResponse: {
+            /** Format: uuid */
+            payment_id: string;
+            receipt: components["schemas"]["Receipt"];
+            status: string;
+            /** Format: decimal */
+            amount_etb: string;
+            detail: string;
+        };
+        /** @description Owner reversal request with mandatory reason. */
+        ReverseBankTransferRequest: {
+            reason: string;
+        };
+        /** @description Payload for setting initial password from an invite token. */
+        SetPasswordFromInviteRequestRequest: {
+            token: string;
+            new_password: string;
+        };
+        /** @description Response returned upon successful invite password completion. */
+        SetPasswordFromInviteResponse: {
+            detail: string;
+        };
+        /** @description Response returned upon staff deactivation or reactivation. */
+        StaffActionResponse: {
+            detail: string;
+            user: components["schemas"]["StaffMember"];
+        };
+        /** @description Serializer representing a staff member in the gym tenant. */
+        StaffMember: {
+            /** Format: uuid */
+            readonly id: string;
+            /** Format: email */
+            readonly email: string;
+            readonly role: components["schemas"]["UserRoleEnum"];
+            /** Format: uuid */
+            readonly gym_id: string | null;
+            readonly full_name: string;
+            readonly phone: string;
+            readonly is_active: boolean;
+            /** Format: date-time */
+            readonly email_verified_at: string | null;
+            /** Format: date-time */
+            readonly created_at: string;
+            readonly invitation_status: string;
+            readonly email_delivery_message: string | null;
+        };
+        /**
+         * @description Serializer for staff-assisted member registration (Owner, Manager, Reception).
+         *     Does not require a password; generates set-password invite link instead.
+         *     Integrates optional upfront payment (Cash, Bank transfer, or None).
+         */
+        StaffMemberRegistrationRequest: {
+            full_name: string;
+            /** Format: email */
+            email: string;
+            phone: string;
+            waiver_accepted: boolean;
+            /** Format: date */
+            date_of_birth?: string | null;
+            gender: components["schemas"]["GenderEnum"];
+            emergency_contact?: string;
+            referral_source?: string;
+            photo_url?: string;
+            /** @default none */
+            payment_method: components["schemas"]["PaymentMethodEnum"];
+            /** Format: uuid */
+            plan_id?: string | null;
+            idempotency_key?: string;
+            notes?: string;
+            bank_reference?: string;
+            /** Format: date */
+            transfer_date?: string | null;
+            channel?: string;
+            /** Format: binary */
+            screenshot?: string | null;
+        };
+        /**
+         * @description * `pending` - Pending
+         *     * `active` - Active
+         *     * `expired` - Expired
+         *     * `frozen` - Frozen
+         *     * `suspended` - Suspended
+         * @enum {string}
+         */
+        Status1d7Enum: "pending" | "active" | "expired" | "frozen" | "suspended";
+        /** @description Platform administration view of gym payment mode (test vs live) without exposing keys. */
+        SuperAdminGymPaymentStatus: {
+            /** Format: uuid */
+            gym_id: string;
+            gym_name: string;
+            subdomain: string;
+            is_configured: boolean;
+            is_test_mode: boolean;
+            is_verified: boolean;
+        };
+        /** @description Response for created Super Admin. */
+        SuperAdminResponse: {
+            /** Format: uuid */
+            readonly id: string;
+            /** Format: email */
+            readonly email: string;
+            readonly role: components["schemas"]["UserRoleEnum"];
+            readonly must_change_password: boolean;
+            /** Format: date-time */
+            readonly created_at: string;
+        };
+        /**
+         * @description * `starter` - Starter
+         *     * `growth` - Growth
+         *     * `pro` - Pro
+         * @enum {string}
+         */
+        TierEnum: "starter" | "growth" | "pro";
+        /** @description Payload for token refresh. */
+        TokenRefreshRequestRequest: {
+            refresh: string;
+        };
+        /** @description Response containing refreshed access token. */
+        TokenRefreshResponse: {
+            access: string;
+        };
+        Trainer: {
+            /** Format: uuid */
+            readonly id: string;
+            readonly user: components["schemas"]["TrainerUser"];
+            readonly photo_url: string;
+            specialization?: string | null;
+            max_clients: number;
+            readonly client_count: number;
+            /** Format: date-time */
+            readonly created_at: string;
+            /** Format: date-time */
+            readonly updated_at: string;
+        };
+        TrainerAssignmentDetail: {
+            /** Format: uuid */
+            readonly id: string;
+            readonly member: string;
+            readonly trainer: components["schemas"]["Trainer"];
+            /** Format: date-time */
+            assigned_at?: string;
+            /** Format: date-time */
+            ended_at?: string | null;
+            readonly assigned_by: components["schemas"]["TrainerUser"];
+        };
+        TrainerCapacityUpdateResponse: {
+            detail: string;
+            warning?: string | null;
+            trainer: components["schemas"]["Trainer"];
+        };
+        TrainerMyClient: {
+            /** Format: uuid */
+            assignment_id: string;
+            /** Format: uuid */
+            member_id: string;
+            member_name: string;
+            member_phone: string;
+            /** @default  */
+            photo_url: string;
+            plan_name: string;
+            /** Format: date-time */
+            assigned_at: string;
+            /** @default false */
+            has_measurements: boolean;
+        };
+        TrainerUser: {
+            /** Format: uuid */
+            readonly id: string;
+            /** Format: email */
+            readonly email: string;
+            readonly full_name: string;
+            readonly phone: string;
+            readonly is_active: boolean;
+        };
+        UnassignedMember: {
+            /** Format: uuid */
+            member_id: string;
+            full_name: string;
+            phone: string;
+            status: string;
+            plan_name: string;
+            /** Format: uuid */
+            subscription_id: string;
+            /** Format: date */
+            start_date: string;
+            /** Format: date */
+            end_date: string;
+        };
+        /** @description Owner view of an unreconciled bank transfer. */
+        UnreconciledBankTransferItem: {
+            /** Format: uuid */
+            id: string;
+            /** Format: date */
+            transfer_date: string | null;
+            /** Format: date-time */
+            created_at: string;
+            bank_reference: string;
+            channel: string;
+            /** Format: decimal */
+            amount_etb: string;
+            /** Format: uuid */
+            member_id: string | null;
+            member_name: string;
+            member_phone: string;
+            /** Format: uuid */
+            confirmed_by_id: string | null;
+            confirmed_by_name: string;
+            receipt_number: string;
+            /** @default false */
+            has_screenshot: boolean;
+            screenshot_url?: string | null;
+        };
+        /** @description Upload serializer for gym logo. */
+        UploadGymLogoRequest: {
+            /** Format: binary */
+            logo: string;
+        };
+        /** @description Response returned upon gym logo upload. */
+        UploadGymLogoResponse: {
+            url: string;
+        };
+        /** @description Upload serializer for member photos. */
+        UploadMemberPhotoRequest: {
+            /** Format: binary */
+            photo: string;
+        };
+        /** @description Response returned upon member photo upload. */
+        UploadMemberPhotoResponse: {
+            file_path: string;
+            filename: string;
+            url: string;
+        };
+        /** @description Profile representation of authenticated user. */
+        UserProfile: {
+            /** Format: uuid */
+            readonly id: string;
+            /** Format: email */
+            readonly email: string;
+            readonly role: components["schemas"]["UserRoleEnum"];
+            /** Format: uuid */
+            readonly gym_id: string | null;
+            readonly full_name: string;
+            readonly phone: string;
+            readonly must_change_password: boolean;
+        };
+        /**
+         * @description * `super_admin` - Super Admin
+         *     * `owner` - Owner
+         *     * `manager` - Manager
+         *     * `trainer` - Trainer
+         *     * `reception` - Reception
+         *     * `member` - Member
+         * @enum {string}
+         */
+        UserRoleEnum: "super_admin" | "owner" | "manager" | "trainer" | "reception" | "member";
+        /** @description Minimal representation of authenticated user. */
+        UserSummary: {
+            /** Format: uuid */
+            readonly id: string;
+            /** Format: email */
+            readonly email: string;
+            readonly role: components["schemas"]["UserRoleEnum"];
+            /** Format: uuid */
+            readonly gym_id: string | null;
+            readonly full_name: string;
+            readonly phone: string;
+            readonly must_change_password: boolean;
+        };
+        /** @description Serializer for email verification request. */
+        VerifyEmailRequestRequest: {
+            token: string;
+        };
+    };
+    responses: never;
+    parameters: never;
+    requestBodies: never;
+    headers: never;
+    pathItems: never;
 }
 export type $defs = Record<string, never>;
 export interface operations {
-  attendance_public_key_retrieve: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["AttendancePublicKeyResponse"];
-        };
-      };
-    };
-  };
-  auth_change_password_create: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        "application/json": components["schemas"]["ChangePasswordRequestRequest"];
-        "application/x-www-form-urlencoded": components["schemas"]["ChangePasswordRequestRequest"];
-        "multipart/form-data": components["schemas"]["ChangePasswordRequestRequest"];
-      };
-    };
-    responses: {
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["ChangePasswordResponse"];
-        };
-      };
-      /** @description Validation error */
-      400: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content?: never;
-      };
-      /** @description Unauthorized */
-      401: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content?: never;
-      };
-    };
-  };
-  auth_login_create: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        "application/json": components["schemas"]["LoginRequestRequest"];
-        "application/x-www-form-urlencoded": components["schemas"]["LoginRequestRequest"];
-        "multipart/form-data": components["schemas"]["LoginRequestRequest"];
-      };
-    };
-    responses: {
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["LoginResponse"];
-        };
-      };
-      /** @description Invalid credentials */
-      401: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content?: never;
-      };
-    };
-  };
-  auth_logout_create: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        "application/json": components["schemas"]["LogoutRequestRequest"];
-        "application/x-www-form-urlencoded": components["schemas"]["LogoutRequestRequest"];
-        "multipart/form-data": components["schemas"]["LogoutRequestRequest"];
-      };
-    };
-    responses: {
-      /** @description Successfully logged out */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content?: never;
-      };
-      /** @description Invalid refresh token */
-      400: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content?: never;
-      };
-    };
-  };
-  auth_me_retrieve: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["UserProfile"];
-        };
-      };
-      /** @description Unauthorized */
-      401: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content?: never;
-      };
-      /** @description Password change required */
-      403: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content?: never;
-      };
-    };
-  };
-  auth_me_partial_update: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody?: {
-      content: {
-        "application/json": components["schemas"]["PatchedUserProfileUpdateRequest"];
-        "application/x-www-form-urlencoded": components["schemas"]["PatchedUserProfileUpdateRequest"];
-        "multipart/form-data": components["schemas"]["PatchedUserProfileUpdateRequest"];
-      };
-    };
-    responses: {
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["UserProfile"];
-        };
-      };
-      /** @description Validation error */
-      400: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content?: never;
-      };
-      /** @description Unauthorized */
-      401: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content?: never;
-      };
-      /** @description Password change required */
-      403: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content?: never;
-      };
-    };
-  };
-  auth_password_reset_create: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        "application/json": components["schemas"]["PasswordResetRequestRequest"];
-        "application/x-www-form-urlencoded": components["schemas"]["PasswordResetRequestRequest"];
-        "multipart/form-data": components["schemas"]["PasswordResetRequestRequest"];
-      };
-    };
-    responses: {
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["PasswordResetResponse"];
-        };
-      };
-    };
-  };
-  auth_password_reset_confirm_create: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        "application/json": components["schemas"]["PasswordResetConfirmRequestRequest"];
-        "application/x-www-form-urlencoded": components["schemas"]["PasswordResetConfirmRequestRequest"];
-        "multipart/form-data": components["schemas"]["PasswordResetConfirmRequestRequest"];
-      };
-    };
-    responses: {
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["PasswordResetConfirmResponse"];
-        };
-      };
-      /** @description Invalid token, expired token, or weak password */
-      400: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content?: never;
-      };
-    };
-  };
-  auth_refresh_create: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        "application/json": components["schemas"]["TokenRefreshRequestRequest"];
-        "application/x-www-form-urlencoded": components["schemas"]["TokenRefreshRequestRequest"];
-        "multipart/form-data": components["schemas"]["TokenRefreshRequestRequest"];
-      };
-    };
-    responses: {
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["TokenRefreshResponse"];
-        };
-      };
-      /** @description Invalid or expired refresh token */
-      401: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content?: never;
-      };
-    };
-  };
-  auth_set_password_create: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        "application/json": components["schemas"]["SetPasswordFromInviteRequestRequest"];
-        "application/x-www-form-urlencoded": components["schemas"]["SetPasswordFromInviteRequestRequest"];
-        "multipart/form-data": components["schemas"]["SetPasswordFromInviteRequestRequest"];
-      };
-    };
-    responses: {
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["SetPasswordFromInviteResponse"];
-        };
-      };
-      /** @description Invalid or expired token, or weak password */
-      400: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content?: never;
-      };
-    };
-  };
-  auth_verify_email_create: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        "application/json": components["schemas"]["VerifyEmailRequestRequest"];
-        "application/x-www-form-urlencoded": components["schemas"]["VerifyEmailRequestRequest"];
-        "multipart/form-data": components["schemas"]["VerifyEmailRequestRequest"];
-      };
-    };
-    responses: {
-      /** @description Email verified successfully */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content?: never;
-      };
-      /** @description Invalid or expired token */
-      400: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content?: never;
-      };
-    };
-  };
-  gym_assignments_list: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["TrainerAssignmentDetail"][];
-        };
-      };
-      /** @description Authentication required */
-      401: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content?: never;
-      };
-      /** @description Forbidden */
-      403: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content?: never;
-      };
-    };
-  };
-  gym_assignments_reassign_create: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        "application/json": components["schemas"]["ManualReassignRequestRequest"];
-        "application/x-www-form-urlencoded": components["schemas"]["ManualReassignRequestRequest"];
-        "multipart/form-data": components["schemas"]["ManualReassignRequestRequest"];
-      };
-    };
-    responses: {
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["ManualReassignResponse"];
-        };
-      };
-      /** @description Validation error or capacity confirmation needed */
-      400: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content?: never;
-      };
-      /** @description Authentication required */
-      401: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content?: never;
-      };
-      /** @description Forbidden */
-      403: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content?: never;
-      };
-      /** @description Member or Trainer not found */
-      404: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content?: never;
-      };
-    };
-  };
-  gym_attendance_manual_override_create: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        "application/json": components["schemas"]["AttendanceManualOverrideRequestRequest"];
-        "application/x-www-form-urlencoded": components["schemas"]["AttendanceManualOverrideRequestRequest"];
-        "multipart/form-data": components["schemas"]["AttendanceManualOverrideRequestRequest"];
-      };
-    };
-    responses: {
-      201: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["AttendanceManualOverrideResponse"];
-        };
-      };
-      400: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["AttendanceScanErrorResponse"];
-        };
-      };
-    };
-  };
-  gym_attendance_scan_create: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        "application/json": components["schemas"]["AttendanceScanRequestRequest"];
-        "application/x-www-form-urlencoded": components["schemas"]["AttendanceScanRequestRequest"];
-        "multipart/form-data": components["schemas"]["AttendanceScanRequestRequest"];
-      };
-    };
-    responses: {
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["AttendanceScanResponse"];
-        };
-      };
-      400: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["AttendanceScanErrorResponse"];
-        };
-      };
-    };
-  };
-  gym_attendance_today_retrieve: {
-    parameters: {
-      query?: {
-        /** @description Optional ISO timestamp to filter check-ins newer than this time. */
-        since?: string;
-      };
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["AttendanceTodayListResponse"];
-        };
-      };
-    };
-  };
-  gym_audit_logs_list: {
-    parameters: {
-      query?: {
-        /** @description Filter by exact action type (e.g. user_login, staff_provisioned) */
-        action_type?: string;
-        /** @description Filter by actor UUID */
-        actor_id?: string;
-        /** @description Filter records starting from date (YYYY-MM-DD) or ISO timestamp */
-        date_from?: string;
-        /** @description Filter records ending at date (YYYY-MM-DD) or ISO timestamp */
-        date_to?: string;
-        /** @description Page number */
-        page?: number;
-        /** @description Number of records per page (default 20, max 100) */
-        page_size?: number;
-        /** @description Search query across actor email, action type, or affected record */
-        search?: string;
-      };
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["PaginatedAuditLogList"];
-        };
-      };
-      /** @description Authentication required */
-      401: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content?: never;
-      };
-      /** @description Forbidden */
-      403: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content?: never;
-      };
-    };
-  };
-  gym_checklist_retrieve: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["FirstRunChecklistResponse"];
-        };
-      };
-      /** @description Forbidden - only Owner permitted */
-      403: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content?: never;
-      };
-    };
-  };
-  gym_checklist_dismiss_create: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["DismissChecklistResponse"];
-        };
-      };
-      /** @description Forbidden - only Owner permitted */
-      403: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content?: never;
-      };
-    };
-  };
-  gym_freezes_list: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["MemberFreeze"][];
-        };
-      };
-    };
-  };
-  gym_freezes_approve_create: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        freeze_id: string;
-      };
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["MemberFreeze"];
-        };
-      };
-      /** @description Validation error */
-      400: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content?: never;
-      };
-      /** @description Permission denied */
-      403: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content?: never;
-      };
-    };
-  };
-  gym_freezes_end_early_create: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        freeze_id: string;
-      };
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["MemberFreeze"];
-        };
-      };
-      /** @description Validation error */
-      400: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content?: never;
-      };
-      /** @description Permission denied */
-      403: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content?: never;
-      };
-    };
-  };
-  gym_freezes_reject_create: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        freeze_id: string;
-      };
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        "application/json": components["schemas"]["MemberFreezeRejectRequest"];
-        "application/x-www-form-urlencoded": components["schemas"]["MemberFreezeRejectRequest"];
-        "multipart/form-data": components["schemas"]["MemberFreezeRejectRequest"];
-      };
-    };
-    responses: {
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["MemberFreeze"];
-        };
-      };
-      /** @description Validation error */
-      400: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content?: never;
-      };
-      /** @description Permission denied */
-      403: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content?: never;
-      };
-    };
-  };
-  gym_members_list: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["Member"][];
-        };
-      };
-    };
-  };
-  gym_members_create: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        "multipart/form-data": components["schemas"]["StaffMemberRegistrationRequest"];
-        "application/x-www-form-urlencoded": components["schemas"]["StaffMemberRegistrationRequest"];
-        "application/json": components["schemas"]["StaffMemberRegistrationRequest"];
-      };
-    };
-    responses: {
-      201: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["Member"];
-        };
-      };
-      /** @description Validation error or duplicate */
-      400: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content?: never;
-      };
-      /** @description Forbidden - Trainers cannot register members */
-      403: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content?: never;
-      };
-    };
-  };
-  gym_members_end_freeze_early_create: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        member_id: string;
-      };
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["MemberFreeze"];
-        };
-      };
-      /** @description Validation error */
-      400: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content?: never;
-      };
-      /** @description Permission denied */
-      403: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content?: never;
-      };
-      /** @description Member or freeze not found */
-      404: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content?: never;
-      };
-    };
-  };
-  gym_members_fitness_profile_retrieve: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        member_id: string;
-      };
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["FitnessProfile"];
-        };
-      };
-    };
-  };
-  gym_members_fitness_profile_update: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        member_id: string;
-      };
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        "application/json": components["schemas"]["FitnessProfileRequest"];
-        "application/x-www-form-urlencoded": components["schemas"]["FitnessProfileRequest"];
-        "multipart/form-data": components["schemas"]["FitnessProfileRequest"];
-      };
-    };
-    responses: {
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["FitnessProfile"];
-        };
-      };
-    };
-  };
-  gym_members_fitness_profile_create: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        member_id: string;
-      };
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        "application/json": components["schemas"]["FitnessProfileRequest"];
-        "application/x-www-form-urlencoded": components["schemas"]["FitnessProfileRequest"];
-        "multipart/form-data": components["schemas"]["FitnessProfileRequest"];
-      };
-    };
-    responses: {
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["FitnessProfile"];
-        };
-      };
-    };
-  };
-  gym_members_fitness_profile_partial_update: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        member_id: string;
-      };
-      cookie?: never;
-    };
-    requestBody?: {
-      content: {
-        "application/json": components["schemas"]["PatchedFitnessProfileRequest"];
-        "application/x-www-form-urlencoded": components["schemas"]["PatchedFitnessProfileRequest"];
-        "multipart/form-data": components["schemas"]["PatchedFitnessProfileRequest"];
-      };
-    };
-    responses: {
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["FitnessProfile"];
-        };
-      };
-    };
-  };
-  gym_members_retrieve: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        id: string;
-      };
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["MemberDetail"];
-        };
-      };
-      /** @description Not found */
-      404: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content?: never;
-      };
-    };
-  };
-  gym_members_partial_update: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        id: string;
-      };
-      cookie?: never;
-    };
-    requestBody?: {
-      content: {
-        "application/json": components["schemas"]["PatchedMemberUpdateRequest"];
-        "application/x-www-form-urlencoded": components["schemas"]["PatchedMemberUpdateRequest"];
-        "multipart/form-data": components["schemas"]["PatchedMemberUpdateRequest"];
-      };
-    };
-    responses: {
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["MemberDetail"];
-        };
-      };
-      /** @description Validation error */
-      400: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content?: never;
-      };
-      /** @description Forbidden */
-      403: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content?: never;
-      };
-      /** @description Not found */
-      404: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content?: never;
-      };
-    };
-  };
-  gym_members_attendance_retrieve: {
-    parameters: {
-      query?: {
-        /** @description End date (YYYY-MM-DD). Defaults to today. */
-        end_date?: string;
-        /** @description Start date (YYYY-MM-DD). Defaults to 30 days ago. */
-        start_date?: string;
-      };
-      header?: never;
-      path: {
-        id: string;
-      };
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["AttendanceLogResponse"];
-        };
-      };
-    };
-  };
-  gym_members_metrics_list: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        id: string;
-      };
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["BodyMetrics"][];
-        };
-      };
-      /** @description Forbidden */
-      403: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content?: never;
-      };
-      /** @description Member not found */
-      404: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content?: never;
-      };
-    };
-  };
-  gym_members_metrics_create: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        id: string;
-      };
-      cookie?: never;
-    };
-    requestBody?: {
-      content: {
-        "application/json": components["schemas"]["RecordBodyMetricsRequest"];
-        "application/x-www-form-urlencoded": components["schemas"]["RecordBodyMetricsRequest"];
-        "multipart/form-data": components["schemas"]["RecordBodyMetricsRequest"];
-      };
-    };
-    responses: {
-      201: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["BodyMetrics"];
-        };
-      };
-      /** @description Validation error */
-      400: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content?: never;
-      };
-      /** @description Forbidden - Trainer only */
-      403: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content?: never;
-      };
-      /** @description Member not found */
-      404: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content?: never;
-      };
-    };
-  };
-  gym_members_metrics_partial_update: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        id: string;
-      };
-      cookie?: never;
-    };
-    requestBody?: {
-      content: {
-        "application/json": components["schemas"]["PatchedRecordBodyMetricsRequest"];
-        "application/x-www-form-urlencoded": components["schemas"]["PatchedRecordBodyMetricsRequest"];
-        "multipart/form-data": components["schemas"]["PatchedRecordBodyMetricsRequest"];
-      };
-    };
-    responses: {
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["BodyMetrics"];
-        };
-      };
-      /** @description Validation error or not latest entry */
-      400: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content?: never;
-      };
-      /** @description Forbidden - Trainer only for assigned client */
-      403: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content?: never;
-      };
-      /** @description Member or metric not found */
-      404: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content?: never;
-      };
-    };
-  };
-  gym_members_reactivate_create: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        id: string;
-      };
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Member reactivated */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content?: never;
-      };
-    };
-  };
-  gym_members_suspend_create: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        id: string;
-      };
-      cookie?: never;
-    };
-    requestBody?: {
-      content: {
-        "application/json": components["schemas"]["MemberSuspendRequestRequest"];
-        "application/x-www-form-urlencoded": components["schemas"]["MemberSuspendRequestRequest"];
-        "multipart/form-data": components["schemas"]["MemberSuspendRequestRequest"];
-      };
-    };
-    responses: {
-      /** @description Member suspended */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content?: never;
-      };
-    };
-  };
-  gym_membership_plans_list: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["MembershipPlan"][];
-        };
-      };
-    };
-  };
-  gym_membership_plans_create: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        "application/json": components["schemas"]["MembershipPlanRequest"];
-        "application/x-www-form-urlencoded": components["schemas"]["MembershipPlanRequest"];
-        "multipart/form-data": components["schemas"]["MembershipPlanRequest"];
-      };
-    };
-    responses: {
-      201: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["MembershipPlan"];
-        };
-      };
-      /** @description Validation error */
-      400: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content?: never;
-      };
-      /** @description Forbidden */
-      403: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content?: never;
-      };
-    };
-  };
-  gym_membership_plans_retrieve: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        id: string;
-      };
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["MembershipPlan"];
-        };
-      };
-    };
-  };
-  gym_membership_plans_destroy: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        id: string;
-      };
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Plan deactivated */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content?: never;
-      };
-    };
-  };
-  gym_membership_plans_partial_update: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        id: string;
-      };
-      cookie?: never;
-    };
-    requestBody?: {
-      content: {
-        "application/json": components["schemas"]["PatchedMembershipPlanRequest"];
-        "application/x-www-form-urlencoded": components["schemas"]["PatchedMembershipPlanRequest"];
-        "multipart/form-data": components["schemas"]["PatchedMembershipPlanRequest"];
-      };
-    };
-    responses: {
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["MembershipPlan"];
-        };
-      };
-      /** @description Forbidden */
-      403: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content?: never;
-      };
-    };
-  };
-  gym_membership_plans_public_list: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["PublicPlan"][];
-        };
-      };
-    };
-  };
-  gym_payment_config_retrieve: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["GymPaymentConfig"];
-        };
-      };
-    };
-  };
-  gym_payment_config_update: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["GymPaymentConfig"];
-        };
-      };
-    };
-  };
-  gym_payment_config_partial_update: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody?: {
-      content: {
-        "application/json": components["schemas"]["PatchedGymPaymentConfigUpdateRequest"];
-        "application/x-www-form-urlencoded": components["schemas"]["PatchedGymPaymentConfigUpdateRequest"];
-        "multipart/form-data": components["schemas"]["PatchedGymPaymentConfigUpdateRequest"];
-      };
-    };
-    responses: {
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["GymPaymentConfig"];
-        };
-      };
-    };
-  };
-  gym_payment_config_test_create: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Connection verified successfully */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content?: never;
-      };
-      /** @description Connection verification failed */
-      400: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content?: never;
-      };
-    };
-  };
-  gym_payments_retrieve: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Paginated payment list with confirmed revenue total */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content?: never;
-      };
-    };
-  };
-  gym_payments_reverse_create: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        payment_id: string;
-      };
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        "application/json": components["schemas"]["ReverseBankTransferRequest"];
-        "application/x-www-form-urlencoded": components["schemas"]["ReverseBankTransferRequest"];
-        "multipart/form-data": components["schemas"]["ReverseBankTransferRequest"];
-      };
-    };
-    responses: {
-      /** @description Reversal result */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content?: never;
-      };
-    };
-  };
-  gym_payments_bank_transfer_create: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        "multipart/form-data": components["schemas"]["RecordBankTransferPaymentRequestRequest"];
-        "application/x-www-form-urlencoded": components["schemas"]["RecordBankTransferPaymentRequestRequest"];
-        "application/json": components["schemas"]["RecordBankTransferPaymentRequestRequest"];
-      };
-    };
-    responses: {
-      201: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["RecordBankTransferResponse"];
-        };
-      };
-      /** @description Validation error or duplicate reference */
-      400: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content?: never;
-      };
-      /** @description Permission denied */
-      403: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content?: never;
-      };
-    };
-  };
-  gym_payments_bank_transfers_screenshot_retrieve: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        payment_id: string;
-      };
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Screenshot image stream */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content?: never;
-      };
-      /** @description Permission denied */
-      403: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content?: never;
-      };
-      /** @description Screenshot or payment not found */
-      404: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content?: never;
-      };
-    };
-  };
-  gym_payments_bank_transfers_reconcile_create: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        "application/json": components["schemas"]["ReconcileBankTransfersRequest"];
-        "application/x-www-form-urlencoded": components["schemas"]["ReconcileBankTransfersRequest"];
-        "multipart/form-data": components["schemas"]["ReconcileBankTransfersRequest"];
-      };
-    };
-    responses: {
-      /** @description Reconciliation result */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content?: never;
-      };
-    };
-  };
-  gym_payments_bank_transfers_unreconciled_list: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["UnreconciledBankTransferItem"][];
-        };
-      };
-    };
-  };
-  gym_payments_cash_create: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        "application/json": components["schemas"]["RecordCashPaymentRequestRequest"];
-        "application/x-www-form-urlencoded": components["schemas"]["RecordCashPaymentRequestRequest"];
-        "multipart/form-data": components["schemas"]["RecordCashPaymentRequestRequest"];
-      };
-    };
-    responses: {
-      201: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["RecordCashPaymentResponse"];
-        };
-      };
-      /** @description Validation error or cross-gym entity */
-      400: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content?: never;
-      };
-      /** @description Unauthorized role or cross-gym staff */
-      403: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content?: never;
-      };
-      /** @description Member or plan not found */
-      404: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content?: never;
-      };
-    };
-  };
-  gym_payments_public_status_retrieve: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Online payment status */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content?: never;
-      };
-    };
-  };
-  gym_plans_list: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["MembershipPlan"][];
-        };
-      };
-    };
-  };
-  gym_plans_create: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        "application/json": components["schemas"]["MembershipPlanRequest"];
-        "application/x-www-form-urlencoded": components["schemas"]["MembershipPlanRequest"];
-        "multipart/form-data": components["schemas"]["MembershipPlanRequest"];
-      };
-    };
-    responses: {
-      201: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["MembershipPlan"];
-        };
-      };
-      /** @description Validation error */
-      400: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content?: never;
-      };
-      /** @description Forbidden */
-      403: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content?: never;
-      };
-    };
-  };
-  gym_plans_retrieve: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        id: string;
-      };
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["MembershipPlan"];
-        };
-      };
-    };
-  };
-  gym_plans_destroy: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        id: string;
-      };
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Plan deactivated */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content?: never;
-      };
-    };
-  };
-  gym_plans_partial_update: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        id: string;
-      };
-      cookie?: never;
-    };
-    requestBody?: {
-      content: {
-        "application/json": components["schemas"]["PatchedMembershipPlanRequest"];
-        "application/x-www-form-urlencoded": components["schemas"]["PatchedMembershipPlanRequest"];
-        "multipart/form-data": components["schemas"]["PatchedMembershipPlanRequest"];
-      };
-    };
-    responses: {
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["MembershipPlan"];
-        };
-      };
-      /** @description Forbidden */
-      403: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content?: never;
-      };
-    };
-  };
-  gym_receipts_retrieve: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        receipt_id: string;
-      };
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["Receipt"];
-        };
-      };
-    };
-  };
-  gym_settings_retrieve: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["GymConfig"];
-        };
-      };
-    };
-  };
-  gym_settings_partial_update: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody?: {
-      content: {
-        "application/json": components["schemas"]["PatchedGymSettingsUpdateRequest"];
-        "application/x-www-form-urlencoded": components["schemas"]["PatchedGymSettingsUpdateRequest"];
-        "multipart/form-data": components["schemas"]["PatchedGymSettingsUpdateRequest"];
-      };
-    };
-    responses: {
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["GymConfig"];
-        };
-      };
-      /** @description Validation error */
-      400: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content?: never;
-      };
-      /** @description Forbidden - entitlements restricted to Super Admin or non-Owner access */
-      403: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content?: never;
-      };
-    };
-  };
-  gym_staff_list: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["StaffMember"][];
-        };
-      };
-      /** @description Authentication required */
-      401: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content?: never;
-      };
-      /** @description Forbidden */
-      403: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content?: never;
-      };
-    };
-  };
-  gym_staff_create: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        "application/json": components["schemas"]["InviteStaffRequestRequest"];
-        "application/x-www-form-urlencoded": components["schemas"]["InviteStaffRequestRequest"];
-        "multipart/form-data": components["schemas"]["InviteStaffRequestRequest"];
-      };
-    };
-    responses: {
-      201: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["InviteStaffResponse"];
-        };
-      };
-      /** @description Validation error */
-      400: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content?: never;
-      };
-      /** @description Authentication required */
-      401: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content?: never;
-      };
-      /** @description Forbidden */
-      403: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content?: never;
-      };
-    };
-  };
-  gym_staff_deactivate_create: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        user_id: string;
-      };
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["StaffActionResponse"];
-        };
-      };
-      /** @description Authentication required */
-      401: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content?: never;
-      };
-      /** @description Forbidden */
-      403: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content?: never;
-      };
-      /** @description Staff member not found */
-      404: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content?: never;
-      };
-    };
-  };
-  gym_staff_reactivate_create: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        user_id: string;
-      };
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["StaffActionResponse"];
-        };
-      };
-      /** @description Authentication required */
-      401: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content?: never;
-      };
-      /** @description Forbidden */
-      403: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content?: never;
-      };
-      /** @description Staff member not found */
-      404: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content?: never;
-      };
-    };
-  };
-  gym_staff_resend_invite_create: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        user_id: string;
-      };
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Invitation resent successfully */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content?: never;
-      };
-      /** @description Invalid request or recipient suppressed */
-      400: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content?: never;
-      };
-      /** @description Forbidden */
-      403: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content?: never;
-      };
-      /** @description Staff member not found */
-      404: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content?: never;
-      };
-      /** @description Daily resend limit reached */
-      429: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content?: never;
-      };
-    };
-  };
-  gym_trainers_list: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["Trainer"][];
-        };
-      };
-      /** @description Authentication required */
-      401: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content?: never;
-      };
-      /** @description Permission denied or trainer module not enabled */
-      403: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content?: never;
-      };
-    };
-  };
-  gym_trainers_retrieve: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        id: string;
-      };
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["Trainer"];
-        };
-      };
-      /** @description Authentication required */
-      401: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content?: never;
-      };
-      /** @description Permission denied or trainer module not enabled */
-      403: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content?: never;
-      };
-      /** @description Trainer not found */
-      404: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content?: never;
-      };
-    };
-  };
-  gym_trainers_partial_update: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        id: string;
-      };
-      cookie?: never;
-    };
-    requestBody?: {
-      content: {
-        "application/json": components["schemas"]["PatchedTrainerCapacityUpdateRequest"];
-        "application/x-www-form-urlencoded": components["schemas"]["PatchedTrainerCapacityUpdateRequest"];
-        "multipart/form-data": components["schemas"]["PatchedTrainerCapacityUpdateRequest"];
-      };
-    };
-    responses: {
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["TrainerCapacityUpdateResponse"];
-        };
-      };
-      /** @description Invalid capacity value */
-      400: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content?: never;
-      };
-      /** @description Authentication required */
-      401: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content?: never;
-      };
-      /** @description Permission denied or trainer module not enabled */
-      403: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content?: never;
-      };
-      /** @description Trainer not found */
-      404: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content?: never;
-      };
-    };
-  };
-  gym_unassigned_members_list: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["UnassignedMember"][];
-        };
-      };
-      /** @description Authentication required */
-      401: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content?: never;
-      };
-      /** @description Forbidden */
-      403: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content?: never;
-      };
-    };
-  };
-  health_retrieve: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["HealthCheckResponse"];
-        };
-      };
-    };
-  };
-  media_gym_logo_create: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        gym_id: string;
-      };
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        "multipart/form-data": components["schemas"]["UploadGymLogoRequest"];
-        "application/x-www-form-urlencoded": components["schemas"]["UploadGymLogoRequest"];
-      };
-    };
-    responses: {
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["UploadGymLogoResponse"];
-        };
-      };
-      /** @description Validation error or missing file */
-      400: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content?: never;
-      };
-      /** @description Forbidden - only Owner permitted */
-      403: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content?: never;
-      };
-      /** @description Tenant mismatch */
-      404: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content?: never;
-      };
-    };
-  };
-  media_member_photos_retrieve: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        gym_id: string;
-      };
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description No response body */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content?: never;
-      };
-    };
-  };
-  media_member_photos_create: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        gym_id: string;
-      };
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        "multipart/form-data": components["schemas"]["UploadMemberPhotoRequest"];
-        "application/x-www-form-urlencoded": components["schemas"]["UploadMemberPhotoRequest"];
-      };
-    };
-    responses: {
-      201: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["UploadMemberPhotoResponse"];
-        };
-      };
-      /** @description Validation error or missing file */
-      400: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content?: never;
-      };
-      /** @description Forbidden - cross-tenant access denied */
-      403: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content?: never;
-      };
-      /** @description Tenant mismatch */
-      404: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content?: never;
-      };
-    };
-  };
-  media_member_photos_retrieve_2: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        filename: string;
-        gym_id: string;
-      };
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Image WebP stream */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content?: never;
-      };
-      /** @description Invalid request or filename format */
-      400: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content?: never;
-      };
-      /** @description Authentication credentials required */
-      401: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content?: never;
-      };
-      /** @description Forbidden - user belongs to different gym or unauthorized role */
-      403: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content?: never;
-      };
-      /** @description Photo not found or tenant mismatch */
-      404: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content?: never;
-      };
-    };
-  };
-  members_me_retrieve: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["MemberDetail"];
-        };
-      };
-    };
-  };
-  members_me_partial_update: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody?: {
-      content: {
-        "application/json": components["schemas"]["PatchedMemberUpdateRequest"];
-        "application/x-www-form-urlencoded": components["schemas"]["PatchedMemberUpdateRequest"];
-        "multipart/form-data": components["schemas"]["PatchedMemberUpdateRequest"];
-      };
-    };
-    responses: {
-      /** @description Forbidden - members cannot edit details */
-      403: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content?: never;
-      };
-    };
-  };
-  members_me_attendance_retrieve: {
-    parameters: {
-      query?: {
-        /** @description End date (YYYY-MM-DD). Defaults to today. */
-        end_date?: string;
-        /** @description Start date (YYYY-MM-DD). Defaults to 30 days ago. */
-        start_date?: string;
-      };
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["AttendanceLogResponse"];
-        };
-      };
-    };
-  };
-  members_me_fitness_profile_retrieve: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["FitnessProfile"];
-        };
-      };
-    };
-  };
-  members_me_metrics_list: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["BodyMetrics"][];
-        };
-      };
-    };
-  };
-  members_me_metrics_create: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Forbidden */
-      403: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content?: never;
-      };
-    };
-  };
-  members_me_qr_token_retrieve: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["MemberQrTokenResponse"];
-        };
-      };
-      400: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["MemberQrTokenErrorResponse"];
-        };
-      };
-    };
-  };
-  members_me_qr_token_create: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["MemberQrTokenResponse"];
-        };
-      };
-      400: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["MemberQrTokenErrorResponse"];
-        };
-      };
-    };
-  };
-  memberships_freezes_create: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        "application/json": components["schemas"]["MemberFreezeRequestRequest"];
-        "application/x-www-form-urlencoded": components["schemas"]["MemberFreezeRequestRequest"];
-        "multipart/form-data": components["schemas"]["MemberFreezeRequestRequest"];
-      };
-    };
-    responses: {
-      201: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["MemberFreeze"];
-        };
-      };
-      /** @description Validation error or allowance exceeded */
-      400: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content?: never;
-      };
-      /** @description Permission denied */
-      403: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content?: never;
-      };
-    };
-  };
-  memberships_freezes_allowance_retrieve: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["MemberFreezeAllowance"];
-        };
-      };
-    };
-  };
-  memberships_freezes_mine_list: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["MemberFreeze"][];
-        };
-      };
-    };
-  };
-  notifications_list: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["Notification"][];
-        };
-      };
-      /** @description Authentication required */
-      401: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content?: never;
-      };
-    };
-  };
-  notifications_read_create: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        id: string;
-      };
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Notification marked as read */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content?: never;
-      };
-      /** @description Authentication required */
-      401: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content?: never;
-      };
-      /** @description Notification not found */
-      404: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content?: never;
-      };
-    };
-  };
-  notifications_mark_all_read_create: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description All notifications marked as read */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content?: never;
-      };
-      /** @description Authentication required */
-      401: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content?: never;
-      };
-    };
-  };
-  payments_checkout_chapa_create: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        "application/json": components["schemas"]["ChapaCheckoutRequestRequest"];
-        "application/x-www-form-urlencoded": components["schemas"]["ChapaCheckoutRequestRequest"];
-        "multipart/form-data": components["schemas"]["ChapaCheckoutRequestRequest"];
-      };
-    };
-    responses: {
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["ChapaCheckoutResponse"];
-        };
-      };
-      /** @description Online payment disabled or invalid plan */
-      400: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content?: never;
-      };
-      /** @description Payment gateway initialization failed */
-      502: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content?: never;
-      };
-    };
-  };
-  payments_history_list: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["MemberPaymentHistoryItem"][];
-        };
-      };
-    };
-  };
-  payments_status_retrieve: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        reference: string;
-      };
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["MemberPaymentStatus"];
-        };
-      };
-      /** @description Payment not found */
-      404: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content?: never;
-      };
-    };
-  };
-  platform_audit_logs_list: {
-    parameters: {
-      query?: {
-        /** @description Filter by exact action type */
-        action_type?: string;
-        /** @description Filter by actor UUID */
-        actor_id?: string;
-        /** @description Filter records starting from date (YYYY-MM-DD) or ISO timestamp */
-        date_from?: string;
-        /** @description Filter records ending at date (YYYY-MM-DD) or ISO timestamp */
-        date_to?: string;
-        /** @description Filter records by gym UUID */
-        gym_id?: string;
-        /** @description Page number */
-        page?: number;
-        /** @description Number of records per page (default 20, max 100) */
-        page_size?: number;
-        /** @description Search query across actor email, action type, or affected record */
-        search?: string;
-      };
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["PaginatedAuditLogList"];
-        };
-      };
-      /** @description Authentication required */
-      401: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content?: never;
-      };
-      /** @description Forbidden */
-      403: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content?: never;
-      };
-    };
-  };
-  platform_demo_requests_list: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["DemoRequest"][];
-        };
-      };
-    };
-  };
-  platform_demo_requests_retrieve: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        id: string;
-      };
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["DemoRequest"];
-        };
-      };
-      /** @description Not found */
-      404: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content?: never;
-      };
-    };
-  };
-  platform_demo_requests_partial_update: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        id: string;
-      };
-      cookie?: never;
-    };
-    requestBody?: {
-      content: {
-        "application/json": components["schemas"]["PatchedDemoRequestUpdateRequest"];
-        "application/x-www-form-urlencoded": components["schemas"]["PatchedDemoRequestUpdateRequest"];
-        "multipart/form-data": components["schemas"]["PatchedDemoRequestUpdateRequest"];
-      };
-    };
-    responses: {
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["DemoRequest"];
-        };
-      };
-      /** @description Bad request */
-      400: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content?: never;
-      };
-      /** @description Not found */
-      404: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content?: never;
-      };
-    };
-  };
-  platform_demo_requests_convert_retrieve: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        id: string;
-      };
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["DemoRequestConvertResponse"];
-        };
-      };
-      /** @description Not found */
-      404: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content?: never;
-      };
-    };
-  };
-  platform_demo_requests_public_create: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        "application/json": components["schemas"]["PublicDemoRequestRequest"];
-        "application/x-www-form-urlencoded": components["schemas"]["PublicDemoRequestRequest"];
-        "multipart/form-data": components["schemas"]["PublicDemoRequestRequest"];
-      };
-    };
-    responses: {
-      201: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["PublicDemoRequestResponse"];
-        };
-      };
-      /** @description Bad request or rejected on subdomain */
-      400: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content?: never;
-      };
-      /** @description Too many requests */
-      429: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content?: never;
-      };
-    };
-  };
-  platform_gyms_list: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["GymTenantSummary"][];
-        };
-      };
-    };
-  };
-  platform_gyms_create: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        "application/json": components["schemas"]["CreateGymRequestRequest"];
-        "application/x-www-form-urlencoded": components["schemas"]["CreateGymRequestRequest"];
-        "multipart/form-data": components["schemas"]["CreateGymRequestRequest"];
-      };
-    };
-    responses: {
-      201: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["CreateGymResponse"];
-        };
-      };
-      /** @description Validation error */
-      400: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content?: never;
-      };
-      /** @description Forbidden */
-      403: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content?: never;
-      };
-    };
-  };
-  platform_gyms_retrieve: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        gym_id: string;
-      };
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["GymDetailResponse"];
-        };
-      };
-      /** @description Not found */
-      404: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content?: never;
-      };
-    };
-  };
-  platform_gyms_config_retrieve: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        gym_id: string;
-      };
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["GymConfig"];
-        };
-      };
-      /** @description Gym not found */
-      404: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content?: never;
-      };
-    };
-  };
-  platform_gyms_config_partial_update: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        gym_id: string;
-      };
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["GymConfig"];
-        };
-      };
-      /** @description Validation error */
-      400: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content?: never;
-      };
-      /** @description Gym not found */
-      404: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content?: never;
-      };
-    };
-  };
-  platform_gyms_confirm_tls_create: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        gym_id: string;
-      };
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["ConfirmTLSResponse"];
-        };
-      };
-      /** @description Gym not found */
-      400: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content?: never;
-      };
-      /** @description Forbidden */
-      403: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content?: never;
-      };
-    };
-  };
-  platform_gyms_payment_status_retrieve: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        gym_id: string;
-      };
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["SuperAdminGymPaymentStatus"];
-        };
-      };
-    };
-  };
-  platform_gyms_propose_subdomain_retrieve: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["ProposeSubdomainResponse"];
-        };
-      };
-    };
-  };
-  platform_super_admins_create: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        "application/json": components["schemas"]["CreateSuperAdminRequestRequest"];
-        "application/x-www-form-urlencoded": components["schemas"]["CreateSuperAdminRequestRequest"];
-        "multipart/form-data": components["schemas"]["CreateSuperAdminRequestRequest"];
-      };
-    };
-    responses: {
-      201: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["SuperAdminResponse"];
-        };
-      };
-      /** @description Validation error */
-      400: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content?: never;
-      };
-      /** @description Forbidden */
-      403: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content?: never;
-      };
-    };
-  };
-  public_gym_entry_retrieve: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["GymPublicEntryResponse"];
-        };
-      };
-      /** @description Subdomain is still being secured */
-      503: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content?: never;
-      };
-    };
-  };
-  public_members_register_create: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        "application/json": components["schemas"]["PublicMemberRegistrationRequest"];
-        "application/x-www-form-urlencoded": components["schemas"]["PublicMemberRegistrationRequest"];
-        "multipart/form-data": components["schemas"]["PublicMemberRegistrationRequest"];
-      };
-    };
-    responses: {
-      201: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["Member"];
-        };
-      };
-      /** @description Validation error, missing waiver, or duplicate email/phone */
-      400: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content?: never;
-      };
-      /** @description Gym tenant not found */
-      404: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content?: never;
-      };
-    };
-  };
-  public_plans_list: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["PublicPlan"][];
-        };
-      };
-    };
-  };
-  trainers_me_retrieve: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["Trainer"];
-        };
-      };
-      /** @description Authentication required */
-      401: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content?: never;
-      };
-      /** @description Permission denied or trainer module not enabled */
-      403: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content?: never;
-      };
-      /** @description Trainer profile not found */
-      404: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content?: never;
-      };
-    };
-  };
-  trainers_me_clients_list: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["TrainerMyClient"][];
-        };
-      };
-      /** @description Authentication required */
-      401: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content?: never;
-      };
-      /** @description Forbidden */
-      403: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content?: never;
-      };
-    };
-  };
-  webhooks_brevo_create: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description No response body */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content?: never;
-      };
-    };
-  };
-  webhooks_chapa_create: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Payment confirmed or already handled */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content?: never;
-      };
-      /** @description Invalid payload or verification failure */
-      400: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content?: never;
-      };
-      /** @description Invalid signature */
-      401: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content?: never;
-      };
-      /** @description Gateway verification failure */
-      502: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content?: never;
-      };
-    };
-  };
+    attendance_public_key_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AttendancePublicKeyResponse"];
+                };
+            };
+        };
+    };
+    auth_change_password_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ChangePasswordRequestRequest"];
+                "application/x-www-form-urlencoded": components["schemas"]["ChangePasswordRequestRequest"];
+                "multipart/form-data": components["schemas"]["ChangePasswordRequestRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChangePasswordResponse"];
+                };
+            };
+            /** @description Validation error */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    auth_login_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LoginRequestRequest"];
+                "application/x-www-form-urlencoded": components["schemas"]["LoginRequestRequest"];
+                "multipart/form-data": components["schemas"]["LoginRequestRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LoginResponse"];
+                };
+            };
+            /** @description Invalid credentials */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    auth_logout_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LogoutRequestRequest"];
+                "application/x-www-form-urlencoded": components["schemas"]["LogoutRequestRequest"];
+                "multipart/form-data": components["schemas"]["LogoutRequestRequest"];
+            };
+        };
+        responses: {
+            /** @description Successfully logged out */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Invalid refresh token */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    auth_me_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserProfile"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Password change required */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    auth_me_partial_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["PatchedUserProfileUpdateRequest"];
+                "application/x-www-form-urlencoded": components["schemas"]["PatchedUserProfileUpdateRequest"];
+                "multipart/form-data": components["schemas"]["PatchedUserProfileUpdateRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserProfile"];
+                };
+            };
+            /** @description Validation error */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Password change required */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    auth_password_reset_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PasswordResetRequestRequest"];
+                "application/x-www-form-urlencoded": components["schemas"]["PasswordResetRequestRequest"];
+                "multipart/form-data": components["schemas"]["PasswordResetRequestRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PasswordResetResponse"];
+                };
+            };
+        };
+    };
+    auth_password_reset_confirm_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PasswordResetConfirmRequestRequest"];
+                "application/x-www-form-urlencoded": components["schemas"]["PasswordResetConfirmRequestRequest"];
+                "multipart/form-data": components["schemas"]["PasswordResetConfirmRequestRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PasswordResetConfirmResponse"];
+                };
+            };
+            /** @description Invalid token, expired token, or weak password */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    auth_refresh_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TokenRefreshRequestRequest"];
+                "application/x-www-form-urlencoded": components["schemas"]["TokenRefreshRequestRequest"];
+                "multipart/form-data": components["schemas"]["TokenRefreshRequestRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TokenRefreshResponse"];
+                };
+            };
+            /** @description Invalid or expired refresh token */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    auth_set_password_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SetPasswordFromInviteRequestRequest"];
+                "application/x-www-form-urlencoded": components["schemas"]["SetPasswordFromInviteRequestRequest"];
+                "multipart/form-data": components["schemas"]["SetPasswordFromInviteRequestRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SetPasswordFromInviteResponse"];
+                };
+            };
+            /** @description Invalid or expired token, or weak password */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    auth_verify_email_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VerifyEmailRequestRequest"];
+                "application/x-www-form-urlencoded": components["schemas"]["VerifyEmailRequestRequest"];
+                "multipart/form-data": components["schemas"]["VerifyEmailRequestRequest"];
+            };
+        };
+        responses: {
+            /** @description Email verified successfully */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Invalid or expired token */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    gym_assignments_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TrainerAssignmentDetail"][];
+                };
+            };
+            /** @description Authentication required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    gym_assignments_reassign_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ManualReassignRequestRequest"];
+                "application/x-www-form-urlencoded": components["schemas"]["ManualReassignRequestRequest"];
+                "multipart/form-data": components["schemas"]["ManualReassignRequestRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ManualReassignResponse"];
+                };
+            };
+            /** @description Validation error or capacity confirmation needed */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Authentication required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Member or Trainer not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    gym_attendance_manual_override_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AttendanceManualOverrideRequestRequest"];
+                "application/x-www-form-urlencoded": components["schemas"]["AttendanceManualOverrideRequestRequest"];
+                "multipart/form-data": components["schemas"]["AttendanceManualOverrideRequestRequest"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AttendanceManualOverrideResponse"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AttendanceScanErrorResponse"];
+                };
+            };
+        };
+    };
+    gym_attendance_scan_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AttendanceScanRequestRequest"];
+                "application/x-www-form-urlencoded": components["schemas"]["AttendanceScanRequestRequest"];
+                "multipart/form-data": components["schemas"]["AttendanceScanRequestRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AttendanceScanResponse"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AttendanceScanErrorResponse"];
+                };
+            };
+        };
+    };
+    gym_attendance_today_retrieve: {
+        parameters: {
+            query?: {
+                /** @description Optional ISO timestamp to filter check-ins newer than this time. */
+                since?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AttendanceTodayListResponse"];
+                };
+            };
+        };
+    };
+    gym_audit_logs_list: {
+        parameters: {
+            query?: {
+                /** @description Filter by exact action type (e.g. user_login, staff_provisioned) */
+                action_type?: string;
+                /** @description Filter by actor UUID */
+                actor_id?: string;
+                /** @description Filter records starting from date (YYYY-MM-DD) or ISO timestamp */
+                date_from?: string;
+                /** @description Filter records ending at date (YYYY-MM-DD) or ISO timestamp */
+                date_to?: string;
+                /** @description Page number */
+                page?: number;
+                /** @description Number of records per page (default 20, max 100) */
+                page_size?: number;
+                /** @description Search query across actor email, action type, or affected record */
+                search?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedAuditLogList"];
+                };
+            };
+            /** @description Authentication required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    gym_checklist_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FirstRunChecklistResponse"];
+                };
+            };
+            /** @description Forbidden - only Owner permitted */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    gym_checklist_dismiss_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DismissChecklistResponse"];
+                };
+            };
+            /** @description Forbidden - only Owner permitted */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    gym_freezes_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MemberFreeze"][];
+                };
+            };
+        };
+    };
+    gym_freezes_approve_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                freeze_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MemberFreeze"];
+                };
+            };
+            /** @description Validation error */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Permission denied */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    gym_freezes_end_early_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                freeze_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MemberFreeze"];
+                };
+            };
+            /** @description Validation error */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Permission denied */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    gym_freezes_reject_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                freeze_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MemberFreezeRejectRequest"];
+                "application/x-www-form-urlencoded": components["schemas"]["MemberFreezeRejectRequest"];
+                "multipart/form-data": components["schemas"]["MemberFreezeRejectRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MemberFreeze"];
+                };
+            };
+            /** @description Validation error */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Permission denied */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    gym_members_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Member"][];
+                };
+            };
+        };
+    };
+    gym_members_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["StaffMemberRegistrationRequest"];
+                "application/x-www-form-urlencoded": components["schemas"]["StaffMemberRegistrationRequest"];
+                "application/json": components["schemas"]["StaffMemberRegistrationRequest"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Member"];
+                };
+            };
+            /** @description Validation error or duplicate */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Forbidden - Trainers cannot register members */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    gym_members_end_freeze_early_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                member_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MemberFreeze"];
+                };
+            };
+            /** @description Validation error */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Permission denied */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Member or freeze not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    gym_members_fitness_profile_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                member_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FitnessProfile"];
+                };
+            };
+        };
+    };
+    gym_members_fitness_profile_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                member_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FitnessProfileRequest"];
+                "application/x-www-form-urlencoded": components["schemas"]["FitnessProfileRequest"];
+                "multipart/form-data": components["schemas"]["FitnessProfileRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FitnessProfile"];
+                };
+            };
+        };
+    };
+    gym_members_fitness_profile_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                member_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FitnessProfileRequest"];
+                "application/x-www-form-urlencoded": components["schemas"]["FitnessProfileRequest"];
+                "multipart/form-data": components["schemas"]["FitnessProfileRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FitnessProfile"];
+                };
+            };
+        };
+    };
+    gym_members_fitness_profile_partial_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                member_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["PatchedFitnessProfileRequest"];
+                "application/x-www-form-urlencoded": components["schemas"]["PatchedFitnessProfileRequest"];
+                "multipart/form-data": components["schemas"]["PatchedFitnessProfileRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FitnessProfile"];
+                };
+            };
+        };
+    };
+    gym_members_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MemberDetail"];
+                };
+            };
+            /** @description Not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    gym_members_partial_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["PatchedMemberUpdateRequest"];
+                "application/x-www-form-urlencoded": components["schemas"]["PatchedMemberUpdateRequest"];
+                "multipart/form-data": components["schemas"]["PatchedMemberUpdateRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MemberDetail"];
+                };
+            };
+            /** @description Validation error */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    gym_members_attendance_retrieve: {
+        parameters: {
+            query?: {
+                /** @description End date (YYYY-MM-DD). Defaults to today. */
+                end_date?: string;
+                /** @description Start date (YYYY-MM-DD). Defaults to 30 days ago. */
+                start_date?: string;
+            };
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AttendanceLogResponse"];
+                };
+            };
+        };
+    };
+    gym_members_metrics_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BodyMetrics"][];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Member not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    gym_members_metrics_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["RecordBodyMetricsRequest"];
+                "application/x-www-form-urlencoded": components["schemas"]["RecordBodyMetricsRequest"];
+                "multipart/form-data": components["schemas"]["RecordBodyMetricsRequest"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BodyMetrics"];
+                };
+            };
+            /** @description Validation error */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Forbidden - Trainer only */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Member not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    gym_members_metrics_partial_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["PatchedRecordBodyMetricsRequest"];
+                "application/x-www-form-urlencoded": components["schemas"]["PatchedRecordBodyMetricsRequest"];
+                "multipart/form-data": components["schemas"]["PatchedRecordBodyMetricsRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BodyMetrics"];
+                };
+            };
+            /** @description Validation error or not latest entry */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Forbidden - Trainer only for assigned client */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Member or metric not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    gym_members_reactivate_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Member reactivated */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    gym_members_suspend_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["MemberSuspendRequestRequest"];
+                "application/x-www-form-urlencoded": components["schemas"]["MemberSuspendRequestRequest"];
+                "multipart/form-data": components["schemas"]["MemberSuspendRequestRequest"];
+            };
+        };
+        responses: {
+            /** @description Member suspended */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    gym_membership_plans_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MembershipPlan"][];
+                };
+            };
+        };
+    };
+    gym_membership_plans_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MembershipPlanRequest"];
+                "application/x-www-form-urlencoded": components["schemas"]["MembershipPlanRequest"];
+                "multipart/form-data": components["schemas"]["MembershipPlanRequest"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MembershipPlan"];
+                };
+            };
+            /** @description Validation error */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    gym_membership_plans_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MembershipPlan"];
+                };
+            };
+        };
+    };
+    gym_membership_plans_destroy: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Plan deactivated */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    gym_membership_plans_partial_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["PatchedMembershipPlanRequest"];
+                "application/x-www-form-urlencoded": components["schemas"]["PatchedMembershipPlanRequest"];
+                "multipart/form-data": components["schemas"]["PatchedMembershipPlanRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MembershipPlan"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    gym_membership_plans_public_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublicPlan"][];
+                };
+            };
+        };
+    };
+    gym_payment_config_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GymPaymentConfig"];
+                };
+            };
+        };
+    };
+    gym_payment_config_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GymPaymentConfig"];
+                };
+            };
+        };
+    };
+    gym_payment_config_partial_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["PatchedGymPaymentConfigUpdateRequest"];
+                "application/x-www-form-urlencoded": components["schemas"]["PatchedGymPaymentConfigUpdateRequest"];
+                "multipart/form-data": components["schemas"]["PatchedGymPaymentConfigUpdateRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GymPaymentConfig"];
+                };
+            };
+        };
+    };
+    gym_payment_config_test_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Connection verified successfully */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Connection verification failed */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    gym_payments_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Paginated payment list with confirmed revenue total */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    gym_payments_reverse_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                payment_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReverseBankTransferRequest"];
+                "application/x-www-form-urlencoded": components["schemas"]["ReverseBankTransferRequest"];
+                "multipart/form-data": components["schemas"]["ReverseBankTransferRequest"];
+            };
+        };
+        responses: {
+            /** @description Reversal result */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    gym_payments_bank_transfer_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["RecordBankTransferPaymentRequestRequest"];
+                "application/x-www-form-urlencoded": components["schemas"]["RecordBankTransferPaymentRequestRequest"];
+                "application/json": components["schemas"]["RecordBankTransferPaymentRequestRequest"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RecordBankTransferResponse"];
+                };
+            };
+            /** @description Validation error or duplicate reference */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Permission denied */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    gym_payments_bank_transfers_screenshot_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                payment_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Screenshot image stream */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Permission denied */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Screenshot or payment not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    gym_payments_bank_transfers_reconcile_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReconcileBankTransfersRequest"];
+                "application/x-www-form-urlencoded": components["schemas"]["ReconcileBankTransfersRequest"];
+                "multipart/form-data": components["schemas"]["ReconcileBankTransfersRequest"];
+            };
+        };
+        responses: {
+            /** @description Reconciliation result */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    gym_payments_bank_transfers_unreconciled_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UnreconciledBankTransferItem"][];
+                };
+            };
+        };
+    };
+    gym_payments_cash_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RecordCashPaymentRequestRequest"];
+                "application/x-www-form-urlencoded": components["schemas"]["RecordCashPaymentRequestRequest"];
+                "multipart/form-data": components["schemas"]["RecordCashPaymentRequestRequest"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RecordCashPaymentResponse"];
+                };
+            };
+            /** @description Validation error or cross-gym entity */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unauthorized role or cross-gym staff */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Member or plan not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    gym_payments_public_status_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Online payment status */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    gym_plans_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MembershipPlan"][];
+                };
+            };
+        };
+    };
+    gym_plans_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MembershipPlanRequest"];
+                "application/x-www-form-urlencoded": components["schemas"]["MembershipPlanRequest"];
+                "multipart/form-data": components["schemas"]["MembershipPlanRequest"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MembershipPlan"];
+                };
+            };
+            /** @description Validation error */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    gym_plans_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MembershipPlan"];
+                };
+            };
+        };
+    };
+    gym_plans_destroy: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Plan deactivated */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    gym_plans_partial_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["PatchedMembershipPlanRequest"];
+                "application/x-www-form-urlencoded": components["schemas"]["PatchedMembershipPlanRequest"];
+                "multipart/form-data": components["schemas"]["PatchedMembershipPlanRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MembershipPlan"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    gym_receipts_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                receipt_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Receipt"];
+                };
+            };
+        };
+    };
+    gym_settings_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GymConfig"];
+                };
+            };
+        };
+    };
+    gym_settings_partial_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["PatchedGymSettingsUpdateRequest"];
+                "application/x-www-form-urlencoded": components["schemas"]["PatchedGymSettingsUpdateRequest"];
+                "multipart/form-data": components["schemas"]["PatchedGymSettingsUpdateRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GymConfig"];
+                };
+            };
+            /** @description Validation error */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Forbidden - entitlements restricted to Super Admin or non-Owner access */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    gym_staff_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StaffMember"][];
+                };
+            };
+            /** @description Authentication required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    gym_staff_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["InviteStaffRequestRequest"];
+                "application/x-www-form-urlencoded": components["schemas"]["InviteStaffRequestRequest"];
+                "multipart/form-data": components["schemas"]["InviteStaffRequestRequest"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InviteStaffResponse"];
+                };
+            };
+            /** @description Validation error */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Authentication required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    gym_staff_deactivate_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                user_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StaffActionResponse"];
+                };
+            };
+            /** @description Authentication required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Staff member not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    gym_staff_reactivate_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                user_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StaffActionResponse"];
+                };
+            };
+            /** @description Authentication required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Staff member not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    gym_staff_resend_invite_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                user_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Invitation resent successfully */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Invalid request or recipient suppressed */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Staff member not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Daily resend limit reached */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    gym_trainers_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Trainer"][];
+                };
+            };
+            /** @description Authentication required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Permission denied or trainer module not enabled */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    gym_trainers_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Trainer"];
+                };
+            };
+            /** @description Authentication required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Permission denied or trainer module not enabled */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Trainer not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    gym_trainers_partial_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["PatchedTrainerCapacityUpdateRequest"];
+                "application/x-www-form-urlencoded": components["schemas"]["PatchedTrainerCapacityUpdateRequest"];
+                "multipart/form-data": components["schemas"]["PatchedTrainerCapacityUpdateRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TrainerCapacityUpdateResponse"];
+                };
+            };
+            /** @description Invalid capacity value */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Authentication required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Permission denied or trainer module not enabled */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Trainer not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    gym_unassigned_members_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UnassignedMember"][];
+                };
+            };
+            /** @description Authentication required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    health_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HealthCheckResponse"];
+                };
+            };
+        };
+    };
+    media_gym_logo_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                gym_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["UploadGymLogoRequest"];
+                "application/x-www-form-urlencoded": components["schemas"]["UploadGymLogoRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UploadGymLogoResponse"];
+                };
+            };
+            /** @description Validation error or missing file */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Forbidden - only Owner permitted */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Tenant mismatch */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    media_member_photos_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                gym_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No response body */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    media_member_photos_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                gym_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["UploadMemberPhotoRequest"];
+                "application/x-www-form-urlencoded": components["schemas"]["UploadMemberPhotoRequest"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UploadMemberPhotoResponse"];
+                };
+            };
+            /** @description Validation error or missing file */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Forbidden - cross-tenant access denied */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Tenant mismatch */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    media_member_photos_retrieve_2: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                filename: string;
+                gym_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Image WebP stream */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Invalid request or filename format */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Authentication credentials required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Forbidden - user belongs to different gym or unauthorized role */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Photo not found or tenant mismatch */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    members_me_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MemberDetail"];
+                };
+            };
+        };
+    };
+    members_me_partial_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["PatchedMemberUpdateRequest"];
+                "application/x-www-form-urlencoded": components["schemas"]["PatchedMemberUpdateRequest"];
+                "multipart/form-data": components["schemas"]["PatchedMemberUpdateRequest"];
+            };
+        };
+        responses: {
+            /** @description Forbidden - members cannot edit details */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    members_me_attendance_retrieve: {
+        parameters: {
+            query?: {
+                /** @description End date (YYYY-MM-DD). Defaults to today. */
+                end_date?: string;
+                /** @description Start date (YYYY-MM-DD). Defaults to 30 days ago. */
+                start_date?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AttendanceLogResponse"];
+                };
+            };
+        };
+    };
+    members_me_fitness_profile_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FitnessProfile"];
+                };
+            };
+        };
+    };
+    members_me_metrics_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BodyMetrics"][];
+                };
+            };
+        };
+    };
+    members_me_metrics_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    members_me_qr_token_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MemberQrTokenResponse"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MemberQrTokenErrorResponse"];
+                };
+            };
+        };
+    };
+    members_me_qr_token_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MemberQrTokenResponse"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MemberQrTokenErrorResponse"];
+                };
+            };
+        };
+    };
+    memberships_freezes_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MemberFreezeRequestRequest"];
+                "application/x-www-form-urlencoded": components["schemas"]["MemberFreezeRequestRequest"];
+                "multipart/form-data": components["schemas"]["MemberFreezeRequestRequest"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MemberFreeze"];
+                };
+            };
+            /** @description Validation error or allowance exceeded */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Permission denied */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    memberships_freezes_allowance_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MemberFreezeAllowance"];
+                };
+            };
+        };
+    };
+    memberships_freezes_mine_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MemberFreeze"][];
+                };
+            };
+        };
+    };
+    notifications_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Notification"][];
+                };
+            };
+            /** @description Authentication required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    notifications_read_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Notification marked as read */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Authentication required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Notification not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    notifications_mark_all_read_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description All notifications marked as read */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Authentication required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    payments_checkout_chapa_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ChapaCheckoutRequestRequest"];
+                "application/x-www-form-urlencoded": components["schemas"]["ChapaCheckoutRequestRequest"];
+                "multipart/form-data": components["schemas"]["ChapaCheckoutRequestRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChapaCheckoutResponse"];
+                };
+            };
+            /** @description Online payment disabled or invalid plan */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Payment gateway initialization failed */
+            502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    payments_history_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MemberPaymentHistoryItem"][];
+                };
+            };
+        };
+    };
+    payments_status_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                reference: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MemberPaymentStatus"];
+                };
+            };
+            /** @description Payment not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    platform_audit_logs_list: {
+        parameters: {
+            query?: {
+                /** @description Filter by exact action type */
+                action_type?: string;
+                /** @description Filter by actor UUID */
+                actor_id?: string;
+                /** @description Filter records starting from date (YYYY-MM-DD) or ISO timestamp */
+                date_from?: string;
+                /** @description Filter records ending at date (YYYY-MM-DD) or ISO timestamp */
+                date_to?: string;
+                /** @description Filter records by gym UUID */
+                gym_id?: string;
+                /** @description Page number */
+                page?: number;
+                /** @description Number of records per page (default 20, max 100) */
+                page_size?: number;
+                /** @description Search query across actor email, action type, or affected record */
+                search?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedAuditLogList"];
+                };
+            };
+            /** @description Authentication required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    platform_demo_requests_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DemoRequest"][];
+                };
+            };
+        };
+    };
+    platform_demo_requests_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DemoRequest"];
+                };
+            };
+            /** @description Not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    platform_demo_requests_partial_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["PatchedDemoRequestUpdateRequest"];
+                "application/x-www-form-urlencoded": components["schemas"]["PatchedDemoRequestUpdateRequest"];
+                "multipart/form-data": components["schemas"]["PatchedDemoRequestUpdateRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DemoRequest"];
+                };
+            };
+            /** @description Bad request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    platform_demo_requests_convert_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DemoRequestConvertResponse"];
+                };
+            };
+            /** @description Not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    platform_demo_requests_public_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PublicDemoRequestRequest"];
+                "application/x-www-form-urlencoded": components["schemas"]["PublicDemoRequestRequest"];
+                "multipart/form-data": components["schemas"]["PublicDemoRequestRequest"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublicDemoRequestResponse"];
+                };
+            };
+            /** @description Bad request or rejected on subdomain */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Too many requests */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    platform_gyms_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GymTenantSummary"][];
+                };
+            };
+        };
+    };
+    platform_gyms_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateGymRequestRequest"];
+                "application/x-www-form-urlencoded": components["schemas"]["CreateGymRequestRequest"];
+                "multipart/form-data": components["schemas"]["CreateGymRequestRequest"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CreateGymResponse"];
+                };
+            };
+            /** @description Validation error */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    platform_gyms_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                gym_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GymDetailResponse"];
+                };
+            };
+            /** @description Not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    platform_gyms_config_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                gym_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GymConfig"];
+                };
+            };
+            /** @description Gym not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    platform_gyms_config_partial_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                gym_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GymConfig"];
+                };
+            };
+            /** @description Validation error */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Gym not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    platform_gyms_confirm_tls_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                gym_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConfirmTLSResponse"];
+                };
+            };
+            /** @description Gym not found */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    platform_gyms_payment_status_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                gym_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SuperAdminGymPaymentStatus"];
+                };
+            };
+        };
+    };
+    platform_gyms_propose_subdomain_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProposeSubdomainResponse"];
+                };
+            };
+        };
+    };
+    platform_super_admins_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateSuperAdminRequestRequest"];
+                "application/x-www-form-urlencoded": components["schemas"]["CreateSuperAdminRequestRequest"];
+                "multipart/form-data": components["schemas"]["CreateSuperAdminRequestRequest"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SuperAdminResponse"];
+                };
+            };
+            /** @description Validation error */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    public_gym_entry_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GymPublicEntryResponse"];
+                };
+            };
+            /** @description Subdomain is still being secured */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    public_members_register_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PublicMemberRegistrationRequest"];
+                "application/x-www-form-urlencoded": components["schemas"]["PublicMemberRegistrationRequest"];
+                "multipart/form-data": components["schemas"]["PublicMemberRegistrationRequest"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Member"];
+                };
+            };
+            /** @description Validation error, missing waiver, or duplicate email/phone */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Gym tenant not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    public_plans_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublicPlan"][];
+                };
+            };
+        };
+    };
+    trainers_me_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Trainer"];
+                };
+            };
+            /** @description Authentication required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Permission denied or trainer module not enabled */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Trainer profile not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    trainers_me_clients_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TrainerMyClient"][];
+                };
+            };
+            /** @description Authentication required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    webhooks_brevo_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No response body */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    webhooks_chapa_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Payment confirmed or already handled */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Invalid payload or verification failure */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Invalid signature */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Gateway verification failure */
+            502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
 }
