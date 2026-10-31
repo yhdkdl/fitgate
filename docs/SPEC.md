@@ -279,9 +279,9 @@ Each entry: goal — key business rule(s).
 
 **AI training engine**
 
-- Trainer fitness profile entry (FG-UC-06-INTAKE) — assigned trainer enters profile on client's page during first visit; Owner/Manager can view and edit; member view-only; Super Admin and Reception denied.
-- Generate AI plan (FG-UC-06) — assigned trainer or Owner/Manager triggers generation on client page or plan review screen; rules engine → LiteLLM/Mock → plan `pending_review`. 3-draft weekly limit, 20/hr gym rate limit, PII-free prompt. Runs synchronously inside the request on Passenger WSGI; if chosen model is too slow for request timeout, generation moves to DB-backed job table + cron-poll.
-- Trainer plan review (FG-UC-06-REVIEW) — assigned trainer or Owner/Manager directly edits and approves, or rejects with reason (generating 1 new draft up to 3 drafts total; 3rd draft must be edited and approved directly); audit-logged with edit tracking; member sees only approved plans.
+- Trainer fitness profile entry (FG-UC-06-INTAKE) — assigned trainer enters profile on client's page during first visit using selectable code lists (health limitations with medical caution notice, equipment access, dietary notes) plus optional 'other' text (max 200 chars); Owner/Manager can view and edit; member view-only; Super Admin, Reception, and unrelated trainers denied (403).
+- Generate AI plan (FG-UC-06) — assigned trainer or Owner/Manager triggers generation on client page or plan review screen; 'Focus this week' multi-select (no special focus, legs, upper body, core, cardio, mobility, other); rules engine → LiteLLM/Mock (ordered list of 2–3 free models with inline fallback) → plan `pending_review`. 3-draft weekly limit, 20/hr gym rate limit, PII-free prompt. Runs synchronously inside the request on Passenger WSGI; if chosen model is too slow for request timeout, generation moves to DB-backed job table + cron-poll.
+- Trainer plan review (FG-UC-06-REVIEW) — assigned trainer or Owner/Manager directly edits and approves, or rejects using a checklist of reasons (too hard, too easy, exercises not suitable, equipment not available, nutrition not suitable, other + short text 5–200 chars), generating 1 new draft up to 3 drafts total (3rd draft must be edited and approved directly); shows medical caution if chronic conditions present; audit-logged with edit tracking; member sees only approved plans.
 - Weekly check-in (FG-UC-06-CHECKIN) — Monday member check-in (energy/recovery/motivation 1-5); notifies assigned trainer and adjusts rules engine intensity on next generation (does not auto-generate plan); Monday evening reminder cron.
 
 **Equipment, classes (deferred, see §10), analytics, communication**
@@ -340,9 +340,9 @@ All tables carry `id` (uuid, PK) unless noted. Every gym-scoped table carries `g
 
 **Message** _(deferred, see §10)_ — `gym_id`, `member_id`, `trainer_id`, `sender_id`, `body`, `sent_at` (one thread per member-trainer pair)
 
-**FitnessProfile** — `member_id` (PK+FK), `gym_id`, `goal`, `fitness_level`, `health_limitations`, `equipment_access`, `training_days_per_week` (2–6), `session_length_minutes` (30, 45, 60, 90), `dietary_notes` (max 1000, nullable), `created_at`, `updated_at`
+**FitnessProfile** — `member_id` (PK+FK), `gym_id`, `goal`, `fitness_level`, `health_limitations` (jsonb list of codes), `other_limitations` (max 200, nullable), `equipment_access` (jsonb list of codes), `other_equipment` (max 200, nullable), `training_days_per_week` (2–6), `session_length_minutes` (30, 45, 60, 90), `dietary_notes` (jsonb list of codes), `other_dietary` (max 200, nullable), `created_at`, `updated_at`
 
-**TrainingPlan** — `member_id`, `trainer_id`, `gym_id`, `week_start_date` (date, Monday of covered week), `phase` (foundation/build/peak), `intensity`, `status` (pending_review/approved/rejected), `content` (jsonb), `trainer_notes` (nullable, max 500 rejection reason), `trainer_note_for_week` (nullable, max 500 generation focus note), `draft_number` (1 to 3), `was_edited` (boolean, default false), `generated_at`, `approved_at` (nullable), `decided_by` (FK → User, nullable)
+**TrainingPlan** — `member_id`, `trainer_id`, `gym_id`, `week_start_date` (date, Monday of covered week), `phase` (foundation/build/peak), `intensity`, `status` (pending_review/approved/rejected), `content` (jsonb), `rejection_reasons` (jsonb list of codes, nullable), `other_rejection_reason` (max 200, nullable), `focus_this_week` (jsonb list of codes, default ['no_focus']), `other_focus` (max 200, nullable), `draft_number` (1 to 3), `was_edited` (boolean, default false), `generated_at`, `approved_at` (nullable), `decided_by` (FK → User, nullable)
 
 **WeeklyCheckIn** — `member_id`, `gym_id`, `week_start_date` (Monday), `energy` (1–5), `recovery` (1–5), `motivation` (1–5), `submitted_at` (unique constraint on member_id + week_start_date)
 

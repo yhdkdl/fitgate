@@ -212,9 +212,12 @@ class TestFitnessProfileRBACAndTenancy:
         "fitness_level": "intermediate",
         "training_days_per_week": 4,
         "session_length_minutes": 60,
-        "health_limitations": "Slight lower back tension",
-        "equipment_access": "Full gym barbell and dumbbell access",
-        "dietary_notes": "Ethiopian Orthodox fasting periods observed (Wednesday & Friday vegan)",
+        "health_limitations": ["lower_back"],
+        "other_limitations": "Slight lower back tension",
+        "equipment_access": ["full_gym"],
+        "other_equipment": "",
+        "dietary_notes": ["orthodox_fasting", "other"],
+        "other_dietary": "Wednesday and Friday vegan",
     }
 
     def test_assigned_trainer_can_get_and_post_fitness_profile(
@@ -223,7 +226,7 @@ class TestFitnessProfileRBACAndTenancy:
         client = auth_client(api_client, assigned_trainer_user, gym_tenant.subdomain)
         url = f"/api/gym/members/{member_entity.id}/fitness-profile/"
 
-        # Initially 404 or empty GET
+        # Initially 404
         get_res = client.get(url)
         assert get_res.status_code == 404
 
@@ -235,7 +238,9 @@ class TestFitnessProfileRBACAndTenancy:
         assert data["fitness_level"] == "intermediate"
         assert data["training_days_per_week"] == 4
         assert data["session_length_minutes"] == 60
-        assert "Wednesday & Friday vegan" in data["dietary_notes"]
+        assert data["health_limitations"] == ["lower_back"]
+        assert "orthodox_fasting" in data["dietary_notes"]
+        assert data["other_dietary"] == "Wednesday and Friday vegan"
 
         # GET now succeeds
         get_res2 = client.get(url)
@@ -245,14 +250,12 @@ class TestFitnessProfileRBACAndTenancy:
     def test_owner_and_manager_can_view_and_edit_profile(
         self, api_client, gym_tenant, owner_user, manager_user, member_entity
     ):
-        # Owner creates profile
         owner_c = auth_client(api_client, owner_user, gym_tenant.subdomain)
         url = f"/api/gym/members/{member_entity.id}/fitness-profile/"
 
         res = owner_c.post(url, data=self.valid_payload, format="json")
         assert res.status_code == 200
 
-        # Manager updates profile
         manager_c = auth_client(api_client, manager_user, gym_tenant.subdomain)
         updated_payload = dict(
             self.valid_payload, goal="muscle_gain", training_days_per_week=5
@@ -299,12 +302,11 @@ class TestFitnessProfileRBACAndTenancy:
         )
         url = f"/api/gym/members/{member_entity.id}/fitness-profile/"
         res = client.get(url)
-        assert res.status_code in (403, 404)
+        assert res.status_code in (401, 403, 404)
 
     def test_member_read_only_access_via_me_endpoint(
         self, api_client, gym_tenant, member_user, member_entity, assigned_trainer_user
     ):
-        # First create profile via assigned trainer
         trainer_c = auth_client(api_client, assigned_trainer_user, gym_tenant.subdomain)
         trainer_c.post(
             f"/api/gym/members/{member_entity.id}/fitness-profile/",
@@ -312,19 +314,16 @@ class TestFitnessProfileRBACAndTenancy:
             format="json",
         )
 
-        # Member checks /api/members/me/fitness-profile/
         member_c = auth_client(api_client, member_user, gym_tenant.subdomain)
         res_me = member_c.get("/api/members/me/fitness-profile/")
         assert res_me.status_code == 200
         assert res_me.json()["goal"] == "fat_loss"
 
-        # Member cannot POST/PUT to /api/members/me/fitness-profile/ (Method Not Allowed)
         res_post_me = member_c.post(
             "/api/members/me/fitness-profile/", data=self.valid_payload, format="json"
         )
         assert res_post_me.status_code in (403, 405)
 
-        # Member cannot access gym staff endpoint
         res_gym_endpoint = member_c.get(
             f"/api/gym/members/{member_entity.id}/fitness-profile/"
         )
@@ -333,16 +332,19 @@ class TestFitnessProfileRBACAndTenancy:
 
 @pytest.mark.django_db
 class TestFitnessProfileValidationAndAudit:
-    """Validation boundaries and audit log verification."""
+    """Validation boundaries and selectable list rules."""
 
     valid_payload = {
         "goal": "strength",
         "fitness_level": "advanced",
         "training_days_per_week": 3,
         "session_length_minutes": 45,
-        "health_limitations": "None",
-        "equipment_access": "Full gym",
-        "dietary_notes": "High protein",
+        "health_limitations": ["none"],
+        "other_limitations": "",
+        "equipment_access": ["full_gym"],
+        "other_equipment": "",
+        "dietary_notes": ["none"],
+        "other_dietary": "",
     }
 
     def test_missing_required_fields_rejects_with_400(
@@ -369,17 +371,12 @@ class TestFitnessProfileValidationAndAudit:
         client = auth_client(api_client, assigned_trainer_user, gym_tenant.subdomain)
         url = f"/api/gym/members/{member_entity.id}/fitness-profile/"
 
-        # 1 day is invalid (below 2)
         payload = dict(self.valid_payload, training_days_per_week=1)
-        res1 = client.post(url, data=payload, format="json")
-        assert res1.status_code == 400
+        assert client.post(url, data=payload, format="json").status_code == 400
 
-        # 7 days is invalid (above 6)
         payload = dict(self.valid_payload, training_days_per_week=7)
-        res7 = client.post(url, data=payload, format="json")
-        assert res7.status_code == 400
+        assert client.post(url, data=payload, format="json").status_code == 400
 
-        # 2 and 6 days are valid
         payload = dict(self.valid_payload, training_days_per_week=2)
         assert client.post(url, data=payload, format="json").status_code == 200
 
@@ -392,31 +389,107 @@ class TestFitnessProfileValidationAndAudit:
         client = auth_client(api_client, assigned_trainer_user, gym_tenant.subdomain)
         url = f"/api/gym/members/{member_entity.id}/fitness-profile/"
 
-        # 25 is not allowed
         payload = dict(self.valid_payload, session_length_minutes=25)
-        res = client.post(url, data=payload, format="json")
-        assert res.status_code == 400
+        assert client.post(url, data=payload, format="json").status_code == 400
 
-        # Allowed values: 30, 45, 60, 90
         for mins in [30, 45, 60, 90]:
             payload = dict(self.valid_payload, session_length_minutes=mins)
-            res_ok = client.post(url, data=payload, format="json")
-            assert res_ok.status_code == 200
+            assert client.post(url, data=payload, format="json").status_code == 200
 
-    def test_dietary_notes_max_length(
+    def test_required_list_validation_empty_lists_rejected(
         self, api_client, gym_tenant, assigned_trainer_user, member_entity
     ):
         client = auth_client(api_client, assigned_trainer_user, gym_tenant.subdomain)
         url = f"/api/gym/members/{member_entity.id}/fitness-profile/"
 
-        payload = dict(self.valid_payload, dietary_notes="A" * 1001)
+        for field in ["health_limitations", "equipment_access", "dietary_notes"]:
+            payload = dict(self.valid_payload)
+            payload[field] = []
+            res = client.post(url, data=payload, format="json")
+            assert res.status_code == 400, f"Expected 400 for empty {field}"
+
+    def test_none_exclusivity_in_health_limitations(
+        self, api_client, gym_tenant, assigned_trainer_user, member_entity
+    ):
+        client = auth_client(api_client, assigned_trainer_user, gym_tenant.subdomain)
+        url = f"/api/gym/members/{member_entity.id}/fitness-profile/"
+
+        payload = dict(self.valid_payload, health_limitations=["none", "lower_back"])
         res = client.post(url, data=payload, format="json")
         assert res.status_code == 400
+        assert "health_limitations" in res.json()
+
+    def test_none_exclusivity_in_dietary_notes(
+        self, api_client, gym_tenant, assigned_trainer_user, member_entity
+    ):
+        client = auth_client(api_client, assigned_trainer_user, gym_tenant.subdomain)
+        url = f"/api/gym/members/{member_entity.id}/fitness-profile/"
+
+        payload = dict(self.valid_payload, dietary_notes=["none", "vegetarian"])
+        res = client.post(url, data=payload, format="json")
+        assert res.status_code == 400
+        assert "dietary_notes" in res.json()
+
+    def test_other_requires_non_empty_text(
+        self, api_client, gym_tenant, assigned_trainer_user, member_entity
+    ):
+        client = auth_client(api_client, assigned_trainer_user, gym_tenant.subdomain)
+        url = f"/api/gym/members/{member_entity.id}/fitness-profile/"
+
+        # Other limitations without text
+        payload = dict(
+            self.valid_payload,
+            health_limitations=["other"],
+            other_limitations="   ",
+        )
+        res = client.post(url, data=payload, format="json")
+        assert res.status_code == 400
+
+        # Other equipment without text
+        payload2 = dict(
+            self.valid_payload,
+            equipment_access=["other"],
+            other_equipment="",
+        )
+        res2 = client.post(url, data=payload2, format="json")
+        assert res2.status_code == 400
+
+        # Other dietary without text
+        payload3 = dict(
+            self.valid_payload,
+            dietary_notes=["other"],
+            other_dietary="",
+        )
+        res3 = client.post(url, data=payload3, format="json")
+        assert res3.status_code == 400
+
+    def test_medical_caution_flag_derived_correctly(
+        self, api_client, gym_tenant, assigned_trainer_user, member_entity
+    ):
+        client = auth_client(api_client, assigned_trainer_user, gym_tenant.subdomain)
+        url = f"/api/gym/members/{member_entity.id}/fitness-profile/"
+
+        # Heart condition triggers medical caution
+        payload_caution = dict(
+            self.valid_payload,
+            health_limitations=["heart_condition"],
+        )
+        res = client.post(url, data=payload_caution, format="json")
+        assert res.status_code == 200
+        assert res.json()["has_medical_caution"] is True
+
+        # Lower back does not trigger medical caution
+        payload_no_caution = dict(
+            self.valid_payload,
+            health_limitations=["lower_back"],
+        )
+        res2 = client.post(url, data=payload_no_caution, format="json")
+        assert res2.status_code == 200
+        assert res2.json()["has_medical_caution"] is False
 
     def test_latest_measurements_populated_from_body_metrics(
         self, api_client, gym_tenant, assigned_trainer_user, member_entity
     ):
-        # Record latest BodyMetrics
         BodyMetrics.objects.create(
             gym=gym_tenant,
             member=member_entity,

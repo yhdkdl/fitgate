@@ -760,3 +760,66 @@ export function validateCheckinScore(
   }
   return null;
 }
+
+export function validateHealthLimitations(
+  codes: string[],
+  otherText?: string
+): string | null {
+  if (!codes || codes.length === 0) {
+    return "Select at least one health limitation or 'None'.";
+  }
+  if (codes.includes("none") && codes.length > 1) {
+    return "'None' cannot be combined with other health limitations.";
+  }
+  if (codes.includes("other")) {
+    const cleanOther = (otherText || "").trim();
+    if (!cleanOther) {
+      return "Please specify other limitation (max 200 characters).";
+    }
+    if (cleanOther.length > 200) {
+      return "Other limitation cannot exceed 200 characters.";
+    }
+  }
+  return null;
+}
+
+export function validateEquipmentAccess(
+  codes: string[],
+  otherText?: string
+): string | null {
+  if (!codes || codes.length === 0) {
+    return "Select at least one equipment access option.";
+  }
+  if (codes.includes("other")) {
+    const cleanOther = (otherText || "").trim();
+    if (!cleanOther) {
+      return "Please specify other equipment (max 200 characters).";
+    }
+    if (cleanOther.length > 200) {
+      return "Other equipment cannot exceed 200 characters.";
+    }
+  }
+  return null;
+}
+
+export function validateDietaryChoices(
+  codes: string[],
+  otherText?: string
+): string | null {
+  if (!codes || codes.length === 0) {
+    return "Select at least one dietary choice or 'No restrictions'.";
+  }
+  if (codes.includes("none") && codes.length > 1) {
+    return "'No restrictions' cannot be combined with other dietary options.";
+  }
+  if (codes.includes("other")) {
+    const cleanOther = (otherText || "").trim();
+    if (!cleanOther) {
+      return "Please specify other dietary details (max 200 characters).";
+    }
+    if (cleanOther.length > 200) {
+      return "Other dietary details cannot exceed 200 characters.";
+    }
+  }
+  return null;
+}

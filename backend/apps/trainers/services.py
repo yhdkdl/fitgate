@@ -436,14 +436,16 @@ def save_fitness_profile(
     acting_user: User,
 ):
     """
-    Save or update fitness profile for a member.
+    Save or update fitness profile for a member using validated selectable lists.
     Enforces shared validators on all fields.
     Audit-logged with 'fitness_profile_saved'.
     """
     from apps.core.validators import (
-        validate_dietary_notes,
+        validate_dietary_choices,
+        validate_equipment_access,
         validate_fitness_level,
         validate_goal,
+        validate_health_limitations,
         validate_session_length,
         validate_training_days_per_week,
     )
@@ -453,22 +455,31 @@ def save_fitness_profile(
     fitness_level = validate_fitness_level(data.get("fitness_level"))
     training_days = validate_training_days_per_week(data.get("training_days_per_week"))
     session_length = validate_session_length(data.get("session_length_minutes"))
-    dietary_notes = validate_dietary_notes(data.get("dietary_notes"))
-    health_limitations = str(data.get("health_limitations") or "").strip()
-    equipment_access = str(data.get("equipment_access") or "").strip()
+    health_limitations, other_limitations = validate_health_limitations(
+        data.get("health_limitations"), data.get("other_limitations")
+    )
+    equipment_access, other_equipment = validate_equipment_access(
+        data.get("equipment_access"), data.get("other_equipment")
+    )
+    dietary_notes, other_dietary = validate_dietary_choices(
+        data.get("dietary_notes"), data.get("other_dietary")
+    )
 
     with transaction.atomic():
-        profile, created = FitnessProfile.objects.update_or_create(
+        profile, created = FitnessProfile.all_objects.update_or_create(
             member=member,
             gym=gym,
             defaults={
                 "goal": goal,
                 "fitness_level": fitness_level,
                 "health_limitations": health_limitations,
+                "other_limitations": other_limitations,
                 "equipment_access": equipment_access,
+                "other_equipment": other_equipment,
                 "training_days_per_week": training_days,
                 "session_length_minutes": session_length,
                 "dietary_notes": dietary_notes,
+                "other_dietary": other_dietary,
             },
         )
         record_audit_log(
@@ -483,6 +494,7 @@ def save_fitness_profile(
                 "fitness_level": fitness_level,
                 "training_days": training_days,
                 "session_length": session_length,
+                "has_medical_caution": profile.has_medical_caution,
             },
         )
     return profile

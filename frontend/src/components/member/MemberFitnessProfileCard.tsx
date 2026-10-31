@@ -7,6 +7,11 @@ import { Alert } from "../ui/Alert";
 import { Badge } from "../ui/Badge";
 import { Card } from "../ui/Card";
 import { Spinner } from "../ui/Spinner";
+import {
+  DIETARY_NOTE_OPTIONS,
+  EQUIPMENT_ACCESS_OPTIONS,
+  HEALTH_LIMITATION_OPTIONS,
+} from "../../utils/fitnessProfileConstants";
 
 export const MemberFitnessProfileCard: React.FC = () => {
   const [profile, setProfile] = useState<FitnessProfile | null>(null);
@@ -94,6 +99,24 @@ export const MemberFitnessProfileCard: React.FC = () => {
     return map[l] || l;
   };
 
+  const getLabel = (
+    code: string,
+    options: { code: string; label: string }[]
+  ) => {
+    const found = options.find((o) => o.code === code);
+    return found ? found.label : code;
+  };
+
+  const limitations = Array.isArray(profile.health_limitations)
+    ? profile.health_limitations
+    : [];
+  const equipment = Array.isArray(profile.equipment_access)
+    ? profile.equipment_access
+    : [];
+  const dietary = Array.isArray(profile.dietary_notes)
+    ? profile.dietary_notes
+    : [];
+
   const metrics = profile.latest_measurements as
     | {
         weight_kg?: number | string | null;
@@ -121,6 +144,24 @@ export const MemberFitnessProfileCard: React.FC = () => {
         </div>
         <Badge variant="primary">Trainer Assessed</Badge>
       </div>
+
+      {profile.has_medical_caution && (
+        <Alert
+          variant="warning"
+          className="border-warning/50 bg-warning/10 text-warning-text"
+        >
+          <div className="flex items-start gap-2">
+            <span className="text-base">⚠️</span>
+            <div>
+              <p className="font-semibold text-xs">Medical Caution Notice</p>
+              <p className="text-2xs">
+                Confirm with your doctor before engaging in strenuous activity.
+                Your trainer reviews plans extra carefully.
+              </p>
+            </div>
+          </div>
+        </Alert>
+      )}
 
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-center">
         <div className="bg-surface-2 p-3 rounded-card border border-border">
@@ -198,30 +239,59 @@ export const MemberFitnessProfileCard: React.FC = () => {
         )}
 
       {/* Additional Notes */}
-      {(profile.dietary_notes ||
-        profile.health_limitations ||
-        profile.equipment_access) && (
-        <div className="space-y-2 pt-2 border-t border-border/60 text-xs">
-          {profile.health_limitations && (
+      {(limitations.length > 0 ||
+        equipment.length > 0 ||
+        dietary.length > 0) && (
+        <div className="space-y-3 pt-2 border-t border-border/60 text-xs">
+          {limitations.length > 0 && (
             <div>
-              <span className="font-bold text-text">Limitations: </span>
-              <span className="text-text-muted">
-                {profile.health_limitations}
+              <span className="font-bold text-text block mb-1">
+                Health Limitations & Injuries:
               </span>
+              <div className="flex flex-wrap gap-1">
+                {limitations.map((code) => (
+                  <Badge
+                    key={code}
+                    variant={code === "none" ? "default" : "warning"}
+                  >
+                    {code === "other" && profile.other_limitations
+                      ? `Other: ${profile.other_limitations}`
+                      : getLabel(code, HEALTH_LIMITATION_OPTIONS)}
+                  </Badge>
+                ))}
+              </div>
             </div>
           )}
-          {profile.equipment_access && (
+          {equipment.length > 0 && (
             <div>
-              <span className="font-bold text-text">Equipment: </span>
-              <span className="text-text-muted">
-                {profile.equipment_access}
+              <span className="font-bold text-text block mb-1">
+                Equipment Access:
               </span>
+              <div className="flex flex-wrap gap-1">
+                {equipment.map((code) => (
+                  <Badge key={code} variant="default">
+                    {code === "other" && profile.other_equipment
+                      ? `Other: ${profile.other_equipment}`
+                      : getLabel(code, EQUIPMENT_ACCESS_OPTIONS)}
+                  </Badge>
+                ))}
+              </div>
             </div>
           )}
-          {profile.dietary_notes && (
+          {dietary.length > 0 && (
             <div>
-              <span className="font-bold text-text">Dietary Notes: </span>
-              <span className="text-text-muted">{profile.dietary_notes}</span>
+              <span className="font-bold text-text block mb-1">
+                Dietary Notes:
+              </span>
+              <div className="flex flex-wrap gap-1">
+                {dietary.map((code) => (
+                  <Badge key={code} variant="primary">
+                    {code === "other" && profile.other_dietary
+                      ? `Other: ${profile.other_dietary}`
+                      : getLabel(code, DIETARY_NOTE_OPTIONS)}
+                  </Badge>
+                ))}
+              </div>
             </div>
           )}
         </div>

@@ -147,17 +147,27 @@ class FitnessProfile(TenantAwareModel):
     )
     goal = models.CharField(max_length=50, choices=GOAL_CHOICES)
     fitness_level = models.CharField(max_length=50, choices=LEVEL_CHOICES)
-    health_limitations = models.TextField(blank=True, default="")
-    equipment_access = models.TextField(blank=True, default="")
+    health_limitations = models.JSONField(default=list, blank=True)
+    other_limitations = models.CharField(max_length=200, blank=True, default="")
+    equipment_access = models.JSONField(default=list, blank=True)
+    other_equipment = models.CharField(max_length=200, blank=True, default="")
     training_days_per_week = models.PositiveSmallIntegerField(
         validators=[MinValueValidator(2), MaxValueValidator(6)]
     )
     session_length_minutes = models.PositiveSmallIntegerField(
         validators=[MinValueValidator(30), MaxValueValidator(90)]
     )
-    dietary_notes = models.TextField(max_length=1000, blank=True, default="")
+    dietary_notes = models.JSONField(default=list, blank=True)
+    other_dietary = models.CharField(max_length=200, blank=True, default="")
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+
+    @property
+    def has_medical_caution(self) -> bool:
+        from apps.trainers.constants import MEDICAL_CAUTION_CODES
+
+        limits = set(self.health_limitations or [])
+        return bool(limits.intersection(MEDICAL_CAUTION_CODES))
 
     class Meta:
         verbose_name = "Fitness Profile"

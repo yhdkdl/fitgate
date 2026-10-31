@@ -3879,19 +3879,36 @@ components:
         fitness_level:
           type: string
         health_limitations:
+          type: array
+          items:
+            type: string
+        other_limitations:
           type: string
           default: ''
+          maxLength: 200
         equipment_access:
+          type: array
+          items:
+            type: string
+        other_equipment:
           type: string
           default: ''
+          maxLength: 200
         training_days_per_week:
           type: integer
         session_length_minutes:
           type: integer
         dietary_notes:
+          type: array
+          items:
+            type: string
+        other_dietary:
           type: string
           default: ''
-          maxLength: 1000
+          maxLength: 200
+        has_medical_caution:
+          type: boolean
+          readOnly: true
         latest_measurements:
           type: string
           readOnly: true
@@ -3905,8 +3922,12 @@ components:
           readOnly: true
       required:
       - created_at
+      - dietary_notes
+      - equipment_access
       - fitness_level
       - goal
+      - has_medical_caution
+      - health_limitations
       - latest_measurements
       - member_id
       - session_length_minutes
@@ -3922,22 +3943,42 @@ components:
           type: string
           minLength: 1
         health_limitations:
+          type: array
+          items:
+            type: string
+            minLength: 1
+        other_limitations:
           type: string
           default: ''
+          maxLength: 200
         equipment_access:
+          type: array
+          items:
+            type: string
+            minLength: 1
+        other_equipment:
           type: string
           default: ''
+          maxLength: 200
         training_days_per_week:
           type: integer
         session_length_minutes:
           type: integer
         dietary_notes:
+          type: array
+          items:
+            type: string
+            minLength: 1
+        other_dietary:
           type: string
           default: ''
-          maxLength: 1000
+          maxLength: 200
       required:
+      - dietary_notes
+      - equipment_access
       - fitness_level
       - goal
+      - health_limitations
       - session_length_minutes
       - training_days_per_week
     GenderEnum:
@@ -4919,19 +4960,36 @@ components:
           type: string
           minLength: 1
         health_limitations:
+          type: array
+          items:
+            type: string
+            minLength: 1
+        other_limitations:
           type: string
           default: ''
+          maxLength: 200
         equipment_access:
+          type: array
+          items:
+            type: string
+            minLength: 1
+        other_equipment:
           type: string
           default: ''
+          maxLength: 200
         training_days_per_week:
           type: integer
         session_length_minutes:
           type: integer
         dietary_notes:
+          type: array
+          items:
+            type: string
+            minLength: 1
+        other_dietary:
           type: string
           default: ''
-          maxLength: 1000
+          maxLength: 200
     PatchedGymPaymentConfigUpdateRequest:
       type: object
       description: Input serializer for gym owner configuring Chapa credentials.

@@ -192,17 +192,25 @@ class FitnessProfileSerializer(serializers.ModelSerializer):
     member_id = serializers.UUIDField(source="member.id", read_only=True)
     goal = serializers.CharField(required=True)
     fitness_level = serializers.CharField(required=True)
-    health_limitations = serializers.CharField(
-        required=False, allow_blank=True, default=""
+    health_limitations = serializers.ListField(
+        child=serializers.CharField(), required=True
     )
-    equipment_access = serializers.CharField(
-        required=False, allow_blank=True, default=""
+    other_limitations = serializers.CharField(
+        required=False, allow_blank=True, max_length=200, default=""
+    )
+    equipment_access = serializers.ListField(
+        child=serializers.CharField(), required=True
+    )
+    other_equipment = serializers.CharField(
+        required=False, allow_blank=True, max_length=200, default=""
     )
     training_days_per_week = serializers.IntegerField(required=True)
     session_length_minutes = serializers.IntegerField(required=True)
-    dietary_notes = serializers.CharField(
-        required=False, allow_blank=True, max_length=1000, default=""
+    dietary_notes = serializers.ListField(child=serializers.CharField(), required=True)
+    other_dietary = serializers.CharField(
+        required=False, allow_blank=True, max_length=200, default=""
     )
+    has_medical_caution = serializers.BooleanField(read_only=True)
     latest_measurements = serializers.SerializerMethodField()
 
     class Meta:
@@ -214,20 +222,70 @@ class FitnessProfileSerializer(serializers.ModelSerializer):
             "goal",
             "fitness_level",
             "health_limitations",
+            "other_limitations",
             "equipment_access",
+            "other_equipment",
             "training_days_per_week",
             "session_length_minutes",
             "dietary_notes",
+            "other_dietary",
+            "has_medical_caution",
             "latest_measurements",
             "created_at",
             "updated_at",
         ]
         read_only_fields = [
             "member_id",
+            "has_medical_caution",
             "created_at",
             "updated_at",
             "latest_measurements",
         ]
+
+    def validate(self, attrs):
+        from apps.core.validators import (
+            validate_dietary_choices,
+            validate_equipment_access,
+            validate_health_limitations,
+        )
+
+        try:
+            limits, other_limits = validate_health_limitations(
+                attrs.get("health_limitations"), attrs.get("other_limitations")
+            )
+            attrs["health_limitations"] = limits
+            attrs["other_limitations"] = other_limits
+        except Exception as e:
+            msg = getattr(e, "message", getattr(e, "messages", str(e)))
+            if isinstance(msg, list):
+                msg = msg[0]
+            raise serializers.ValidationError({"health_limitations": msg})
+
+        try:
+            equip, other_equip = validate_equipment_access(
+                attrs.get("equipment_access"), attrs.get("other_equipment")
+            )
+            attrs["equipment_access"] = equip
+            attrs["other_equipment"] = other_equip
+        except Exception as e:
+            msg = getattr(e, "message", getattr(e, "messages", str(e)))
+            if isinstance(msg, list):
+                msg = msg[0]
+            raise serializers.ValidationError({"equipment_access": msg})
+
+        try:
+            diet, other_diet = validate_dietary_choices(
+                attrs.get("dietary_notes"), attrs.get("other_dietary")
+            )
+            attrs["dietary_notes"] = diet
+            attrs["other_dietary"] = other_diet
+        except Exception as e:
+            msg = getattr(e, "message", getattr(e, "messages", str(e)))
+            if isinstance(msg, list):
+                msg = msg[0]
+            raise serializers.ValidationError({"dietary_notes": msg})
+
+        return attrs
 
     def validate_goal(self, value):
         from apps.core.validators import validate_goal
@@ -267,17 +325,6 @@ class FitnessProfileSerializer(serializers.ModelSerializer):
 
         try:
             return validate_session_length(value)
-        except Exception as e:
-            detail = getattr(e, "detail", getattr(e, "messages", str(e)))
-            if isinstance(detail, list):
-                detail = detail[0]
-            raise serializers.ValidationError(detail)
-
-    def validate_dietary_notes(self, value):
-        from apps.core.validators import validate_dietary_notes
-
-        try:
-            return validate_dietary_notes(value)
         except Exception as e:
             detail = getattr(e, "detail", getattr(e, "messages", str(e)))
             if isinstance(detail, list):

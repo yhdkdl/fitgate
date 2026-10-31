@@ -3,7 +3,7 @@
 import datetime
 import re
 from decimal import Decimal, InvalidOperation
-from typing import Optional, Union
+from typing import Any, Optional, Union
 
 from django.core.exceptions import ValidationError
 from django.core.validators import EmailValidator
@@ -622,3 +622,177 @@ def validate_checkin_score(value: Union[int, str], field_name: str = "Score") ->
     if val < 1 or val > 5:
         raise ValidationError(f"{field_name} must be an integer between 1 and 5.")
     return val
+
+
+def validate_health_limitations(
+    codes: Any, other_text: Optional[str] = None
+) -> tuple[list[str], str]:
+    """Validate required multi-select health limitations. 'none' is exclusive."""
+    from apps.trainers.constants import HEALTH_LIMITATION_CODES
+
+    if not codes or not isinstance(codes, list) or len(codes) == 0:
+        raise ValidationError("Select at least one health limitation or 'None'.")
+
+    cleaned_codes = []
+    for c in codes:
+        code_str = str(c).strip().lower()
+        if code_str not in HEALTH_LIMITATION_CODES:
+            raise ValidationError(f"Invalid health limitation code: '{code_str}'.")
+        if code_str not in cleaned_codes:
+            cleaned_codes.append(code_str)
+
+    if "none" in cleaned_codes and len(cleaned_codes) > 1:
+        raise ValidationError(
+            "'None' cannot be combined with other health limitations."
+        )
+
+    other_val = str(other_text or "").strip()
+    if "other" in cleaned_codes:
+        if not other_val:
+            raise ValidationError(
+                "Please specify other limitation (max 200 characters)."
+            )
+        if len(other_val) > 200:
+            raise ValidationError("Other limitation cannot exceed 200 characters.")
+    else:
+        other_val = ""
+
+    return cleaned_codes, other_val
+
+
+def validate_equipment_access(
+    codes: Any, other_text: Optional[str] = None
+) -> tuple[list[str], str]:
+    """Validate required multi-select equipment access. Defaults to full_gym."""
+    from apps.trainers.constants import EQUIPMENT_ACCESS_CODES
+
+    if not codes or not isinstance(codes, list) or len(codes) == 0:
+        raise ValidationError("Select at least one equipment access option.")
+
+    cleaned_codes = []
+    for c in codes:
+        code_str = str(c).strip().lower()
+        if code_str not in EQUIPMENT_ACCESS_CODES:
+            raise ValidationError(f"Invalid equipment access code: '{code_str}'.")
+        if code_str not in cleaned_codes:
+            cleaned_codes.append(code_str)
+
+    other_val = str(other_text or "").strip()
+    if "other" in cleaned_codes:
+        if not other_val:
+            raise ValidationError(
+                "Please specify other equipment (max 200 characters)."
+            )
+        if len(other_val) > 200:
+            raise ValidationError("Other equipment cannot exceed 200 characters.")
+    else:
+        other_val = ""
+
+    return cleaned_codes, other_val
+
+
+def validate_dietary_choices(
+    codes: Any, other_text: Optional[str] = None
+) -> tuple[list[str], str]:
+    """Validate required multi-select dietary notes. 'none' is exclusive."""
+    from apps.trainers.constants import DIETARY_NOTE_CODES
+
+    if not codes or not isinstance(codes, list) or len(codes) == 0:
+        raise ValidationError(
+            "Select at least one dietary choice or 'No restrictions'."
+        )
+
+    cleaned_codes = []
+    for c in codes:
+        code_str = str(c).strip().lower()
+        if code_str not in DIETARY_NOTE_CODES:
+            raise ValidationError(f"Invalid dietary choice code: '{code_str}'.")
+        if code_str not in cleaned_codes:
+            cleaned_codes.append(code_str)
+
+    if "none" in cleaned_codes and len(cleaned_codes) > 1:
+        raise ValidationError(
+            "'No restrictions' cannot be combined with other dietary options."
+        )
+
+    other_val = str(other_text or "").strip()
+    if "other" in cleaned_codes:
+        if not other_val:
+            raise ValidationError(
+                "Please specify other dietary details (max 200 characters)."
+            )
+        if len(other_val) > 200:
+            raise ValidationError("Other dietary details cannot exceed 200 characters.")
+    else:
+        other_val = ""
+
+    return cleaned_codes, other_val
+
+
+def validate_weekly_focus(
+    codes: Any, other_text: Optional[str] = None
+) -> tuple[list[str], str]:
+    """Validate required multi-select weekly focus areas. 'no_focus' is exclusive."""
+    from apps.trainers.constants import WEEKLY_FOCUS_CODES
+
+    if not codes or not isinstance(codes, list) or len(codes) == 0:
+        codes = ["no_focus"]
+
+    cleaned_codes = []
+    for c in codes:
+        code_str = str(c).strip().lower()
+        if code_str not in WEEKLY_FOCUS_CODES:
+            raise ValidationError(f"Invalid weekly focus code: '{code_str}'.")
+        if code_str not in cleaned_codes:
+            cleaned_codes.append(code_str)
+
+    if "no_focus" in cleaned_codes and len(cleaned_codes) > 1:
+        raise ValidationError(
+            "'No special focus' cannot be combined with other focus areas."
+        )
+
+    other_val = str(other_text or "").strip()
+    if "other" in cleaned_codes:
+        if not other_val:
+            raise ValidationError(
+                "Please specify other weekly focus (max 200 characters)."
+            )
+        if len(other_val) > 200:
+            raise ValidationError("Other weekly focus cannot exceed 200 characters.")
+    else:
+        other_val = ""
+
+    return cleaned_codes, other_val
+
+
+def validate_plan_rejection_reasons(
+    codes: Any, other_text: Optional[str] = None
+) -> tuple[list[str], str]:
+    """Validate required checklist of plan rejection reasons (at least one ticked)."""
+    from apps.trainers.constants import PLAN_REJECTION_CODES
+
+    if not codes or not isinstance(codes, list) or len(codes) == 0:
+        raise ValidationError("Select at least one rejection reason.")
+
+    cleaned_codes = []
+    for c in codes:
+        code_str = str(c).strip().lower()
+        if code_str not in PLAN_REJECTION_CODES:
+            raise ValidationError(f"Invalid rejection reason code: '{code_str}'.")
+        if code_str not in cleaned_codes:
+            cleaned_codes.append(code_str)
+
+    other_val = str(other_text or "").strip()
+    if "other" in cleaned_codes:
+        if not other_val or len(other_val) < 5:
+            raise ValidationError(
+                "Please specify other rejection reason (5–200 characters)."
+            )
+        if len(other_val) > 200:
+            raise ValidationError(
+                "Other rejection reason cannot exceed 200 characters."
+            )
+    else:
+        other_val = ""
+
+    return cleaned_codes, other_val
