@@ -50,15 +50,15 @@
 - Sprint 17: Trainer assignment (GATE) — automatic assignment (load-balance + least-recently-assigned tie-break, capacity limits, all-full notification), wired into subscription activation across all payment paths (online, cash, bank transfer, renewal) without blocking payment transactions, database-level conditional unique constraint preventing duplicate open assignments per member, candidate trainer row-locking (`select_for_update`) preventing concurrency overruns, manual reassignment with explicit over-capacity confirmation and audit logging, trainer deactivation client reassignment guard, RBAC tenant isolation (Trainer sees own clients, Member sees assigned trainer name, Owner/Manager see all, Reception sees assigned trainer read-only, Super Admin denied), and screens (Owner/Manager "Assignments" and unassigned members views, Trainer "My clients" view, Member "My trainer" card on Home and My membership), scoped client measurements, trainer photo upload, and measurement corrections (tag `sprint-17-done`).
 - Sprint 20: FitnessProfile intake — entered exclusively by assigned trainer on client page, Owner/Manager view/edit, member read-only on dashboard, shared form validation across frontend and backend, automatic biometrics prefill from latest BodyMetrics, 403 server-enforced RBAC for unrelated trainers, Reception, Super Admin, and cross-tenants, and audit logging (`fitness_profile_saved`) (tag `sprint-20-done`).
 - Sprint 21: Rules engine — phase derivation from elapsed active subscription proportion (foundation 0-33%, build 34-66%, peak 67-100%), pure Python rules engine with Strategy pattern for swappable intensity logic (`LinearPeriodizationStrategy` and `AdaptiveRecoveryStrategy` producing different outputs from identical input), equipment and injury limitation filtering (lower back, knees, shoulder impingement, dumbbell-only access), out-of-service / maintenance exclusions, gatekeeper eligibility checks, and zero-PII sanitization for prompt payload (tag `sprint-21-done`).
+- Sprint 22: LiteLLM integration layer & plan generation flow (STRICT) — Mock AI provider, ordered model fallback chain via LiteLLM/OpenRouter with optional Google AI Studio (Gemini Flash), structured JSON workout schema with authentic Ethiopian nutrition guidance (shimbra chickpeas, fasting compliance, no numeric calorie precision), safety constraints with shoulder limitation exclusions (overhead pressing, lateral/front raises), date-of-birth validation, weekly 3-draft lifecycle with third-draft edit-and-approve requirement, gym-wide 20/hr rate limit with owner failure notification, and crash-resilient review UI (tag `sprint-22-done`).
 
 ## Current
 
-Ready for Sprint 22 (LiteLLM integration layer & plan generation flow - STRICT GATE)
+Ready for Sprint 23 & 24 (Trimmed)
 
 ## Next
 
-- Sprint 22 (STRICT GATE)
-- Sprints 23 and 24
+- Sprints 23 and 24 (Trimmed)
 
 ## Open manual steps
 
