@@ -51,14 +51,16 @@
 - Sprint 20: FitnessProfile intake — entered exclusively by assigned trainer on client page, Owner/Manager view/edit, member read-only on dashboard, shared form validation across frontend and backend, automatic biometrics prefill from latest BodyMetrics, 403 server-enforced RBAC for unrelated trainers, Reception, Super Admin, and cross-tenants, and audit logging (`fitness_profile_saved`) (tag `sprint-20-done`).
 - Sprint 21: Rules engine — phase derivation from elapsed active subscription proportion (foundation 0-33%, build 34-66%, peak 67-100%), pure Python rules engine with Strategy pattern for swappable intensity logic (`LinearPeriodizationStrategy` and `AdaptiveRecoveryStrategy` producing different outputs from identical input), equipment and injury limitation filtering (lower back, knees, shoulder impingement, dumbbell-only access), out-of-service / maintenance exclusions, gatekeeper eligibility checks, and zero-PII sanitization for prompt payload (tag `sprint-21-done`).
 - Sprint 22: LiteLLM integration layer & plan generation flow (STRICT) — Mock AI provider, ordered model fallback chain via LiteLLM/OpenRouter with optional Google AI Studio (Gemini Flash), structured JSON workout schema with authentic Ethiopian nutrition guidance (shimbra chickpeas, fasting compliance, no numeric calorie precision), safety constraints with shoulder limitation exclusions (overhead pressing, lateral/front raises), date-of-birth validation, weekly 3-draft lifecycle with third-draft edit-and-approve requirement, gym-wide 20/hr rate limit with owner failure notification, and crash-resilient review UI (tag `sprint-22-done`).
+- Sprint 23 & 24 (Trimmed): Trainer plan review, approval notification, and client overview tracking — Trainer plan review with draft status badges and AI source attribution line, plan editing (workout sessions, nutrition notes, weekly focus), plan rejection with mandatory checklist reasons and third-draft auto-lock requiring manual trainer edit, atomic plan approval with single in-app notification delivered exclusively to the member ("Your training plan for the week of <date> is ready."), Member Dashboard "Waiting for your trainer" state for active trainer-plan clients prior to plan approval (drafts strictly hidden across all member endpoints), and Trainer Overview "Clients with no approved plan this week" tracking card with count, client avatars, status tags ("No draft yet" vs "Draft waiting for your review"), and direct one-click navigation to the client's plan review screen (tag `sprint-23-24-done`).
+- Increment 4 Complete: Sprints 20, 21, 22, 23, and 24 completed, verified, merged to `develop`, and documented with end-to-end testing script (`docs/INCREMENT_4_TEST.md`).
 
 ## Current
 
-In progress: Sprint 23 & 24 (Trimmed - notification on approval, Waiting card on member dashboard, Clients with no approved plan on Trainer Overview)
+Increment 4 Complete (Sprints 20 to 24).
 
 ## Next
 
-- Sprints 23 and 24 (Trimmed)
+Increment 5.
 
 ## Open manual steps
 
