@@ -10,6 +10,7 @@ import {
 } from "../../api/members";
 import { Alert } from "../ui/Alert";
 import { FitnessProfileSection } from "./FitnessProfileSection";
+import { TrainingPlanReviewSection } from "./TrainingPlanReviewSection";
 import { AuthenticatedImage } from "../ui/AuthenticatedImage";
 import { Badge } from "../ui/Badge";
 import { Button } from "../ui/Button";
@@ -65,7 +66,7 @@ export const TrainerMeasurementsSection: React.FC = () => {
     null
   );
   const [activeTab, setActiveTab] = useState<
-    "measurements" | "fitness_profile"
+    "measurements" | "fitness_profile" | "training_plans"
   >("measurements");
 
   const [submitting, setSubmitting] = useState(false);
@@ -502,6 +503,18 @@ export const TrainerMeasurementsSection: React.FC = () => {
                 </button>
                 <button
                   type="button"
+                  data-testid="tab-training-plans"
+                  onClick={() => setActiveTab("training_plans")}
+                  className={`px-4 py-2 text-sm font-semibold border-b-2 transition-colors ${
+                    activeTab === "training_plans"
+                      ? "border-primary text-primary"
+                      : "border-transparent text-text-muted hover:text-text"
+                  }`}
+                >
+                  AI Workout Plans
+                </button>
+                <button
+                  type="button"
                   data-testid="tab-fitness-profile"
                   onClick={() => setActiveTab("fitness_profile")}
                   className={`px-4 py-2 text-sm font-semibold border-b-2 transition-colors ${
@@ -514,7 +527,12 @@ export const TrainerMeasurementsSection: React.FC = () => {
                 </button>
               </div>
 
-              {activeTab === "fitness_profile" ? (
+              {activeTab === "training_plans" ? (
+                <TrainingPlanReviewSection
+                  memberId={selectedMember.id}
+                  memberName={selectedMember.full_name}
+                />
+              ) : activeTab === "fitness_profile" ? (
                 <FitnessProfileSection
                   memberId={selectedMember.id}
                   memberName={selectedMember.full_name}

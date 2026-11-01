@@ -396,7 +396,7 @@ def filter_prescribed_equipment(
         ),
         "shoulder": (
             {"barbell"},
-            "Excluded fixed straight barbell overhead pressing due to shoulder limitation.",
+            "Excluded overhead pressing (barbell and dumbbell) and lateral or front raises at shoulder height due to shoulder limitation.",
         ),
         "neck": (
             {"barbell", "squat_rack"},
@@ -519,6 +519,31 @@ def validate_generation_eligibility(member, gym) -> Dict[str, Any]:
         raise RulesEngineGatekeeperError(
             "Member does not have an assigned personal trainer.",
             code="no_assigned_trainer",
+        )
+
+    if not member.date_of_birth:
+        raise RulesEngineGatekeeperError(
+            "Member date of birth is missing.",
+            code="missing_dob",
+        )
+
+    dob = member.date_of_birth
+    if isinstance(dob, str):
+        from datetime import date as dt_date
+
+        try:
+            dob = dt_date.fromisoformat(dob)
+        except ValueError:
+            raise RulesEngineGatekeeperError(
+                "Member date of birth is missing.",
+                code="missing_dob",
+            )
+    today = timezone.localdate()
+    age = today.year - dob.year - ((today.month, today.day) < (dob.month, dob.day))
+    if age <= 0 or age > 120:
+        raise RulesEngineGatekeeperError(
+            "Member date of birth is missing.",
+            code="missing_dob",
         )
 
     from apps.trainers.models import FitnessProfile
@@ -647,15 +672,13 @@ def build_ai_generation_context(
 
     age = None
     if member.date_of_birth:
+        dob = member.date_of_birth
+        if isinstance(dob, str):
+            from datetime import date as dt_date
+
+            dob = dt_date.fromisoformat(dob)
         today = timezone.localdate()
-        age = (
-            today.year
-            - member.date_of_birth.year
-            - (
-                (today.month, today.day)
-                < (member.date_of_birth.month, member.date_of_birth.day)
-            )
-        )
+        age = today.year - dob.year - ((today.month, today.day) < (dob.month, dob.day))
 
     meas_data = metrics.measurements or {}
     weight_kg = float(metrics.weight_kg) if metrics.weight_kg else None

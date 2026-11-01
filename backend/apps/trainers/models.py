@@ -175,3 +175,88 @@ class FitnessProfile(TenantAwareModel):
 
     def __str__(self):
         return f"FitnessProfile({self.member.full_name} - {self.goal}, {self.fitness_level})"
+
+
+class TrainingPlan(TenantAwareModel):
+    """
+    Weekly training plan for a member.
+    Covers one week starting on week_start_date (Monday).
+    Drafts are generated, saved as pending_review, and can be edited, approved, or rejected by trainer.
+    At most 3 drafts per member per week (initial + 2 regenerations).
+    3rd draft cannot be rejected (must be edited and approved).
+    """
+
+    STATUS_PENDING_REVIEW = "pending_review"
+    STATUS_APPROVED = "approved"
+    STATUS_REJECTED = "rejected"
+    STATUS_CHOICES = [
+        (STATUS_PENDING_REVIEW, "Pending Review"),
+        (STATUS_APPROVED, "Approved"),
+        (STATUS_REJECTED, "Rejected"),
+    ]
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    member = models.ForeignKey(
+        "memberships.Member",
+        on_delete=models.CASCADE,
+        related_name="training_plans",
+    )
+    week_start_date = models.DateField(help_text="Monday of the training plan week")
+    draft_number = models.PositiveSmallIntegerField(
+        default=1,
+        validators=[MinValueValidator(1), MaxValueValidator(3)],
+    )
+    status = models.CharField(
+        max_length=20,
+        choices=STATUS_CHOICES,
+        default=STATUS_PENDING_REVIEW,
+    )
+    generated_by_model = models.CharField(max_length=100, blank=True, default="")
+    plan_data = models.JSONField(default=dict)
+    focus_this_week = models.JSONField(default=list, blank=True)
+    other_focus = models.CharField(max_length=200, blank=True, default="")
+    trainer_notes = models.TextField(blank=True, default="")
+    rejection_reasons = models.JSONField(default=list, blank=True)
+    other_rejection_reason = models.CharField(max_length=200, blank=True, default="")
+    has_medical_caution = models.BooleanField(default=False)
+    was_edited = models.BooleanField(default=False)
+    approved_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="approved_training_plans",
+    )
+    approved_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-week_start_date", "-draft_number"]
+        verbose_name = "Training Plan"
+        verbose_name_plural = "Training Plans"
+        constraints = [
+            models.UniqueConstraint(
+                fields=["gym", "member", "week_start_date", "draft_number"],
+                name="unique_member_weekly_plan_draft",
+            )
+        ]
+
+    def __str__(self):
+        return f"TrainingPlan({self.member.full_name} - {self.week_start_date} Draft {self.draft_number} [{self.status}])"
+
+    @property
+    def is_final_draft(self) -> bool:
+        return self.draft_number >= 3
+
+    @property
+    def can_reject(self) -> bool:
+        return self.status == self.STATUS_PENDING_REVIEW and self.draft_number < 3
+
+    @property
+    def can_approve(self) -> bool:
+        return self.status == self.STATUS_PENDING_REVIEW
+
+    @property
+    def can_edit(self) -> bool:
+        return self.status == self.STATUS_PENDING_REVIEW

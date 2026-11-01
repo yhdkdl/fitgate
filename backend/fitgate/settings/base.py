@@ -231,3 +231,18 @@ EMAIL_ALLOWED_RECIPIENTS = [
 ]
 EMAIL_HOURLY_CAP_PER_GYM = env.int("EMAIL_HOURLY_CAP_PER_GYM", default=100)
 EMAIL_HOURLY_CAP_PLATFORM = env.int("EMAIL_HOURLY_CAP_PLATFORM", default=500)
+
+# OpenRouter / AI Plan Generation Settings
+OPENROUTER_API_KEY = env.str("OPENROUTER_API_KEY", default="")
+GEMINI_API_KEY = env.str("GEMINI_API_KEY", default="")
+AI_PLAN_PROVIDER = env.str(
+    "AI_PLAN_PROVIDER", default="apps.trainers.ai.litellm_provider.LiteLLMPlanProvider"
+)
+OPENROUTER_MODELS = env.list(
+    "OPENROUTER_MODELS",
+    default=[
+        "google/gemma-4-31b-it:free",
+        "google/gemma-4-26b-a4b-it:free",
+    ],
+)
+AI_PLAN_RATE_LIMIT_PER_GYM_HOUR = env.int("AI_PLAN_RATE_LIMIT_PER_GYM_HOUR", default=20)

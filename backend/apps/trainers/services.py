@@ -1,11 +1,14 @@
 import logging
-from datetime import datetime
+import os
+from datetime import datetime, timedelta
 from datetime import timezone as dt_timezone
 from typing import Any, Dict, List, Optional, Tuple
 
+from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import transaction
 from django.utils import timezone
+from rest_framework.exceptions import PermissionDenied
 
 from apps.accounts.models import Notification, User
 from apps.accounts.notifications import create_notification
@@ -498,3 +501,478 @@ def save_fitness_profile(
             },
         )
     return profile
+
+
+# ==============================================================================
+# SPRINT 22: TRAINING PLAN GENERATION & LIFECYCLE SERVICES
+# ==============================================================================
+
+
+def get_plan_generation_prerequisites(
+    *,
+    member: Member,
+    gym: Any,
+) -> Dict[str, Any]:
+    """
+    Evaluates whether a member meets all 5 preconditions for AI plan generation:
+    1. Gym has AI plans enabled (gym.config.has_ai_plans)
+    2. Member has active trainer-inclusive plan
+    3. Member has assigned trainer
+    4. Member has complete fitness profile
+    5. At least one measurement exists
+    Also returns draft counts and open draft status for this week and next week.
+    """
+    from apps.trainers.models import TrainingPlan
+    from apps.trainers.rules_engine import (
+        RulesEngineGatekeeperError,
+        validate_generation_eligibility,
+    )
+
+    missing = []
+    eligible = True
+
+    try:
+        validate_generation_eligibility(member, gym)
+    except RulesEngineGatekeeperError as err:
+        eligible = False
+        if err.code == "gym_ai_disabled":
+            missing.append("AI workout plan feature is not enabled for this gym.")
+        elif err.code == "no_trainer_plan":
+            missing.append(
+                "Member is not on an active trainer-inclusive membership plan."
+            )
+        elif err.code == "no_assigned_trainer":
+            missing.append("Member does not have an assigned trainer.")
+        elif err.code == "incomplete_profile":
+            missing.append(
+                "Member fitness profile is incomplete (goal, level, days, or session length missing)."
+            )
+        elif err.code == "no_measurements":
+            missing.append(
+                "No body measurements recorded yet. At least one measurement is required."
+            )
+        elif err.code == "missing_dob":
+            missing.append("Member date of birth is missing.")
+        else:
+            missing.append(err.message)
+
+    today = timezone.localdate()
+    this_monday = today - timedelta(days=today.weekday())
+    next_monday = this_monday + timedelta(days=7)
+
+    drafts_this_week = TrainingPlan.all_objects.filter(
+        gym=gym, member=member, week_start_date=this_monday
+    ).order_by("draft_number")
+    drafts_next_week = TrainingPlan.all_objects.filter(
+        gym=gym, member=member, week_start_date=next_monday
+    ).order_by("draft_number")
+
+    open_draft_this = drafts_this_week.filter(
+        status=TrainingPlan.STATUS_PENDING_REVIEW
+    ).first()
+    open_draft_next = drafts_next_week.filter(
+        status=TrainingPlan.STATUS_PENDING_REVIEW
+    ).first()
+
+    return {
+        "eligible": eligible and (open_draft_this is None or open_draft_next is None),
+        "can_generate_this_week": eligible
+        and (open_draft_this is None)
+        and (drafts_this_week.count() < 3),
+        "can_generate_next_week": eligible
+        and (open_draft_next is None)
+        and (drafts_next_week.count() < 3),
+        "missing_requirements": missing,
+        "this_week_draft_count": drafts_this_week.count(),
+        "next_week_draft_count": drafts_next_week.count(),
+        "has_open_draft_this_week": open_draft_this is not None,
+        "has_open_draft_next_week": open_draft_next is not None,
+        "open_draft_id_this_week": str(open_draft_this.id) if open_draft_this else None,
+        "open_draft_id_next_week": str(open_draft_next.id) if open_draft_next else None,
+    }
+
+
+def get_default_ai_provider():
+    """Returns configured AI provider: Mock provider if specified/offline, else LiteLLM provider."""
+    from apps.trainers.ai.litellm_provider import LiteLLMAIPlanProvider
+    from apps.trainers.ai.mock_provider import MockAIPlanProvider
+
+    use_mock = getattr(settings, "USE_MOCK_AI_PROVIDER", False)
+    api_key = getattr(
+        settings, "OPENROUTER_API_KEY", os.environ.get("OPENROUTER_API_KEY", "")
+    )
+
+    if use_mock or not api_key:
+        return MockAIPlanProvider()
+    return LiteLLMAIPlanProvider()
+
+
+def generate_training_plan(
+    *,
+    member: Member,
+    gym: Any,
+    acting_user: User,
+    week_choice: str = "this_week",
+    focus_this_week: Optional[List[str]] = None,
+    other_focus: Optional[str] = None,
+    trainer_notes: Optional[str] = None,
+    provider: Optional[Any] = None,
+):
+    """
+    Generates a draft weekly training plan using AI provider.
+    Enforces permissions, prerequisites, gym hourly rate limit (20/hr),
+    and 3-draft weekly limit per member.
+    """
+    from apps.core.validators import validate_weekly_focus
+    from apps.trainers.models import TrainingPlan
+    from apps.trainers.rules_engine import (
+        RulesEngineGatekeeperError,
+        build_ai_generation_context,
+        validate_generation_eligibility,
+    )
+
+    # 1. Permission check: Assigned trainer, gym Owner, or gym Manager
+    if acting_user.role not in [User.ROLE_OWNER, User.ROLE_MANAGER]:
+        if acting_user.role != User.ROLE_TRAINER:
+            raise PermissionDenied(
+                "Only the assigned trainer, gym Owner, or Manager can generate plans."
+            )
+        trainer_profile = getattr(acting_user, "trainer_profile", None)
+        has_assignment = (
+            trainer_profile is not None
+            and TrainerAssignment.all_objects.filter(
+                gym=gym,
+                member=member,
+                trainer=trainer_profile,
+                ended_at__isnull=True,
+            ).exists()
+        )
+        if not has_assignment:
+            raise PermissionDenied(
+                "Only the assigned trainer can generate plans for this member."
+            )
+
+    # 2. Prerequisites check
+    try:
+        validate_generation_eligibility(member, gym)
+    except RulesEngineGatekeeperError as err:
+        raise ValidationError(err.message)
+
+    # 3. Rate limit check: 20 generations per gym per hour
+    one_hour_ago = timezone.now() - timedelta(hours=1)
+    recent_gym_generations = TrainingPlan.all_objects.filter(
+        gym=gym,
+        created_at__gte=one_hour_ago,
+    ).count()
+    if recent_gym_generations >= 20:
+        raise ValidationError(
+            "Gym rate limit reached: maximum 20 plan generations per hour. Please try again later."
+        )
+
+    # 4. Week calculation
+    today = timezone.localdate()
+    this_monday = today - timedelta(days=today.weekday())
+    next_monday = this_monday + timedelta(days=7)
+    week_start_date = next_monday if week_choice == "next_week" else this_monday
+
+    # 5. Draft limits: max 3 per week, only 1 open draft
+    existing_drafts = TrainingPlan.all_objects.filter(
+        gym=gym,
+        member=member,
+        week_start_date=week_start_date,
+    ).order_by("draft_number")
+
+    open_draft = existing_drafts.filter(
+        status=TrainingPlan.STATUS_PENDING_REVIEW
+    ).first()
+    if open_draft:
+        raise ValidationError(
+            "An open draft for this plan week is already pending review."
+        )
+
+    draft_count = existing_drafts.count()
+    if draft_count >= 3:
+        raise ValidationError(
+            "Maximum draft limit reached: at most 3 drafts per member per plan week."
+        )
+
+    draft_number = draft_count + 1
+
+    # 6. Validate focus
+    cleaned_focus, cleaned_other_focus = validate_weekly_focus(
+        focus_this_week or ["no_focus"], other_focus
+    )
+
+    # 7. Assemble PII-free AI context
+    ai_context = build_ai_generation_context(
+        member=member,
+        gym=gym,
+        week_start_date=week_start_date,
+        trainer_note_for_week=trainer_notes,
+    )
+    ai_context["profile"]["focus_this_week"] = cleaned_focus
+    ai_context["profile"]["other_focus"] = cleaned_other_focus
+    ai_context["gym_id"] = str(gym.id)
+
+    # 8. Call provider
+    if provider is None:
+        provider = get_default_ai_provider()
+
+    result = provider.generate_plan(ai_context)
+    plan_data = result["plan_data"]
+    model_name = result["model_name"]
+
+    # 9. Save plan and audit log
+    with transaction.atomic():
+        plan = TrainingPlan.all_objects.create(
+            gym=gym,
+            member=member,
+            week_start_date=week_start_date,
+            draft_number=draft_number,
+            status=TrainingPlan.STATUS_PENDING_REVIEW,
+            generated_by_model=model_name,
+            plan_data=plan_data,
+            focus_this_week=cleaned_focus,
+            other_focus=cleaned_other_focus,
+            trainer_notes=trainer_notes or "",
+            has_medical_caution=member.fitness_profile.has_medical_caution,
+        )
+
+        record_audit_log(
+            actor=acting_user,
+            action_type="training_plan_generated",
+            affected_record_type="TrainingPlan",
+            affected_record_id=str(plan.id),
+            gym=gym,
+            metadata={
+                "member_id": str(member.id),
+                "week_start_date": str(week_start_date),
+                "draft_number": draft_number,
+                "model_name": model_name,
+                "focus": cleaned_focus,
+            },
+        )
+
+    return plan
+
+
+def reject_training_plan(
+    *,
+    plan: Any,
+    rejection_reasons: List[str],
+    other_rejection_reason: str,
+    acting_user: User,
+    provider: Optional[Any] = None,
+):
+    """
+    Rejects a pending draft and triggers regeneration of the next draft (up to draft 3).
+    Draft 3 cannot be rejected.
+    """
+    from apps.core.validators import validate_plan_rejection_reasons
+    from apps.trainers.models import TrainingPlan
+
+    gym = plan.gym
+    member = plan.member
+
+    # Permission check
+    if acting_user.role not in [User.ROLE_OWNER, User.ROLE_MANAGER]:
+        if acting_user.role != User.ROLE_TRAINER:
+            raise PermissionDenied(
+                "Only the assigned trainer, gym Owner, or Manager can reject plans."
+            )
+        trainer_profile = getattr(acting_user, "trainer_profile", None)
+        has_assignment = (
+            trainer_profile is not None
+            and TrainerAssignment.all_objects.filter(
+                gym=gym,
+                member=member,
+                trainer=trainer_profile,
+                ended_at__isnull=True,
+            ).exists()
+        )
+        if not has_assignment:
+            raise PermissionDenied(
+                "Only the assigned trainer can reject plans for this member."
+            )
+
+    if plan.status != TrainingPlan.STATUS_PENDING_REVIEW:
+        raise ValidationError("Only plans pending review can be rejected.")
+
+    if plan.draft_number >= 3:
+        raise ValidationError(
+            "Draft 3 is the final draft and cannot be rejected. Please edit and approve this draft directly."
+        )
+
+    cleaned_reasons, cleaned_other = validate_plan_rejection_reasons(
+        rejection_reasons, other_rejection_reason
+    )
+
+    with transaction.atomic():
+        plan.status = TrainingPlan.STATUS_REJECTED
+        plan.rejection_reasons = cleaned_reasons
+        plan.other_rejection_reason = cleaned_other
+        plan.save(
+            update_fields=[
+                "status",
+                "rejection_reasons",
+                "other_rejection_reason",
+                "updated_at",
+            ]
+        )
+
+        record_audit_log(
+            actor=acting_user,
+            action_type="training_plan_rejected",
+            affected_record_type="TrainingPlan",
+            affected_record_id=str(plan.id),
+            gym=gym,
+            metadata={
+                "draft_number": plan.draft_number,
+                "rejection_reasons": cleaned_reasons,
+                "other_reason": cleaned_other,
+            },
+        )
+
+    # Generate next draft using rejection feedback
+    feedback_notes = f"Rejection feedback on draft {plan.draft_number}: " + ", ".join(
+        cleaned_reasons
+    )
+    if cleaned_other:
+        feedback_notes += f" ({cleaned_other})"
+
+    new_draft = generate_training_plan(
+        member=member,
+        gym=gym,
+        acting_user=acting_user,
+        week_choice=(
+            "next_week" if plan.week_start_date > timezone.localdate() else "this_week"
+        ),
+        focus_this_week=plan.focus_this_week,
+        other_focus=plan.other_focus,
+        trainer_notes=feedback_notes,
+        provider=provider,
+    )
+    return new_draft
+
+
+def approve_training_plan(
+    *,
+    plan: Any,
+    acting_user: User,
+):
+    """
+    Approves a training plan. Records whether it was edited prior to approval.
+    """
+    from apps.trainers.models import TrainingPlan
+
+    gym = plan.gym
+    member = plan.member
+
+    # Permission check
+    if acting_user.role not in [User.ROLE_OWNER, User.ROLE_MANAGER]:
+        if acting_user.role != User.ROLE_TRAINER:
+            raise PermissionDenied(
+                "Only the assigned trainer, gym Owner, or Manager can approve plans."
+            )
+        trainer_profile = getattr(acting_user, "trainer_profile", None)
+        has_assignment = (
+            trainer_profile is not None
+            and TrainerAssignment.all_objects.filter(
+                gym=gym,
+                member=member,
+                trainer=trainer_profile,
+                ended_at__isnull=True,
+            ).exists()
+        )
+        if not has_assignment:
+            raise PermissionDenied(
+                "Only the assigned trainer can approve plans for this member."
+            )
+
+    if plan.status != TrainingPlan.STATUS_PENDING_REVIEW:
+        raise ValidationError("Only plans pending review can be approved.")
+
+    with transaction.atomic():
+        plan.status = TrainingPlan.STATUS_APPROVED
+        plan.approved_by = acting_user
+        plan.approved_at = timezone.now()
+        plan.save(update_fields=["status", "approved_by", "approved_at", "updated_at"])
+
+        record_audit_log(
+            actor=acting_user,
+            action_type="training_plan_approved",
+            affected_record_type="TrainingPlan",
+            affected_record_id=str(plan.id),
+            gym=gym,
+            metadata={
+                "draft_number": plan.draft_number,
+                "was_edited": plan.was_edited,
+                "approved_by": str(acting_user.id),
+            },
+        )
+
+    return plan
+
+
+def edit_training_plan_draft(
+    *,
+    plan: Any,
+    plan_data: Dict[str, Any],
+    acting_user: User,
+):
+    """
+    Directly edits exercises or nutrition guidance of a pending draft.
+    Marks was_edited=True and audit logs the modification.
+    """
+    from apps.trainers.ai.schema import validate_training_plan_structure
+    from apps.trainers.models import TrainingPlan
+
+    gym = plan.gym
+    member = plan.member
+
+    # Permission check
+    if acting_user.role not in [User.ROLE_OWNER, User.ROLE_MANAGER]:
+        if acting_user.role != User.ROLE_TRAINER:
+            raise PermissionDenied(
+                "Only the assigned trainer, gym Owner, or Manager can edit plans."
+            )
+        trainer_profile = getattr(acting_user, "trainer_profile", None)
+        has_assignment = (
+            trainer_profile is not None
+            and TrainerAssignment.all_objects.filter(
+                gym=gym,
+                member=member,
+                trainer=trainer_profile,
+                ended_at__isnull=True,
+            ).exists()
+        )
+        if not has_assignment:
+            raise PermissionDenied(
+                "Only the assigned trainer can edit plans for this member."
+            )
+
+    if plan.status != TrainingPlan.STATUS_PENDING_REVIEW:
+        raise ValidationError("Only plans pending review can be edited.")
+
+    expected_days = plan.member.fitness_profile.training_days_per_week
+    validated_data = validate_training_plan_structure(
+        plan_data, expected_days=expected_days
+    )
+
+    with transaction.atomic():
+        plan.plan_data = validated_data
+        plan.was_edited = True
+        plan.save(update_fields=["plan_data", "was_edited", "updated_at"])
+
+        record_audit_log(
+            actor=acting_user,
+            action_type="training_plan_edited",
+            affected_record_type="TrainingPlan",
+            affected_record_id=str(plan.id),
+            gym=gym,
+            metadata={
+                "draft_number": plan.draft_number,
+            },
+        )
+
+    return plan

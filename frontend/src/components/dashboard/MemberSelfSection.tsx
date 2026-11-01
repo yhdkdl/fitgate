@@ -11,6 +11,7 @@ import { MemberQrCard } from "../attendance/MemberQrCard";
 import { AttendanceLogCard } from "../attendance/AttendanceLogCard";
 import { MemberCheckoutCard } from "../member/MemberCheckoutCard";
 import { MemberFitnessProfileCard } from "../member/MemberFitnessProfileCard";
+import { MemberApprovedPlanCard } from "../member/MemberApprovedPlanCard";
 import { MemberPaymentHistoryCard } from "../member/MemberPaymentHistoryCard";
 
 interface MemberSelfSectionProps {
@@ -181,6 +182,11 @@ export const MemberSelfSection: React.FC<MemberSelfSectionProps> = ({
             </div>
           </Card>
         )}
+
+      {/* Workout Routine & Nutrition Guidance (Approved Only) */}
+      {profile.is_on_trainer_plan && (view === "home" || view === "all") && (
+        <MemberApprovedPlanCard />
+      )}
 
       {/* Fitness Profile (Read-Only) */}
       {profile.is_on_trainer_plan && (view === "home" || view === "all") && (
