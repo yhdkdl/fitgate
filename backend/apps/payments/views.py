@@ -421,7 +421,7 @@ class ChapaCheckoutView(APIView):
                 "tx_ref": tx_ref,
                 "plan_id": str(plan.id),
                 "plan_name": plan.name,
-                "amount_etb": str(plan.price_etb),
+                "amount_etb": str(amount_to_charge),
             },
         )
 
@@ -477,7 +477,7 @@ class ChapaCheckoutView(APIView):
         )
 
         init_payload = {
-            "amount": str(plan.price_etb),
+            "amount": str(amount_to_charge),
             "currency": "ETB",
             "email": email,
             "first_name": first_name,

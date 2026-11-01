@@ -457,13 +457,14 @@ def test_all_three_payment_paths_use_same_quote(
                 "tx_ref": "mock-tx-123",
             },
         },
-    ):
+    ) as mock_init:
         res_chapa = member_client.post(
             "/api/payments/checkout/chapa/",
             {"plan_id": str(trainer_plan.id)},
             format="json",
         )
     assert res_chapa.status_code == 200
+    assert mock_init.call_args[0][0]["amount"] == "1700.00"
     pending_payment = Payment.all_objects.filter(
         member=member, plan=trainer_plan
     ).first()
