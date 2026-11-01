@@ -114,6 +114,8 @@ class TrainerMyClientSerializer(serializers.Serializer):
     plan_name = serializers.CharField()
     assigned_at = serializers.DateTimeField()
     has_measurements = serializers.BooleanField(default=False)
+    has_approved_plan_this_week = serializers.BooleanField(default=False)
+    plan_status_this_week = serializers.CharField(default="no_draft")
 
 
 class UnassignedMemberSerializer(serializers.Serializer):

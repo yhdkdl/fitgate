@@ -185,7 +185,10 @@ export const MemberSelfSection: React.FC<MemberSelfSectionProps> = ({
 
       {/* Workout Routine & Nutrition Guidance (Approved Only) */}
       {profile.is_on_trainer_plan && (view === "home" || view === "all") && (
-        <MemberApprovedPlanCard />
+        <MemberApprovedPlanCard
+          hasAssignedTrainer={Boolean(profile.assigned_trainer)}
+          isActiveTrainerPlan={Boolean(profile.is_on_trainer_plan && profile.status === "active")}
+        />
       )}
 
       {/* Fitness Profile (Read-Only) */}

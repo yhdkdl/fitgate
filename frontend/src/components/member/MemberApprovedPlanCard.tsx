@@ -8,7 +8,15 @@ import {
   type TrainingPlan,
 } from "../../api/trainingPlans";
 
-export const MemberApprovedPlanCard: React.FC = () => {
+export interface MemberApprovedPlanCardProps {
+  hasAssignedTrainer?: boolean;
+  isActiveTrainerPlan?: boolean;
+}
+
+export const MemberApprovedPlanCard: React.FC<MemberApprovedPlanCardProps> = ({
+  hasAssignedTrainer = true,
+  isActiveTrainerPlan = true,
+}) => {
   const [loading, setLoading] = useState(true);
   const [plans, setPlans] = useState<TrainingPlan[]>([]);
   const [activeSession, setActiveSession] = useState<number>(0);
@@ -40,7 +48,23 @@ export const MemberApprovedPlanCard: React.FC = () => {
   }
 
   if (plans.length === 0) {
-    return null; // Don't clutter dashboard if no approved plan exists yet
+    if (!hasAssignedTrainer || !isActiveTrainerPlan) {
+      return null;
+    }
+    return (
+      <Card className="bg-surface border-border p-6 text-center space-y-2">
+        <div className="w-10 h-10 rounded-full bg-primary/10 text-primary flex items-center justify-center mx-auto text-lg">
+          📋
+        </div>
+        <h3 className="text-sm font-bold text-text uppercase tracking-wider">
+          Waiting for your trainer
+        </h3>
+        <p className="text-xs text-text-muted max-w-sm mx-auto">
+          Your trainer is preparing your personalized training and nutrition plan.
+          You will receive an in-app notification once it is approved.
+        </p>
+      </Card>
+    );
   }
 
   const latestPlan = plans[0];

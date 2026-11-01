@@ -92,16 +92,7 @@ export const TrainerMeasurementsSection: React.FC = () => {
     }
   }, []);
 
-  useEffect(() => {
-    fetchMembers("");
-  }, [fetchMembers]);
-
-  const handleSearchSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    fetchMembers(searchQuery);
-  };
-
-  const clearForm = () => {
+  const clearForm = useCallback(() => {
     setWeightKg("");
     setHeightCm("");
     setWaistCm("");
@@ -119,9 +110,9 @@ export const TrainerMeasurementsSection: React.FC = () => {
     setFieldErrors({});
     setIsCorrectionMode(false);
     setCorrectingMetricId(null);
-  };
+  }, []);
 
-  const handleSelectMember = async (member: Member) => {
+  const handleSelectMember = useCallback(async (member: Member) => {
     setSelectedMember(member);
     setMetricsLoading(true);
     setMetricsError(null);
@@ -141,6 +132,30 @@ export const TrainerMeasurementsSection: React.FC = () => {
     } finally {
       setMetricsLoading(false);
     }
+  }, [clearForm]);
+
+  useEffect(() => {
+    fetchMembers("");
+
+    const params = new URLSearchParams(window.location.search);
+    const mId = params.get("memberId");
+    const tab = params.get("tab");
+    if (tab === "training_plans" || tab === "fitness_profile" || tab === "measurements") {
+      setActiveTab(tab);
+    }
+    if (mId) {
+      listGymMembers({ limit: 50 }).then((list) => {
+        const found = list.find((m) => m.id === mId);
+        if (found) {
+          handleSelectMember(found);
+        }
+      });
+    }
+  }, [fetchMembers, handleSelectMember]);
+
+  const handleSearchSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    fetchMembers(searchQuery);
   };
 
   const startCorrection = (metric: BodyMetrics) => {

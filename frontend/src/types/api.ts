@@ -3332,6 +3332,10 @@ export interface components {
             assigned_at: string;
             /** @default false */
             has_measurements: boolean;
+            /** @default false */
+            has_approved_plan_this_week?: boolean;
+            /** @default no_draft */
+            plan_status_this_week?: string;
         };
         TrainerUser: {
             /** Format: uuid */

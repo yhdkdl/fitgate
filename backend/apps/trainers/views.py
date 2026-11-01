@@ -432,7 +432,23 @@ class TrainerMyClientsView(APIView):
             .order_by("-assigned_at")
         )
 
+        import datetime
+
         today = timezone.localdate()
+        monday = today - datetime.timedelta(days=today.weekday())
+
+        member_ids = [a.member_id for a in active_assignments]
+        weekly_plans = TrainingPlan.all_objects.filter(
+            gym=tenant,
+            member_id__in=member_ids,
+            week_start_date=monday,
+        ).values("member_id", "status")
+
+        member_plan_statuses = {}
+        for wp in weekly_plans:
+            m_id = str(wp["member_id"])
+            member_plan_statuses.setdefault(m_id, set()).add(wp["status"])
+
         clients_data = []
         for a in active_assignments:
             sub = (
@@ -446,6 +462,16 @@ class TrainerMyClientsView(APIView):
                 .first()
             )
             plan_name = sub.plan.name if sub else "—"
+
+            statuses = member_plan_statuses.get(str(a.member_id), set())
+            has_approved = TrainingPlan.STATUS_APPROVED in statuses
+            if has_approved:
+                plan_status = "approved"
+            elif TrainingPlan.STATUS_PENDING_REVIEW in statuses:
+                plan_status = "pending_review"
+            else:
+                plan_status = "no_draft"
+
             clients_data.append(
                 {
                     "assignment_id": a.id,
@@ -456,6 +482,8 @@ class TrainerMyClientsView(APIView):
                     "plan_name": plan_name,
                     "assigned_at": a.assigned_at,
                     "has_measurements": a.member.body_metrics.exists(),
+                    "has_approved_plan_this_week": has_approved,
+                    "plan_status_this_week": plan_status,
                 }
             )
 

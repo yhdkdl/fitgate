@@ -6256,6 +6256,12 @@ components:
         has_measurements:
           type: boolean
           default: false
+        has_approved_plan_this_week:
+          type: boolean
+          default: false
+        plan_status_this_week:
+          type: string
+          default: no_draft
       required:
       - assigned_at
       - assignment_id

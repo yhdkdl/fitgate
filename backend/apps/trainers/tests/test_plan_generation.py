@@ -644,3 +644,194 @@ def test_missing_date_of_birth_refusal(db, gym_tenant, active_member):
     assert any(
         "date of birth is missing" in m.lower() for m in prereqs["missing_requirements"]
     )
+
+
+# ==============================================================================
+# 8. SPRINT 23 & 24 TESTS: NOTIFICATIONS, GATED DRAFTS, TRAINER CLIENT SCOPE
+# ==============================================================================
+
+
+def test_notification_sent_only_to_right_member_and_only_on_approval(
+    api_client, gym_tenant, active_member, assigned_trainer_user
+):
+    import datetime
+
+    from apps.accounts.models import Notification, User
+    from apps.memberships.models import Member
+    from apps.trainers.services import (
+        approve_training_plan,
+        edit_training_plan_draft,
+        generate_training_plan,
+        reject_training_plan,
+    )
+
+    # Second member in the same gym
+    user_b = User.objects.create_user(
+        email="member_b@test.com",
+        password="ValidPassword123!",
+        role=User.ROLE_MEMBER,
+        gym=gym_tenant,
+        full_name="Member B",
+    )
+    Member.objects.create(
+        user=user_b,
+        gym=gym_tenant,
+        date_of_birth="1995-05-15",
+        waiver_accepted_at=timezone.now(),
+    )
+
+    today = timezone.localdate()
+    monday = today - datetime.timedelta(days=today.weekday())
+
+    from apps.trainers.ai.mock_provider import MockAIPlanProvider
+
+    provider = MockAIPlanProvider()
+
+    # 1. Generation creates a draft: member gets NO notification
+    plan_1 = generate_training_plan(
+        member=active_member,
+        gym=gym_tenant,
+        week_choice="this_week",
+        acting_user=assigned_trainer_user,
+        provider=provider,
+    )
+    assert Notification.all_objects.filter(recipient=active_member.user).count() == 0
+    assert Notification.all_objects.filter(recipient=user_b).count() == 0
+
+    # 2. Editing draft: member gets NO notification
+    edit_training_plan_draft(
+        plan=plan_1,
+        plan_data=plan_1.plan_data,
+        acting_user=assigned_trainer_user,
+    )
+    assert Notification.all_objects.filter(recipient=active_member.user).count() == 0
+    assert Notification.all_objects.filter(recipient=user_b).count() == 0
+
+    # 3. Rejecting draft: member gets NO notification, generates draft 2
+    draft_2 = reject_training_plan(
+        plan=plan_1,
+        rejection_reasons=["too_hard"],
+        other_rejection_reason="",
+        acting_user=assigned_trainer_user,
+        provider=provider,
+    )
+    assert Notification.all_objects.filter(recipient=active_member.user).count() == 0
+    assert Notification.all_objects.filter(recipient=user_b).count() == 0
+
+    # 4. Approving draft 2: ONLY active_member gets the notification
+    approve_training_plan(plan=draft_2, acting_user=assigned_trainer_user)
+
+    notifs_a = Notification.all_objects.filter(recipient=active_member.user)
+    assert notifs_a.count() == 1
+    assert (
+        notifs_a.first().message
+        == f"Your training plan for the week of {monday} is ready."
+    )
+
+    # Verify other member got NOTHING
+    notifs_b = Notification.all_objects.filter(recipient=user_b)
+    assert notifs_b.count() == 0
+
+
+def test_member_never_sees_drafts(
+    api_client, gym_tenant, active_member, assigned_trainer_user
+):
+    from apps.trainers.ai.mock_provider import MockAIPlanProvider
+    from apps.trainers.services import generate_training_plan
+
+    # Create pending draft
+    draft = generate_training_plan(
+        member=active_member,
+        gym=gym_tenant,
+        week_choice="this_week",
+        acting_user=assigned_trainer_user,
+        provider=MockAIPlanProvider(),
+    )
+
+    # Member calls approved plans endpoint -> returns empty list
+    authenticate_client(api_client, active_member.user, gym_tenant)
+    res_me = api_client.get("/api/members/me/plans/")
+    assert res_me.status_code == 200
+    assert len(res_me.data) == 0
+
+    # Member attempts to access trainer plan management endpoints directly -> 403 Forbidden
+    res_direct = api_client.get(f"/api/gym/training-plans/{draft.id}/")
+    assert res_direct.status_code == 403
+
+    res_member_plans = api_client.get(f"/api/gym/members/{active_member.id}/plans/")
+    assert res_member_plans.status_code == 403
+
+
+def test_trainer_clients_list_never_contains_another_trainers_clients(
+    api_client, gym_tenant, active_member, assigned_trainer_user
+):
+    from apps.accounts.models import User
+    from apps.memberships.models import Member
+    from apps.trainers.models import TrainerAssignment
+    from apps.trainers.services import generate_training_plan
+
+    # Second trainer user (profile auto-created via signal)
+    trainer_user_2 = User.objects.create_user(
+        email="trainer2@test.com",
+        password="ValidPassword123!",
+        role=User.ROLE_TRAINER,
+        gym=gym_tenant,
+        full_name="Trainer Two",
+    )
+    trainer_profile_2 = trainer_user_2.trainer_profile
+
+    # Second member assigned to trainer 2
+    user_b = User.objects.create_user(
+        email="client2@test.com",
+        password="ValidPassword123!",
+        role=User.ROLE_MEMBER,
+        gym=gym_tenant,
+        full_name="Client Two",
+    )
+    member_b = Member.objects.create(
+        user=user_b,
+        gym=gym_tenant,
+        date_of_birth="1994-08-20",
+        waiver_accepted_at=timezone.now(),
+    )
+    TrainerAssignment.objects.create(
+        gym=gym_tenant,
+        trainer=trainer_profile_2,
+        member=member_b,
+        assigned_by=assigned_trainer_user,
+    )
+
+    from apps.trainers.ai.mock_provider import MockAIPlanProvider
+
+    # Trainer 1 creates a draft for their client
+    generate_training_plan(
+        member=active_member,
+        gym=gym_tenant,
+        week_choice="this_week",
+        acting_user=assigned_trainer_user,
+        provider=MockAIPlanProvider(),
+    )
+
+    # Trainer 1 views their clients: sees ONLY active_member with pending_review draft
+    authenticate_client(api_client, assigned_trainer_user, gym_tenant)
+    res_1 = api_client.get("/api/trainers/me/clients/")
+    assert res_1.status_code == 200
+    returned_ids_1 = [c["member_id"] for c in res_1.data]
+    assert str(active_member.id) in returned_ids_1
+    assert str(member_b.id) not in returned_ids_1
+    client_a_data = next(
+        c for c in res_1.data if c["member_id"] == str(active_member.id)
+    )
+    assert client_a_data["has_approved_plan_this_week"] is False
+    assert client_a_data["plan_status_this_week"] == "pending_review"
+
+    # Trainer 2 views their clients: sees ONLY member_b with no_draft
+    authenticate_client(api_client, trainer_user_2, gym_tenant)
+    res_2 = api_client.get("/api/trainers/me/clients/")
+    assert res_2.status_code == 200
+    returned_ids_2 = [c["member_id"] for c in res_2.data]
+    assert str(member_b.id) in returned_ids_2
+    assert str(active_member.id) not in returned_ids_2
+    client_b_data = next(c for c in res_2.data if c["member_id"] == str(member_b.id))
+    assert client_b_data["has_approved_plan_this_week"] is False
+    assert client_b_data["plan_status_this_week"] == "no_draft"

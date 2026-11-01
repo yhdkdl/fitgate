@@ -911,6 +911,19 @@ def approve_training_plan(
             },
         )
 
+        # Notify the member: "Your training plan for the week of <date> is ready."
+        date_str = (
+            plan.week_start_date.isoformat()
+            if hasattr(plan.week_start_date, "isoformat")
+            else str(plan.week_start_date)
+        )
+        create_notification(
+            recipient=member.user,
+            notification_type="training_plan_ready",
+            message=f"Your training plan for the week of {date_str} is ready.",
+            gym=gym,
+        )
+
     return plan
 
 

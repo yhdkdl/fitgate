@@ -405,4 +405,68 @@ describe("Sprint 22 - AI Workout Plan Review & Generation", () => {
       ).toBeInTheDocument();
     });
   });
+
+  it("renders 'Waiting for your trainer' when member has assigned trainer and active plan but no approved plan yet", async () => {
+    vi.spyOn(global, "fetch").mockImplementation(async (url) => {
+      const u = String(url);
+      if (u.includes("/api/members/me/plans/")) {
+        return new Response(JSON.stringify([]), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      return new Response("Not found", { status: 404 });
+    });
+
+    render(
+      <MemberApprovedPlanCard
+        hasAssignedTrainer={true}
+        isActiveTrainerPlan={true}
+      />
+    );
+
+    await waitFor(() => {
+      expect(
+        screen.getByText(/Waiting for your trainer/i)
+      ).toBeInTheDocument();
+      expect(
+        screen.getByText(/Your trainer is preparing your personalized training/i)
+      ).toBeInTheDocument();
+    });
+  });
+
+  it("hides section completely when member has no assigned trainer or is not on active trainer plan", async () => {
+    vi.spyOn(global, "fetch").mockImplementation(async (url) => {
+      const u = String(url);
+      if (u.includes("/api/members/me/plans/")) {
+        return new Response(JSON.stringify([]), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      return new Response("Not found", { status: 404 });
+    });
+
+    const { container: c1 } = render(
+      <MemberApprovedPlanCard
+        hasAssignedTrainer={false}
+        isActiveTrainerPlan={true}
+      />
+    );
+
+    await waitFor(() => {
+      expect(c1.firstChild).toBeNull();
+    });
+
+    const { container: c2 } = render(
+      <MemberApprovedPlanCard
+        hasAssignedTrainer={true}
+        isActiveTrainerPlan={false}
+      />
+    );
+
+    await waitFor(() => {
+      expect(c2.firstChild).toBeNull();
+    });
+  });
 });
