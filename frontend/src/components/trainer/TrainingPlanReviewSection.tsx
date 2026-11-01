@@ -9,10 +9,15 @@ import {
   editTrainingPlan,
   getPlanPrerequisites,
   listMemberTrainingPlans,
+  type MealPatternItem,
   type PlanDataStructure,
   type PlanPrerequisites,
   type TrainingPlan,
 } from "../../api/trainingPlans";
+import {
+  REJECTION_REASONS_OPTIONS,
+  WEEKLY_FOCUS_OPTIONS,
+} from "../../utils/trainingPlanConstants";
 import { GeneratePlanModal } from "./GeneratePlanModal";
 import { RejectPlanModal } from "./RejectPlanModal";
 
@@ -208,10 +213,34 @@ export const TrainingPlanReviewSection: React.FC<TrainingPlanReviewSectionProps>
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-border pb-3">
               <div className="flex items-center gap-2 flex-wrap">
                 <span className="text-sm font-bold text-text">
-                  Week of {new Date(currentPlan.week_start_date).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}
+                  Week of{" "}
+                  {currentPlan.week_start_date
+                    ? (() => {
+                        const d = new Date(currentPlan.week_start_date);
+                        return isNaN(d.getTime())
+                          ? String(currentPlan.week_start_date)
+                          : d.toLocaleDateString(undefined, {
+                              month: "short",
+                              day: "numeric",
+                              year: "numeric",
+                            });
+                      })()
+                    : "Unspecified Week"}
                 </span>
-                <Badge variant={currentPlan.status === "approved" ? "success" : currentPlan.status === "rejected" ? "danger" : "warning"}>
-                  {currentPlan.status === "pending_review" ? "Pending Review" : currentPlan.status === "approved" ? "Approved" : "Rejected"}
+                <Badge
+                  variant={
+                    currentPlan.status === "approved"
+                      ? "success"
+                      : currentPlan.status === "rejected"
+                      ? "danger"
+                      : "warning"
+                  }
+                >
+                  {currentPlan.status === "pending_review"
+                    ? "Pending Review"
+                    : currentPlan.status === "approved"
+                    ? "Approved"
+                    : "Rejected"}
                 </Badge>
                 <Badge variant="neutral">Draft {currentPlan.draft_number} / 3</Badge>
                 {currentPlan.was_edited && (
@@ -230,7 +259,7 @@ export const TrainingPlanReviewSection: React.FC<TrainingPlanReviewSectionProps>
                   >
                     {plans.map((p) => (
                       <option key={p.id} value={p.id}>
-                        {p.week_start_date} (Draft {p.draft_number} - {p.status})
+                        {p.week_start_date || "Week"} (Draft {p.draft_number} - {p.status})
                       </option>
                     ))}
                   </select>
@@ -249,30 +278,92 @@ export const TrainingPlanReviewSection: React.FC<TrainingPlanReviewSectionProps>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
               <div className="bg-surface-2/60 p-2 rounded border border-border">
                 <span className="text-text-muted block text-[10px]">Training Phase</span>
-                <span className="font-semibold text-text uppercase">{currentPlan.plan_data.training_phase}</span>
+                <span className="font-semibold text-text uppercase">
+                  {currentPlan.plan_data?.training_phase || "General"}
+                </span>
               </div>
               <div className="bg-surface-2/60 p-2 rounded border border-border">
                 <span className="text-text-muted block text-[10px]">Target Intensity</span>
-                <span className="font-semibold text-primary">RPE {currentPlan.plan_data.target_intensity.rpe_target}</span>
-                <span className="text-[10px] text-text-muted ml-1">({currentPlan.plan_data.target_intensity.volume_modifier})</span>
+                <span className="font-semibold text-primary">
+                  {currentPlan.plan_data?.target_intensity?.rpe_target
+                    ? `RPE ${currentPlan.plan_data.target_intensity.rpe_target}`
+                    : "Standard RPE"}
+                </span>
+                {currentPlan.plan_data?.target_intensity?.volume_modifier && (
+                  <span className="text-[10px] text-text-muted ml-1">
+                    ({currentPlan.plan_data.target_intensity.volume_modifier})
+                  </span>
+                )}
               </div>
               <div className="bg-surface-2/60 p-2 rounded border border-border">
                 <span className="text-text-muted block text-[10px]">Days / Session</span>
-                <span className="font-semibold text-text">{currentPlan.plan_data.training_days_per_week} days/wk</span>
+                <span className="font-semibold text-text">
+                  {currentPlan.plan_data?.training_days_per_week ||
+                    (Array.isArray(currentPlan.plan_data?.sessions)
+                      ? currentPlan.plan_data.sessions.length
+                      : "—")}{" "}
+                  days/wk
+                </span>
               </div>
               <div className="bg-surface-2/60 p-2 rounded border border-border">
-                <span className="text-text-muted block text-[10px]">AI Model</span>
-                <span className="font-semibold text-text truncate block" title={currentPlan.generated_by_model}>
-                  {currentPlan.generated_by_model}
+                <span className="text-text-muted block text-[10px]">Source</span>
+                <span
+                  className="font-semibold text-text truncate block"
+                  title={currentPlan.generated_by_model || "Mock AI Provider"}
+                >
+                  {currentPlan.generated_by_model || "Mock AI Provider"}
                 </span>
               </div>
             </div>
 
+            {/* Weekly Focus & Notes */}
+            {Array.isArray(currentPlan.focus_this_week) &&
+              currentPlan.focus_this_week.length > 0 && (
+                <div className="text-xs text-text-muted bg-surface-2/40 p-2 rounded border border-border">
+                  <strong className="text-text">Focus this week:</strong>{" "}
+                  {currentPlan.focus_this_week
+                    .map((code) => {
+                      const match = WEEKLY_FOCUS_OPTIONS.find((opt) => opt.code === code);
+                      return match ? match.label : String(code);
+                    })
+                    .join(", ")}
+                  {currentPlan.other_focus ? ` (${currentPlan.other_focus})` : ""}
+                </div>
+              )}
+
             {currentPlan.trainer_notes && (
               <div className="text-xs text-text-muted bg-surface-2/40 p-2 rounded border border-border">
-                <strong>Trainer Notes / Focus:</strong> {currentPlan.trainer_notes}
+                <strong className="text-text">Trainer Note:</strong> {currentPlan.trainer_notes}
               </div>
             )}
+
+            {/* Rejection reasons if rejected */}
+            {currentPlan.status === "rejected" &&
+              Array.isArray(currentPlan.rejection_reasons) &&
+              currentPlan.rejection_reasons.length > 0 && (
+                <div className="text-xs text-danger bg-danger/10 p-2.5 rounded border border-danger/30 space-y-1">
+                  <strong className="block text-danger font-semibold">
+                    Rejection Reasons:
+                  </strong>
+                  <ul className="list-disc list-inside space-y-0.5">
+                    {currentPlan.rejection_reasons.map((reasonCode) => {
+                      const match = REJECTION_REASONS_OPTIONS.find(
+                        (opt) => opt.code === reasonCode
+                      );
+                      return (
+                        <li key={reasonCode}>
+                          {match ? match.label : String(reasonCode)}
+                        </li>
+                      );
+                    })}
+                  </ul>
+                  {currentPlan.other_rejection_reason && (
+                    <p className="text-[11px] italic text-danger/90">
+                      Note: {currentPlan.other_rejection_reason}
+                    </p>
+                  )}
+                </div>
+              )}
           </Card>
 
           {/* Action Bar for Pending Review Draft */}
@@ -340,217 +431,344 @@ export const TrainingPlanReviewSection: React.FC<TrainingPlanReviewSectionProps>
           )}
 
           {/* Sessions & Nutrition Tabs */}
-          <Card className="bg-surface border-border p-4 space-y-4">
-            <div className="flex border-b border-border gap-2 overflow-x-auto pb-1">
-              {currentPlan.plan_data.sessions.map((sess, idx) => (
-                <button
-                  key={sess.session_id || idx}
-                  type="button"
-                  onClick={() => setActiveSessionTab(idx)}
-                  className={`px-3 py-1.5 text-xs font-semibold rounded border transition-colors whitespace-nowrap ${
-                    activeSessionTab === idx
-                      ? "bg-primary text-black border-primary"
-                      : "bg-surface-2 text-text-muted border-border hover:text-text"
-                  }`}
-                >
-                  {sess.name} ({sess.focus})
-                </button>
-              ))}
-              <button
-                type="button"
-                onClick={() => setActiveSessionTab(-1)}
-                className={`px-3 py-1.5 text-xs font-semibold rounded border transition-colors whitespace-nowrap ${
-                  activeSessionTab === -1
-                    ? "bg-primary text-black border-primary"
-                    : "bg-surface-2 text-text-muted border-border hover:text-text"
-                }`}
-              >
-                🥗 Ethiopian Nutrition
-              </button>
-            </div>
+          {(() => {
+            const sessions = Array.isArray(currentPlan.plan_data?.sessions)
+              ? currentPlan.plan_data.sessions
+              : [];
+            const activeSession = sessions[activeSessionTab];
+            const currentExercises =
+              isEditing && editedPlanData?.sessions?.[activeSessionTab]?.exercises
+                ? editedPlanData.sessions[activeSessionTab].exercises
+                : Array.isArray(activeSession?.exercises)
+                ? activeSession.exercises
+                : [];
 
-            {/* Session Exercises View */}
-            {activeSessionTab >= 0 && currentPlan.plan_data.sessions[activeSessionTab] && (
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <h4 className="text-xs font-bold text-text uppercase tracking-wider">
-                    {currentPlan.plan_data.sessions[activeSessionTab].name}:{" "}
-                    <span className="text-primary">{currentPlan.plan_data.sessions[activeSessionTab].focus}</span>
-                  </h4>
-                  <span className="text-[11px] text-text-muted">
-                    {currentPlan.plan_data.sessions[activeSessionTab].exercises.length} Exercises
-                  </span>
+            return (
+              <Card className="bg-surface border-border p-4 space-y-4">
+                <div className="flex border-b border-border gap-2 overflow-x-auto pb-1">
+                  {sessions.map((sess, idx) => (
+                    <button
+                      key={sess.session_id || idx}
+                      type="button"
+                      onClick={() => setActiveSessionTab(idx)}
+                      className={`px-3 py-1.5 text-xs font-semibold rounded border transition-colors whitespace-nowrap ${
+                        activeSessionTab === idx
+                          ? "bg-primary text-black border-primary"
+                          : "bg-surface-2 text-text-muted border-border hover:text-text"
+                      }`}
+                    >
+                      {sess.name || `Session ${idx + 1}`}{" "}
+                      {sess.focus ? `(${sess.focus})` : ""}
+                    </button>
+                  ))}
+                  <button
+                    type="button"
+                    onClick={() => setActiveSessionTab(-1)}
+                    className={`px-3 py-1.5 text-xs font-semibold rounded border transition-colors whitespace-nowrap ${
+                      activeSessionTab === -1
+                        ? "bg-primary text-black border-primary"
+                        : "bg-surface-2 text-text-muted border-border hover:text-text"
+                    }`}
+                  >
+                    🥗 Ethiopian Nutrition
+                  </button>
                 </div>
 
-                <div className="overflow-x-auto">
-                  <table className="w-full text-left text-xs">
-                    <thead>
-                      <tr className="border-b border-border text-text-muted">
-                        <th className="py-2 px-2">Exercise</th>
-                        <th className="py-2 px-2">Target Muscle</th>
-                        <th className="py-2 px-2">Sets</th>
-                        <th className="py-2 px-2">Reps</th>
-                        <th className="py-2 px-2">RPE</th>
-                        <th className="py-2 px-2">Rest</th>
-                        <th className="py-2 px-2">Notes</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-border/50">
-                      {(isEditing && editedPlanData
-                        ? editedPlanData.sessions[activeSessionTab].exercises
-                        : currentPlan.plan_data.sessions[activeSessionTab].exercises
-                      ).map((ex, exIdx) => (
-                        <tr key={exIdx} className="hover:bg-surface-2/30">
-                          <td className="py-2 px-2 font-medium text-text">
-                            {isEditing && editedPlanData ? (
-                              <input
-                                value={ex.name}
-                                onChange={(e) => {
-                                  const updated = { ...editedPlanData };
-                                  updated.sessions[activeSessionTab].exercises[exIdx].name = e.target.value;
-                                  setEditedPlanData(updated);
-                                }}
-                                className="bg-surface-2 border border-border rounded px-1.5 py-0.5 text-xs text-text w-full"
-                              />
-                            ) : (
-                              ex.name
-                            )}
-                          </td>
-                          <td className="py-2 px-2 text-text-muted">{ex.target_muscle}</td>
-                          <td className="py-2 px-2 text-text">
-                            {isEditing && editedPlanData ? (
-                              <input
-                                type="number"
-                                min={1}
-                                max={10}
-                                value={ex.sets}
-                                onChange={(e) => {
-                                  const updated = { ...editedPlanData };
-                                  updated.sessions[activeSessionTab].exercises[exIdx].sets = parseInt(e.target.value) || 3;
-                                  setEditedPlanData(updated);
-                                }}
-                                className="bg-surface-2 border border-border rounded px-1.5 py-0.5 text-xs text-text w-14"
-                              />
-                            ) : (
-                              ex.sets
-                            )}
-                          </td>
-                          <td className="py-2 px-2 text-text">
-                            {isEditing && editedPlanData ? (
-                              <input
-                                value={ex.reps}
-                                onChange={(e) => {
-                                  const updated = { ...editedPlanData };
-                                  updated.sessions[activeSessionTab].exercises[exIdx].reps = e.target.value;
-                                  setEditedPlanData(updated);
-                                }}
-                                className="bg-surface-2 border border-border rounded px-1.5 py-0.5 text-xs text-text w-16"
-                              />
-                            ) : (
-                              ex.reps
-                            )}
-                          </td>
-                          <td className="py-2 px-2 text-primary font-semibold">{ex.rpe}</td>
-                          <td className="py-2 px-2 text-text-muted">{ex.rest_seconds}s</td>
-                          <td className="py-2 px-2 text-text-muted">
-                            {isEditing && editedPlanData ? (
-                              <input
-                                value={ex.notes || ""}
-                                onChange={(e) => {
-                                  const updated = { ...editedPlanData };
-                                  updated.sessions[activeSessionTab].exercises[exIdx].notes = e.target.value;
-                                  setEditedPlanData(updated);
-                                }}
-                                className="bg-surface-2 border border-border rounded px-1.5 py-0.5 text-xs text-text w-full"
-                              />
-                            ) : (
-                              ex.notes || "—"
-                            )}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            )}
+                {/* Session Exercises View */}
+                {activeSessionTab >= 0 && activeSession && (
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <h4 className="text-xs font-bold text-text uppercase tracking-wider">
+                        {activeSession.name || `Session ${activeSessionTab + 1}`}:{" "}
+                        <span className="text-primary">
+                          {activeSession.focus || "Standard Routine"}
+                        </span>
+                      </h4>
+                      <span className="text-[11px] text-text-muted">
+                        {currentExercises.length} Exercises
+                      </span>
+                    </div>
 
-            {/* Nutrition Guidance Tab */}
-            {activeSessionTab === -1 && (
-              <div className="space-y-4">
-                <div className="border-b border-border pb-2">
-                  <h4 className="text-xs font-bold text-text uppercase tracking-wider">
-                    Ethiopian Dietary & Nutrition Principles
-                  </h4>
-                  <p className="text-[11px] text-text-muted">
-                    No strict calorie precision; focuses on wholesome Ethiopian staples respecting dietary choices & fasting.
-                  </p>
-                </div>
-
-                {currentPlan.plan_data.nutrition_guidance.fasting_compliance_note && (
-                  <div className="p-2.5 bg-primary/10 border border-primary/30 rounded text-xs text-text font-medium">
-                    {currentPlan.plan_data.nutrition_guidance.fasting_compliance_note}
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left text-xs">
+                        <thead>
+                          <tr className="border-b border-border text-text-muted">
+                            <th className="py-2 px-2">Exercise</th>
+                            <th className="py-2 px-2">Target Muscle</th>
+                            <th className="py-2 px-2">Sets</th>
+                            <th className="py-2 px-2">Reps</th>
+                            <th className="py-2 px-2">RPE</th>
+                            <th className="py-2 px-2">Rest</th>
+                            <th className="py-2 px-2">Notes</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-border/50">
+                          {currentExercises.map((ex, exIdx) => (
+                            <tr key={exIdx} className="hover:bg-surface-2/30">
+                              <td className="py-2 px-2 font-medium text-text">
+                                {isEditing && editedPlanData ? (
+                                  <input
+                                    value={ex.name || ""}
+                                    onChange={(e) => {
+                                      const updated = { ...editedPlanData };
+                                      if (
+                                        updated.sessions?.[activeSessionTab]
+                                          ?.exercises?.[exIdx]
+                                      ) {
+                                        updated.sessions[activeSessionTab].exercises[
+                                          exIdx
+                                        ].name = e.target.value;
+                                        setEditedPlanData(updated);
+                                      }
+                                    }}
+                                    className="bg-surface-2 border border-border rounded px-1.5 py-0.5 text-xs text-text w-full"
+                                  />
+                                ) : (
+                                  ex.name || "—"
+                                )}
+                              </td>
+                              <td className="py-2 px-2 text-text-muted">
+                                {ex.target_muscle || "—"}
+                              </td>
+                              <td className="py-2 px-2 text-text">
+                                {isEditing && editedPlanData ? (
+                                  <input
+                                    type="text"
+                                    value={ex.sets ?? ""}
+                                    onChange={(e) => {
+                                      const updated = { ...editedPlanData };
+                                      if (
+                                        updated.sessions?.[activeSessionTab]
+                                          ?.exercises?.[exIdx]
+                                      ) {
+                                        updated.sessions[activeSessionTab].exercises[
+                                          exIdx
+                                        ].sets = e.target.value;
+                                        setEditedPlanData(updated);
+                                      }
+                                    }}
+                                    className="bg-surface-2 border border-border rounded px-1.5 py-0.5 text-xs text-text w-16"
+                                  />
+                                ) : (
+                                  String(ex.sets ?? "—")
+                                )}
+                              </td>
+                              <td className="py-2 px-2 text-text">
+                                {isEditing && editedPlanData ? (
+                                  <input
+                                    type="text"
+                                    value={ex.reps ?? ""}
+                                    onChange={(e) => {
+                                      const updated = { ...editedPlanData };
+                                      if (
+                                        updated.sessions?.[activeSessionTab]
+                                          ?.exercises?.[exIdx]
+                                      ) {
+                                        updated.sessions[activeSessionTab].exercises[
+                                          exIdx
+                                        ].reps = e.target.value;
+                                        setEditedPlanData(updated);
+                                      }
+                                    }}
+                                    className="bg-surface-2 border border-border rounded px-1.5 py-0.5 text-xs text-text w-24"
+                                  />
+                                ) : (
+                                  String(ex.reps ?? "—")
+                                )}
+                              </td>
+                              <td className="py-2 px-2 text-primary font-semibold">
+                                {isEditing && editedPlanData ? (
+                                  <input
+                                    type="text"
+                                    value={ex.rpe ?? ""}
+                                    onChange={(e) => {
+                                      const updated = { ...editedPlanData };
+                                      if (
+                                        updated.sessions?.[activeSessionTab]
+                                          ?.exercises?.[exIdx]
+                                      ) {
+                                        updated.sessions[activeSessionTab].exercises[
+                                          exIdx
+                                        ].rpe = e.target.value;
+                                        setEditedPlanData(updated);
+                                      }
+                                    }}
+                                    className="bg-surface-2 border border-border rounded px-1.5 py-0.5 text-xs text-text w-16"
+                                  />
+                                ) : (
+                                  String(ex.rpe ?? "—")
+                                )}
+                              </td>
+                              <td className="py-2 px-2 text-text-muted">
+                                {ex.rest_seconds != null ? `${ex.rest_seconds}s` : "—"}
+                              </td>
+                              <td className="py-2 px-2 text-text-muted">
+                                {isEditing && editedPlanData ? (
+                                  <input
+                                    value={ex.notes || ""}
+                                    onChange={(e) => {
+                                      const updated = { ...editedPlanData };
+                                      if (
+                                        updated.sessions?.[activeSessionTab]
+                                          ?.exercises?.[exIdx]
+                                      ) {
+                                        updated.sessions[activeSessionTab].exercises[
+                                          exIdx
+                                        ].notes = e.target.value;
+                                        setEditedPlanData(updated);
+                                      }
+                                    }}
+                                    className="bg-surface-2 border border-border rounded px-1.5 py-0.5 text-xs text-text w-full"
+                                  />
+                                ) : (
+                                  ex.notes || "—"
+                                )}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
                   </div>
                 )}
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div className="bg-surface-2/40 p-3 rounded border border-border">
-                    <span className="text-xs font-bold text-text block mb-1">Daily Principles</span>
-                    <ul className="list-disc list-inside text-xs text-text-muted space-y-1">
-                      {currentPlan.plan_data.nutrition_guidance.daily_principles.map((pr, i) => (
-                        <li key={i}>{pr}</li>
-                      ))}
-                    </ul>
-                  </div>
+                {/* Nutrition Guidance Tab */}
+                {activeSessionTab === -1 && (
+                  <div className="space-y-4">
+                    <div className="border-b border-border pb-2">
+                      <h4 className="text-xs font-bold text-text uppercase tracking-wider">
+                        Ethiopian Dietary & Nutrition Principles
+                      </h4>
+                      <p className="text-[11px] text-text-muted">
+                        No strict calorie precision; focuses on wholesome Ethiopian staples respecting dietary choices & fasting.
+                      </p>
+                    </div>
 
-                  <div className="bg-surface-2/40 p-3 rounded border border-border">
-                    <span className="text-xs font-bold text-text block mb-1">Hydration</span>
-                    <p className="text-xs text-text-muted">
-                      {currentPlan.plan_data.nutrition_guidance.hydration_notes}
-                    </p>
-                  </div>
-                </div>
+                    {(() => {
+                      const nutrition =
+                        currentPlan.plan_data?.nutrition ||
+                        currentPlan.plan_data?.nutrition_guidance;
+                      const guidanceText =
+                        typeof nutrition?.guidance === "string"
+                          ? nutrition.guidance
+                          : null;
+                      const fastingNote =
+                        nutrition?.fasting_compliance_note ||
+                        (Array.isArray(nutrition?.dietary_notes_respected) &&
+                        nutrition.dietary_notes_respected.length > 0
+                          ? `Dietary choices respected: ${nutrition.dietary_notes_respected.join(
+                              ", "
+                            )}`
+                          : null);
+                      const dailyPrinciples = Array.isArray(
+                        nutrition?.daily_principles
+                      )
+                        ? nutrition.daily_principles
+                        : [];
+                      const hydration = nutrition?.hydration_notes;
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
-                  <div className="bg-surface-2/40 p-3 rounded border border-border">
-                    <span className="text-xs font-bold text-primary block mb-1">Breakfast Options</span>
-                    <ul className="list-disc list-inside text-xs text-text-muted space-y-0.5">
-                      {currentPlan.plan_data.nutrition_guidance.meal_patterns.breakfast.map((item, i) => (
-                        <li key={i}>{item}</li>
-                      ))}
-                    </ul>
-                  </div>
+                      return (
+                        <div className="space-y-3">
+                          {fastingNote && (
+                            <div className="p-2.5 bg-primary/10 border border-primary/30 rounded text-xs text-text font-medium">
+                              {fastingNote}
+                            </div>
+                          )}
 
-                  <div className="bg-surface-2/40 p-3 rounded border border-border">
-                    <span className="text-xs font-bold text-primary block mb-1">Lunch Options</span>
-                    <ul className="list-disc list-inside text-xs text-text-muted space-y-0.5">
-                      {currentPlan.plan_data.nutrition_guidance.meal_patterns.lunch.map((item, i) => (
-                        <li key={i}>{item}</li>
-                      ))}
-                    </ul>
-                  </div>
+                          {guidanceText && (
+                            <div className="bg-surface-2/40 p-3 rounded border border-border text-xs text-text-muted leading-relaxed">
+                              <strong className="text-text block mb-1">
+                                Nutrition Strategy:
+                              </strong>
+                              {guidanceText}
+                            </div>
+                          )}
 
-                  <div className="bg-surface-2/40 p-3 rounded border border-border">
-                    <span className="text-xs font-bold text-primary block mb-1">Dinner Options</span>
-                    <ul className="list-disc list-inside text-xs text-text-muted space-y-0.5">
-                      {currentPlan.plan_data.nutrition_guidance.meal_patterns.dinner.map((item, i) => (
-                        <li key={i}>{item}</li>
-                      ))}
-                    </ul>
-                  </div>
+                          {dailyPrinciples.length > 0 && (
+                            <div className="bg-surface-2/40 p-3 rounded border border-border">
+                              <span className="text-xs font-bold text-text block mb-1">
+                                Daily Principles
+                              </span>
+                              <ul className="list-disc list-inside text-xs text-text-muted space-y-1">
+                                {dailyPrinciples.map((pr: string, i: number) => (
+                                  <li key={i}>{pr}</li>
+                                ))}
+                              </ul>
+                            </div>
+                          )}
 
-                  <div className="bg-surface-2/40 p-3 rounded border border-border">
-                    <span className="text-xs font-bold text-primary block mb-1">Snack Options</span>
-                    <ul className="list-disc list-inside text-xs text-text-muted space-y-0.5">
-                      {currentPlan.plan_data.nutrition_guidance.meal_patterns.snacks.map((item, i) => (
-                        <li key={i}>{item}</li>
-                      ))}
-                    </ul>
+                          {hydration && (
+                            <div className="bg-surface-2/40 p-3 rounded border border-border">
+                              <span className="text-xs font-bold text-text block mb-1">
+                                Hydration
+                              </span>
+                              <p className="text-xs text-text-muted">{hydration}</p>
+                            </div>
+                          )}
+
+                          {/* Meal patterns */}
+                          {nutrition?.meal_patterns && (
+                            <div className="space-y-2 pt-1">
+                              <span className="text-xs font-bold text-text uppercase tracking-wider block">
+                                Suggested Meal Patterns
+                              </span>
+                              {Array.isArray(nutrition.meal_patterns) ? (
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                  {nutrition.meal_patterns.map(
+                                    (item: MealPatternItem, i: number) => (
+                                      <div
+                                        key={i}
+                                        className="bg-surface-2/40 p-3 rounded border border-border"
+                                      >
+                                        <span className="text-xs font-bold text-primary block mb-1">
+                                          {item.meal || `Meal ${i + 1}`}
+                                        </span>
+                                        <p className="text-xs text-text-muted leading-relaxed">
+                                          {item.pattern || String(item)}
+                                        </p>
+                                      </div>
+                                    )
+                                  )}
+                                </div>
+                              ) : typeof nutrition.meal_patterns === "object" ? (
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                  {Object.entries(nutrition.meal_patterns).map(
+                                    ([mealKey, items]: [string, unknown]) => (
+                                      <div
+                                        key={mealKey}
+                                        className="bg-surface-2/40 p-3 rounded border border-border"
+                                      >
+                                        <span className="text-xs font-bold text-primary block mb-1 capitalize">
+                                          {mealKey} Options
+                                        </span>
+                                        {Array.isArray(items) ? (
+                                          <ul className="list-disc list-inside text-xs text-text-muted space-y-0.5">
+                                            {items.map(
+                                              (it: string, idx: number) => (
+                                                <li key={idx}>{it}</li>
+                                              )
+                                            )}
+                                          </ul>
+                                        ) : (
+                                          <p className="text-xs text-text-muted">
+                                            {String(items)}
+                                          </p>
+                                        )}
+                                      </div>
+                                    )
+                                  )}
+                                </div>
+                              ) : null}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })()}
                   </div>
-                </div>
-              </div>
-            )}
-          </Card>
+                )}
+              </Card>
+            );
+          })()}
         </div>
       )}
 

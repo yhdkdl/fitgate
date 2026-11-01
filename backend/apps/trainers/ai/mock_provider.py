@@ -27,6 +27,7 @@ class MockAIPlanProvider(BaseAIPlanProvider):
         trainer_note = plan_params.get("trainer_note_for_week", "")
         focus_list = profile.get("focus_this_week") or ["no_focus"]
         dietary_notes = profile.get("dietary_notes", [])
+        limitations = set(profile.get("health_limitations", []))
         intensity = plan_params.get("intensity", {})
         rpe = intensity.get("target_rpe", "7-8")
         rep_range = intensity.get("rep_range", "8-12")
@@ -76,9 +77,17 @@ class MockAIPlanProvider(BaseAIPlanProvider):
                         "alt": "Incline Push-Ups / Band Pull-Aparts",
                     },
                     {
-                        "name": "Dumbbell Overhead Shoulder Press",
+                        "name": (
+                            "Dumbbell Neutral-Grip Floor Press"
+                            if "shoulder" in limitations
+                            else "Dumbbell Overhead Shoulder Press"
+                        ),
                         "req": "dumbbells",
-                        "alt": "Pike Push-Ups",
+                        "alt": (
+                            "Incline Push-Ups"
+                            if "shoulder" in limitations
+                            else "Pike Push-Ups"
+                        ),
                     },
                     {
                         "name": "Lat Pulldown on Cable Machine",

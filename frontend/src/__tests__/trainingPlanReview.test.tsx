@@ -93,6 +93,102 @@ const mockDraft3Plan = {
   draft_number: 3,
 };
 
+const mockYoyoLiveModelDraftPlan = {
+  id: "22da1c90-8fbd-486c-8f03-86cbc8ac0efc",
+  member: "mem-yoyo",
+  gym: "gym-1",
+  week_start_date: "2026-10-26",
+  draft_number: 1,
+  status: "pending_review",
+  generated_by_model: "google/gemma-4-26b-a4b-it:free",
+  focus_this_week: ["legs"],
+  other_focus: "",
+  trainer_notes: "",
+  rejection_reasons: [],
+  other_rejection_reason: "",
+  has_medical_caution: false,
+  was_edited: false,
+  plan_data: {
+    sessions: [
+      {
+        name: "Session A",
+        focus: "Lower Body Foundation - Quadriceps and Glutes Emphasis",
+        exercises: [
+          {
+            name: "Dumbbell Goblet Squats",
+            sets: 3,
+            reps: "10-12",
+            rpe: "7",
+            rest_seconds: 90,
+            notes: "Keep chest upright and core engaged; use a dumbbell held at chest height.",
+          },
+        ],
+      },
+      {
+        name: "Session B",
+        focus: "Upper Body Foundation - Pull and Push",
+        exercises: [
+          {
+            name: "Dumbbell Bench Press",
+            sets: 3,
+            reps: "10-12",
+            rpe: "7",
+            rest_seconds: 90,
+            notes: "Use a neutral grip to protect the shoulders.",
+          },
+        ],
+      },
+      {
+        name: "Session C",
+        focus: "Lower Body Foundation - Posterior Chain Emphasis",
+        exercises: [
+          {
+            name: "Kettlebell Romanian Deadlifts",
+            sets: 3,
+            reps: "10-12",
+            rpe: "7",
+            rest_seconds: 90,
+            notes: "Hinge at the hips.",
+          },
+        ],
+      },
+      {
+        name: "Session D",
+        focus: "Full Body Integration and Core",
+        exercises: [
+          {
+            name: "Plank",
+            sets: 3,
+            reps: "45-60 seconds",
+            rpe: "7.5",
+            rest_seconds: 60,
+            notes: "Keep a straight line from head to heels; engage core tightly.",
+          },
+        ],
+      },
+    ],
+    nutrition: {
+      guidance:
+        "To support muscle gain, prioritize high-protein Ethiopian staples and complex carbohydrates.",
+      meal_patterns: [
+        {
+          meal: "Breakfast",
+          pattern: "Besso mixed with water, or scrambled eggs with tomatoes.",
+        },
+        {
+          meal: "Lunch",
+          pattern:
+            "Injera served with Misir Wot or Kik Alicha, accompanied by Gomen.",
+        },
+        {
+          meal: "Dinner",
+          pattern: "Injera with Doro Wot or Shiro.",
+        },
+      ],
+    },
+  },
+};
+
 describe("Sprint 22 - AI Workout Plan Review & Generation", () => {
   beforeEach(() => {
     localStorage.clear();
@@ -231,6 +327,82 @@ describe("Sprint 22 - AI Workout Plan Review & Generation", () => {
       expect(screen.getByText(/Trainer Approved/i)).toBeInTheDocument();
       expect(screen.getByText(/This Week's Workout Plan/i)).toBeInTheDocument();
       expect(screen.getByText(/Goblet Squat/i)).toBeInTheDocument();
+    });
+  });
+
+  it("draws plan review screen tolerating live model draft payload (no target_intensity, text reps, unknown focus codes)", async () => {
+    const planWithUnknownFocus = {
+      ...mockYoyoLiveModelDraftPlan,
+      focus_this_week: ["legs", "new_unrecognized_focus_code"],
+    };
+
+    vi.spyOn(global, "fetch").mockImplementation(async (url) => {
+      const u = String(url);
+      if (u.includes("/api/gym/members/mem-yoyo/plans/status/")) {
+        return new Response(JSON.stringify(mockPrereqsEligible), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      if (u.includes("/api/gym/members/mem-yoyo/plans/")) {
+        return new Response(JSON.stringify([planWithUnknownFocus]), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      return new Response("Not found", { status: 404 });
+    });
+
+    render(
+      <TrainingPlanReviewSection memberId="mem-yoyo" memberName="Yoyo Client" />
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText(/Pending Review/i)).toBeInTheDocument();
+      expect(screen.getByText(/Draft 1 \/ 3/i)).toBeInTheDocument();
+      expect(
+        screen.getByText(/google\/gemma-4-26b-a4b-it:free/i)
+      ).toBeInTheDocument();
+      expect(
+        screen.getByRole("button", { name: /Edit Draft/i })
+      ).toBeInTheDocument();
+      expect(
+        screen.getByRole("button", { name: /Approve Plan/i })
+      ).toBeInTheDocument();
+      expect(
+        screen.getByRole("button", { name: /Reject Draft/i })
+      ).toBeInTheDocument();
+    });
+
+    // Verify unknown focus code rendered as raw text without crashing
+    expect(screen.getByText(/new_unrecognized_focus_code/i)).toBeInTheDocument();
+
+    // Verify Session D with text reps "45-60 seconds" and rpe "7.5"
+    const sessionDTab = screen.getByRole("button", { name: /Session D/i });
+    fireEvent.click(sessionDTab);
+
+    await waitFor(() => {
+      expect(screen.getByText(/Plank/i)).toBeInTheDocument();
+      expect(screen.getByText("45-60 seconds")).toBeInTheDocument();
+      expect(screen.getByText("7.5")).toBeInTheDocument();
+    });
+
+    // Verify Nutrition Guidance tab with real schema structure
+    const nutritionTab = screen.getByRole("button", {
+      name: /Ethiopian Nutrition/i,
+    });
+    fireEvent.click(nutritionTab);
+
+    await waitFor(() => {
+      expect(
+        screen.getByText(/Ethiopian Dietary & Nutrition Principles/i)
+      ).toBeInTheDocument();
+      expect(
+        screen.getByText(/To support muscle gain/i)
+      ).toBeInTheDocument();
+      expect(
+        screen.getByText(/Besso mixed with water/i)
+      ).toBeInTheDocument();
     });
   });
 });

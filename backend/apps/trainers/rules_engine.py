@@ -396,7 +396,7 @@ def filter_prescribed_equipment(
         ),
         "shoulder": (
             {"barbell"},
-            "Excluded fixed straight barbell overhead pressing due to shoulder limitation.",
+            "Excluded overhead pressing (barbell and dumbbell) and lateral or front raises at shoulder height due to shoulder limitation.",
         ),
         "neck": (
             {"barbell", "squat_rack"},

@@ -15,51 +15,54 @@ export interface PlanPrerequisites {
 
 export interface ExerciseItem {
   name: string;
-  target_muscle: string;
-  sets: number;
-  reps: string;
-  rpe: number;
-  rest_seconds: number;
+  target_muscle?: string;
+  sets: number | string;
+  reps: string | number;
+  rpe: number | string;
+  rest_seconds?: number | string;
   notes?: string;
 }
 
 export interface SessionPlan {
-  session_id: string;
+  session_id?: string;
   name: string;
-  focus: string;
+  focus?: string;
   exercises: ExerciseItem[];
 }
 
-export interface NutritionGuidance {
-  daily_principles: string[];
-  meal_patterns: {
-    breakfast: string[];
-    lunch: string[];
-    dinner: string[];
-    snacks: string[];
-  };
-  hydration_notes: string;
+export interface MealPatternItem {
+  meal?: string;
+  pattern?: string;
+}
+
+export interface NutritionData {
+  guidance?: string;
+  meal_patterns?: MealPatternItem[] | Record<string, string[]> | string;
+  daily_principles?: string[];
+  hydration_notes?: string;
   fasting_compliance_note?: string;
+  dietary_notes_respected?: string[];
 }
 
 export interface PlanDataStructure {
-  training_days_per_week: number;
-  target_goal: string;
-  fitness_level: string;
-  training_phase: string;
-  target_intensity: {
-    rpe_target: number;
-    volume_modifier: string;
+  training_days_per_week?: number;
+  target_goal?: string;
+  fitness_level?: string;
+  training_phase?: string;
+  target_intensity?: {
+    rpe_target?: number | string;
+    volume_modifier?: string;
   };
   sessions: SessionPlan[];
-  nutrition_guidance: NutritionGuidance;
+  nutrition?: NutritionData;
+  nutrition_guidance?: NutritionData;
 }
 
 export interface TrainingPlan {
   id: string;
-  member: string;
-  gym: string;
-  week_start_date: string;
+  member?: string;
+  gym?: string;
+  week_start_date: string | null;
   draft_number: number;
   status: "pending_review" | "approved" | "rejected";
   generated_by_model: string;
@@ -73,8 +76,8 @@ export interface TrainingPlan {
   was_edited: boolean;
   approved_by?: string | null;
   approved_at?: string | null;
-  created_at: string;
-  updated_at: string;
+  created_at?: string;
+  updated_at?: string;
 }
 
 export interface GeneratePlanPayload {
