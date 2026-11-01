@@ -4221,10 +4221,6 @@ components:
           type: string
           default: ''
           maxLength: 200
-        trainer_notes:
-          type: string
-          default: ''
-          maxLength: 500
     GymConfig:
       type: object
       description: Feature gating and configuration settings of a gym.

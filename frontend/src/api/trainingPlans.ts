@@ -81,7 +81,6 @@ export interface GeneratePlanPayload {
   week_choice: "this_week" | "next_week";
   focus_this_week?: string[];
   other_focus?: string;
-  trainer_note_for_week?: string;
 }
 
 export interface RejectPlanPayload {

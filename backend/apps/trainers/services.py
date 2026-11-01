@@ -551,6 +551,8 @@ def get_plan_generation_prerequisites(
             missing.append(
                 "No body measurements recorded yet. At least one measurement is required."
             )
+        elif err.code == "missing_dob":
+            missing.append("Member date of birth is missing.")
         else:
             missing.append(err.message)
 

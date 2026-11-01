@@ -1,7 +1,6 @@
 import React, { useState } from "react";
 import { Alert } from "../ui/Alert";
 import { Button } from "../ui/Button";
-import { FormField } from "../ui/FormField";
 import { Input } from "../ui/Input";
 import { Modal } from "../ui/Modal";
 import { Spinner } from "../ui/Spinner";
@@ -38,7 +37,6 @@ export const GeneratePlanModal: React.FC<GeneratePlanModalProps> = ({
   );
   const [focusSelected, setFocusSelected] = useState<string[]>(["no_focus"]);
   const [otherFocusText, setOtherFocusText] = useState("");
-  const [trainerNote, setTrainerNote] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -76,7 +74,6 @@ export const GeneratePlanModal: React.FC<GeneratePlanModalProps> = ({
         week_choice: weekChoice,
         focus_this_week: focusSelected,
         other_focus: focusSelected.includes("other") ? otherFocusText.trim() : undefined,
-        trainer_note_for_week: trainerNote.trim() || undefined,
       });
       onPlanGenerated(plan);
       onClose();
@@ -190,24 +187,6 @@ export const GeneratePlanModal: React.FC<GeneratePlanModalProps> = ({
             </div>
           )}
         </div>
-
-        <FormField
-          label="Trainer Note for This Week (Optional, max 500 characters)"
-          htmlFor="trainer-week-note"
-        >
-          <textarea
-            id="trainer-week-note"
-            rows={3}
-            maxLength={500}
-            placeholder="e.g. Member recovering from knee fatigue; keep leg exercises strictly bodyweight or light machines."
-            value={trainerNote}
-            onChange={(e) => setTrainerNote(e.target.value)}
-            className="w-full bg-surface border border-border rounded-input px-3 py-2 text-xs text-text placeholder-text-muted focus:outline-none focus:ring-2 focus:ring-primary"
-          />
-          <div className="text-[11px] text-text-muted text-right mt-0.5">
-            {trainerNote.length} / 500
-          </div>
-        </FormField>
 
         <div className="flex justify-end gap-2 pt-3 border-t border-border">
           <Button type="button" variant="secondary" onClick={onClose} disabled={loading}>

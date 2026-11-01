@@ -521,6 +521,31 @@ def validate_generation_eligibility(member, gym) -> Dict[str, Any]:
             code="no_assigned_trainer",
         )
 
+    if not member.date_of_birth:
+        raise RulesEngineGatekeeperError(
+            "Member date of birth is missing.",
+            code="missing_dob",
+        )
+
+    dob = member.date_of_birth
+    if isinstance(dob, str):
+        from datetime import date as dt_date
+
+        try:
+            dob = dt_date.fromisoformat(dob)
+        except ValueError:
+            raise RulesEngineGatekeeperError(
+                "Member date of birth is missing.",
+                code="missing_dob",
+            )
+    today = timezone.localdate()
+    age = today.year - dob.year - ((today.month, today.day) < (dob.month, dob.day))
+    if age <= 0 or age > 120:
+        raise RulesEngineGatekeeperError(
+            "Member date of birth is missing.",
+            code="missing_dob",
+        )
+
     from apps.trainers.models import FitnessProfile
 
     profile = FitnessProfile.all_objects.filter(gym=gym, member=member).first()

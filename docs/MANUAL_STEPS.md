@@ -163,6 +163,18 @@ The feasibility spike on the real Yegara cPanel host passed all checks:
 
 ---
 
+14. **Step 14 — Sprint 22: AI Workout Plan Providers (OpenRouter & Google AI Studio)**
+    - **OpenRouter Free Tier Provider:**
+      - Set `OPENROUTER_API_KEY=<openrouter_api_key>` in `backend/.env` (and `/home/<user>/fitgate_env/.env` on the host).
+      - Configures fallback models in `OPENROUTER_MODELS` (e.g. `google/gemma-4-31b-it:free`, `google/gemma-4-26b-a4b-it:free`).
+    - **Optional Google AI Studio (Gemini Flash) Provider:**
+      - If using Google AI Studio alongside or ahead of OpenRouter for AI workout plan generation, obtain a free API key from Google AI Studio.
+      - In `backend/.env` (and `/home/<user>/fitgate_env/.env` on the host), set `GEMINI_API_KEY=<google_ai_studio_api_key>`. If omitted, the system silently skips Gemini and uses OpenRouter or the offline mock provider. When present, LiteLLM routes requests to Google AI Studio (`gemini/gemini-2.0-flash`) first before falling back to OpenRouter.
+      - **Fallback in use:** OpenRouter free tier fallback chain, followed by the offline deterministic mock plan provider.
+      - **Status:** Active in local dev and staging.
+
+---
+
 ## Scheduled Cron Jobs Summary (Single Reference Table)
 
 The table below lists every recurring cron job required by the FitGate production deployment. Each command is executed via `/home/<user>/virtualenv/fitgate_backend/3.11/bin/python /home/<user>/fitgate/backend/manage.py <command> >> /home/<user>/fitgate_logs/<log_file>.log 2>&1`.

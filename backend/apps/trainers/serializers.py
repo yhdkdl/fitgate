@@ -446,12 +446,6 @@ class GeneratePlanRequestSerializer(serializers.Serializer):
         allow_blank=True,
         default="",
     )
-    trainer_notes = serializers.CharField(
-        max_length=500,
-        required=False,
-        allow_blank=True,
-        default="",
-    )
 
 
 class RejectPlanRequestSerializer(serializers.Serializer):

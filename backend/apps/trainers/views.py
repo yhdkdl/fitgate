@@ -12,6 +12,11 @@ from apps.accounts.authentication import FitGateJWTAuthentication
 from apps.accounts.permissions import RequirePasswordChanged
 from apps.accounts.services import record_audit_log
 from apps.memberships.models import Member, MemberSubscription
+from apps.trainers.ai.base import (
+    AIPlanGenerationError,
+    AIPlanStructureError,
+    AIProviderTimeoutError,
+)
 from apps.trainers.models import (
     FitnessProfile,
     Trainer,
@@ -681,10 +686,19 @@ class GymMemberTrainingPlanListView(APIView):
                     "focus_this_week", ["no_focus"]
                 ),
                 other_focus=serializer.validated_data.get("other_focus", ""),
-                trainer_notes=serializer.validated_data.get("trainer_notes", ""),
+                trainer_notes="",
             )
             return Response(
                 TrainingPlanSerializer(plan).data, status=status.HTTP_201_CREATED
+            )
+        except (
+            AIPlanGenerationError,
+            AIProviderTimeoutError,
+            AIPlanStructureError,
+        ):
+            return Response(
+                {"detail": "Generation failed, try again later"},
+                status=status.HTTP_503_SERVICE_UNAVAILABLE,
             )
         except (DjangoValidationError, DRFValidationError) as exc:
             detail = getattr(

@@ -2492,8 +2492,6 @@ export interface components {
             focus_this_week: string[];
             /** @default  */
             other_focus: string;
-            /** @default  */
-            trainer_notes: string;
         };
         /** @description Feature gating and configuration settings of a gym. */
         GymConfig: {

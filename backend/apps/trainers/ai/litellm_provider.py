@@ -142,18 +142,31 @@ class LiteLLMAIPlanProvider(BaseAIPlanProvider):
     def __init__(
         self,
         ordered_models: Optional[List[str]] = None,
-        timeout_seconds: int = 35,
+        timeout_seconds: int = 15,
         api_key: Optional[str] = None,
+        gemini_api_key: Optional[str] = None,
     ):
-        self.ordered_models = ordered_models or getattr(
-            settings,
-            "OPENROUTER_MODELS",
-            [
-                "openrouter/meta-llama/llama-3.3-70b-instruct:free",
-                "openrouter/google/gemini-2.0-flash-exp:free",
-                "openrouter/qwen/qwen-2.5-72b-instruct:free",
-            ],
+        base_models = list(
+            ordered_models
+            or getattr(
+                settings,
+                "OPENROUTER_MODELS",
+                [
+                    "openrouter/google/gemma-4-31b-it:free",
+                    "openrouter/google/gemma-4-26b-a4b-it:free",
+                ],
+            )
         )
+        self.gemini_api_key = gemini_api_key or getattr(
+            settings, "GEMINI_API_KEY", os.environ.get("GEMINI_API_KEY", "")
+        )
+        # If GEMINI_API_KEY is present, place Google AI Studio (Gemini Flash) FIRST in the chain
+        if self.gemini_api_key:
+            gemini_model = "gemini/gemini-2.0-flash"
+            if gemini_model not in base_models:
+                base_models.insert(0, gemini_model)
+
+        self.ordered_models = base_models
         self.timeout_seconds = timeout_seconds
         self.api_key = api_key or getattr(
             settings, "OPENROUTER_API_KEY", os.environ.get("OPENROUTER_API_KEY", "")
@@ -162,7 +175,29 @@ class LiteLLMAIPlanProvider(BaseAIPlanProvider):
     def _invoke_model(self, model: str, messages: List[Dict[str, str]]) -> str:
         """
         Invokes model via litellm if installed; falls back to direct OpenRouter HTTPS completion.
+        Supports gemini/... models via Google AI Studio when GEMINI_API_KEY is configured.
         """
+        if model.startswith("gemini/"):
+            try:
+                import litellm
+
+                response = litellm.completion(
+                    model=model,
+                    messages=messages,
+                    api_key=self.gemini_api_key,
+                    timeout=self.timeout_seconds,
+                    temperature=0.3,
+                    max_tokens=3000,
+                )
+                content = response.choices[0].message.content
+                if not content:
+                    raise AIPlanStructureError("Gemini model returned empty content")
+                return content.strip()
+            except Exception as exc:
+                if "timeout" in str(exc).lower():
+                    raise AIProviderTimeoutError(f"Gemini timed out: {exc}")
+                raise AIPlanGenerationError(f"Gemini call failed: {exc}")
+
         try:
             import litellm
 
@@ -180,8 +215,9 @@ class LiteLLMAIPlanProvider(BaseAIPlanProvider):
                 kwargs["api_key"] = self.api_key
             response = litellm.completion(**kwargs)
             content = response.choices[0].message.content
-            return (content or "").strip()
-        except ImportError:
+            if content and content.strip():
+                return content.strip()
+        except Exception:
             pass
 
         # Native HTTP fallback via OpenRouter endpoint
@@ -310,7 +346,8 @@ class LiteLLMAIPlanProvider(BaseAIPlanProvider):
         )
 
         try:
-            from apps.accounts.models import AuditLog
+            from apps.accounts.models import AuditLog, User
+            from apps.accounts.notifications import create_notification
             from apps.tenants.models import GymTenant
 
             gym = GymTenant.objects.filter(id=gym_id).first() if gym_id else None
@@ -329,7 +366,22 @@ class LiteLLMAIPlanProvider(BaseAIPlanProvider):
                         "timestamp": timezone.now().isoformat(),
                     },
                 )
+
+                # In-app notification for Owner & Manager
+                recipients = User.all_objects.filter(
+                    gym_id=gym.id,
+                    role__in=[User.ROLE_OWNER, User.ROLE_MANAGER],
+                    is_active=True,
+                )
+                for recipient in recipients:
+                    create_notification(
+                        recipient=recipient,
+                        notification_type="ai_plan_generation_failed",
+                        message="AI workout plan generation failed after 3 attempts. Please check AI provider settings.",
+                        gym=gym,
+                    )
         except Exception as log_err:
             logger.error(
-                "Failed to write audit log for AI generation failure: %s", log_err
+                "Failed to write audit log or in-app notification for AI generation failure: %s",
+                log_err,
             )

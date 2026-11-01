@@ -575,7 +575,7 @@ def test_zero_pii_in_prompt_context(active_member, gym_tenant):
 # ==============================================================================
 
 
-def test_model_fallback_and_three_failure_rule(gym_tenant, active_member):
+def test_model_fallback_and_three_failure_rule(gym_tenant, active_member, owner_user):
     from apps.trainers.rules_engine import build_ai_generation_context
 
     ctx = build_ai_generation_context(
@@ -604,3 +604,43 @@ def test_model_fallback_and_three_failure_rule(gym_tenant, active_member):
     ).first()
     assert audit is not None
     assert audit.metadata["attempt_count"] == 3
+
+    # Check that owner in-app notification was created
+    from apps.accounts.models import Notification
+
+    notif = Notification.all_objects.filter(
+        gym=gym_tenant, type="ai_plan_generation_failed"
+    ).first()
+    assert notif is not None
+    assert "failed after 3 attempts" in notif.message
+
+
+def test_generation_endpoint_returns_clean_503_on_provider_failure(
+    api_client, gym_tenant, active_member, assigned_trainer_user
+):
+    authenticate_client(api_client, assigned_trainer_user, gym_tenant)
+    url = f"/api/gym/members/{active_member.id}/plans/"
+    with patch("apps.trainers.services.get_default_ai_provider") as mock_prov:
+        prov = LiteLLMAIPlanProvider(
+            ordered_models=["m1", "m2", "m3"], timeout_seconds=1
+        )
+        mock_prov.return_value = prov
+        with patch.object(
+            prov, "_invoke_model", side_effect=Exception("Provider down")
+        ):
+            res = api_client.post(url, {"week_choice": "this_week"})
+            assert res.status_code == 503
+            assert res.data["detail"] == "Generation failed, try again later"
+
+    # Failed attempts do not count toward gym's 20/hr rate limit or create any plan
+    assert TrainingPlan.all_objects.filter(gym=gym_tenant).count() == 0
+
+
+def test_missing_date_of_birth_refusal(db, gym_tenant, active_member):
+    active_member.date_of_birth = None
+    active_member.save()
+    prereqs = get_plan_generation_prerequisites(member=active_member, gym=gym_tenant)
+    assert prereqs["eligible"] is False
+    assert any(
+        "date of birth is missing" in m.lower() for m in prereqs["missing_requirements"]
+    )
