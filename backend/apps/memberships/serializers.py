@@ -220,6 +220,19 @@ class MemberSerializer(serializers.ModelSerializer):
         sub = obj.active_subscription
         return bool(sub and sub.plan and sub.plan.trainer_inclusive)
 
+    def get_active_subscription(self, obj):
+        sub = obj.active_subscription
+        if sub and sub.plan:
+            return {
+                "id": str(sub.id),
+                "plan_id": str(sub.plan.id),
+                "plan_name": sub.plan.name,
+                "plan_price_etb": str(sub.plan.price_etb),
+                "start_date": str(sub.start_date),
+                "end_date": str(sub.end_date),
+            }
+        return None
+
     def to_representation(self, instance):
         request = self.context.get("request")
         user = getattr(request, "user", None) if request else None
@@ -271,6 +284,7 @@ class MemberDetailSerializer(serializers.ModelSerializer):
     body_metrics = BodyMetricsSerializer(many=True, read_only=True)
     assigned_trainer = serializers.SerializerMethodField(read_only=True)
     is_on_trainer_plan = serializers.SerializerMethodField(read_only=True)
+    active_subscription = serializers.SerializerMethodField(read_only=True)
 
     class Meta:
         model = Member
@@ -291,6 +305,7 @@ class MemberDetailSerializer(serializers.ModelSerializer):
             "body_metrics",
             "assigned_trainer",
             "is_on_trainer_plan",
+            "active_subscription",
         ]
         read_only_fields = [
             "id",
@@ -301,6 +316,7 @@ class MemberDetailSerializer(serializers.ModelSerializer):
             "latest_metrics",
             "body_metrics",
             "assigned_trainer",
+            "active_subscription",
         ]
 
     def get_assigned_trainer(self, obj):
@@ -322,6 +338,19 @@ class MemberDetailSerializer(serializers.ModelSerializer):
     def get_is_on_trainer_plan(self, obj) -> bool:
         sub = obj.active_subscription
         return bool(sub and sub.plan and sub.plan.trainer_inclusive)
+
+    def get_active_subscription(self, obj):
+        sub = obj.active_subscription
+        if sub and sub.plan:
+            return {
+                "id": str(sub.id),
+                "plan_id": str(sub.plan.id),
+                "plan_name": sub.plan.name,
+                "plan_price_etb": str(sub.plan.price_etb),
+                "start_date": str(sub.start_date),
+                "end_date": str(sub.end_date),
+            }
+        return None
 
     def to_representation(self, instance):
         data = super().to_representation(instance)

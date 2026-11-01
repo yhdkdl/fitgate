@@ -73,6 +73,9 @@ export interface DigitalReceipt {
   is_reversed?: boolean;
   bank_reference?: string;
   transfer_channel?: string;
+  gross_amount_etb?: string | null;
+  credit_amount_etb?: string | null;
+  is_upgrade?: boolean;
 }
 
 export interface RecordCashPaymentResponse {
@@ -109,6 +112,9 @@ export interface PaymentListItem {
   is_reversed?: boolean;
   reversed_at?: string | null;
   reversal_reason?: string;
+  gross_amount_etb?: string | null;
+  credit_amount_etb?: string | null;
+  is_upgrade?: boolean;
 }
 
 export interface GymPaymentListResponse {
@@ -131,6 +137,9 @@ export interface MemberPaymentHistoryItem {
   bank_reference?: string;
   channel?: string;
   is_reversed?: boolean;
+  gross_amount_etb?: string | null;
+  credit_amount_etb?: string | null;
+  is_upgrade?: boolean;
 }
 
 export interface UnreconciledBankTransferItem {
@@ -299,5 +308,40 @@ export async function getMemberPaymentStatus(
 ): Promise<MemberPaymentStatus> {
   return apiFetch<MemberPaymentStatus>(
     `/api/payments/status/${encodeURIComponent(reference)}/`
+  );
+}
+
+
+export interface PlanUpgradeQuote {
+  current_subscription_id: string;
+  current_plan_id: string;
+  current_plan_name: string;
+  new_plan_id: string;
+  new_plan_name: string;
+  total_days: number;
+  used_days: number;
+  remaining_days: number;
+  net_paid_current_etb: string;
+  credit_amount_etb: string;
+  gross_amount_etb: string;
+  net_amount_etb: string;
+  new_start_date: string;
+  new_end_date: string;
+}
+
+export async function getMemberUpgradeQuote(
+  planId: string
+): Promise<PlanUpgradeQuote> {
+  return apiFetch<PlanUpgradeQuote>(
+    `/api/payments/upgrade-quote/?plan_id=${encodeURIComponent(planId)}`
+  );
+}
+
+export async function getStaffUpgradeQuote(
+  memberId: string,
+  planId: string
+): Promise<PlanUpgradeQuote> {
+  return apiFetch<PlanUpgradeQuote>(
+    `/api/gym/members/${encodeURIComponent(memberId)}/upgrade-quote/?plan_id=${encodeURIComponent(planId)}`
   );
 }

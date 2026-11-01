@@ -200,6 +200,7 @@ export const MemberSelfSection: React.FC<MemberSelfSectionProps> = ({
       {(view === "membership" || view === "all") && (
         <MemberCheckoutCard
           memberStatus={profile.status}
+          activeSubscription={profile.active_subscription}
           onPaymentInitiated={fetchProfile}
         />
       )}

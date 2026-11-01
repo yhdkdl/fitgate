@@ -78,6 +78,11 @@ async function downloadReceiptPdf(receipt: DigitalReceipt) {
   addRow("Issued By:", receipt.issued_by_name || "Staff");
   addRow("Issued At:", new Date(receipt.issued_at).toLocaleString());
 
+  if (receipt.is_upgrade && receipt.credit_amount_etb) {
+    addRow("Gross Plan Price:", `${receipt.gross_amount_etb || receipt.amount_etb} ETB`);
+    addRow("Upgrade Credit:", `-${receipt.credit_amount_etb} ETB`);
+  }
+
   doc.line(25, y, 185, y);
   y += 10;
 
@@ -85,7 +90,7 @@ async function downloadReceiptPdf(receipt: DigitalReceipt) {
   doc.setFont("helvetica", "bold");
   doc.setFontSize(12);
   doc.setTextColor(darkColor[0], darkColor[1], darkColor[2]);
-  doc.text("Total Paid:", 25, y);
+  doc.text(receipt.is_upgrade ? "Net Received:" : "Total Paid:", 25, y);
 
   doc.setFontSize(14);
   doc.setTextColor(
@@ -235,8 +240,22 @@ export const DigitalReceiptModal: React.FC<DigitalReceiptModalProps> = ({
                 {new Date(receipt.issued_at).toLocaleString()}
               </span>
             </div>
+            {receipt.is_upgrade && receipt.credit_amount_etb && (
+              <>
+                <div className="flex justify-between text-text-muted">
+                  <span>Gross Plan Price:</span>
+                  <span>{receipt.gross_amount_etb || receipt.amount_etb} ETB</span>
+                </div>
+                <div className="flex justify-between text-success">
+                  <span>Upgrade Credit:</span>
+                  <span>-{receipt.credit_amount_etb} ETB</span>
+                </div>
+              </>
+            )}
             <div className="border-t border-border pt-2 flex justify-between items-baseline">
-              <span className="font-bold text-text">Total Paid:</span>
+              <span className="font-bold text-text">
+                {receipt.is_upgrade ? "Net Received:" : "Total Paid:"}
+              </span>
               <span
                 className={`text-base font-black ${
                   receipt.is_reversed

@@ -4,6 +4,8 @@ import { getPublicGymEntry } from "../../api/gyms";
 import {
   getGymPaymentPublicStatus,
   initiateChapaCheckout,
+  getMemberUpgradeQuote,
+  type PlanUpgradeQuote,
 } from "../../api/payments";
 import { Alert } from "../ui/Alert";
 import { Badge } from "../ui/Badge";
@@ -25,12 +27,48 @@ interface DisplayPlan {
 
 interface MemberCheckoutCardProps {
   memberStatus: string;
+  activeSubscription?: {
+    id: string;
+    plan_id: string;
+    plan_name: string;
+    plan_price_etb: string;
+    start_date: string;
+    end_date: string;
+  } | null;
   onPaymentInitiated?: () => void;
 }
 
 export const MemberCheckoutCard: React.FC<MemberCheckoutCardProps> = ({
   memberStatus,
+  activeSubscription,
 }) => {
+  const [selectedUpgradePlan, setSelectedUpgradePlan] = useState<DisplayPlan | null>(null);
+  const [upgradeQuote, setUpgradeQuote] = useState<PlanUpgradeQuote | null>(null);
+  const [loadingQuote, setLoadingQuote] = useState(false);
+  const [quoteError, setQuoteError] = useState<string | null>(null);
+
+  const handleOpenUpgrade = async (plan: DisplayPlan) => {
+    setSelectedUpgradePlan(plan);
+    setLoadingQuote(true);
+    setQuoteError(null);
+    try {
+      const quote = await getMemberUpgradeQuote(plan.id);
+      setUpgradeQuote(quote);
+    } catch (err: unknown) {
+      const errorObj = err as { detail?: string; data?: { detail?: string }; message?: string };
+      setQuoteError(
+        errorObj?.data?.detail || errorObj?.detail || errorObj?.message || "Failed to load upgrade quote."
+      );
+    } finally {
+      setLoadingQuote(false);
+    }
+  };
+
+  const handleCloseUpgrade = () => {
+    setSelectedUpgradePlan(null);
+    setUpgradeQuote(null);
+    setQuoteError(null);
+  };
   const [plans, setPlans] = useState<DisplayPlan[]>([]);
   const [onlinePaymentVerified, setOnlinePaymentVerified] = useState(false);
   const [isSimulated, setIsSimulated] = useState(false);
@@ -284,21 +322,74 @@ export const MemberCheckoutCard: React.FC<MemberCheckoutCardProps> = ({
               )}
             </div>
 
-            {onlinePaymentVerified && (
-              <div className="mt-5 pt-3 border-t border-border/50">
-                <Button
-                  size="sm"
-                  variant="primary"
-                  onClick={() => handleOnlineCheckout(plan.id)}
-                  disabled={checkingOut}
-                  className="w-full text-xs min-h-[38px]"
-                >
-                  {checkingOut && targetPlanId === plan.id
-                    ? "Starting checkout..."
-                    : "Pay online (Chapa)"}
-                </Button>
-              </div>
-            )}
+            {onlinePaymentVerified && (() => {
+              const isActiveMember = memberStatus === "active" && Boolean(activeSubscription);
+              if (isActiveMember && activeSubscription) {
+                const isCurrentPlan = activeSubscription.plan_id === plan.id;
+                const currentPrice = parseFloat(activeSubscription.plan_price_etb);
+                const planPrice = parseFloat(plan.price_etb);
+                const isUpgrade = planPrice > currentPrice;
+                const isCheaper = !isCurrentPlan && planPrice <= currentPrice;
+
+                if (isCheaper) {
+                  return (
+                    <div className="mt-5 pt-3 border-t border-border/50">
+                      <p className="text-xs text-text-muted bg-surface/80 p-2.5 rounded border border-border/60">
+                        This plan costs less than your current one. It can start when your current plan ends on {activeSubscription.end_date}.
+                      </p>
+                    </div>
+                  );
+                }
+
+                if (isUpgrade) {
+                  return (
+                    <div className="mt-5 pt-3 border-t border-border/50">
+                      <Button
+                        size="sm"
+                        variant="primary"
+                        onClick={() => handleOpenUpgrade(plan)}
+                        disabled={checkingOut}
+                        className="w-full text-xs min-h-[38px]"
+                      >
+                        Upgrade Plan
+                      </Button>
+                    </div>
+                  );
+                }
+
+                return (
+                  <div className="mt-5 pt-3 border-t border-border/50">
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      onClick={() => handleOnlineCheckout(plan.id)}
+                      disabled={checkingOut}
+                      className="w-full text-xs min-h-[38px]"
+                    >
+                      {checkingOut && targetPlanId === plan.id
+                        ? "Starting checkout..."
+                        : "Renew (Pay online)"}
+                    </Button>
+                  </div>
+                );
+              }
+
+              return (
+                <div className="mt-5 pt-3 border-t border-border/50">
+                  <Button
+                    size="sm"
+                    variant="primary"
+                    onClick={() => handleOnlineCheckout(plan.id)}
+                    disabled={checkingOut}
+                    className="w-full text-xs min-h-[38px]"
+                  >
+                    {checkingOut && targetPlanId === plan.id
+                      ? "Starting checkout..."
+                      : "Pay online (Chapa)"}
+                  </Button>
+                </div>
+              );
+            })()}
           </div>
         ))}
       </div>
@@ -321,6 +412,99 @@ export const MemberCheckoutCard: React.FC<MemberCheckoutCardProps> = ({
           </div>
         )}
       </div>
+      {/* Upgrade Quote Modal */}
+      {selectedUpgradePlan && (
+        <div
+          className="fixed inset-0 bg-black/75 z-50 flex items-center justify-center p-4 overflow-y-auto"
+          role="dialog"
+          aria-modal="true"
+        >
+          <div className="bg-surface border border-border rounded-xl max-w-md w-full p-6 space-y-4 my-8 text-text">
+            <div className="flex items-center justify-between border-b border-border pb-3">
+              <div>
+                <h3 className="text-lg font-bold text-text">Upgrade Membership</h3>
+                <p className="text-xs text-text-muted">To {selectedUpgradePlan.name}</p>
+              </div>
+              <button
+                type="button"
+                onClick={handleCloseUpgrade}
+                disabled={checkingOut}
+                className="text-text-muted hover:text-text text-xl p-1"
+              >
+                ✕
+              </button>
+            </div>
+
+            {quoteError && <Alert variant="danger">{quoteError}</Alert>}
+
+            {loadingQuote && (
+              <div className="py-8 flex flex-col items-center justify-center gap-2">
+                <Spinner size="md" />
+                <span className="text-xs text-text-muted">Calculating your prorated credit...</span>
+              </div>
+            )}
+
+            {upgradeQuote && !loadingQuote && (
+              <div className="space-y-4 text-xs">
+                <div className="bg-surface-2 p-4 rounded-lg border border-border space-y-2">
+                  <div className="flex justify-between">
+                    <span className="text-text-muted">Current Plan:</span>
+                    <span className="font-semibold text-text">{upgradeQuote.current_plan_name}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-text-muted">Days Remaining:</span>
+                    <span className="text-text font-medium">
+                      {upgradeQuote.remaining_days} of {upgradeQuote.total_days} days
+                    </span>
+                  </div>
+                  <div className="flex justify-between border-t border-border/60 pt-2">
+                    <span className="text-text-muted">New Plan Price (Gross):</span>
+                    <span className="text-text font-semibold">{upgradeQuote.gross_amount_etb} ETB</span>
+                  </div>
+                  <div className="flex justify-between text-success">
+                    <span className="font-medium">Unused Credit Applied:</span>
+                    <span className="font-bold">-{upgradeQuote.credit_amount_etb} ETB</span>
+                  </div>
+                  <div className="flex justify-between border-t border-border pt-2 text-sm font-bold">
+                    <span className="text-text">Total Net to Pay:</span>
+                    <span className="text-primary text-base font-black">
+                      {upgradeQuote.net_amount_etb} ETB
+                    </span>
+                  </div>
+                </div>
+
+                <div className="text-[11px] text-text-muted space-y-1">
+                  <p>
+                    Your upgrade takes effect today. New period:{" "}
+                    <strong className="text-text">{upgradeQuote.new_start_date}</strong> to{" "}
+                    <strong className="text-text">{upgradeQuote.new_end_date}</strong>.
+                  </p>
+                  <p>Your previous subscription will be marked superseded.</p>
+                </div>
+
+                <div className="flex justify-end gap-2 pt-2 border-t border-border">
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    onClick={handleCloseUpgrade}
+                    disabled={checkingOut}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="primary"
+                    onClick={() => handleOnlineCheckout(selectedUpgradePlan.id)}
+                    disabled={checkingOut}
+                  >
+                    {checkingOut ? "Starting checkout..." : "Pay with Chapa"}
+                  </Button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </Card>
   );
 };

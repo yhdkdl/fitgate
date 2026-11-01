@@ -339,6 +339,7 @@ class MemberSubscription(TenantAwareModel):
     STATUS_FROZEN = "frozen"
     STATUS_SUSPENDED = "suspended"
     STATUS_EXPIRED = "expired"
+    STATUS_SUPERSEDED = "superseded"
 
     STATUS_CHOICES = [
         (STATUS_PENDING, "Pending"),
@@ -346,6 +347,7 @@ class MemberSubscription(TenantAwareModel):
         (STATUS_FROZEN, "Frozen"),
         (STATUS_SUSPENDED, "Suspended"),
         (STATUS_EXPIRED, "Expired"),
+        (STATUS_SUPERSEDED, "Superseded"),
     ]
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)

@@ -122,9 +122,9 @@ def issue_member_qr_token(
 
     today = timezone.localdate()
     subs = list(
-        MemberSubscription.all_objects.filter(gym=member.gym, member=member).order_by(
-            "-end_date", "-created_at"
-        )
+        MemberSubscription.all_objects.filter(gym=member.gym, member=member)
+        .exclude(status=MemberSubscription.STATUS_SUPERSEDED)
+        .order_by("-end_date", "-created_at")
     )
     if not subs:
         if member.status == Member.STATUS_PENDING:
@@ -285,9 +285,9 @@ def execute_check_in(
     # 2. Validate subscription directly (NEVER trust Member.status)
     today = timezone.localdate()
     subs = list(
-        MemberSubscription.all_objects.filter(gym=gym, member=member).order_by(
-            "-end_date", "-created_at"
-        )
+        MemberSubscription.all_objects.filter(gym=gym, member=member)
+        .exclude(status=MemberSubscription.STATUS_SUPERSEDED)
+        .order_by("-end_date", "-created_at")
     )
 
     if not subs:

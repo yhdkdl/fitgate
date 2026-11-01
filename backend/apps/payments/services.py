@@ -4,7 +4,7 @@ import hashlib
 import hmac
 import json
 import logging
-from datetime import timedelta
+from datetime import date, timedelta
 from decimal import Decimal
 from typing import Any, Dict, Optional, Tuple
 
@@ -359,6 +359,206 @@ def process_chapa_webhook(
             locked_payment.status = Payment.STATUS_CONFIRMED
             locked_payment.metadata["chapa_verified"] = data
 
+            if locked_payment.is_upgrade or locked_payment.metadata.get("is_upgrade"):
+                today = timezone.localdate()
+                locked_member = Member.all_objects.select_for_update().get(
+                    id=locked_payment.member_id
+                )
+                old_sub_id = locked_payment.metadata.get("superseded_subscription_id")
+                old_sub = None
+                if old_sub_id:
+                    old_sub = (
+                        MemberSubscription.all_objects.select_for_update()
+                        .filter(
+                            gym=gym,
+                            member=locked_member,
+                            id=old_sub_id,
+                            status=MemberSubscription.STATUS_ACTIVE,
+                            end_date__gte=today,
+                        )
+                        .first()
+                    )
+
+                from apps.memberships.models import MemberFreeze
+
+                has_approved_freeze = MemberFreeze.all_objects.filter(
+                    member=locked_member,
+                    status=MemberFreeze.STATUS_APPROVED,
+                    start_date__gt=today,
+                ).exists()
+
+                situation_changed = (
+                    not old_sub
+                    or locked_member.status
+                    in [Member.STATUS_FROZEN, Member.STATUS_SUSPENDED]
+                    or has_approved_freeze
+                )
+
+                if situation_changed:
+                    locked_payment.metadata["unresolved"] = True
+                    locked_payment.metadata["flagged_for_owner_review"] = True
+                    locked_payment.metadata["unresolved_reason"] = (
+                        "Member status or subscription changed while payment was in-flight"
+                    )
+                    locked_payment.save(
+                        update_fields=["status", "metadata", "updated_at"]
+                    )
+
+                    staff_users = User.all_objects.filter(
+                        gym=gym,
+                        is_active=True,
+                        role__in=[User.ROLE_OWNER, User.ROLE_MANAGER],
+                    )
+                    member_name = (
+                        locked_member.full_name if locked_member else "A member"
+                    )
+                    for staff in staff_users:
+                        create_notification(
+                            recipient=staff,
+                            notification_type="payment_unresolved_alert",
+                            message=(
+                                f"Paid upgrade of {locked_payment.amount_etb} ETB for {member_name} "
+                                f"could not be activated automatically because the member's subscription status changed. "
+                                f"Review payment record for manual resolution."
+                            ),
+                            gym=gym,
+                        )
+
+                    if (
+                        locked_member
+                        and hasattr(locked_member, "user")
+                        and locked_member.user
+                    ):
+                        create_notification(
+                            recipient=locked_member.user,
+                            notification_type="payment_unresolved",
+                            message=(
+                                f"Your payment of {locked_payment.amount_etb} ETB for upgrading to "
+                                f"{locked_payment.plan.name if locked_payment.plan else 'membership'} "
+                                f"was received, but could not be activated automatically because your membership status changed. "
+                                f"Please contact the front desk."
+                            ),
+                            gym=gym,
+                        )
+
+                    record_audit_log(
+                        actor=None,
+                        gym=gym,
+                        action_type="payment_upgrade_unresolved_alert",
+                        affected_record_type="Payment",
+                        affected_record_id=str(locked_payment.id),
+                        metadata={
+                            "tx_ref": tx_ref,
+                            "actor": "system",
+                            "reason": "Member status changed while payment was in-flight",
+                        },
+                    )
+                    return (
+                        True,
+                        "Payment recorded but upgrade held for staff resolution due to status change.",
+                        200,
+                    )
+
+                old_sub.status = MemberSubscription.STATUS_SUPERSEDED
+                old_sub.save(update_fields=["status"])
+
+                subscription = create_or_renew_subscription(
+                    member=locked_member,
+                    plan=locked_payment.plan,
+                    start_date=today,
+                    allow_deactivated_plan=True,
+                )
+
+                from apps.memberships.services import calculate_plan_end_date
+
+                queued_subs = (
+                    MemberSubscription.all_objects.filter(
+                        gym=gym,
+                        member=locked_member,
+                        status=MemberSubscription.STATUS_ACTIVE,
+                        start_date__gt=today,
+                    )
+                    .exclude(id=subscription.id)
+                    .order_by("start_date")
+                )
+                prev_end = subscription.end_date
+                for qsub in queued_subs:
+                    q_start = prev_end + timedelta(days=1)
+                    q_end = calculate_plan_end_date(
+                        q_start, qsub.plan.duration_value, qsub.plan.duration_unit
+                    )
+                    qsub.start_date = q_start
+                    qsub.end_date = q_end
+                    qsub.save(update_fields=["start_date", "end_date"])
+                    prev_end = q_end
+
+                locked_payment.subscription = subscription
+                locked_payment.save(
+                    update_fields=["status", "subscription", "metadata", "updated_at"]
+                )
+
+                sequence, receipt_number = get_next_receipt_sequence_and_number(gym)
+                duration_str = (
+                    f"{locked_payment.plan.duration_value} {locked_payment.plan.duration_unit}"
+                    if locked_payment.plan
+                    else ""
+                )
+                Receipt.all_objects.create(
+                    gym=gym,
+                    payment=locked_payment,
+                    receipt_number=receipt_number,
+                    sequence_number=sequence,
+                    issued_by=None,
+                    amount_etb=locked_payment.amount_etb,
+                    gross_amount_etb=locked_payment.gross_amount_etb,
+                    credit_amount_etb=locked_payment.credit_amount_etb,
+                    currency="ETB",
+                    payment_method=Payment.METHOD_CHAPA,
+                    member_name=(
+                        locked_payment.member.full_name if locked_payment.member else ""
+                    ),
+                    member_phone=(
+                        locked_payment.member.phone if locked_payment.member else ""
+                    ),
+                    plan_name=locked_payment.plan.name if locked_payment.plan else "",
+                    plan_duration=duration_str,
+                    notes=f"Chapa online plan upgrade tx_ref: {tx_ref}",
+                )
+
+                if (
+                    locked_payment.member
+                    and hasattr(locked_payment.member, "user")
+                    and locked_payment.member.user
+                ):
+                    create_notification(
+                        recipient=locked_payment.member.user,
+                        notification_type="plan_upgraded",
+                        message=(
+                            f"Your membership was upgraded to {locked_payment.plan.name}. "
+                            f"Prorated credit of {locked_payment.credit_amount_etb} ETB was applied. "
+                            f"Amount paid: {locked_payment.amount_etb} ETB. Receipt #{receipt_number}. "
+                            f"Your new plan is active until {subscription.end_date}."
+                        ),
+                        gym=locked_payment.gym,
+                    )
+
+                record_audit_log(
+                    actor=None,
+                    gym=locked_payment.gym,
+                    action_type="plan_upgrade_confirmed",
+                    affected_record_type="Payment",
+                    affected_record_id=str(locked_payment.id),
+                    metadata={
+                        "method": "chapa",
+                        "amount_etb": str(locked_payment.amount_etb),
+                        "tx_ref": tx_ref,
+                        "actor": "system",
+                        "subscription_id": str(subscription.id),
+                        "superseded_subscription_id": str(old_sub_id),
+                    },
+                )
+                return True, "Plan upgrade confirmed and activated successfully.", 200
+
             # Activate or extend subscription
             # allow_deactivated_plan=True ensures that if plan was deactivated in-flight,
             # the already-paid agreed plan is honored.
@@ -516,6 +716,592 @@ def flag_unfinished_payments(window_minutes: int = 30) -> int:
     return count
 
 
+def calculate_plan_upgrade_quote(
+    member: Member,
+    new_plan: MembershipPlan,
+    today: Optional[date] = None,
+) -> dict:
+    """
+    Server-authoritative calculation of plan upgrade credit and net amount to pay.
+
+    Rule 1 & 2:
+    - Credit = net amount actually paid for member's current subscription * remaining days / total days.
+    - Whole days. Used days = today minus start date.
+    - Round DOWN to 2 decimals. Credit never exceeds the new plan's price.
+    - Client-submitted credit or net amounts are strictly ignored.
+
+    Rule 3:
+    - Upgrade means new_plan.price_etb > current_sub.plan.price_etb.
+    - Cheaper or equal-price different plan:
+      refused with "This plan costs less than your current one. It can start when your current plan ends on <date>."
+    - Same plan is renewal (handled elsewhere).
+
+    Rule 4:
+    - Refused while member is frozen, has approved freeze scheduled, is suspended, or is pending.
+
+    Rule 5:
+    - No cash refunds ever. If new net amount <= 0, refuse.
+    """
+    from decimal import ROUND_DOWN, Decimal
+
+    from apps.memberships.models import MemberFreeze, MemberSubscription
+    from apps.memberships.services import calculate_plan_end_date
+
+    if today is None:
+        today = timezone.localdate()
+
+    if member.gym_id != new_plan.gym_id:
+        raise ValidationError("Plan and member belong to different gym tenants.")
+
+    if not new_plan.is_active:
+        raise ValidationError("Cannot upgrade to a deactivated plan.")
+
+    # Rule 4: Refused while member is frozen, suspended, or pending
+    if member.status == Member.STATUS_FROZEN:
+        raise ValidationError(
+            "Member subscription is frozen. Please resolve this before upgrading."
+        )
+
+    if member.status == Member.STATUS_SUSPENDED:
+        raise ValidationError(
+            "Member subscription is suspended. Please resolve this before upgrading."
+        )
+
+    if member.status == Member.STATUS_PENDING:
+        raise ValidationError(
+            "Member has no active subscription. Please purchase a plan first."
+        )
+
+    has_approved_freeze = MemberFreeze.all_objects.filter(
+        member=member,
+        status=MemberFreeze.STATUS_APPROVED,
+        start_date__gt=today,
+    ).exists()
+    if has_approved_freeze:
+        raise ValidationError(
+            "Member has an approved freeze scheduled. Please resolve this first."
+        )
+
+    # Resolve member's current active subscription covering today
+    current_sub = (
+        MemberSubscription.all_objects.select_related("plan")
+        .filter(
+            gym=member.gym,
+            member=member,
+            status=MemberSubscription.STATUS_ACTIVE,
+            start_date__lte=today,
+            end_date__gte=today,
+        )
+        .order_by("-end_date", "-created_at")
+        .first()
+    )
+
+    if not current_sub or not current_sub.plan:
+        raise ValidationError(
+            "Member has no active subscription covering today to upgrade."
+        )
+
+    # Rule 3: Same plan is renewal
+    if current_sub.plan_id == new_plan.id:
+        raise ValidationError(
+            "Selected plan is the same as the current plan. Use the renewal option instead."
+        )
+
+    # Rule 3: Upgrade means new plan price is strictly higher than current plan price
+    if new_plan.price_etb <= current_sub.plan.price_etb:
+        raise ValidationError(
+            f"This plan costs less than your current one. It can start when your current plan ends on {current_sub.end_date}."
+        )
+
+    # Net amount actually paid for member's current subscription
+    confirmed_payments = Payment.all_objects.filter(
+        subscription=current_sub,
+        status=Payment.STATUS_CONFIRMED,
+    )
+    if confirmed_payments.exists():
+        net_paid = sum(p.amount_etb for p in confirmed_payments)
+    else:
+        net_paid = current_sub.plan.price_etb
+
+    # Calculate days:
+    # Used days = today minus start date (whole days)
+    used_days = max(0, (today - current_sub.start_date).days)
+
+    # Total days of that subscription
+    raw_diff = (current_sub.end_date - current_sub.start_date).days
+    if current_sub.plan and current_sub.plan.duration_unit == "days":
+        total_days = max(1, current_sub.plan.duration_value)
+    else:
+        # 1 month plans span 30 standard days (or raw_diff + 1 if inclusive)
+        if (
+            raw_diff in (28, 29)
+            or current_sub.end_date.day == current_sub.start_date.day - 1
+        ):
+            total_days = 30
+        else:
+            total_days = max(1, raw_diff)
+
+    remaining_days = max(0, total_days - used_days)
+
+    # Credit = net_paid * remaining_days / total_days, round DOWN to 2 decimals
+    raw_credit = Decimal(str(net_paid)) * Decimal(remaining_days) / Decimal(total_days)
+    credit_amount = raw_credit.quantize(Decimal("0.01"), rounding=ROUND_DOWN)
+
+    # Credit never exceeds the new plan's price
+    credit_amount = min(credit_amount, new_plan.price_etb)
+
+    # Gross and net amounts
+    gross_amount = new_plan.price_etb
+    net_amount = gross_amount - credit_amount
+
+    # Rule 5: No cash refunds ever. If new net amount <= 0, refuse
+    if net_amount <= Decimal("0.00"):
+        raise ValidationError(
+            "Upgrade credit equals or exceeds new plan price. Upgrades cannot result in zero or negative payment."
+        )
+
+    new_start_date = today
+    new_end_date = calculate_plan_end_date(
+        new_start_date, new_plan.duration_value, new_plan.duration_unit
+    )
+
+    return {
+        "current_subscription_id": str(current_sub.id),
+        "current_plan_id": str(current_sub.plan_id),
+        "current_plan_name": current_sub.plan.name,
+        "current_plan_price_etb": str(current_sub.plan.price_etb),
+        "current_start_date": str(current_sub.start_date),
+        "current_end_date": str(current_sub.end_date),
+        "new_plan_id": str(new_plan.id),
+        "new_plan_name": new_plan.name,
+        "new_plan_price_etb": str(new_plan.price_etb),
+        "total_days": total_days,
+        "used_days": used_days,
+        "remaining_days": remaining_days,
+        "net_paid_etb": str(net_paid),
+        "credit_amount_etb": str(credit_amount),
+        "gross_amount_etb": str(gross_amount),
+        "net_amount_etb": str(net_amount),
+        "new_start_date": str(new_start_date),
+        "new_end_date": str(new_end_date),
+    }
+
+
+def record_plan_upgrade_cash_payment(
+    gym: GymTenant,
+    member: Member,
+    new_plan: MembershipPlan,
+    recorded_by: User,
+    notes: str = "",
+    idempotency_key: Optional[str] = None,
+    today: Optional[date] = None,
+) -> Tuple[Payment, Receipt, MemberSubscription]:
+    """
+    Executes a plan upgrade paid by cash in ONE database transaction:
+    - Validates quote
+    - Locks gym, member, and current subscription
+    - Marks current subscription superseded
+    - Creates new subscription starting today for full duration
+    - Shifts queued future subscriptions if present
+    - Creates Payment recording gross, credit, and net received
+    - Creates sequential Receipt displaying gross, credit, and net received
+    - Derives member status via update_member_status
+    - Records audit log and member notification
+    """
+    if recorded_by.role not in (
+        User.ROLE_OWNER,
+        User.ROLE_MANAGER,
+        User.ROLE_RECEPTION,
+    ):
+        raise PermissionDenied(
+            "Only gym owner, manager, or reception can record cash upgrade payments."
+        )
+
+    if recorded_by.gym_id != gym.id:
+        raise PermissionDenied("Staff does not belong to this gym.")
+
+    if member.gym_id != gym.id:
+        raise ValidationError("Member does not belong to this gym.")
+
+    if new_plan.gym_id != gym.id:
+        raise ValidationError("Plan does not belong to this gym.")
+
+    if not new_plan.is_active:
+        raise ValidationError("Cannot record payment for a deactivated plan.")
+
+    # Idempotency fast path check
+    if idempotency_key:
+        existing = (
+            Payment.all_objects.select_related("receipt", "subscription")
+            .filter(gym=gym, idempotency_key=idempotency_key)
+            .first()
+        )
+        if existing and existing.status == Payment.STATUS_CONFIRMED:
+            return existing, getattr(existing, "receipt", None), existing.subscription
+
+    calc_today = today or timezone.localdate()
+
+    with transaction.atomic():
+        # Lock gym row for sequential receipt safety
+        GymTenant.objects.select_for_update().get(id=gym.id)
+        locked_member = Member.all_objects.select_for_update().get(id=member.id)
+
+        # Re-check idempotency under lock
+        if idempotency_key:
+            existing = (
+                Payment.all_objects.select_related("receipt", "subscription")
+                .filter(gym=gym, idempotency_key=idempotency_key)
+                .first()
+            )
+            if existing and existing.status == Payment.STATUS_CONFIRMED:
+                return (
+                    existing,
+                    getattr(existing, "receipt", None),
+                    existing.subscription,
+                )
+
+        quote = calculate_plan_upgrade_quote(
+            member=locked_member, new_plan=new_plan, today=calc_today
+        )
+        current_sub = MemberSubscription.all_objects.select_for_update().get(
+            id=quote["current_subscription_id"]
+        )
+
+        # Mark old subscription superseded
+        current_sub.status = MemberSubscription.STATUS_SUPERSEDED
+        current_sub.save(update_fields=["status"])
+
+        # Create new subscription starting today for full period
+        new_sub = create_or_renew_subscription(
+            member=locked_member,
+            plan=new_plan,
+            start_date=calc_today,
+            actor=recorded_by,
+        )
+
+        # Rule 13: Shift queued subscriptions if any
+        from apps.memberships.services import calculate_plan_end_date
+
+        queued_subs = (
+            MemberSubscription.all_objects.filter(
+                gym=gym,
+                member=locked_member,
+                status=MemberSubscription.STATUS_ACTIVE,
+                start_date__gt=calc_today,
+            )
+            .exclude(id=new_sub.id)
+            .order_by("start_date")
+        )
+        prev_end = new_sub.end_date
+        for qsub in queued_subs:
+            q_start = prev_end + timedelta(days=1)
+            q_end = calculate_plan_end_date(
+                q_start, qsub.plan.duration_value, qsub.plan.duration_unit
+            )
+            qsub.start_date = q_start
+            qsub.end_date = q_end
+            qsub.save(update_fields=["start_date", "end_date"])
+            prev_end = q_end
+
+        # Create Payment record with gross, credit, and net received
+        payment = Payment.all_objects.create(
+            gym=gym,
+            payer_type=Payment.PAYER_TYPE_MEMBER,
+            member=locked_member,
+            plan=new_plan,
+            subscription=new_sub,
+            method=Payment.METHOD_CASH,
+            amount_etb=Decimal(quote["net_amount_etb"]),
+            gross_amount_etb=Decimal(quote["gross_amount_etb"]),
+            credit_amount_etb=Decimal(quote["credit_amount_etb"]),
+            is_upgrade=True,
+            currency="ETB",
+            status=Payment.STATUS_CONFIRMED,
+            confirmed_by=recorded_by,
+            idempotency_key=idempotency_key or None,
+            metadata={
+                "is_upgrade": True,
+                "quote": quote,
+                "notes": notes,
+                "recorded_by": recorded_by.email,
+                "superseded_subscription_id": quote["current_subscription_id"],
+            },
+        )
+
+        # Generate sequential receipt
+        sequence, receipt_number = get_next_receipt_sequence_and_number(gym)
+        receipt = Receipt.all_objects.create(
+            gym=gym,
+            payment=payment,
+            receipt_number=receipt_number,
+            sequence_number=sequence,
+            issued_by=recorded_by,
+            amount_etb=payment.amount_etb,
+            gross_amount_etb=payment.gross_amount_etb,
+            credit_amount_etb=payment.credit_amount_etb,
+            currency="ETB",
+            payment_method=Payment.METHOD_CASH,
+            member_name=locked_member.full_name,
+            member_phone=locked_member.phone or "",
+            plan_name=new_plan.name,
+            plan_duration=f"{new_plan.duration_value} {new_plan.duration_unit}",
+            notes=notes,
+        )
+
+        record_audit_log(
+            actor=recorded_by,
+            gym=gym,
+            action_type="plan_upgrade_confirmed",
+            affected_record_type="Payment",
+            affected_record_id=str(payment.id),
+            metadata={
+                "member_id": str(locked_member.id),
+                "member_name": locked_member.full_name,
+                "old_plan_id": quote["current_plan_id"],
+                "old_plan_name": quote["current_plan_name"],
+                "new_plan_id": quote["new_plan_id"],
+                "new_plan_name": quote["new_plan_name"],
+                "days_remaining": quote["remaining_days"],
+                "credit_etb": quote["credit_amount_etb"],
+                "gross_etb": quote["gross_amount_etb"],
+                "net_etb": quote["net_amount_etb"],
+                "method": "cash",
+                "receipt_number": receipt.receipt_number,
+                "superseded_subscription_id": quote["current_subscription_id"],
+            },
+        )
+
+        if locked_member.user:
+            create_notification(
+                recipient=locked_member.user,
+                notification_type="plan_upgraded",
+                message=(
+                    f"Your membership was upgraded to {new_plan.name}. "
+                    f"Prorated credit of {payment.credit_amount_etb} ETB was applied from your previous plan. "
+                    f"Amount paid: {payment.amount_etb} ETB. Receipt #{receipt.receipt_number}. "
+                    f"Your new plan is active until {new_sub.end_date}."
+                ),
+                gym=gym,
+            )
+
+        return payment, receipt, new_sub
+
+
+def record_plan_upgrade_bank_transfer_payment(
+    gym: GymTenant,
+    member: Member,
+    new_plan: MembershipPlan,
+    recorded_by: User,
+    bank_reference: str,
+    transfer_date,
+    channel: str = "",
+    notes: str = "",
+    transfer_screenshot: str = "",
+    idempotency_key: Optional[str] = None,
+    today: Optional[date] = None,
+) -> Tuple[Payment, Receipt, MemberSubscription]:
+    """
+    Executes a plan upgrade paid by bank transfer in ONE database transaction.
+    """
+    if recorded_by.role not in (
+        User.ROLE_OWNER,
+        User.ROLE_MANAGER,
+        User.ROLE_RECEPTION,
+    ):
+        raise PermissionDenied(
+            "Only gym owner, manager, or reception can record bank transfer upgrade payments."
+        )
+
+    if recorded_by.gym_id != gym.id:
+        raise PermissionDenied("Staff does not belong to this gym.")
+
+    if member.gym_id != gym.id:
+        raise ValidationError("Member does not belong to this gym.")
+
+    if new_plan.gym_id != gym.id:
+        raise ValidationError("Plan does not belong to this gym.")
+
+    if not new_plan.is_active:
+        raise ValidationError("Cannot record payment for a deactivated plan.")
+
+    cleaned_ref = str(bank_reference or "").strip()
+    if len(cleaned_ref) < 3 or len(cleaned_ref) > 100:
+        raise ValidationError("Bank reference must be between 3 and 100 characters.")
+    norm_ref = cleaned_ref.lower()
+
+    existing_ref = Payment.all_objects.filter(
+        gym=gym, bank_reference_normalized=norm_ref
+    ).first()
+    if existing_ref:
+        raise ValidationError(
+            f"Bank reference '{cleaned_ref}' has already been used for this gym."
+        )
+
+    # Idempotency fast path check
+    if idempotency_key:
+        existing = (
+            Payment.all_objects.select_related("receipt", "subscription")
+            .filter(gym=gym, idempotency_key=idempotency_key)
+            .first()
+        )
+        if existing and existing.status == Payment.STATUS_CONFIRMED:
+            return existing, getattr(existing, "receipt", None), existing.subscription
+
+    calc_today = today or timezone.localdate()
+
+    with transaction.atomic():
+        GymTenant.objects.select_for_update().get(id=gym.id)
+        locked_member = Member.all_objects.select_for_update().get(id=member.id)
+
+        if idempotency_key:
+            existing = (
+                Payment.all_objects.select_related("receipt", "subscription")
+                .filter(gym=gym, idempotency_key=idempotency_key)
+                .first()
+            )
+            if existing and existing.status == Payment.STATUS_CONFIRMED:
+                return (
+                    existing,
+                    getattr(existing, "receipt", None),
+                    existing.subscription,
+                )
+
+        quote = calculate_plan_upgrade_quote(
+            member=locked_member, new_plan=new_plan, today=calc_today
+        )
+        current_sub = MemberSubscription.all_objects.select_for_update().get(
+            id=quote["current_subscription_id"]
+        )
+
+        current_sub.status = MemberSubscription.STATUS_SUPERSEDED
+        current_sub.save(update_fields=["status"])
+
+        new_sub = create_or_renew_subscription(
+            member=locked_member,
+            plan=new_plan,
+            start_date=calc_today,
+            actor=recorded_by,
+        )
+
+        from apps.memberships.services import calculate_plan_end_date
+
+        queued_subs = (
+            MemberSubscription.all_objects.filter(
+                gym=gym,
+                member=locked_member,
+                status=MemberSubscription.STATUS_ACTIVE,
+                start_date__gt=calc_today,
+            )
+            .exclude(id=new_sub.id)
+            .order_by("start_date")
+        )
+        prev_end = new_sub.end_date
+        for qsub in queued_subs:
+            q_start = prev_end + timedelta(days=1)
+            q_end = calculate_plan_end_date(
+                q_start, qsub.plan.duration_value, qsub.plan.duration_unit
+            )
+            qsub.start_date = q_start
+            qsub.end_date = q_end
+            qsub.save(update_fields=["start_date", "end_date"])
+            prev_end = q_end
+
+        is_owner = recorded_by.role == User.ROLE_OWNER
+        is_reconciled = is_owner
+        reconciled_at = timezone.now() if is_owner else None
+        reconciled_by = recorded_by if is_owner else None
+
+        payment = Payment.all_objects.create(
+            gym=gym,
+            payer_type=Payment.PAYER_TYPE_MEMBER,
+            member=locked_member,
+            plan=new_plan,
+            subscription=new_sub,
+            method=Payment.METHOD_BANK_TRANSFER,
+            amount_etb=Decimal(quote["net_amount_etb"]),
+            gross_amount_etb=Decimal(quote["gross_amount_etb"]),
+            credit_amount_etb=Decimal(quote["credit_amount_etb"]),
+            is_upgrade=True,
+            currency="ETB",
+            bank_reference=cleaned_ref,
+            bank_reference_normalized=norm_ref,
+            transfer_date=transfer_date,
+            channel=str(channel or "").strip(),
+            transfer_screenshot=transfer_screenshot,
+            is_reconciled=is_reconciled,
+            reconciled_at=reconciled_at,
+            reconciled_by=reconciled_by,
+            status=Payment.STATUS_CONFIRMED,
+            confirmed_by=recorded_by,
+            idempotency_key=idempotency_key or None,
+            metadata={
+                "is_upgrade": True,
+                "quote": quote,
+                "notes": notes,
+                "recorded_by": recorded_by.email,
+                "superseded_subscription_id": quote["current_subscription_id"],
+            },
+        )
+
+        sequence, receipt_number = get_next_receipt_sequence_and_number(gym)
+        receipt = Receipt.all_objects.create(
+            gym=gym,
+            payment=payment,
+            receipt_number=receipt_number,
+            sequence_number=sequence,
+            issued_by=recorded_by,
+            amount_etb=payment.amount_etb,
+            gross_amount_etb=payment.gross_amount_etb,
+            credit_amount_etb=payment.credit_amount_etb,
+            currency="ETB",
+            payment_method=Payment.METHOD_BANK_TRANSFER,
+            member_name=locked_member.full_name,
+            member_phone=locked_member.phone or "",
+            plan_name=new_plan.name,
+            plan_duration=f"{new_plan.duration_value} {new_plan.duration_unit}",
+            notes=notes,
+        )
+
+        record_audit_log(
+            actor=recorded_by,
+            gym=gym,
+            action_type="plan_upgrade_confirmed",
+            affected_record_type="Payment",
+            affected_record_id=str(payment.id),
+            metadata={
+                "member_id": str(locked_member.id),
+                "member_name": locked_member.full_name,
+                "old_plan_id": quote["current_plan_id"],
+                "old_plan_name": quote["current_plan_name"],
+                "new_plan_id": quote["new_plan_id"],
+                "new_plan_name": quote["new_plan_name"],
+                "days_remaining": quote["remaining_days"],
+                "credit_etb": quote["credit_amount_etb"],
+                "gross_etb": quote["gross_amount_etb"],
+                "net_etb": quote["net_amount_etb"],
+                "method": "bank_transfer",
+                "bank_reference": cleaned_ref,
+                "receipt_number": receipt.receipt_number,
+                "superseded_subscription_id": quote["current_subscription_id"],
+            },
+        )
+
+        if locked_member.user:
+            create_notification(
+                recipient=locked_member.user,
+                notification_type="plan_upgraded",
+                message=(
+                    f"Your membership was upgraded to {new_plan.name}. "
+                    f"Prorated credit of {payment.credit_amount_etb} ETB was applied from your previous plan. "
+                    f"Amount paid: {payment.amount_etb} ETB. Receipt #{receipt.receipt_number}. "
+                    f"Your new plan is active until {new_sub.end_date}."
+                ),
+                gym=gym,
+            )
+
+        return payment, receipt, new_sub
+
+
 def record_cash_payment(
     gym: GymTenant,
     member: Member,
@@ -523,6 +1309,7 @@ def record_cash_payment(
     recorded_by: User,
     notes: str = "",
     idempotency_key: Optional[str] = None,
+    today: Optional[date] = None,
 ) -> Tuple[Payment, Receipt, MemberSubscription]:
     """
     Record and confirm a cash payment from a gym member.
@@ -605,8 +1392,36 @@ def record_cash_payment(
                     existing.subscription,
                 )
 
-        # 4. Activate or renew subscription via shared service
-        # (derives member.status and records audit log for subscription)
+        # 4. Check if member has an active subscription covering today
+        calc_today = today or timezone.localdate()
+        current_sub = (
+            MemberSubscription.all_objects.select_related("plan")
+            .filter(
+                gym=gym,
+                member=locked_member,
+                status=MemberSubscription.STATUS_ACTIVE,
+                start_date__lte=calc_today,
+                end_date__gte=calc_today,
+            )
+            .order_by("-end_date", "-created_at")
+            .first()
+        )
+        if current_sub and current_sub.plan_id != plan.id:
+            if plan.price_etb > current_sub.plan.price_etb:
+                return record_plan_upgrade_cash_payment(
+                    gym=gym,
+                    member=locked_member,
+                    new_plan=plan,
+                    recorded_by=recorded_by,
+                    notes=notes,
+                    idempotency_key=idempotency_key,
+                    today=calc_today,
+                )
+            else:
+                raise ValidationError(
+                    f"This plan costs less than your current one. It can start when your current plan ends on {current_sub.end_date}."
+                )
+
         subscription = create_or_renew_subscription(
             member=locked_member,
             plan=plan,
@@ -695,6 +1510,7 @@ def record_bank_transfer_payment(
     notes: str = "",
     idempotency_key: Optional[str] = None,
     transfer_screenshot: str = "",
+    today: Optional[date] = None,
 ) -> Tuple[Payment, Receipt, MemberSubscription]:
     """
     Record and confirm a bank-transfer payment for a gym member.
@@ -837,7 +1653,40 @@ def record_bank_transfer_payment(
                 "previous_member_status": locked_member.status,
             }
 
-        # 5. Activate subscription immediately via shared service
+        # 5. Check if member has an active subscription covering today
+        calc_today = today or timezone.localdate()
+        current_sub = (
+            MemberSubscription.all_objects.select_related("plan")
+            .filter(
+                gym=gym,
+                member=locked_member,
+                status=MemberSubscription.STATUS_ACTIVE,
+                start_date__lte=calc_today,
+                end_date__gte=calc_today,
+            )
+            .order_by("-end_date", "-created_at")
+            .first()
+        )
+        if current_sub and current_sub.plan_id != plan.id:
+            if plan.price_etb > current_sub.plan.price_etb:
+                return record_plan_upgrade_bank_transfer_payment(
+                    gym=gym,
+                    member=locked_member,
+                    new_plan=plan,
+                    recorded_by=recorded_by,
+                    bank_reference=bank_reference,
+                    transfer_date=transfer_date,
+                    channel=channel,
+                    notes=notes,
+                    transfer_screenshot=transfer_screenshot,
+                    idempotency_key=idempotency_key,
+                    today=calc_today,
+                )
+            else:
+                raise ValidationError(
+                    f"This plan costs less than your current one. It can start when your current plan ends on {current_sub.end_date}."
+                )
+
         subscription = create_or_renew_subscription(
             member=locked_member,
             plan=plan,
@@ -1058,6 +1907,9 @@ def reverse_bank_transfer_payment(
 
         if payment.status != Payment.STATUS_CONFIRMED:
             raise ValidationError("Only confirmed payments can be reversed.")
+
+        if payment.is_upgrade or payment.metadata.get("is_upgrade"):
+            raise ValidationError("Plan upgrade payments cannot be reversed.")
 
         if payment.is_reconciled:
             raise ValidationError(
