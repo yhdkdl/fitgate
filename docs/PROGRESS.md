@@ -54,7 +54,7 @@
 
 ## Current
 
-Ready for Sprint 23 & 24 (Trimmed)
+In progress: Sprint 23 & 24 (Trimmed - notification on approval, Waiting card on member dashboard, Clients with no approved plan on Trainer Overview)
 
 ## Next
 

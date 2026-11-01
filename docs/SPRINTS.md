@@ -440,17 +440,16 @@ _Increment 3 = Sprints 16 and 17 only; Sprints 18 and 19 are deferred to a futur
     - Gym-wide rate limit of 20 generations per hour protects free AI quota; exceeding returns a clear throttling message.
     - Strict safety & privacy: no personal identifiers (name, phone, email, member id) sent to provider; only age, gender, goal, fitness level, training days, session length, equipment, limitations, dietary notes, weekly focus choices, and latest measurements. Free text treated strictly as plain data. Fixed plan structure enforced; provider errors masked as "generation failed, try again later". Three failed provider attempts in one request notifies owner, logs failure, and creates no plan.
 
-23. **Trainer review workflow** — direct edit, approval, rejection state machine, and gated member visibility.
+23. **Trainer review workflow** — direct edit, approval, rejection state machine, gated member visibility, and approval notice.
     - The assigned trainer or Owner/Manager can directly edit the draft (exercises and nutrition) and approve, or reject using a checklist of reasons (at least one ticked: too hard, too easy, exercises not suitable for member limits, equipment not available, nutrition not suitable, other + short text 5–200 characters) stored as rejection reasons and passed to the next draft (up to the 3-draft weekly limit). If medical limitations are present, the review screen displays the medical caution banner. On draft 3, rejection is blocked and the UI requires editing and approving directly ("Edit this draft yourself").
     - Only the assigned trainer or Owner/Manager can edit, approve, or reject. All actions are audit-logged, including tracking whether the plan was edited before approval (`was_edited`).
-    - Gated member visibility: a member cannot fetch or view a `pending_review` plan (tested with 403 / excluded query).
-    - What the member sees: approved plan for the current week; if new week not approved yet, last approved plan labelled with its week; if no approved plan exists, "Waiting for your trainer". Member is notified when a plan is approved.
+    - Gated member visibility: a member cannot fetch or view a `pending_review` plan (tested with 403 / excluded query). Drafts are never shown or hinted at.
+    - What the member sees on Member dashboard: approved plan for the current week; if new week not approved yet, last approved plan labelled with its week. A member who has an assigned trainer and an active trainer-inclusive plan, and has no approved plan yet, sees a card "Waiting for your trainer" instead of an empty section. Members without a trainer or on a standard plan see nothing there.
+    - When a trainer, Owner or Manager approves a plan, the member gets one in-app notification: "Your training plan for the week of <date> is ready." Only that member gets it. Editing or rejecting a draft sends the member nothing.
 
-24. **Weekly check-in** — Monday check-in capture, intensity adjustment, and reminder.
-    - Monday check-in form captures energy, recovery, motivation (each 1 to 5); a second check-in for the same `week_start_date` is refused.
-    - A completed check-in does NOT create a plan: it notifies the assigned trainer and feeds the intensity when the trainer requests the next plan. A low-recovery/low-energy check-in measurably lowers the next computed intensity versus a high one with the same profile.
-    - If no check-in is submitted by Monday evening, the existing scheduled command (Sprint 14) sends the member one reminder (idempotent) and the next plan uses the default intensity for the phase with previous load held constant.
-    - Trainer Overview dashboard shows "clients with no approved plan for this week".
+24. **Trainer Overview — clients with no approved plan** (Weekly check-in, reminder, and trainer check-in notice deferred to future work, see docs/SPEC.md §10).
+    - Trainer Overview: a card "Clients with no approved plan this week" showing the count and a list of the trainer's own current clients (the ones counted toward capacity) who have no APPROVED plan for the current week (week starting on this week's Monday). Each row shows name, photo and a state label: "No draft yet" or "Draft waiting for your review", and opens that client's plan screen. A trainer sees only their own clients. Owner and Manager keep their own dashboards unchanged.
+    - Intensity follows the phase and the fitness level; the trainer adjusts by editing the draft. The adaptive intensity strategy code in the rules engine and its tests are retained, ready for the future check-in feature, but not wired to any screen or data.
 
 - [ ] All sprints in this increment complete
 
