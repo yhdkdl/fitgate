@@ -2,7 +2,9 @@ import React, { useEffect, useState } from "react";
 import {
   recordBankTransferPayment,
   recordCashPayment,
+  getStaffUpgradeQuote,
   type DigitalReceipt,
+  type PlanUpgradeQuote,
 } from "../../api/payments";
 import { getMembershipPlans, type MembershipPlan } from "../../api/plans";
 import { Alert } from "../ui/Alert";
@@ -58,6 +60,49 @@ export const RecordPaymentModal: React.FC<Props> = ({
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [receipt, setReceipt] = useState<DigitalReceipt | null>(null);
+
+  const [upgradeQuote, setUpgradeQuote] = useState<PlanUpgradeQuote | null>(null);
+  const [upgradeRefusal, setUpgradeRefusal] = useState<string | null>(null);
+  const [loadingQuote, setLoadingQuote] = useState(false);
+
+  useEffect(() => {
+    if (!isOpen || !member || !selectedPlanId) {
+      setUpgradeQuote(null);
+      setUpgradeRefusal(null);
+      return;
+    }
+
+    let isMounted = true;
+    setLoadingQuote(true);
+    setUpgradeQuote(null);
+    setUpgradeRefusal(null);
+
+    getStaffUpgradeQuote(member.id, selectedPlanId)
+      .then((quote) => {
+        if (!isMounted) return;
+        setUpgradeQuote(quote);
+        setUpgradeRefusal(null);
+      })
+      .catch((err: unknown) => {
+        if (!isMounted) return;
+        const errObj = err as { data?: { detail?: string | string[] }; message?: string };
+        const detail = errObj?.data?.detail || errObj?.message || "";
+        const detailStr = Array.isArray(detail) ? detail.join(" ") : String(detail);
+        if (detailStr.includes("costs less than your current one")) {
+          setUpgradeRefusal(detailStr);
+        } else {
+          setUpgradeQuote(null);
+          setUpgradeRefusal(null);
+        }
+      })
+      .finally(() => {
+        if (isMounted) setLoadingQuote(false);
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [isOpen, member?.id, selectedPlanId]);
 
   // Generate idempotency key and fetch plans when modal opens
   useEffect(() => {
@@ -239,8 +284,52 @@ export const RecordPaymentModal: React.FC<Props> = ({
               )}
             </FormField>
 
+            {upgradeRefusal && (
+              <Alert variant="warning">{upgradeRefusal}</Alert>
+            )}
+
+            {upgradeQuote && (
+              <div className="bg-primary/5 border border-primary/20 rounded-lg p-3.5 space-y-2.5 text-xs">
+                <div className="flex items-center justify-between border-b border-primary/10 pb-2">
+                  <span className="font-bold text-primary uppercase tracking-wide text-[11px]">
+                    Plan Upgrade with Credit
+                  </span>
+                  <span className="text-text-muted">
+                    {upgradeQuote.remaining_days} of {upgradeQuote.total_days} days remaining
+                  </span>
+                </div>
+                <div className="space-y-1.5">
+                  <div className="flex justify-between">
+                    <span className="text-text-muted">Current Plan:</span>
+                    <span className="text-text font-medium">{upgradeQuote.current_plan_name}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-text-muted">Prorated Credit:</span>
+                    <span className="text-success font-bold">
+                      -{Number(upgradeQuote.credit_amount_etb).toLocaleString()} ETB
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-text-muted">New Plan Price (Gross):</span>
+                    <span className="text-text font-medium">
+                      {Number(upgradeQuote.gross_amount_etb).toLocaleString()} ETB
+                    </span>
+                  </div>
+                  <div className="flex justify-between border-t border-primary/15 pt-2 font-bold text-sm">
+                    <span className="text-text">Net Amount to Pay:</span>
+                    <span className="text-primary font-black">
+                      {Number(upgradeQuote.net_amount_etb).toLocaleString()} ETB
+                    </span>
+                  </div>
+                  <div className="text-[11px] text-text-muted pt-1">
+                    New subscription period: {upgradeQuote.new_start_date} to {upgradeQuote.new_end_date}
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* Locked Amount Display (Item 18: Plan price stays locked) */}
-            {selectedPlan && (
+            {selectedPlan && !upgradeQuote && !upgradeRefusal && (
               <div className="bg-surface-2/60 border border-border rounded-lg p-3 flex items-center justify-between">
                 <div>
                   <span className="text-xs text-text-muted block">
@@ -387,11 +476,13 @@ export const RecordPaymentModal: React.FC<Props> = ({
               <Button
                 type="submit"
                 variant="primary"
-                disabled={submitting || !selectedPlanId}
+                disabled={submitting || !selectedPlanId || Boolean(upgradeRefusal) || loadingQuote}
                 className="min-h-[44px]"
               >
                 {submitting
                   ? "Processing..."
+                  : upgradeQuote
+                  ? `Confirm ${paymentMethod === "cash" ? "Cash" : "Bank Transfer"} Upgrade (${Number(upgradeQuote.net_amount_etb).toLocaleString()} ETB)`
                   : `Confirm ${paymentMethod === "cash" ? "Cash" : "Bank Transfer"} Payment`}
               </Button>
             </div>

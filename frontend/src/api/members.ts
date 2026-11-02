@@ -70,6 +70,14 @@ export interface Member {
     photo_url?: string;
   } | null;
   is_on_trainer_plan?: boolean;
+  active_subscription?: {
+    id: string;
+    plan_id: string;
+    plan_name: string;
+    plan_price_etb: string;
+    start_date: string;
+    end_date: string;
+  } | null;
 }
 
 export interface PublicMemberRegistrationPayload {

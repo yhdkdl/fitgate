@@ -1,6 +1,7 @@
 """Data models for payments, payment configurations, and transactions."""
 
 import uuid
+from decimal import Decimal
 from typing import Optional
 
 from django.conf import settings
@@ -25,6 +26,10 @@ class GymPaymentConfig(TenantAwareModel):
     verified_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+
+    @property
+    def is_upgrade(self) -> bool:
+        return bool(self.credit_amount_etb and self.credit_amount_etb > Decimal("0.00"))
 
     class Meta:
         verbose_name = "Gym Payment Configuration"
@@ -167,6 +172,13 @@ class Payment(TenantAwareModel):
     )
     method = models.CharField(max_length=30, choices=METHOD_CHOICES)
     amount_etb = models.DecimalField(max_digits=12, decimal_places=2)
+    gross_amount_etb = models.DecimalField(
+        max_digits=12, decimal_places=2, null=True, blank=True
+    )
+    credit_amount_etb = models.DecimalField(
+        max_digits=12, decimal_places=2, default=Decimal("0.00")
+    )
+    is_upgrade = models.BooleanField(default=False)
     currency = models.CharField(max_length=10, default="ETB")
     chapa_ref = models.CharField(max_length=100, null=True, blank=True, unique=True)
     bank_reference = models.CharField(max_length=100, null=True, blank=True)
@@ -382,6 +394,12 @@ class Receipt(TenantAwareModel):
         related_name="issued_receipts",
     )
     amount_etb = models.DecimalField(max_digits=12, decimal_places=2, editable=False)
+    gross_amount_etb = models.DecimalField(
+        max_digits=12, decimal_places=2, null=True, blank=True, editable=False
+    )
+    credit_amount_etb = models.DecimalField(
+        max_digits=12, decimal_places=2, default=Decimal("0.00"), editable=False
+    )
     currency = models.CharField(max_length=10, default="ETB", editable=False)
     payment_method = models.CharField(max_length=30, editable=False)
     member_name = models.CharField(max_length=255, editable=False)
@@ -395,6 +413,10 @@ class Receipt(TenantAwareModel):
     notes = models.TextField(blank=True, default="", editable=False)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+
+    @property
+    def is_upgrade(self) -> bool:
+        return bool(self.credit_amount_etb and self.credit_amount_etb > Decimal("0.00"))
 
     class Meta:
         ordering = ["-issued_at"]
@@ -466,6 +488,10 @@ class GymReceiptCounter(TenantAwareModel):
     last_receipt_number = models.PositiveIntegerField(default=0)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+
+    @property
+    def is_upgrade(self) -> bool:
+        return bool(self.credit_amount_etb and self.credit_amount_etb > Decimal("0.00"))
 
     class Meta:
         verbose_name = "Gym Receipt Counter"

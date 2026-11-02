@@ -12,11 +12,13 @@ from apps.payments.views import (
     GymPaymentPublicStatusView,
     MemberPaymentHistoryView,
     MemberPaymentStatusView,
+    MemberUpgradeQuoteView,
     ReceiptDetailView,
     ReconcileBankTransfersView,
     RecordBankTransferPaymentView,
     RecordCashPaymentView,
     ReverseBankTransferView,
+    StaffUpgradeQuoteView,
     SuperAdminGymPaymentStatusView,
     UnreconciledBankTransfersView,
 )
@@ -34,6 +36,17 @@ urlpatterns = [
         "api/gym/payment-config/test/",
         GymPaymentConfigTestView.as_view(),
         name="gym-payment-config-test",
+    ),
+    # Plan Upgrade Quotes
+    path(
+        "api/payments/upgrade-quote/",
+        MemberUpgradeQuoteView.as_view(),
+        name="member-upgrade-quote",
+    ),
+    path(
+        "api/gym/members/<uuid:member_id>/upgrade-quote/",
+        StaffUpgradeQuoteView.as_view(),
+        name="staff-upgrade-quote",
     ),
     # Member Online Checkout
     path(

@@ -133,6 +133,7 @@ class ReceiptSerializer(serializers.ModelSerializer):
     is_reversed = serializers.BooleanField(read_only=True)
     reversed_at = serializers.SerializerMethodField()
     reversal_reason = serializers.SerializerMethodField()
+    is_upgrade = serializers.SerializerMethodField()
 
     class Meta:
         from apps.payments.models import Receipt
@@ -146,6 +147,9 @@ class ReceiptSerializer(serializers.ModelSerializer):
             "issued_by_id",
             "issued_by_name",
             "amount_etb",
+            "gross_amount_etb",
+            "credit_amount_etb",
+            "is_upgrade",
             "currency",
             "payment_method",
             "bank_reference",
@@ -190,6 +194,11 @@ class ReceiptSerializer(serializers.ModelSerializer):
             return obj.payment.reversal.reason
         return None
 
+    def get_is_upgrade(self, obj) -> bool:
+        if hasattr(obj, "payment") and obj.payment:
+            return bool(getattr(obj.payment, "is_upgrade", False))
+        return bool(obj.gross_amount_etb or obj.credit_amount_etb)
+
 
 class PaymentListItemSerializer(serializers.Serializer):
     """Staff view of a payment record with receipt reference."""
@@ -203,6 +212,13 @@ class PaymentListItemSerializer(serializers.Serializer):
     plan_name = serializers.CharField(allow_blank=True)
     method = serializers.CharField()
     amount_etb = serializers.DecimalField(max_digits=12, decimal_places=2)
+    gross_amount_etb = serializers.DecimalField(
+        max_digits=12, decimal_places=2, allow_null=True, required=False
+    )
+    credit_amount_etb = serializers.DecimalField(
+        max_digits=12, decimal_places=2, required=False
+    )
+    is_upgrade = serializers.BooleanField(default=False)
     currency = serializers.CharField()
     status = serializers.CharField()
     confirmed_by_id = serializers.UUIDField(allow_null=True)
@@ -226,6 +242,13 @@ class MemberPaymentHistoryItemSerializer(serializers.Serializer):
     plan_name = serializers.CharField(allow_blank=True)
     method = serializers.CharField()
     amount_etb = serializers.DecimalField(max_digits=12, decimal_places=2)
+    gross_amount_etb = serializers.DecimalField(
+        max_digits=12, decimal_places=2, allow_null=True, required=False
+    )
+    credit_amount_etb = serializers.DecimalField(
+        max_digits=12, decimal_places=2, required=False
+    )
+    is_upgrade = serializers.BooleanField(default=False)
     currency = serializers.CharField()
     status = serializers.CharField()
     receipt_number = serializers.CharField(allow_blank=True)
@@ -315,3 +338,24 @@ class MemberPaymentStatusSerializer(serializers.Serializer):
     status = serializers.CharField()
     receipt_id = serializers.CharField(allow_null=True)
     plan_name = serializers.CharField(allow_blank=True)
+
+
+class PlanUpgradeQuoteSerializer(serializers.Serializer):
+    current_subscription_id = serializers.UUIDField()
+    current_plan_id = serializers.UUIDField()
+    current_plan_name = serializers.CharField()
+    current_plan_price_etb = serializers.CharField()
+    current_start_date = serializers.DateField()
+    current_end_date = serializers.DateField()
+    new_plan_id = serializers.UUIDField()
+    new_plan_name = serializers.CharField()
+    new_plan_price_etb = serializers.CharField()
+    total_days = serializers.IntegerField()
+    used_days = serializers.IntegerField()
+    remaining_days = serializers.IntegerField()
+    net_paid_etb = serializers.CharField()
+    credit_amount_etb = serializers.CharField()
+    gross_amount_etb = serializers.CharField()
+    net_amount_etb = serializers.CharField()
+    new_start_date = serializers.DateField()
+    new_end_date = serializers.DateField()

@@ -332,6 +332,59 @@ class ChapaCheckoutView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
+        from apps.memberships.models import MemberSubscription
+        from apps.payments.services import calculate_plan_upgrade_quote
+
+        today = timezone.localdate()
+        current_sub = (
+            MemberSubscription.all_objects.select_related("plan")
+            .filter(
+                gym=gym,
+                member=member,
+                status=MemberSubscription.STATUS_ACTIVE,
+                start_date__lte=today,
+                end_date__gte=today,
+            )
+            .order_by("-end_date", "-created_at")
+            .first()
+        )
+
+        is_upgrade = False
+        quote = None
+        if current_sub and current_sub.plan_id != plan.id:
+            if plan.price_etb > current_sub.plan.price_etb:
+                try:
+                    quote = calculate_plan_upgrade_quote(
+                        member=member, new_plan=plan, today=today
+                    )
+                    is_upgrade = True
+                except ValidationError as exc:
+                    detail = (
+                        exc.message_dict
+                        if hasattr(exc, "message_dict")
+                        else exc.messages
+                    )
+                    return Response(
+                        {"detail": detail}, status=status.HTTP_400_BAD_REQUEST
+                    )
+            else:
+                return Response(
+                    {
+                        "detail": f"This plan costs less than your current one. It can start when your current plan ends on {current_sub.end_date}."
+                    },
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+        amount_to_charge = (
+            Decimal(quote["net_amount_etb"]) if is_upgrade else plan.price_etb
+        )
+        gross_amount = (
+            Decimal(quote["gross_amount_etb"]) if is_upgrade else plan.price_etb
+        )
+        credit_amount = (
+            Decimal(quote["credit_amount_etb"]) if is_upgrade else Decimal("0.00")
+        )
+
         # Build transaction reference with cryptographically secure randomness (max 50 chars)
         tx_ref = f"FG-{gym.subdomain[:15]}-{secrets.token_hex(8)}"
 
@@ -342,10 +395,20 @@ class ChapaCheckoutView(APIView):
             member=member,
             plan=plan,
             method=Payment.METHOD_CHAPA,
-            amount_etb=plan.price_etb,
+            amount_etb=amount_to_charge,
+            gross_amount_etb=gross_amount,
+            credit_amount_etb=credit_amount,
+            is_upgrade=is_upgrade,
             currency="ETB",
             chapa_ref=tx_ref,
             status=Payment.STATUS_PENDING,
+            metadata={
+                "is_upgrade": is_upgrade,
+                "quote": quote if is_upgrade else None,
+                "superseded_subscription_id": (
+                    quote["current_subscription_id"] if is_upgrade else None
+                ),
+            },
         )
 
         record_audit_log(
@@ -358,7 +421,7 @@ class ChapaCheckoutView(APIView):
                 "tx_ref": tx_ref,
                 "plan_id": str(plan.id),
                 "plan_name": plan.name,
-                "amount_etb": str(plan.price_etb),
+                "amount_etb": str(amount_to_charge),
             },
         )
 
@@ -414,7 +477,7 @@ class ChapaCheckoutView(APIView):
         )
 
         init_payload = {
-            "amount": str(plan.price_etb),
+            "amount": str(amount_to_charge),
             "currency": "ETB",
             "email": email,
             "first_name": first_name,
@@ -788,6 +851,9 @@ class GymPaymentListView(APIView):
                     "plan_name": p.plan.name if p.plan else "",
                     "method": p.method,
                     "amount_etb": p.amount_etb,
+                    "gross_amount_etb": p.gross_amount_etb,
+                    "credit_amount_etb": p.credit_amount_etb,
+                    "is_upgrade": p.is_upgrade,
                     "currency": p.currency,
                     "status": p.status,
                     "confirmed_by_id": (
@@ -933,6 +999,9 @@ class MemberPaymentHistoryView(APIView):
                     "plan_name": p.plan.name if p.plan else "",
                     "method": p.method,
                     "amount_etb": p.amount_etb,
+                    "gross_amount_etb": p.gross_amount_etb,
+                    "credit_amount_etb": p.credit_amount_etb,
+                    "is_upgrade": p.is_upgrade,
                     "currency": p.currency,
                     "status": p.status,
                     "receipt_number": receipt_no,
@@ -1471,3 +1540,100 @@ class ReverseBankTransferView(APIView):
             },
             status=status.HTTP_200_OK,
         )
+
+
+class MemberUpgradeQuoteView(APIView):
+    """Member self-service quote endpoint to calculate plan upgrade prorated credit."""
+
+    permission_classes = [IsAuthenticated, RequirePasswordChanged]
+
+    def get(self, request):
+        gym = getattr(request, "tenant", None)
+        if not gym:
+            return Response(
+                {"detail": "Must be requested on a gym portal."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        if request.user.role != User.ROLE_MEMBER:
+            return Response(
+                {"detail": "Only members can access member upgrade quotes."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        plan_id = request.query_params.get("plan_id")
+        if not plan_id:
+            return Response(
+                {"detail": "plan_id query parameter is required."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        member = Member.all_objects.filter(user=request.user, gym=gym).first()
+        if not member:
+            return Response(
+                {"detail": "Member record not found."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        plan = MembershipPlan.all_objects.filter(id=plan_id, gym=gym).first()
+        if not plan:
+            return Response(
+                {"detail": "Plan not found."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        from apps.payments.services import calculate_plan_upgrade_quote
+
+        try:
+            quote = calculate_plan_upgrade_quote(member=member, new_plan=plan)
+            return Response(quote, status=status.HTTP_200_OK)
+        except ValidationError as exc:
+            detail = exc.message_dict if hasattr(exc, "message_dict") else exc.messages
+            return Response({"detail": detail}, status=status.HTTP_400_BAD_REQUEST)
+
+
+class StaffUpgradeQuoteView(APIView):
+    """Staff quote endpoint for calculating member plan upgrade prorated credit before confirmation."""
+
+    permission_classes = [
+        IsAuthenticated,
+        RequirePasswordChanged,
+        CanRecordCashPayment,
+    ]
+
+    def get(self, request, member_id):
+        gym = getattr(request, "tenant", None)
+        if not gym:
+            return Response(
+                {"detail": "Must be requested on a gym portal."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        plan_id = request.query_params.get("plan_id")
+        if not plan_id:
+            return Response(
+                {"detail": "plan_id query parameter is required."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        member = Member.all_objects.filter(id=member_id, gym=gym).first()
+        if not member:
+            return Response(
+                {"detail": "Member not found."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        plan = MembershipPlan.all_objects.filter(id=plan_id, gym=gym).first()
+        if not plan:
+            return Response(
+                {"detail": "Plan not found."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        from apps.payments.services import calculate_plan_upgrade_quote
+
+        try:
+            quote = calculate_plan_upgrade_quote(member=member, new_plan=plan)
+            return Response(quote, status=status.HTTP_200_OK)
+        except ValidationError as exc:
+            detail = exc.message_dict if hasattr(exc, "message_dict") else exc.messages
+            return Response({"detail": detail}, status=status.HTTP_400_BAD_REQUEST)

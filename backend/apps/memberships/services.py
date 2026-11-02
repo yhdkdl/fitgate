@@ -574,9 +574,9 @@ def compute_member_status(member: Member, today: Optional[date] = None) -> str:
         today = timezone.localdate()
 
     subs = list(
-        MemberSubscription.all_objects.filter(gym=member.gym, member=member).order_by(
-            "-end_date", "-created_at"
-        )
+        MemberSubscription.all_objects.filter(gym=member.gym, member=member)
+        .exclude(status=MemberSubscription.STATUS_SUPERSEDED)
+        .order_by("-end_date", "-created_at")
     )
     if not subs:
         return Member.STATUS_PENDING

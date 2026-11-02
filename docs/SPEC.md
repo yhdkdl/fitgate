@@ -267,6 +267,7 @@ Each entry: goal — key business rule(s).
 - Submit payment (FG-UC-03) — Chapa or cash; failed checkout may retry or fall back to cash; missing webhook flagged for manual review.
 - Plan management — Owner/Manager CRUD; edits don't affect existing subscriptions.
 - Member subscribes/renews — creates/extends `MemberSubscription`.
+- Plan upgrade with credit (FG-UC-03-UPGRADE, Sprint 12c) — active member upgrades to higher-priced plan paying the server-computed prorated credit difference (net amount paid * remaining days / total days, rounded down to 2 decimals). Old subscription becomes `superseded`; new subscription starts immediately for full duration; payment and receipt record gross, credit, and net received; downgrades/equal price refused ("This plan costs less than your current one. It can start when your current plan ends on <date>."); refused if frozen, approved freeze pending, suspended, pending, or net <= 0; non-reversible.
 - Request freeze / approve-reject freeze — Growth/Pro only.
 - Membership expiry — scheduled job deactivates QR access and sends reminders.
 - View payments — Owner/Manager filter by date, method, status, with a revenue summary.
@@ -324,7 +325,7 @@ All tables carry `id` (uuid, PK) unless noted. Every gym-scoped table carries `g
 
 **MembershipPlan** — `gym_id`, `name`, `duration_value`, `duration_unit` (days/months — _the source has `duration_months` only_), `price_etb`, `trainer_inclusive`, `is_active` (default true), `all_branches_access` (default true; _new_)
 
-**MemberSubscription** — `member_id`, `gym_id`, `plan_id`, `start_date`, `end_date`, `status` (pending/active/frozen/suspended/expired), `freeze_start_date` (nullable), `frozen_days_total` (default 0)
+**MemberSubscription** — `member_id`, `gym_id`, `plan_id`, `start_date`, `end_date`, `status` (pending/active/frozen/suspended/expired/superseded), `freeze_start_date` (nullable), `frozen_days_total` (default 0)
 
 **QRToken** — `member_id`, `gym_id`, `token_hash`, `issued_at`, `expires_at` (issued_at + 90 s), `is_active` (default true)
 
@@ -376,6 +377,7 @@ All tables carry `id` (uuid, PK) unless noted. Every gym-scoped table carries `g
 - `active → expired`: nightly job when `end_date` has passed; reminders precede expiry.
 - `active → frozen`: approved freeze (Growth/Pro, `freeze_days_allowed > 0`); the countdown pauses; on resumption frozen days are added to `end_date`, then `frozen → active`.
 - `active/frozen → suspended`: Owner or Manager only; the QR token is invalidated immediately; only Owner/Manager can lift it by returning the subscription to `active`.
+- `active → superseded`: plan upgrade with credit; old subscription ends immediately upon upgrade; new subscription activates for full duration starting on upgrade day. Superseded subscriptions are strictly excluded from check-in, attendance, expiry sweep, and renewal reminders.
 - `expired → pending`: when the member submits a new payment; the cycle repeats.
 
 **TrainingPlan.status:** `pending_review → {approved, rejected}`. Only `approved` is visible to the member. A rejection triggers regeneration, creating a new `pending_review` plan with the trainer's notes.
@@ -403,7 +405,7 @@ All tables carry `id` (uuid, PK) unless noted. Every gym-scoped table carries `g
 
 **External checks** (each has a fallback; none blocks a sprint — see `docs/SPRINTS.md`): cPanel UAPI `addsubdomain` enabled for the token; on-demand AutoSSL trigger; how to run one-time management commands on the host; Redis availability (fallback: database cache and job table); Chapa's merchant-account requirements for small gyms (fallback: cash-only until configured); Cloudinary sign-up, uploads and `authenticated` access from your network (fallback: host disk through the same storage interface).
 
-**Deferred to a future version:** public self-serve gym registration and approval (with rejection handling); inactivity flags, escalation and the inactive-member report; Chapa subaccount mode and Chapa-paid platform fees; monthly billing and auto-renewal; mid-subscription plan changes; phone-number login; discounts; a full public landing page per gym; a Starter member cap and a setup fee; a data deletion/archival policy; trainer availability schedule (Sprint 18); trainer-to-member direct in-app messaging (Sprint 19); group class scheduling and booking (Sprint 26); milestone badges and member progress charts (Sprint 28a); advanced analytics (peak-hours heatmap, cohort retention, referral analytics); weekly member check-in, trainer notice, Monday reminder, and check-in dynamic intensity adjustment (Sprint 24).
+**Deferred to a future version:** public self-serve gym registration and approval (with rejection handling); inactivity flags, escalation and the inactive-member report; Chapa subaccount mode and Chapa-paid platform fees; monthly billing and auto-renewal; phone-number login; discounts; a full public landing page per gym; a Starter member cap and a setup fee; a data deletion/archival policy; trainer availability schedule (Sprint 18); trainer-to-member direct in-app messaging (Sprint 19); group class scheduling and booking (Sprint 26); milestone badges and member progress charts (Sprint 28a); advanced analytics (peak-hours heatmap, cohort retention, referral analytics); weekly member check-in, trainer notice, Monday reminder, and check-in dynamic intensity adjustment (Sprint 24).
 
 ## 11. Deviations from the source document (deliberate)
 
