@@ -283,6 +283,11 @@ def process_chapa_webhook(
             "expected_currency": "ETB",
             "received_currency": received_currency,
         }
+        payment.metadata["unresolved"] = True
+        payment.metadata["flagged_for_owner_review"] = True
+        payment.metadata["unresolved_reason"] = (
+            f"Payment amount mismatch: expected {payment.amount_etb} ETB, received {received_amount} {received_currency}"
+        )
         payment.save(update_fields=["status", "metadata", "updated_at"])
 
         # Notify member

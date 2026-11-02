@@ -612,9 +612,13 @@ def extract_member_history(member, gym, limit: int = 4) -> List[Dict[str, Any]]:
             {
                 "week_start_date": str(plan.week_start_date),
                 "sessions": (
-                    plan.plan_content.get("sessions", [])
-                    if isinstance(plan.plan_content, dict)
-                    else []
+                    getattr(plan, "plan_data", {}).get("sessions", [])
+                    if isinstance(getattr(plan, "plan_data", None), dict)
+                    else (
+                        getattr(plan, "plan_content", {}).get("sessions", [])
+                        if isinstance(getattr(plan, "plan_content", None), dict)
+                        else []
+                    )
                 ),
                 "trainer_notes": plan.trainer_notes,
             }

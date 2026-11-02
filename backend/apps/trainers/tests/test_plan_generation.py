@@ -598,21 +598,106 @@ def test_model_fallback_and_three_failure_rule(gym_tenant, active_member, owner_
             provider.generate_plan(ctx)
         assert "generation failed, try again later" in str(excinfo.value)
 
-    # Check that owner audit log was created
-    audit = AuditLog.all_objects.filter(
-        gym=gym_tenant, action_type="ai_plan_generation_failed"
-    ).first()
-    assert audit is not None
-    assert audit.metadata["attempt_count"] == 3
+    # Verify that NO failure audit log was created (failures are NOT audit logged)
+    assert (
+        AuditLog.all_objects.filter(
+            gym=gym_tenant, action_type="ai_plan_generation_failed"
+        ).count()
+        == 0
+    )
 
-    # Check that owner in-app notification was created
+    # Verify that lightweight daily failure counter was created and incremented
+    from apps.trainers.models import AIDailyFailureCounter
+
+    counters = AIDailyFailureCounter.all_objects.filter(gym=gym_tenant)
+    assert counters.count() >= 1
+
+    # Verify that owner in-app notification was created once per day
     from apps.accounts.models import Notification
 
     notif = Notification.all_objects.filter(
-        gym=gym_tenant, type="ai_plan_generation_failed"
+        gym=gym_tenant, type="ai_generation_problems_daily"
     ).first()
     assert notif is not None
-    assert "failed after 3 attempts" in notif.message
+    assert (
+        "Plan generation had problems today. Trainers can retry later." in notif.message
+    )
+
+    # Triggering another failure on the same day must NOT send a second notification
+    with patch.object(
+        provider, "_invoke_model", side_effect=Exception("API connection timeout")
+    ):
+        with pytest.raises(AIPlanGenerationError):
+            provider.generate_plan(ctx)
+    assert (
+        Notification.all_objects.filter(
+            gym=gym_tenant, type="ai_generation_problems_daily"
+        ).count()
+        == 1
+    )
+
+
+def test_all_screen_options_accepted_by_server_across_five_lists():
+    """
+    Verifies that every single option code the frontend screen can send
+    across all 5 lists is accepted by the server.
+    """
+    from apps.core.validators import (
+        validate_dietary_choices,
+        validate_equipment_access,
+        validate_health_limitations,
+        validate_plan_rejection_reasons,
+        validate_weekly_focus,
+    )
+    from apps.trainers.constants import (
+        DIETARY_NOTE_CHOICES,
+        EQUIPMENT_ACCESS_CHOICES,
+        HEALTH_LIMITATION_CHOICES,
+        PLAN_REJECTION_REASONS,
+        WEEKLY_FOCUS_CHOICES,
+    )
+
+    # 1. Health limitations: every option accepted
+    for code, _ in HEALTH_LIMITATION_CHOICES:
+        cleaned, other = validate_health_limitations(
+            [code], other_text="Some limitation note" if code == "other" else None
+        )
+        assert code in cleaned
+
+    # 2. Equipment access: every option accepted
+    for code, _ in EQUIPMENT_ACCESS_CHOICES:
+        cleaned, other = validate_equipment_access(
+            [code], other_text="Special equipment" if code == "other" else None
+        )
+        assert code in cleaned
+
+    # 3. Dietary notes: every option accepted
+    for code, _ in DIETARY_NOTE_CHOICES:
+        cleaned, other = validate_dietary_choices(
+            [code], other_text="Specific diet detail" if code == "other" else None
+        )
+        assert code in cleaned
+
+    # 4. Weekly focus: every option accepted
+    for code, _ in WEEKLY_FOCUS_CHOICES:
+        cleaned, other = validate_weekly_focus(
+            [code], other_text="Focus area details" if code == "other" else None
+        )
+        assert code in cleaned
+
+    # 5. Rejection reasons: every option accepted
+    for code, _ in PLAN_REJECTION_REASONS:
+        cleaned, other = validate_plan_rejection_reasons(
+            [code],
+            other_text="Valid reason longer than 5 chars" if code == "other" else None,
+        )
+        assert code in cleaned
+
+    # Verify "wrong_phase" is strictly rejected
+    from django.core.exceptions import ValidationError
+
+    with pytest.raises(ValidationError):
+        validate_plan_rejection_reasons(["wrong_phase"])
 
 
 def test_generation_endpoint_returns_clean_503_on_provider_failure(

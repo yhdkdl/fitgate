@@ -47,9 +47,16 @@ export const RejectPlanModal: React.FC<RejectPlanModalProps> = ({
       return;
     }
 
-    if (selectedReasons.includes("other") && !otherReasonText.trim()) {
-      setError("Please specify the reason for 'Other reason'.");
-      return;
+    if (selectedReasons.includes("other")) {
+      const trimmed = otherReasonText.trim();
+      if (!trimmed || trimmed.length < 5) {
+        setError("Please specify other rejection reason (5 to 200 characters).");
+        return;
+      }
+      if (trimmed.length > 200) {
+        setError("Other rejection reason cannot exceed 200 characters.");
+        return;
+      }
     }
 
     setLoading(true);
@@ -90,11 +97,10 @@ export const RejectPlanModal: React.FC<RejectPlanModalProps> = ({
             return (
               <label
                 key={opt.code}
-                className={`flex items-center gap-2 p-2.5 rounded border cursor-pointer text-xs transition-colors ${
-                  isChecked
-                    ? "border-primary bg-primary/5 text-text font-medium"
-                    : "border-border bg-surface text-text-muted hover:border-text-muted"
-                }`}
+                className={`flex items-center gap-2 p-2.5 rounded border cursor-pointer text-xs transition-colors ${isChecked
+                  ? "border-primary bg-primary/5 text-text font-medium"
+                  : "border-border bg-surface text-text-muted hover:border-text-muted"
+                  }`}
               >
                 <input
                   type="checkbox"
@@ -111,7 +117,7 @@ export const RejectPlanModal: React.FC<RejectPlanModalProps> = ({
         {selectedReasons.includes("other") && (
           <div className="pt-1">
             <label className="block text-xs font-semibold text-text-muted mb-1">
-              Specify Other Reason (max 200 characters)
+              Specify Other Reason (5 to 200 characters)
             </label>
             <Input
               placeholder="e.g. Member prefers dumbbells over machines this week."
