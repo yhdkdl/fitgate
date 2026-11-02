@@ -462,10 +462,11 @@ _Increment 5 = Sprints 25, 27, 28, 29, 29a; Sprints 26 and 28a are deferred to a
 **Preflight (external items):** None (Note: Sprint 28 platform Telegram bot token will be requested at Increment 5 preflight)
 
 25. **Equipment registry & maintenance** — `Equipment`, `MaintenanceLog`, low-quantity alerts, AI exclusion-filter wiring.
-    - Equipment records include `purchase_date`. Reporting an issue creates a `MaintenanceLog`, transitions `Equipment.condition` to `needs_maintenance`, and notifies the Owner; reporting on an item already `under_maintenance` creates no duplicate.
-    - Owner/Manager update condition and log resolutions (`resolved_at` set, condition returns to `good`) — the transitions are tested, not just log creation.
-    - A quantity exactly at `min_qty_threshold` triggers an alert; one above it does not (boundary test).
-    - Equipment `under_maintenance` or `out_of_service` is excluded from what Sprint 21's engine may prescribe — tested at the integration point.
+    - Equipment category is REQUIRED and chosen from the rules engine's equipment catalog (`barbell`, `dumbbells`, `cable_machine`, `resistance_bands`, `kettlebells`, `pull_up_bar`, `bench`, `leg_press`, `squat_rack`, `cardio_machines`, `bodyweight`, `other`) using one shared list definition for the engine, screen, and server. Name is free text 2 to 100 characters (letters, digits, spaces, hyphen, apostrophe, period); quantity a whole number from 0 to 10000; minimum quantity optional whole number (0 to 10000); purchase date optional, not in the future.
+    - Reporting an issue uses a predefined list of reasons (`broken`, `worn_out`, `noisy_unsafe`, `other` with short text up to 200 characters required only with other; no free text otherwise). Reporting creates a `MaintenanceLog`, transitions `Equipment.condition` to `needs_maintenance`, and notifies the Owner; reporting on an item already `under_maintenance` creates no duplicate.
+    - Owner/Manager update condition and log resolutions (`resolved_at` set, condition returns to `good`) — condition state transitions are tested.
+    - A quantity at or below `min_qty_threshold` triggers an alert; one above it does not (boundary test).
+    - AI WIRING: Usable equipment for plan generation is gym registry items with condition `good` or `needs_maintenance` and quantity > 0, mapped through category and INTERSECTED with the member's profile equipment access. Items `under_maintenance` or `out_of_service` (or quantity 0) are always excluded. If the gym has no registry items at all, gym-side filtering is OFF (the member's equipment access alone decides, exactly as in Sprint 22). The previous stand-in `unavailable_equipment` source is replaced with the gym's equipment registry.
     - An Owner setting controls whether members see unavailable equipment (default off).
 
 26. **Group class scheduling & booking** (Deferred to a future version, see docs/SPEC.md §10) — `ClassSession`, `ClassBooking`, capacity enforcement, Growth/Pro gated.
@@ -474,21 +475,33 @@ _Increment 5 = Sprints 25, 27, 28, 29, 29a; Sprints 26 and 28a are deferred to a
     - The class's trainer marks attendance on the booking (`attended`); this creates no daily `Attendance` row.
 
 27. **Dashboards and analytics** — What gym owners and managers can see after this sprint:
-    - A basic dashboard endpoint is available to Owner/Manager on every tier: active members, today's check-ins, monthly revenue, and memberships expiring within seven days. It responds in under 3 seconds against a seeded dataset (1,000 members, a year of attendance).
-    - Premium analytics contains only revenue by plan in this version (peak-hours heatmap, cohort retention by joining month, and referral analytics are deferred to a future version, see docs/SPEC.md §10). Revenue by plan is available on Growth and Pro tiers only (`has_analytics = true`). Starter tier users see an upgrade prompt where the premium block would be.
-    - Figures are scoped to the requesting gym only — verified against a seeded multi-tenant dataset.
+    - Scoped strictly to the requesting gym; Super Admin, Reception, Trainer, and Member are refused (403).
+    - Basic dashboard available to Owner/Manager on every tier:
+      - Active members = members whose derived status is `active` (`frozen` shown separately).
+      - Today's check-ins = `Attendance` rows today in the `Africa/Addis_Ababa` day.
+      - Monthly revenue = confirmed NET cash received this calendar month (upgrade payments count their net amount, reversed payments excluded).
+      - Memberships expiring within 7 days = active subscriptions ending within 7 days that have NO queued following subscription.
+      - Superseded subscriptions are never counted anywhere.
+    - Premium analytics: revenue by plan = net cash received per plan, Growth and Pro only (`has_analytics = true`), enforced on the server; Starter sees an upgrade prompt. (Heatmap, cohort retention, and referral analytics deferred, see §10).
+    - Timing check against a seeded dataset (1,000 members, a year of attendance) executes in under 3 seconds.
 
 28. **Notice board & broadcast communication**
-    - A notice reaches all members of the issuing gym (Owner/Manager can post) and is not visible to another gym's users.
-    - If the gym has set a Telegram channel in its settings, posting a notice also sends it to that channel; if Telegram is not configured or the send fails, the in-app notice still succeeds. It is a public noticeboard for the gym's channel, not a per-member direct message. No member Telegram IDs are collected. Note: the platform bot's token is a platform secret (host env file, requested at Increment 5's preflight); the gym Owner enters only the channel in the gym's settings and must add the platform bot to that channel as an administrator; whether the host can reach Telegram's API is untested and will be checked at that preflight.
+    - Owner and Manager post notices (title 2–100 chars, body 5–1,000 characters). Members of that gym see the latest notices on their Home screen and on a Notices screen; no one outside the gym sees them. Does NOT create one notification row per member.
+    - Optional Telegram channel bridge (OpenQuestions item 11): Owner enters only the channel in the form `@name` (5 to 32 letters, digits or underscores, starting with a letter) in Gym Settings, with a "Send test message" button. Platform bot token comes from env variable `TELEGRAM_BOT_TOKEN`. If token is missing, Telegram is not configured, or send fails, in-app notice still succeeds, and Owner sees a short "not sent to Telegram" note. In development use a mock sender; real Telegram API is not called. No member Telegram IDs collected. Real test documented as a staging step in `docs/MANUAL_STEPS.md`.
 
 28a. **Badges and member progress** (Deferred to a future version, see docs/SPEC.md §10) - Badges are awarded for a first check-in, a 30-day streak, and plan completion — each at most once per member, idempotent. - The member progress view returns body-metric history (and the Sprint 7b estimates) as chart data, scoped to that member.
 
 29. **CSV export** — members, payments, attendance.
-    - Exported rows, headers and row count match a known seeded dataset exactly, scoped to the requesting gym.
-    - For 7 days after a gym is suspended, its Owner can still log in and export, and nothing else; after that window the export is refused. Note: this post-suspension export rule is wired up when gym suspension lands in Sprint 35 (see Sprint 35).
+    - Owner and Manager only, scoped to the gym, audit-logged (actor, export type, row count).
+    - 3 export types:
+      - Members: name, phone, email, status, plan, start and end dates (strictly NO fitness profile, measurements, health data or photos).
+      - Payments: receipt number, date, method, plan, gross, credit, net received, upgrade yes/no, status, bank reference, confirmed by.
+      - Attendance: date and time, member, method.
+    - Protected against spreadsheet formula injection: any cell starting with `=`, `+`, `-`, or `@` gets a leading apostrophe.
+    - Excel-friendly UTF-8 BOM (`\ufeff`) so Amharic names display properly. Optional date range of at most 1 year.
+    - 7-day post-suspension export window retained for Sprint 35.
 
-29a. **Expenses and reports** - Owner/Manager can log expenses (amount, category, note, date) and view revenue vs. expenses for a period; revenue counts confirmed payments only. - Reports: attendance summary and revenue report, scoped to the gym.
+29a. **Expenses and reports** - Owner/Manager can log expenses: amount > 0 up to 10,000,000 ETB, category from list (`rent`, `salaries`, `utilities`, `equipment`, `maintenance`, `marketing`, `supplies`, `other`), optional note up to 500 characters, date not in the future. - No hard delete: mistaken entries are voided (retained in DB, excluded from totals, audit-logged). - Reports: revenue vs expenses for a period = confirmed net revenue minus active expenses; attendance summary and revenue report, scoped to the gym.
 
 - [ ] All sprints in this increment complete
 

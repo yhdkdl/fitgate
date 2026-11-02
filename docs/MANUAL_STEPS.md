@@ -175,6 +175,21 @@ The feasibility spike on the real Yegara cPanel host passed all checks:
 
 ---
 
+15. **Step 15 — Sprint 28: Notice Board Telegram Bot Setup & Staging Verification**
+    - **What to do:**
+      1. Create a platform bot with `@BotFather` on Telegram (`/newbot`), choose a display name and unique username ending in `bot` (e.g. `FitGatePlatformBot`).
+      2. Copy the HTTP API token BotFather provides (keep secret).
+      3. Create a public Telegram channel for the gym (e.g. `@my_gym_notices`).
+      4. Add the bot to the channel as an Administrator with "Post Messages" permission enabled.
+      5. Verify that the server host can reach Telegram's API: `curl -I https://api.telegram.org`.
+    - **What to paste where:**
+      - In `/home/<user>/fitgate_env/.env` (and local `.env`): set `TELEGRAM_BOT_TOKEN=<token_from_botfather>`.
+      - In Gym Settings (as gym Owner): enter the channel username in the form `@channel_name` (e.g. `@my_gym_notices`) and press **Send test message**.
+    - **Fallback in use:** Mock sender in development (`TELEGRAM_USE_MOCK=True` by default or when token is unset). Mock sender records messages without making external API requests.
+    - **Status:** To be verified at staging.
+
+---
+
 ## Scheduled Cron Jobs Summary (Single Reference Table)
 
 The table below lists every recurring cron job required by the FitGate production deployment. Each command is executed via `/home/<user>/virtualenv/fitgate_backend/3.11/bin/python /home/<user>/fitgate/backend/manage.py <command> >> /home/<user>/fitgate_logs/<log_file>.log 2>&1`.

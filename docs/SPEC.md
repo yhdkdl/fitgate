@@ -190,9 +190,10 @@ Grouped as in the source document's §3.2.1.
 
 **Equipment management**
 
-- Per-gym registry: name, category, quantity, purchase date, condition (Good / Needs Maintenance / Under Maintenance / Out of Service).
-- Staff can report an issue, setting Needs Maintenance and notifying the Owner (no duplicate report if already Under Maintenance). Owner/Manager update condition and log resolutions. An Owner setting controls whether members see unavailable equipment (default off).
-- Owner sets a minimum quantity per item; a low-quantity alert fires when the count falls below it. Out-of-service and under-maintenance items are excluded from AI plans and update automatically when resolved.
+- Per-gym registry: name (free text 2 to 100 characters: letters, digits, spaces, hyphen, apostrophe, period), category (REQUIRED, selected from the shared rules engine equipment catalog: barbell, dumbbells, cable_machine, resistance_bands, kettlebells, pull_up_bar, bench, leg_press, squat_rack, cardio_machines, bodyweight, other), quantity (whole number 0 to 10,000), optional minimum quantity threshold (whole number 0 to 10,000), optional purchase date (not in future), condition (Good / Needs Maintenance / Under Maintenance / Out of Service).
+- Staff report issues choosing from a standardized list of reasons (broken, worn out, noisy or unsafe, other with short text up to 200 characters; no free text otherwise), setting condition to Needs Maintenance and notifying the Owner (no duplicate report if already Under Maintenance). Owner/Manager update condition and log resolutions (resolved_at set, condition returns to Good). An Owner setting controls whether members see unavailable equipment (default off).
+- Low-quantity alert fires when quantity is at or below the minimum quantity threshold.
+- AI Plan Wiring: Usable equipment for plan generation is gym registry items with condition Good or Needs Maintenance and quantity > 0, mapped through category and intersected with the member's profile equipment access. Items Under Maintenance or Out of Service (or quantity 0) are excluded. If the gym has no registry items at all, gym-side filtering is OFF (member's equipment access alone decides).
 
 **Classes and group scheduling (deferred, see §10)**
 
@@ -200,13 +201,15 @@ Grouped as in the source document's §3.2.1.
 
 **Dashboards, analytics and reporting**
 
-- **Basic dashboard (every tier):** total active members, today's check-ins, monthly revenue, memberships expiring within seven days.
-- **Premium analytics (Growth/Pro):** in this version, the premium analytics block consists only of revenue trends by plan. Peak-hours heatmap (day of week × hour) (deferred, see §10), cohort retention by joining month (deferred, see §10), and referral analytics (deferred, see §10) are deferred to a future version. A Starter gym sees an upgrade prompt.
+- **Basic dashboard (Owner and Manager only; Super Admin, Reception, Trainer, Member refused):** scoped to the gym. Active members (derived status active; frozen shown separately), today's check-ins (in Africa/Addis_Ababa day), monthly revenue (confirmed NET cash received this calendar month; upgrade payments count their net amount, reversed payments excluded; superseded subscriptions excluded), memberships expiring within 7 days (active subscriptions ending in <= 7 days with no queued renewal). Responds in under 3 seconds against a seeded 1,000-member, 1-year attendance dataset.
+- **Premium analytics (Growth/Pro only, server-enforced; Starter sees upgrade prompt):** revenue by plan (net cash received per plan). Heatmap, cohort retention, and referral analytics are deferred to a future version (see §10).
 - Reports (Owner/Manager): attendance summary and revenue report. Super Admin: tenant summary, platform revenue, subscription status overview.
+- **Expenses (Owner/Manager):** amount (> 0 up to 10,000,000 ETB), category from list (rent, salaries, utilities, equipment, maintenance, marketing, supplies, other), optional note (up to 500 characters), date not in future. No hard delete: mistaken entries are voided (retained in DB, excluded from totals, audit-logged). Revenue vs. expenses = confirmed net revenue minus active expenses.
 
 **Communication and engagement**
 
-- Notification centre per role (unread first, chronological, mark as read). Owner/Manager notice-board announcements visible to all members of the gym; the notice board may also optionally publish to the gym's public Telegram channel via a platform bot (best effort, unconfigured Telegram or send failure does not block the in-app notice). Per-member direct messaging is deferred (see §10).
+- Notification centre per role (unread first, chronological, mark as read). Owner/Manager notice-board announcements (title up to 100 characters, body up to 1,000 characters) visible to all members of the gym on Home and Notices screens; does NOT create individual notification rows per member.
+- Notice board may optionally publish to the gym's public Telegram channel via a platform bot (Owner configures @channel_name in Gym Settings with "Send test message" button; bot token from TELEGRAM_BOT_TOKEN; mock sender in dev; unconfigured Telegram or send failure does not block in-app notice). Per-member direct messaging is deferred (see §10).
 - Milestone badges: first check-in, 30-day streak, plan completion (deferred, see §10).
 
 **Audit log**
@@ -216,7 +219,7 @@ Grouped as in the source document's §3.2.1.
 
 **Data export**
 
-- CSV export of members, confirmed payments and attendance for the Owner's own tenant, including during the 7-day export window after suspension.
+- CSV export (Owner/Manager only, audit-logged with export type and row count): members (name, phone, email, status, plan, start/end dates; strictly no health/photo/measurement data), payments (receipt, date, method, plan, gross, credit, net received, upgrade yes/no, status, bank ref, confirmed by), attendance (date/time, member, method). Formula injection protection (leading apostrophe for =, +, -, @). UTF-8 BOM for Amharic rendering. Optional date range up to 1 year. Includes 7-day export window after suspension.
 
 **Design patterns** called out in the source: a **Factory pattern** for role-specific dashboard generation at login, and a **Strategy pattern** for swappable intensity-calculation logic in the rules engine.
 
@@ -347,9 +350,9 @@ All tables carry `id` (uuid, PK) unless noted. Every gym-scoped table carries `g
 
 **WeeklyCheckIn** — `member_id`, `gym_id`, `week_start_date` (Monday), `energy` (1–5), `recovery` (1–5), `motivation` (1–5), `submitted_at` (unique constraint on member_id + week_start_date)
 
-**Equipment** — `gym_id`, `branch_id` (nullable; _new_), `name`, `category` (nullable), `quantity`, `min_qty_threshold` (nullable), `condition` (good/needs_maintenance/under_maintenance/out_of_service), `purchase_date` (nullable; required by the source's FR but missing from its Table 4.16)
+**Equipment** — `gym_id`, `branch_id` (nullable; _new_), `name` (2 to 100 characters), `category` (REQUIRED, code from shared catalog), `quantity` (whole number 0 to 10,000), `min_qty_threshold` (nullable whole number 0 to 10,000), `condition` (good/needs_maintenance/under_maintenance/out_of_service), `purchase_date` (nullable date, not in future)
 
-**MaintenanceLog** — `equipment_id`, `gym_id`, `reported_by`, `issue_text` (nullable), `reported_at`, `resolved_at` (nullable)
+**MaintenanceLog** — `equipment_id`, `gym_id`, `reported_by`, `issue_reason` (broken/worn_out/noisy_unsafe/other), `other_details` (max 200, nullable), `reported_at`, `resolved_at` (nullable)
 
 **ClassSession** _(deferred, see §10)_ — `gym_id`, `branch_id` (nullable; _new_), `trainer_id`, `name`, `scheduled_at`, `max_capacity`
 
@@ -357,9 +360,9 @@ All tables carry `id` (uuid, PK) unless noted. Every gym-scoped table carries `g
 
 **FreezeRequest** _(new)_ — `member_id`, `subscription_id`, `gym_id`, `requested_days`, `reason`, `status` (pending/approved/rejected), `decided_by`, `decided_at`, `rejection_reason`
 
-**Announcement** _(new)_ — `gym_id` (nullable — null = platform notice), `author_id`, `title`, `body`, `created_at`
+**GymNotice** — `gym_id`, `author_id`, `title` (max 100), `body` (max 1,000), `sent_to_telegram` (boolean, default false), `created_at`
 
-**Expense** _(new)_ — `gym_id`, `amount_etb`, `category`, `note`, `incurred_on`, `logged_by`
+**Expense** — `gym_id`, `amount_etb` (>0 to 10,000,000 ETB), `category` (rent/salaries/utilities/equipment/maintenance/marketing/supplies/other), `note` (max 500, nullable), `incurred_on` (date, not in future), `logged_by`, `is_void` (boolean, default false), `voided_at` (nullable), `voided_by` (nullable), `void_reason` (nullable)
 
 **MemberBadge** _(deferred, see §10)_ — `member_id`, `gym_id`, `badge_type` (first_check_in/thirty_day_streak/plan_completed), `awarded_at`
 
