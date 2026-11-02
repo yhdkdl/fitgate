@@ -154,7 +154,17 @@ class MockAIPlanProvider(BaseAIPlanProvider):
         ]
 
         # Shift rotation if focus specified
-        if "legs" in focus_list:
+        active_focuses = [f for f in focus_list if f != "no_focus"]
+        if "legs" in active_focuses and "upper_body" in active_focuses:
+            category_rotation = [
+                "upper_body",
+                "legs",
+                "upper_body",
+                "legs",
+                "upper_body",
+                "legs",
+            ]
+        elif "legs" in active_focuses:
             category_rotation = [
                 "legs",
                 "upper_body",
@@ -163,12 +173,30 @@ class MockAIPlanProvider(BaseAIPlanProvider):
                 "legs",
                 "upper_body",
             ]
-        elif "upper_body" in focus_list:
+        elif "upper_body" in active_focuses:
             category_rotation = [
                 "upper_body",
                 "core_cardio",
                 "upper_body",
                 "legs",
+                "upper_body",
+                "legs",
+            ]
+        elif "core" in active_focuses or "cardio" in active_focuses:
+            category_rotation = [
+                "core_cardio",
+                "upper_body",
+                "core_cardio",
+                "legs",
+                "core_cardio",
+                "upper_body",
+            ]
+        elif "mobility" in active_focuses:
+            category_rotation = [
+                "core_cardio",
+                "upper_body",
+                "legs",
+                "core_cardio",
                 "upper_body",
                 "legs",
             ]
