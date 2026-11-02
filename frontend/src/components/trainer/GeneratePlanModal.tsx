@@ -79,11 +79,15 @@ export const GeneratePlanModal: React.FC<GeneratePlanModalProps> = ({
       onClose();
     } catch (err: unknown) {
       const errObj = err as { data?: { detail?: string; message?: string }; message?: string };
-      const msg =
+      const rawMsg =
         errObj?.data?.detail ||
         errObj?.data?.message ||
         errObj?.message ||
         "Generation failed, try again later.";
+      const msg =
+        typeof rawMsg === "string" && (rawMsg.startsWith("<!DOCTYPE") || rawMsg.startsWith("<html"))
+          ? "Generation failed, try again later."
+          : rawMsg;
       setError(msg);
     } finally {
       setLoading(false);

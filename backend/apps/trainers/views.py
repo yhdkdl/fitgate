@@ -852,6 +852,15 @@ class GymTrainingPlanRejectView(APIView):
             return Response(
                 TrainingPlanSerializer(new_draft).data, status=status.HTTP_201_CREATED
             )
+        except (
+            AIPlanGenerationError,
+            AIProviderTimeoutError,
+            AIPlanStructureError,
+        ):
+            return Response(
+                {"detail": "Generation failed, try again later"},
+                status=status.HTTP_503_SERVICE_UNAVAILABLE,
+            )
         except (DjangoValidationError, DRFValidationError) as exc:
             detail = getattr(
                 exc,

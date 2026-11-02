@@ -807,31 +807,22 @@ def reject_training_plan(
         rejection_reasons, other_rejection_reason
     )
 
-    with transaction.atomic():
-        plan.status = TrainingPlan.STATUS_REJECTED
-        plan.rejection_reasons = cleaned_reasons
-        plan.other_rejection_reason = cleaned_other
-        plan.save(
-            update_fields=[
-                "status",
-                "rejection_reasons",
-                "other_rejection_reason",
-                "updated_at",
-            ]
-        )
+    orig_status = plan.status
+    orig_reasons = plan.rejection_reasons
+    orig_other = plan.other_rejection_reason
 
-        record_audit_log(
-            actor=acting_user,
-            action_type="training_plan_rejected",
-            affected_record_type="TrainingPlan",
-            affected_record_id=str(plan.id),
-            gym=gym,
-            metadata={
-                "draft_number": plan.draft_number,
-                "rejection_reasons": cleaned_reasons,
-                "other_reason": cleaned_other,
-            },
-        )
+    # Mark as rejected so generate_training_plan does not hit the open draft constraint
+    plan.status = TrainingPlan.STATUS_REJECTED
+    plan.rejection_reasons = cleaned_reasons
+    plan.other_rejection_reason = cleaned_other
+    plan.save(
+        update_fields=[
+            "status",
+            "rejection_reasons",
+            "other_rejection_reason",
+            "updated_at",
+        ]
+    )
 
     # Generate next draft using rejection feedback
     feedback_notes = f"Rejection feedback on draft {plan.draft_number}: " + ", ".join(
@@ -840,18 +831,50 @@ def reject_training_plan(
     if cleaned_other:
         feedback_notes += f" ({cleaned_other})"
 
-    new_draft = generate_training_plan(
-        member=member,
+    try:
+        new_draft = generate_training_plan(
+            member=member,
+            gym=gym,
+            acting_user=acting_user,
+            week_choice=(
+                "next_week"
+                if plan.week_start_date > timezone.localdate()
+                else "this_week"
+            ),
+            focus_this_week=plan.focus_this_week,
+            other_focus=plan.other_focus,
+            trainer_notes=feedback_notes,
+            provider=provider,
+        )
+    except Exception:
+        # Revert plan state back to pending review so it is not left orphaned
+        plan.status = orig_status
+        plan.rejection_reasons = orig_reasons
+        plan.other_rejection_reason = orig_other
+        plan.save(
+            update_fields=[
+                "status",
+                "rejection_reasons",
+                "other_rejection_reason",
+                "updated_at",
+            ]
+        )
+        raise
+
+    # Record audit log only upon successful generation of replacement draft
+    record_audit_log(
+        actor=acting_user,
+        action_type="training_plan_rejected",
+        affected_record_type="TrainingPlan",
+        affected_record_id=str(plan.id),
         gym=gym,
-        acting_user=acting_user,
-        week_choice=(
-            "next_week" if plan.week_start_date > timezone.localdate() else "this_week"
-        ),
-        focus_this_week=plan.focus_this_week,
-        other_focus=plan.other_focus,
-        trainer_notes=feedback_notes,
-        provider=provider,
+        metadata={
+            "draft_number": plan.draft_number,
+            "rejection_reasons": cleaned_reasons,
+            "other_reason": cleaned_other,
+        },
     )
+
     return new_draft
 
 

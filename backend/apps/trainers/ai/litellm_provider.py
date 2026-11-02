@@ -44,7 +44,10 @@ def build_system_prompt() -> str:
         "or violating member limitations. If the member has a shoulder limitation, strictly exclude all "
         "overhead pressing (both barbell and dumbbell) and all lateral or front raises at shoulder height "
         "(use shoulder-friendly neutral-grip presses, floor presses, or horizontal rows instead).\n"
-        "3. SESSIONS: Generate exactly the requested number of sessions, named 'Session A', 'Session B', etc.\n"
+        "3. SESSIONS: Generate exactly the requested number of sessions, named 'Session A', 'Session B', etc. "
+        "When multiple focus areas are specified in 'weekly_focus' (e.g. both 'upper_body' and 'legs'), "
+        "distribute sessions across ALL selected focus areas throughout the week (e.g., dedicated Upper Body sessions "
+        "and dedicated Legs sessions). Never reject or drop any of the requested focus areas.\n"
         "4. ETHIOPIAN NUTRITION: Nutrition guidance must utilize authentic, locally accessible Ethiopian "
         "staples (e.g., teff injera, shiro, misir wot, kik alicha, gomen, shimbra [chickpeas], eggs, doro, tilapia/asa, besso). "
         "Strictly respect fasting periods (provide vegan meals when fasting is indicated).\n"
@@ -187,15 +190,15 @@ class LiteLLMAIPlanProvider(BaseAIPlanProvider):
         else:
             models = []
             if self.gemini_api_key:
-                # Primary Google AI Studio Gemini models
+                # Primary Google AI Studio Gemini models (fast, reliable quota)
                 models.extend(
-                    ["gemini/gemini-3-flash-preview", "gemini/gemini-3.5-flash"]
+                    ["gemini/gemini-3.5-flash-lite", "gemini/gemini-3.5-flash"]
                 )
             # Working OpenRouter fallback models
             models.extend(
                 [
-                    "openrouter/google/gemma-4-26b-a4b-it:free",
                     "openrouter/nvidia/nemotron-3.5-super-vl:free",
+                    "openrouter/google/gemma-4-26b-a4b-it:free",
                 ]
             )
 
@@ -218,7 +221,7 @@ class LiteLLMAIPlanProvider(BaseAIPlanProvider):
                 "generationConfig": {
                     "response_mime_type": "application/json",
                     "temperature": 0.3,
-                    "maxOutputTokens": 4000,
+                    "maxOutputTokens": 8192,
                 },
             }
         ).encode("utf-8")

@@ -920,3 +920,73 @@ def test_trainer_clients_list_never_contains_another_trainers_clients(
     client_b_data = next(c for c in res_2.data if c["member_id"] == str(member_b.id))
     assert client_b_data["has_approved_plan_this_week"] is False
     assert client_b_data["plan_status_this_week"] == "no_draft"
+
+
+def test_reject_plan_provider_failure_returns_503_and_reverts_status(
+    db, gym_tenant, active_member, assigned_trainer_user, api_client, monkeypatch
+):
+    """
+    When regeneration fails during rejection (e.g. AIPlanGenerationError),
+    the endpoint must return HTTP 503 JSON with clean error message,
+    and the draft status must revert back to pending_review so it is not orphaned.
+    """
+    from unittest.mock import MagicMock
+
+    from apps.trainers.ai.base import AIPlanGenerationError
+    from apps.trainers.ai.mock_provider import MockAIPlanProvider
+
+    draft = generate_training_plan(
+        member=active_member,
+        gym=gym_tenant,
+        acting_user=assigned_trainer_user,
+        provider=MockAIPlanProvider(),
+    )
+    assert draft.status == TrainingPlan.STATUS_PENDING_REVIEW
+
+    # Mock default AI provider to fail during regeneration
+    failing_provider = MagicMock()
+    failing_provider.generate_plan.side_effect = AIPlanGenerationError(
+        "generation failed, try again later"
+    )
+    monkeypatch.setattr(
+        "apps.trainers.services.get_default_ai_provider", lambda: failing_provider
+    )
+
+    authenticate_client(api_client, assigned_trainer_user, gym_tenant)
+    res = api_client.post(
+        f"/api/gym/training-plans/{draft.id}/reject/",
+        {"rejection_reasons": ["too_hard"], "other_rejection_reason": ""},
+        format="json",
+    )
+
+    assert res.status_code == 503
+    assert res.data["detail"] == "Generation failed, try again later"
+
+    # Draft must still be pending_review (not orphaned as rejected)
+    draft.refresh_from_db()
+    assert draft.status == TrainingPlan.STATUS_PENDING_REVIEW
+
+
+def test_generate_plan_multi_focus_distribution(
+    db, gym_tenant, active_member, assigned_trainer_user
+):
+    """
+    When multiple focus codes (e.g. upper_body and legs) are selected,
+    the plan generates successfully and distributes sessions across both focuses.
+    """
+    from apps.trainers.ai.mock_provider import MockAIPlanProvider
+
+    plan = generate_training_plan(
+        member=active_member,
+        gym=gym_tenant,
+        acting_user=assigned_trainer_user,
+        focus_this_week=["upper_body", "legs"],
+        provider=MockAIPlanProvider(),
+    )
+
+    assert plan.status == TrainingPlan.STATUS_PENDING_REVIEW
+    assert plan.focus_this_week == ["upper_body", "legs"]
+
+    session_focuses = [s["focus"].lower() for s in plan.plan_data["sessions"]]
+    assert any("upper body" in f for f in session_focuses)
+    assert any("legs" in f for f in session_focuses)
