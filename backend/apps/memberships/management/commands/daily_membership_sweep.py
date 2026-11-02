@@ -272,6 +272,21 @@ class Command(BaseCommand):
         except Exception as e:
             logger.warning("Error running flag_unfinished_payments: %s", e)
 
+        # 4. Prune diagnostic AI failure counters older than 30 days
+        try:
+            from apps.trainers.models import AIDailyFailureCounter
+
+            cutoff = sweep_date - timedelta(days=30)
+            pruned_count, _ = AIDailyFailureCounter.all_objects.filter(
+                date__lt=cutoff
+            ).delete()
+            if pruned_count > 0:
+                self.stdout.write(
+                    f"Pruned {pruned_count} old AI failure counter record(s)."
+                )
+        except Exception as e:
+            logger.warning("Error pruning old AI failure counters: %s", e)
+
         self.stdout.write(
             self.style.SUCCESS(
                 f"Daily sweep completed: {expired_count} subscription(s) expired, "

@@ -65,9 +65,9 @@ export const WEEKLY_FOCUS_OPTIONS: SelectOption[] = [
   { code: "no_focus", label: "No special focus" },
   { code: "legs", label: "Legs" },
   { code: "upper_body", label: "Upper body" },
-  { code: "core", label: "Core" },
-  { code: "cardio", label: "Cardio" },
-  { code: "mobility", label: "Mobility" },
+  { code: "core", label: "Core & Posture" },
+  { code: "cardio", label: "Cardio Conditioning" },
+  { code: "mobility", label: "Recovery & Mobility" },
   { code: "other", label: "Other" },
 ];
 
@@ -76,7 +76,7 @@ export const PLAN_REJECTION_OPTIONS: SelectOption[] = [
   { code: "too_easy", label: "Too easy" },
   {
     code: "exercises_not_suitable",
-    label: "Exercises not suitable for member limits",
+    label: "Exercises not suitable for the member's limits",
   },
   { code: "equipment_not_available", label: "Equipment not available" },
   { code: "nutrition_not_suitable", label: "Nutrition not suitable" },

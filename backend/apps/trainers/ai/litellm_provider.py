@@ -1,16 +1,21 @@
 """
 LiteLLM AI Plan Provider for FitGate.
-Calls OpenRouter free models via LiteLLM using an ordered fallback list.
-Enforces inline fallback on timeout or schema error, 3-failure gym owner alerts,
-and strict privacy compliance with zero PII.
+Calls Google AI Studio and OpenRouter models using an ordered fallback list.
+Enforces inline fallback on timeout or schema error, lenient JSON parsing,
+strict safety checks, retry on rate limits, lightweight daily diagnostic counters,
+and at most one daily gym owner notice.
 """
 
 import json
 import logging
 import os
+import time
+import urllib.error
+import urllib.request
 from typing import Any, Dict, List, Optional
 
 from django.conf import settings
+from django.db.models import F
 from django.utils import timezone
 
 from apps.trainers.ai.base import (
@@ -20,6 +25,7 @@ from apps.trainers.ai.base import (
     BaseAIPlanProvider,
 )
 from apps.trainers.ai.schema import (
+    PlanSchemaValidationError,
     validate_training_plan_structure,
 )
 
@@ -31,8 +37,7 @@ def build_system_prompt() -> str:
         "You are FitGate AI, an expert athletic coach and certified personal trainer. "
         "Your task is to draft a personalized 1-week training and nutrition plan based ONLY on "
         "the provided structured client profile. You MUST respond with ONLY valid JSON adhering "
-        "to the requested schema. Do NOT include markdown code blocks (e.g. no ```json), explanations, "
-        "or pleasantries.\n\n"
+        "to the requested schema. Do NOT include explanations, preambles, or markdown formatting.\n\n"
         "STRICT CONSTRAINTS:\n"
         "1. NO PERSONAL IDENTIFIERS: Never use or assume member names, phones, emails, or IDs.\n"
         "2. EXERCISE SAFETY: Strictly avoid any exercise requiring equipment in 'excluded_equipment' "
@@ -135,104 +140,128 @@ def build_user_prompt(context: Dict[str, Any]) -> str:
     return json.dumps(prompt_dict, indent=2)
 
 
+def extract_json_payload(raw_text: str) -> str:
+    """
+    Strips code fences and any explanatory text before or after the JSON payload.
+    """
+    text = (raw_text or "").strip()
+    if "```json" in text:
+        parts = text.split("```json", 1)[1].split("```", 1)
+        if len(parts) >= 1:
+            text = parts[0].strip()
+    elif "```" in text:
+        parts = text.split("```", 1)[1].split("```", 1)
+        if len(parts) >= 1:
+            text = parts[0].strip()
+
+    first_brace = text.find("{")
+    last_brace = text.rfind("}")
+    if first_brace != -1 and last_brace != -1 and last_brace > first_brace:
+        text = text[first_brace : last_brace + 1]
+    return text.strip()
+
+
 class LiteLLMAIPlanProvider(BaseAIPlanProvider):
     """
-    Invokes OpenRouter models with ordered fallback, timeout handling,
-    schema validation, and 3-failure gym owner alerting.
+    Invokes Google AI Studio and OpenRouter models with ordered fallback, rate-limit retry,
+    timeout handling, schema validation, and lightweight failure accounting.
     """
 
     def __init__(
         self,
         ordered_models: Optional[List[str]] = None,
-        timeout_seconds: int = 15,
+        timeout_seconds: int = 25,
         api_key: Optional[str] = None,
         gemini_api_key: Optional[str] = None,
     ):
-        base_models = list(
-            ordered_models
-            or getattr(
-                settings,
-                "OPENROUTER_MODELS",
-                [
-                    "openrouter/google/gemma-4-31b-it:free",
-                    "openrouter/google/gemma-4-26b-a4b-it:free",
-                ],
-            )
-        )
         self.gemini_api_key = gemini_api_key or getattr(
             settings, "GEMINI_API_KEY", os.environ.get("GEMINI_API_KEY", "")
         )
-        # If GEMINI_API_KEY is present, place Google AI Studio (Gemini Flash) FIRST in the chain
-        if self.gemini_api_key:
-            gemini_model = "gemini/gemini-2.0-flash"
-            if gemini_model not in base_models:
-                base_models.insert(0, gemini_model)
-
-        self.ordered_models = base_models
-        self.timeout_seconds = timeout_seconds
         self.api_key = api_key or getattr(
             settings, "OPENROUTER_API_KEY", os.environ.get("OPENROUTER_API_KEY", "")
         )
+        self.timeout_seconds = timeout_seconds
 
-    def _invoke_model(self, model: str, messages: List[Dict[str, str]]) -> str:
-        """
-        Invokes model via litellm if installed; falls back to direct OpenRouter HTTPS completion.
-        Supports gemini/... models via Google AI Studio when GEMINI_API_KEY is configured.
-        """
-        if model.startswith("gemini/"):
-            try:
-                import litellm
-
-                response = litellm.completion(
-                    model=model,
-                    messages=messages,
-                    api_key=self.gemini_api_key,
-                    timeout=self.timeout_seconds,
-                    temperature=0.3,
-                    max_tokens=3000,
+        if ordered_models is not None:
+            models = list(ordered_models)
+        else:
+            models = []
+            if self.gemini_api_key:
+                # Primary Google AI Studio Gemini models
+                models.extend(
+                    ["gemini/gemini-3-flash-preview", "gemini/gemini-3.5-flash"]
                 )
-                content = response.choices[0].message.content
-                if not content:
-                    raise AIPlanStructureError("Gemini model returned empty content")
-                return content.strip()
-            except Exception as exc:
-                if "timeout" in str(exc).lower():
-                    raise AIProviderTimeoutError(f"Gemini timed out: {exc}")
-                raise AIPlanGenerationError(f"Gemini call failed: {exc}")
+            # Working OpenRouter fallback models
+            models.extend(
+                [
+                    "openrouter/google/gemma-4-26b-a4b-it:free",
+                    "openrouter/nvidia/nemotron-3.5-super-vl:free",
+                ]
+            )
+
+        self.ordered_models = models
+
+    def _invoke_gemini_direct(
+        self, model_name: str, messages: List[Dict[str, str]]
+    ) -> str:
+        """Calls Google AI Studio REST endpoint directly using urllib."""
+        clean_model = model_name.replace("gemini/", "")
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/{clean_model}:generateContent?key={self.gemini_api_key}"
+
+        combined_text = "\n\n".join(
+            f"{m.get('role', 'user').upper()}:\n{m.get('content', '')}"
+            for m in messages
+        )
+        payload = json.dumps(
+            {
+                "contents": [{"parts": [{"text": combined_text}]}],
+                "generationConfig": {
+                    "response_mime_type": "application/json",
+                    "temperature": 0.3,
+                    "maxOutputTokens": 4000,
+                },
+            }
+        ).encode("utf-8")
+
+        req = urllib.request.Request(
+            url,
+            data=payload,
+            headers={"Content-Type": "application/json"},
+            method="POST",
+        )
 
         try:
-            import litellm
+            with urllib.request.urlopen(req, timeout=self.timeout_seconds) as resp:
+                data = json.loads(resp.read().decode("utf-8"))
+                choice = data["candidates"][0]
+                text = choice["content"]["parts"][0]["text"]
+                if not text:
+                    raise AIPlanStructureError("Gemini returned empty content.")
+                return text.strip()
+        except urllib.error.HTTPError as http_err:
+            body = ""
+            try:
+                body = http_err.read().decode("utf-8")
+            except Exception:
+                pass
+            if http_err.code == 429:
+                raise AIPlanGenerationError(f"HTTP 429: {body}")
+            raise AIPlanGenerationError(f"Gemini HTTP {http_err.code}: {body}")
+        except (TimeoutError, urllib.error.URLError) as net_err:
+            raise AIProviderTimeoutError(f"Gemini timed out: {net_err}")
 
-            clean_model = (
-                model if model.startswith("openrouter/") else f"openrouter/{model}"
-            )
-            kwargs: Dict[str, Any] = {
-                "model": clean_model,
-                "messages": messages,
-                "timeout": self.timeout_seconds,
-                "temperature": 0.3,
-                "max_tokens": 3000,
-            }
-            if self.api_key:
-                kwargs["api_key"] = self.api_key
-            response = litellm.completion(**kwargs)
-            content = response.choices[0].message.content
-            if content and content.strip():
-                return content.strip()
-        except Exception:
-            pass
-
-        # Native HTTP fallback via OpenRouter endpoint
-        import urllib.error
-        import urllib.request
-
-        clean_model = model.replace("openrouter/", "")
+    def _invoke_openrouter_direct(
+        self, model_name: str, messages: List[Dict[str, str]]
+    ) -> str:
+        """Calls OpenRouter chat completions endpoint directly using urllib."""
+        clean_model = model_name.replace("openrouter/", "")
         payload = json.dumps(
             {
                 "model": clean_model,
                 "messages": messages,
                 "temperature": 0.3,
-                "max_tokens": 3000,
+                "max_tokens": 4000,
+                "response_format": {"type": "json_object"},
             }
         ).encode("utf-8")
 
@@ -254,28 +283,61 @@ class LiteLLMAIPlanProvider(BaseAIPlanProvider):
 
         try:
             with urllib.request.urlopen(req, timeout=self.timeout_seconds) as resp:
-                resp_json = json.loads(resp.read().decode("utf-8"))
-                choice = resp_json["choices"][0]
+                data = json.loads(resp.read().decode("utf-8"))
+                choice = data["choices"][0]
                 content = choice["message"].get("content")
                 if not content:
-                    raise AIPlanStructureError("Model returned empty content")
+                    raise AIPlanStructureError("OpenRouter returned empty content.")
                 return content.strip()
         except urllib.error.HTTPError as http_err:
-            error_body = ""
+            body = ""
             try:
-                error_body = http_err.read().decode("utf-8")
+                body = http_err.read().decode("utf-8")
             except Exception:
                 pass
-            raise AIPlanGenerationError(
-                f"OpenRouter HTTP {http_err.code}: {error_body or str(http_err)}"
-            )
+            if http_err.code == 429:
+                raise AIPlanGenerationError(f"HTTP 429: {body}")
+            raise AIPlanGenerationError(f"OpenRouter HTTP {http_err.code}: {body}")
         except (TimeoutError, urllib.error.URLError) as net_err:
-            raise AIProviderTimeoutError(f"AI provider timed out: {net_err}")
+            raise AIProviderTimeoutError(f"OpenRouter timed out: {net_err}")
+
+    def _invoke_model(self, model: str, messages: List[Dict[str, str]]) -> str:
+        """
+        Invokes model via litellm if installed; falls back to direct REST endpoints.
+        """
+        # Try litellm if available
+        try:
+            import litellm
+
+            clean_model = model
+            kwargs: Dict[str, Any] = {
+                "model": clean_model,
+                "messages": messages,
+                "timeout": self.timeout_seconds,
+                "temperature": 0.3,
+                "max_tokens": 4000,
+            }
+            if model.startswith("gemini/") and self.gemini_api_key:
+                kwargs["api_key"] = self.gemini_api_key
+            elif self.api_key:
+                kwargs["api_key"] = self.api_key
+
+            response = litellm.completion(**kwargs)
+            content = response.choices[0].message.content
+            if content and content.strip():
+                return content.strip()
+        except Exception:
+            pass
+
+        # Native Direct REST HTTP Fallback
+        if model.startswith("gemini/"):
+            return self._invoke_gemini_direct(model, messages)
+        return self._invoke_openrouter_direct(model, messages)
 
     def generate_plan(self, context: Dict[str, Any]) -> Dict[str, Any]:
         """
         Executes plan generation with inline model fallback on failure/timeout.
-        Enforces maximum 3 provider attempt failures before raising unified error.
+        Retries once after 2 seconds on HTTP 429 rate limit.
         """
         profile = context.get("profile", {})
         expected_days = profile.get("training_days_per_week", 3)
@@ -288,102 +350,152 @@ class LiteLLMAIPlanProvider(BaseAIPlanProvider):
         ]
 
         failed_attempts = 0
-        last_exception: Optional[Exception] = None
+        gym_id = context.get("gym_id")
 
         for model in self.ordered_models:
-            try:
-                logger.info("Attempting AI plan generation using model: %s", model)
-                raw_text = self._invoke_model(model, messages)
+            # We attempt the model, and if it rate-limits (429), retry once after 2 seconds
+            for attempt_in_model in range(2):
+                try:
+                    logger.info(
+                        "Attempting AI plan generation using model: %s (try %d)",
+                        model,
+                        attempt_in_model + 1,
+                    )
+                    raw_text = self._invoke_model(model, messages)
 
-                # Clean potential markdown wrapping if present
-                if raw_text.startswith("```json"):
-                    raw_text = raw_text[7:]
-                if raw_text.startswith("```"):
-                    raw_text = raw_text[3:]
-                if raw_text.endswith("```"):
-                    raw_text = raw_text[:-3]
-                raw_text = raw_text.strip()
+                    clean_json_str = extract_json_payload(raw_text)
+                    if not clean_json_str:
+                        raise AIPlanStructureError(
+                            "Model returned empty or non-JSON output."
+                        )
 
-                parsed_json = json.loads(raw_text)
-                validated_plan = validate_training_plan_structure(
-                    parsed_json, expected_days=expected_days
-                )
+                    parsed_json = json.loads(clean_json_str)
+                    validated_plan = validate_training_plan_structure(
+                        parsed_json, expected_days=expected_days, context=context
+                    )
 
-                logger.info("Plan generation succeeded using model: %s", model)
-                return {
-                    "plan_data": validated_plan,
-                    "model_name": model,
-                }
+                    logger.info("Plan generation succeeded using model: %s", model)
+                    return {
+                        "plan_data": validated_plan,
+                        "model_name": model,
+                    }
 
-            except Exception as exc:
-                failed_attempts += 1
-                last_exception = exc
-                logger.warning(
-                    "AI generation attempt %d failed on model '%s': %s",
-                    failed_attempts,
-                    model,
-                    str(exc),
-                )
-                if failed_attempts >= 3:
+                except Exception as exc:
+                    err_str = str(exc).lower()
+                    is_rate_limit = "429" in err_str or "rate" in err_str
+
+                    # Determine failure category
+                    if is_rate_limit:
+                        reason = "rate_limit"
+                    elif "timeout" in err_str:
+                        reason = "timeout"
+                    elif isinstance(
+                        exc,
+                        (
+                            PlanSchemaValidationError,
+                            AIPlanStructureError,
+                            json.JSONDecodeError,
+                        ),
+                    ):
+                        reason = "wrong_structure"
+                    elif "key" in err_str or "401" in err_str or "403" in err_str:
+                        reason = "key_problem"
+                    else:
+                        reason = "other"
+
+                    self._record_failure_counter(gym_id, model, reason)
+
+                    if is_rate_limit and attempt_in_model == 0:
+                        logger.warning(
+                            "Rate limit hit on %s. Retrying once after 2 seconds...",
+                            model,
+                        )
+                        time.sleep(2.0)
+                        continue
+
+                    # Failed on this model
+                    failed_attempts += 1
+                    logger.warning(
+                        "AI generation attempt %d failed on model '%s': %s",
+                        failed_attempts,
+                        model,
+                        str(exc),
+                    )
                     break
 
-        # If loop finished or 3 attempts reached without success:
-        self._notify_owner_and_log_failure(context, last_exception, failed_attempts)
+            if failed_attempts >= 3:
+                break
+
+        # If all attempts failed: send at most ONE in-app notification per gym per day
+        self._notify_owner_daily_if_needed(context)
         raise AIPlanGenerationError("generation failed, try again later")
 
-    def _notify_owner_and_log_failure(
-        self,
-        context: Dict[str, Any],
-        exception: Optional[Exception],
-        attempt_count: int,
+    def _record_failure_counter(
+        self, gym_id: Optional[str], model: str, reason: str
     ) -> None:
         """
-        Logs critical failure and triggers owner notification alert after 3 failed provider attempts.
+        Increments lightweight daily failure counter. Zero PII, zero prompts.
+        """
+        if not gym_id:
+            return
+        try:
+            from apps.tenants.models import GymTenant
+            from apps.trainers.models import AIDailyFailureCounter
+
+            gym = GymTenant.objects.filter(id=gym_id).first()
+            if not gym:
+                return
+
+            today = timezone.localdate()
+            updated = AIDailyFailureCounter.all_objects.filter(
+                gym=gym, date=today, model_name=model, failure_reason=reason
+            ).update(failure_count=F("failure_count") + 1)
+            if updated == 0:
+                AIDailyFailureCounter.all_objects.create(
+                    gym=gym,
+                    date=today,
+                    model_name=model,
+                    failure_reason=reason,
+                    failure_count=1,
+                )
+        except Exception as e:
+            logger.warning("Could not record AI failure counter: %s", e)
+
+    def _notify_owner_daily_if_needed(self, context: Dict[str, Any]) -> None:
+        """
+        Delivers at most ONE in-app notification per gym per day to the Owner on failure.
         """
         gym_id = context.get("gym_id")
-        logger.error(
-            "Three AI generation attempts failed in request for gym %s. Last error: %s",
-            gym_id,
-            str(exception),
-        )
-
+        if not gym_id:
+            return
         try:
-            from apps.accounts.models import AuditLog, User
+            from apps.accounts.models import Notification, User
             from apps.accounts.notifications import create_notification
             from apps.tenants.models import GymTenant
 
-            gym = GymTenant.objects.filter(id=gym_id).first() if gym_id else None
-            if gym:
-                # Audit log entry for owner visibility
-                AuditLog.all_objects.create(
-                    gym=gym,
-                    actor=None,
-                    action_type="ai_plan_generation_failed",
-                    affected_record_type="GymTenant",
-                    affected_record_id=str(gym.id),
-                    metadata={
-                        "attempt_count": attempt_count,
-                        "models_tried": self.ordered_models[:attempt_count],
-                        "error": str(exception),
-                        "timestamp": timezone.now().isoformat(),
-                    },
-                )
+            gym = GymTenant.objects.filter(id=gym_id).first()
+            if not gym:
+                return
 
-                # In-app notification for Owner & Manager
-                recipients = User.all_objects.filter(
-                    gym_id=gym.id,
-                    role__in=[User.ROLE_OWNER, User.ROLE_MANAGER],
+            today = timezone.localdate()
+            already_notified = Notification.all_objects.filter(
+                gym=gym,
+                created_at__date=today,
+                type="ai_generation_problems_daily",
+            ).exists()
+
+            if not already_notified:
+                owners = User.all_objects.filter(
+                    gym=gym,
+                    role=User.ROLE_OWNER,
                     is_active=True,
                 )
-                for recipient in recipients:
+                for owner in owners:
                     create_notification(
-                        recipient=recipient,
-                        notification_type="ai_plan_generation_failed",
-                        message="AI workout plan generation failed after 3 attempts. Please check AI provider settings.",
+                        recipient=owner,
+                        notification_type="ai_generation_problems_daily",
+                        message="Plan generation had problems today. Trainers can retry later.",
                         gym=gym,
                     )
-        except Exception as log_err:
-            logger.error(
-                "Failed to write audit log or in-app notification for AI generation failure: %s",
-                log_err,
-            )
+        except Exception as e:
+            logger.warning("Could not send daily owner notification: %s", e)

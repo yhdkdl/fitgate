@@ -68,9 +68,9 @@ WEEKLY_FOCUS_CHOICES = [
     ("no_focus", "No special focus"),
     ("legs", "Legs"),
     ("upper_body", "Upper body"),
-    ("core", "Core"),
-    ("cardio", "Cardio"),
-    ("mobility", "Mobility"),
+    ("core", "Core & Posture"),
+    ("cardio", "Cardio Conditioning"),
+    ("mobility", "Recovery & Mobility"),
     ("other", "Other"),
 ]
 
@@ -79,7 +79,7 @@ WEEKLY_FOCUS_CODES = {code for code, _ in WEEKLY_FOCUS_CHOICES}
 PLAN_REJECTION_REASONS = [
     ("too_hard", "Too hard"),
     ("too_easy", "Too easy"),
-    ("exercises_not_suitable", "Exercises not suitable for member limits"),
+    ("exercises_not_suitable", "Exercises not suitable for the member's limits"),
     ("equipment_not_available", "Equipment not available"),
     ("nutrition_not_suitable", "Nutrition not suitable"),
     ("other", "Other"),

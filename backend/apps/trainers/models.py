@@ -260,3 +260,30 @@ class TrainingPlan(TenantAwareModel):
     @property
     def can_edit(self) -> bool:
         return self.status == self.STATUS_PENDING_REVIEW
+
+
+class AIDailyFailureCounter(TenantAwareModel):
+    """
+    Lightweight daily diagnostic counter tracking AI generation failures per model per reason.
+    Contains counts only: zero PII, zero prompts, zero responses.
+    Automatically pruned after 30 days by the nightly maintenance command.
+    """
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    date = models.DateField(default=timezone.localdate)
+    model_name = models.CharField(max_length=150)
+    failure_reason = models.CharField(max_length=100)
+    failure_count = models.PositiveIntegerField(default=1)
+
+    class Meta:
+        verbose_name = "AI Daily Failure Counter"
+        verbose_name_plural = "AI Daily Failure Counters"
+        constraints = [
+            models.UniqueConstraint(
+                fields=["gym", "date", "model_name", "failure_reason"],
+                name="unique_gym_date_model_failure_reason",
+            )
+        ]
+
+    def __str__(self):
+        return f"{self.date} {self.model_name} [{self.failure_reason}]: {self.failure_count}"
