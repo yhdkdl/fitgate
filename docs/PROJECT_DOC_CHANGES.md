@@ -11,13 +11,20 @@ _Purpose: A dated record of every scope decision, modification, and addition mad
 - **Blood pressure, heart-rate zones, and posture screening checklist (October 30, 2026):** Deferred to a future release; standard physical circumferences, body composition metrics, and resting heart rate cover baseline trainer assessment needs without requiring specialized clinical diagnostics or complex postural assessment tools.
 - **Trainer availability schedule (Sprint 18):** Deferred to a future release; gym trainers coordinate availability directly with gym management in v1, reducing scheduling interface complexity.
 - **Trainer-to-member direct in-app messaging (Sprint 19):** Deferred to a future release; trainer-client communication takes place in person or via standard communication channels, avoiding the overhead of real-time messaging on shared hosting.
-- **Group class scheduling and booking (Sprint 26):** Deferred to a future release; target pilot gyms operate primarily on open floor and general access memberships rather than structured group studio bookings.
+
 - **Milestone badges and member progress charts (Sprint 28a):** Deferred to a future release; gamification badges and historical chart visualizations deferred to prioritize core membership, attendance, and payment workflows.
 - **Advanced analytics (peak-hours heatmap, cohort retention, referral analytics):** Deferred to a future release; heavy analytical aggregations deferred to preserve performance on shared cPanel hosting; revenue by plan is retained as the sole premium analytics metric.
 
 ---
 
 ## 2. Changed
+
+- **Group Classes (Sprint 26) Moved from Deferred to Active (November 3, 2026):**
+  - **Lean Class Architecture:** `ClassSession` model with fixed title list (`yoga`, `zumba`, `spinning`, `boxing`, `aerobics`, `crossfit`, `strength_circuit`, `stretching_mobility`, `other` with `other_title` up to 50 chars), assigned active trainer from the same gym, Addis Ababa start time, duration (30, 45, 60, 90 mins), capacity (1–200), and status (`scheduled`, `cancelled`).
+  - **Create & Edit:** Owner and Manager manage sessions. Weekly repeat option (1–12 weeks) creates N separate independent sessions with no recurring rule engine. Overlapping sessions for the same trainer are refused naming the conflict time. Session rescheduling or cancellation sends in-app notifications to booked members. Past sessions cannot be edited or booked.
+  - **Booking & Concurrency:** Active members book future scheduled sessions; non-active members are refused with status-specific reason. Overlapping bookings for the same member are refused. Atomic row-locking (`select_for_update`) strictly enforces class capacity under concurrent requests. Members can cancel their booking up to 2 hours before start time; staff can book or cancel on behalf of members anytime before start.
+  - **Separation of Class Attendance:** Trainer, Owner, or Manager mark class attendance (`attended`) from session start until 24 hours after session end. Class attendance does not create daily facility `Attendance` check-in rows and does not affect dashboard daily check-in metrics.
+  - **Tier Gating & Tenancy:** Gated by `GymConfig.has_group_classes` (ON for Growth and Pro, OFF for Starter with 403 API refusal and hidden navigation). Super Admin and other gyms are refused access.
 
 - **Notice Board and Telegram Channel Bridge (November 2, 2026):**
   - **In-App Notice Board (Sprint 28):** Gym Owner and Manager post notices (title 2–100 characters, body 5–1,000 characters). Members of that gym see the latest notices on their Home screen and on a dedicated Notices screen; users from other gyms cannot view them. Does NOT create one notification row per member, avoiding database bloat.

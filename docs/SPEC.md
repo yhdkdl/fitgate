@@ -65,11 +65,11 @@ Tiers: **starter / growth / pro** (per `GymTenant.tier`). Gating is enforced via
 
 **Who changes flags:** only Super Admin. Entitlements are what a gym pays for; an Owner cannot switch on their own premium features. Owners edit settings only (§2). A request for more (an upgrade) goes to Super Admin.
 
-**Pricing (yearly only, ETB — placeholders; the project owner sets the real prices):** Starter 12,000 · Growth 30,000 · Pro (no price shown until it ships; placeholder 60,000 ETB per year). Pro is NOT offered, advertised or selectable until multi-branch ships: until then it is hidden from the landing page and the Create Gym form; the tier value and flags stay in the database (Pro defaults equal Growth's, with `has_multi_branch` false until Increment 6 ships). `has_group_classes` stays stored and inert (false for every tier). The yearly price includes hosting, backups, security updates, bug fixes, new features within the gym's tier, and support, and the first year includes setup. It does not include custom development or large data imports. Billing is yearly only (§5, §11).
+**Pricing (yearly only, ETB — placeholders; the project owner sets the real prices):** Starter 12,000 · Growth 30,000 · Pro (no price shown until it ships; placeholder 60,000 ETB per year). Pro is NOT offered, advertised or selectable until multi-branch ships: until then it is hidden from the landing page and the Create Gym form; the tier value and flags stay in the database (Pro defaults equal Growth's, with `has_multi_branch` false until Increment 6 ships). `has_group_classes` is ON for Growth and Pro, OFF for Starter. The yearly price includes hosting, backups, security updates, bug fixes, new features within the gym's tier, and support, and the first year includes setup. It does not include custom development or large data imports. Billing is yearly only (§5, §11).
 
 **Multi-branch management is not in the original source document** — it is a Pro-tier addition decided directly with the project owner. Design: a `Branch` belongs to exactly one `GymTenant` (nested under the existing `gym_id` tenancy boundary, not a new isolation mechanism). One subdomain per gym regardless of branch count — branch selection happens in-app — because a subdomain per branch would effectively make each branch a separate tenant. Member branch access is a `MembershipPlan` attribute (`all_branches_access`), so a Pro gym can sell both single-branch and all-access plans. Staff are branch-scoped via a nullable `branch_id` (null = all branches, matching Owner). Increment 6 (Multi-Branch) is scheduled after Increment 7 as an optional last phase (decision date set by the owner); until Increment 6 ships, Pro tier is hidden from landing pages and gym creation forms.
 
-Gating is enforced at **both** the backend (a Starter gym's API rejects trainer/AI/analytics endpoints, not just hides the UI; group classes and advanced analytics are deferred, see §10) and the frontend (ungated features aren't rendered).
+Gating is enforced at **both** the backend (a Starter gym's API rejects trainer/AI/analytics/classes endpoints, not just hides the UI; advanced analytics are deferred, see §10) and the frontend (ungated features aren't rendered).
 
 ## 4. Multi-tenancy
 
@@ -288,17 +288,17 @@ Each entry: goal — key business rule(s).
 - Trainer plan review (FG-UC-06-REVIEW) — assigned trainer or Owner/Manager directly edits and approves, or rejects using a checklist of reasons (too hard, too easy, exercises not suitable, equipment not available, nutrition not suitable, other + short text 5–200 chars), generating 1 new draft up to 3 drafts total (3rd draft must be edited and approved directly); shows medical caution if chronic conditions present; audit-logged with edit tracking; member sees only approved plans.
 - Weekly check-in (FG-UC-06-CHECKIN) (deferred, see §10) — member Monday check-in, trainer notification, reminder cron, and check-in intensity adjustments deferred to future work; intensity follows phase and fitness level; trainer adjusts by editing drafts.
 
-**Equipment, classes (deferred, see §10), analytics, communication**
+**Equipment, classes, analytics, communication**
 
 - Report equipment issue; manage equipment registry; low-quantity alerts.
-- Book group class; manage group class (capacity enforced; class attendance recorded separately) (deferred, see §10).
+- Book group class; manage group class (capacity enforced with row locking; class attendance recorded separately from daily facility check-ins).
 - View dashboard / analytics (premium block narrowed to revenue by plan; heatmap, cohort retention, and referral analytics deferred, see §10); view audit log; generate reports; notice board (with optional Telegram channel bridge); notifications; badges and progress (badges deferred, see §10); data export; log expenses.
 
 **Multi-branch (Pro) — not in source document, see §3**
 
 - Owner creates/manages branches; assigns staff to a branch or leaves them unscoped.
 - QR check-in validates branch access against `MembershipPlan.all_branches_access`.
-- Branch-scoped staff see only their branch's equipment, classes (classes deferred, see §10) and attendance; Owner and unscoped staff see all branches.
+- Branch-scoped staff see only their branch's equipment, classes and attendance; Owner and unscoped staff see all branches.
 
 **Platform admin**
 
@@ -408,7 +408,7 @@ All tables carry `id` (uuid, PK) unless noted. Every gym-scoped table carries `g
 
 **External checks** (each has a fallback; none blocks a sprint — see `docs/SPRINTS.md`): cPanel UAPI `addsubdomain` enabled for the token; on-demand AutoSSL trigger; how to run one-time management commands on the host; Redis availability (fallback: database cache and job table); Chapa's merchant-account requirements for small gyms (fallback: cash-only until configured); Cloudinary sign-up, uploads and `authenticated` access from your network (fallback: host disk through the same storage interface).
 
-**Deferred to a future version:** public self-serve gym registration and approval (with rejection handling); inactivity flags, escalation and the inactive-member report; Chapa subaccount mode and Chapa-paid platform fees; monthly billing and auto-renewal; phone-number login; discounts; a full public landing page per gym; a Starter member cap and a setup fee; a data deletion/archival policy; trainer availability schedule (Sprint 18); trainer-to-member direct in-app messaging (Sprint 19); group class scheduling and booking (Sprint 26); milestone badges and member progress charts (Sprint 28a); advanced analytics (peak-hours heatmap, cohort retention, referral analytics); weekly member check-in, trainer notice, Monday reminder, and check-in dynamic intensity adjustment (Sprint 24).
+**Deferred to a future version:** public self-serve gym registration and approval (with rejection handling); inactivity flags, escalation and the inactive-member report; Chapa subaccount mode and Chapa-paid platform fees; monthly billing and auto-renewal; phone-number login; discounts; a full public landing page per gym; a Starter member cap and a setup fee; a data deletion/archival policy; trainer availability schedule (Sprint 18); trainer-to-member direct in-app messaging (Sprint 19); milestone badges and member progress charts (Sprint 28a); advanced analytics (peak-hours heatmap, cohort retention, referral analytics); weekly member check-in, trainer notice, Monday reminder, and check-in dynamic intensity adjustment (Sprint 24).
 
 ## 11. Deviations from the source document (deliberate)
 
