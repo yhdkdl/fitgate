@@ -22,6 +22,7 @@ export interface EquipmentItem {
   condition: "good" | "needs_maintenance" | "under_maintenance" | "out_of_service";
   purchase_date: string | null;
   unit_purchase_price_etb?: string | number | null;
+  record_as_expense?: boolean;
   branch_id?: string | null;
   is_low_quantity: boolean;
   maintenance_logs?: MaintenanceLog[];
@@ -38,6 +39,7 @@ export interface EquipmentCreatePayload {
   condition?: string;
   purchase_date?: string | null;
   unit_purchase_price_etb?: string | number | null;
+  record_as_expense?: boolean;
 }
 
 export interface EquipmentUpdatePayload {
@@ -49,6 +51,7 @@ export interface EquipmentUpdatePayload {
   condition?: string;
   purchase_date?: string | null;
   unit_purchase_price_etb?: string | number | null;
+  record_as_expense?: boolean;
 }
 
 export interface ReportIssuePayload {

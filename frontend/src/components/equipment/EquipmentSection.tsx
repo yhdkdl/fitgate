@@ -59,6 +59,7 @@ export const EquipmentSection: React.FC<EquipmentSectionProps> = ({ userRole }) 
   const [formCondition, setFormCondition] = useState<string>("good");
   const [formPurchaseDate, setFormPurchaseDate] = useState<string>("");
   const [formUnitPrice, setFormUnitPrice] = useState<string>("");
+  const [formRecordAsExpense, setFormRecordAsExpense] = useState<boolean>(false);
   const [formSubmitting, setFormSubmitting] = useState<boolean>(false);
   const [modalError, setModalError] = useState<string | null>(null);
 
@@ -103,6 +104,7 @@ export const EquipmentSection: React.FC<EquipmentSectionProps> = ({ userRole }) 
     setFormCondition("good");
     setFormPurchaseDate("");
     setFormUnitPrice("");
+    setFormRecordAsExpense(false);
     setModalError(null);
     setIsAddOpen(true);
   };
@@ -121,6 +123,7 @@ export const EquipmentSection: React.FC<EquipmentSectionProps> = ({ userRole }) 
         ? String(item.unit_purchase_price_etb)
         : ""
     );
+    setFormRecordAsExpense(false);
     setModalError(null);
   };
 
@@ -138,6 +141,7 @@ export const EquipmentSection: React.FC<EquipmentSectionProps> = ({ userRole }) 
         condition: formCondition,
         purchase_date: formPurchaseDate || null,
         unit_purchase_price_etb: formUnitPrice.trim() ? parseFloat(formUnitPrice) : null,
+        record_as_expense: formRecordAsExpense && !!formUnitPrice.trim() && parseFloat(formUnitPrice) > 0,
       });
       setIsAddOpen(false);
       await fetchEquipment();
@@ -163,6 +167,7 @@ export const EquipmentSection: React.FC<EquipmentSectionProps> = ({ userRole }) 
         condition: formCondition,
         purchase_date: formPurchaseDate || null,
         unit_purchase_price_etb: formUnitPrice.trim() ? parseFloat(formUnitPrice) : null,
+        record_as_expense: formRecordAsExpense && !!formUnitPrice.trim() && parseFloat(formUnitPrice) > 0,
       });
       setEditingItem(null);
       await fetchEquipment();
@@ -568,19 +573,34 @@ export const EquipmentSection: React.FC<EquipmentSectionProps> = ({ userRole }) 
             </div>
           </div>
           {canManage && (
-            <div>
-              <label className="block text-xs font-medium text-text-muted mb-1">
-                Unit Purchase Price (ETB, optional)
-              </label>
-              <Input
-                type="number"
-                step="0.01"
-                min="0.01"
-                max="10000000"
-                placeholder="e.g. 45000.00"
-                value={formUnitPrice}
-                onChange={(e) => setFormUnitPrice(e.target.value)}
-              />
+            <div className="space-y-2">
+              <div>
+                <label className="block text-xs font-medium text-text-muted mb-1">
+                  Unit Purchase Price (ETB, optional)
+                </label>
+                <Input
+                  type="number"
+                  step="0.01"
+                  min="0.01"
+                  max="10000000"
+                  placeholder="e.g. 45000.00"
+                  value={formUnitPrice}
+                  onChange={(e) => setFormUnitPrice(e.target.value)}
+                />
+              </div>
+              {formUnitPrice && parseFloat(formUnitPrice) > 0 && (
+                <label className="flex items-center gap-2 pt-1 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={formRecordAsExpense}
+                    onChange={(e) => setFormRecordAsExpense(e.target.checked)}
+                    className="rounded border-border text-primary focus:ring-primary h-4 w-4"
+                  />
+                  <span className="text-xs text-text font-medium">
+                    Also record as an expense
+                  </span>
+                </label>
+              )}
             </div>
           )}
           <div className="grid grid-cols-2 gap-4">
@@ -673,19 +693,34 @@ export const EquipmentSection: React.FC<EquipmentSectionProps> = ({ userRole }) 
             </div>
           </div>
           {canManage && (
-            <div>
-              <label className="block text-xs font-medium text-text-muted mb-1">
-                Unit Purchase Price (ETB, optional)
-              </label>
-              <Input
-                type="number"
-                step="0.01"
-                min="0.01"
-                max="10000000"
-                placeholder="e.g. 45000.00"
-                value={formUnitPrice}
-                onChange={(e) => setFormUnitPrice(e.target.value)}
-              />
+            <div className="space-y-2">
+              <div>
+                <label className="block text-xs font-medium text-text-muted mb-1">
+                  Unit Purchase Price (ETB, optional)
+                </label>
+                <Input
+                  type="number"
+                  step="0.01"
+                  min="0.01"
+                  max="10000000"
+                  placeholder="e.g. 45000.00"
+                  value={formUnitPrice}
+                  onChange={(e) => setFormUnitPrice(e.target.value)}
+                />
+              </div>
+              {formUnitPrice && parseFloat(formUnitPrice) > 0 && (
+                <label className="flex items-center gap-2 pt-1 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={formRecordAsExpense}
+                    onChange={(e) => setFormRecordAsExpense(e.target.checked)}
+                    className="rounded border-border text-primary focus:ring-primary h-4 w-4"
+                  />
+                  <span className="text-xs text-text font-medium">
+                    Also record as an expense
+                  </span>
+                </label>
+              )}
             </div>
           )}
           <div className="grid grid-cols-2 gap-4">

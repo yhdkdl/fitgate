@@ -131,6 +131,15 @@ export const App: React.FC = () => {
         />
 
         <Route
+          path="/expenses"
+          element={
+            <ProtectedRoute allowedRoles={["owner", "manager"]}>
+              <DashboardScreen />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
           path="/bank-transfers"
           element={
             <ProtectedRoute allowedRoles={["owner"]}>

@@ -1,8 +1,11 @@
 """Serializers for payment configurations, checkout sessions, and status reporting."""
 
+from decimal import Decimal
+
+from django.utils import timezone
 from rest_framework import serializers
 
-from apps.payments.models import GymPaymentConfig
+from apps.payments.models import Expense, GymPaymentConfig
 
 
 class GymPaymentConfigSerializer(serializers.ModelSerializer):
@@ -359,3 +362,119 @@ class PlanUpgradeQuoteSerializer(serializers.Serializer):
     net_amount_etb = serializers.CharField()
     new_start_date = serializers.DateField()
     new_end_date = serializers.DateField()
+
+
+class ExpenseSerializer(serializers.ModelSerializer):
+    category_display = serializers.CharField(
+        source="get_category_display", read_only=True
+    )
+    logged_by_name = serializers.SerializerMethodField()
+    voided_by_name = serializers.SerializerMethodField()
+    equipment_name = serializers.SerializerMethodField()
+    is_voided = serializers.BooleanField(source="is_void", read_only=True)
+
+    class Meta:
+        model = Expense
+        fields = [
+            "id",
+            "amount_etb",
+            "category",
+            "category_display",
+            "note",
+            "incurred_on",
+            "logged_by",
+            "logged_by_name",
+            "equipment",
+            "equipment_name",
+            "is_void",
+            "is_voided",
+            "voided_at",
+            "voided_by",
+            "voided_by_name",
+            "void_reason",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = [
+            "id",
+            "logged_by",
+            "logged_by_name",
+            "is_void",
+            "voided_at",
+            "voided_by",
+            "voided_by_name",
+            "void_reason",
+            "created_at",
+            "updated_at",
+        ]
+
+    def get_logged_by_name(self, obj) -> str:
+        if obj.logged_by:
+            return obj.logged_by.full_name or obj.logged_by.email
+        return ""
+
+    def get_voided_by_name(self, obj) -> str:
+        if obj.voided_by:
+            return obj.voided_by.full_name or obj.voided_by.email
+        return ""
+
+    def get_equipment_name(self, obj) -> str:
+        if obj.equipment:
+            return obj.equipment.name
+        return ""
+
+
+class ExpenseCreateSerializer(serializers.ModelSerializer):
+    amount_etb = serializers.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        min_value=Decimal("0.01"),
+        max_value=Decimal("10000000.00"),
+        error_messages={
+            "min_value": "Expense amount must be greater than 0 and at most 10,000,000 ETB.",
+            "max_value": "Expense amount must be greater than 0 and at most 10,000,000 ETB.",
+        },
+    )
+    category = serializers.ChoiceField(
+        choices=Expense.CATEGORY_CHOICES,
+        error_messages={"invalid_choice": "Please select an expense category."},
+    )
+    note = serializers.CharField(
+        max_length=500,
+        required=False,
+        allow_blank=True,
+        default="",
+        error_messages={"max_length": "Expense note cannot exceed 500 characters."},
+    )
+    incurred_on = serializers.DateField(
+        required=False,
+        default=timezone.localdate,
+    )
+
+    class Meta:
+        model = Expense
+        fields = [
+            "amount_etb",
+            "category",
+            "note",
+            "incurred_on",
+            "equipment",
+        ]
+
+    def validate_incurred_on(self, value):
+        if value and value > timezone.localdate():
+            raise serializers.ValidationError("Expense date cannot be in the future.")
+        return value
+
+
+class ExpenseVoidSerializer(serializers.Serializer):
+    void_reason = serializers.CharField(
+        min_length=2,
+        max_length=255,
+        required=True,
+        error_messages={
+            "required": "Void reason is required.",
+            "min_length": "Void reason must be at least 2 characters.",
+            "max_length": "Void reason cannot exceed 255 characters.",
+        },
+    )

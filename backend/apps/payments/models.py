@@ -7,6 +7,7 @@ from typing import Optional
 from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import models
+from django.utils import timezone
 
 from apps.tenants.models import TenantAwareModel
 
@@ -505,3 +506,126 @@ class GymReceiptCounter(TenantAwareModel):
 
     def __str__(self):
         return f"ReceiptCounter ({self.gym_id}): {self.last_receipt_number}"
+
+
+class Expense(TenantAwareModel):
+    """
+    Expense records for gym operating and capital costs.
+
+    SPEC §8 / Sprint 29a:
+    - id (UUID PK)
+    - gym_id (inherited from TenantAwareModel)
+    - amount_etb (DecimalField, > 0 up to 10,000,000 ETB)
+    - category (rent, salaries, utilities, equipment, maintenance, marketing, supplies, other)
+    - note (CharField 500, blank=True)
+    - incurred_on (DateField, not in future)
+    - logged_by (FK -> User, SET_NULL, null=True)
+    - equipment (FK -> Equipment, SET_NULL, null=True, blank=True)
+    - is_void (BooleanField, default False)
+    - voided_at (DateTimeField, null=True, blank=True)
+    - voided_by (FK -> User, SET_NULL, null=True, blank=True)
+    - void_reason (CharField 255, blank=True, default="")
+    - created_at (DateTimeField, auto_now_add=True)
+    - updated_at (DateTimeField, auto_now=True)
+    """
+
+    CATEGORY_RENT = "rent"
+    CATEGORY_SALARIES = "salaries"
+    CATEGORY_UTILITIES = "utilities"
+    CATEGORY_EQUIPMENT = "equipment"
+    CATEGORY_MAINTENANCE = "maintenance"
+    CATEGORY_MARKETING = "marketing"
+    CATEGORY_SUPPLIES = "supplies"
+    CATEGORY_OTHER = "other"
+
+    CATEGORY_CHOICES = [
+        (CATEGORY_RENT, "Rent"),
+        (CATEGORY_SALARIES, "Salaries"),
+        (CATEGORY_UTILITIES, "Utilities"),
+        (CATEGORY_EQUIPMENT, "Equipment"),
+        (CATEGORY_MAINTENANCE, "Maintenance"),
+        (CATEGORY_MARKETING, "Marketing"),
+        (CATEGORY_SUPPLIES, "Supplies"),
+        (CATEGORY_OTHER, "Other"),
+    ]
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    amount_etb = models.DecimalField(max_digits=12, decimal_places=2)
+    category = models.CharField(max_length=50, choices=CATEGORY_CHOICES)
+    note = models.CharField(max_length=500, blank=True, default="")
+    incurred_on = models.DateField(default=timezone.localdate)
+    logged_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="logged_expenses",
+    )
+    equipment = models.ForeignKey(
+        "equipment.Equipment",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="linked_expenses",
+    )
+    is_void = models.BooleanField(default=False)
+    voided_at = models.DateTimeField(null=True, blank=True)
+    voided_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="voided_expenses",
+    )
+    void_reason = models.CharField(max_length=255, blank=True, default="")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-incurred_on", "-created_at"]
+        indexes = [
+            models.Index(fields=["gym", "-incurred_on"]),
+            models.Index(fields=["gym", "category"]),
+            models.Index(fields=["gym", "is_void"]),
+        ]
+
+    def clean(self):
+        super().clean()
+        if (
+            self.amount_etb is None
+            or self.amount_etb <= Decimal("0.00")
+            or self.amount_etb > Decimal("10000000.00")
+        ):
+            raise ValidationError(
+                {
+                    "amount_etb": [
+                        "Expense amount must be greater than 0 and at most 10,000,000 ETB."
+                    ]
+                }
+            )
+        valid_cats = [c[0] for c in self.CATEGORY_CHOICES]
+        if self.category not in valid_cats:
+            raise ValidationError({"category": ["Please select an expense category."]})
+        if self.incurred_on and self.incurred_on > timezone.localdate():
+            raise ValidationError(
+                {"incurred_on": ["Expense date cannot be in the future."]}
+            )
+        if self.note and len(self.note) > 500:
+            raise ValidationError(
+                {"note": ["Expense note cannot exceed 500 characters."]}
+            )
+
+    def save(self, *args, **kwargs):
+        self.clean()
+        super().save(*args, **kwargs)
+
+    def delete(self, *args, **kwargs):
+        raise ValidationError("Expenses cannot be deleted. Void the entry instead.")
+
+    @property
+    def is_voided(self):
+        return self.is_void
+
+    def __str__(self):
+        status_tag = " [VOIDED]" if self.is_void else ""
+        return f"Expense({self.category} - {self.amount_etb} ETB on {self.incurred_on}{status_tag})"

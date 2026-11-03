@@ -2,6 +2,12 @@
 
 from django.urls import path
 
+from apps.payments.expense_views import (
+    ExpenseListCreateView,
+    ExpenseVoidView,
+    GymAttendanceReportView,
+    GymFinancialReportView,
+)
 from apps.payments.views import (
     BankTransferScreenshotView,
     ChapaCheckoutView,
@@ -130,5 +136,26 @@ urlpatterns = [
         "api/platform/gyms/<uuid:gym_id>/payment-status/",
         SuperAdminGymPaymentStatusView.as_view(),
         name="superadmin-gym-payment-status",
+    ),
+    # Expenses & Reporting (Sprint 29a)
+    path(
+        "api/gym/expenses/",
+        ExpenseListCreateView.as_view(),
+        name="gym-expenses-list-create",
+    ),
+    path(
+        "api/gym/expenses/<uuid:pk>/void/",
+        ExpenseVoidView.as_view(),
+        name="gym-expense-void",
+    ),
+    path(
+        "api/gym/reports/financial/",
+        GymFinancialReportView.as_view(),
+        name="gym-reports-financial",
+    ),
+    path(
+        "api/gym/reports/attendance/",
+        GymAttendanceReportView.as_view(),
+        name="gym-reports-attendance",
     ),
 ]

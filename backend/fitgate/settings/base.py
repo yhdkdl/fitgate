@@ -247,3 +247,7 @@ OPENROUTER_MODELS = env.list(
     ],
 )
 AI_PLAN_RATE_LIMIT_PER_GYM_HOUR = env.int("AI_PLAN_RATE_LIMIT_PER_GYM_HOUR", default=20)
+
+# Telegram Notice Board Bridge (Sprint 28)
+TELEGRAM_BOT_TOKEN = env.str("TELEGRAM_BOT_TOKEN", default="").strip()
+TELEGRAM_USE_MOCK = env.bool("TELEGRAM_USE_MOCK", default=False)
