@@ -12,12 +12,15 @@ from apps.tenants.views import (
     FirstRunChecklistView,
     GymAnalyticsOverviewView,
     GymDetailView,
+    GymNoticeDetailView,
+    GymNoticeListCreateView,
     GymPublicEntryView,
     GymSettingsView,
     PlatformGymConfigView,
     ProposeSubdomainView,
     PublicDemoRequestView,
     ServeMemberPhotoView,
+    TelegramTestMessageView,
     UploadGymLogoView,
     UploadMemberPhotoView,
 )
@@ -109,5 +112,21 @@ urlpatterns = [
         "api/gym/analytics/overview/",
         GymAnalyticsOverviewView.as_view(),
         name="gym-analytics-overview",
+    ),
+    # Notice Board & Telegram Bridge (Sprint 28)
+    path(
+        "api/gym/notices/",
+        GymNoticeListCreateView.as_view(),
+        name="gym-notices-list-create",
+    ),
+    path(
+        "api/gym/notices/<uuid:pk>/",
+        GymNoticeDetailView.as_view(),
+        name="gym-notices-detail",
+    ),
+    path(
+        "api/gym/settings/telegram/test/",
+        TelegramTestMessageView.as_view(),
+        name="gym-settings-telegram-test",
     ),
 ]

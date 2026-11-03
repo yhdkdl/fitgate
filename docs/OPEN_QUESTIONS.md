@@ -210,3 +210,8 @@ If less than 90% sure how a requirement should be implemented and the doubt does
   3. Visibility & Audit: Review screen surfaces `Equipment source: member profile only | gym registry (unusable items removed) | gym registry (complete list)`. Equipment registry displays `Categories registered: x of y`.
   4. Investment tracking: Equipment includes optional unit purchase price (ETB, > 0, max 10,000,000.00, 2 decimals). Equipment screen shows `Total investment` (sum of price x quantity) and `N items have no price`. Restricted exclusively to Owner and Manager roles. Price updates are audit-logged.
   5. Member view: Members view usable equipment unless Owner setting "Members see unavailable equipment" is enabled. Members never see maintenance notes, serial numbers, or prices.
+
+- **Sprint 28 Notice Board & Telegram Channel Bridge (November 2, 2026):** Confirmed implementation decisions:
+  - Notices stored in `GymNotice` model with `title` (2–100 chars) and `body` (5–1,000 chars), scoped to the gym. Members see notices on Home and dedicated Notices views without per-member Notification rows.
+  - Gym-level Telegram channel configured on `GymConfig.telegram_channel` in `@channel_name` format with "Send test message" action. Uses platform bot token `TELEGRAM_BOT_TOKEN`.
+  - Development and automated tests use a mock sender recording messages in memory; failure to deliver to Telegram never prevents in-app notice publication.

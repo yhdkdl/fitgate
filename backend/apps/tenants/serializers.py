@@ -84,6 +84,7 @@ class GymConfigSerializer(serializers.ModelSerializer):
             "logo",
             "show_unavailable_equipment",
             "is_equipment_list_complete",
+            "telegram_channel",
             "first_run_dismissed_at",
         ]
         read_only_fields = fields
@@ -334,6 +335,8 @@ class GymSettingsUpdateSerializer(serializers.Serializer):
     ALLOWED_FIELDS = {
         "brand_color",
         "show_unavailable_equipment",
+        "is_equipment_list_complete",
+        "telegram_channel",
         "member_reminder_days",
         "freeze_days_allowed",
     }
@@ -354,6 +357,9 @@ class GymSettingsUpdateSerializer(serializers.Serializer):
     )
     show_unavailable_equipment = serializers.BooleanField(required=False)
     is_equipment_list_complete = serializers.BooleanField(required=False)
+    telegram_channel = serializers.CharField(
+        max_length=33, required=False, allow_blank=True, allow_null=True
+    )
     member_reminder_days = serializers.ListField(
         child=serializers.IntegerField(min_value=0, max_value=90),
         max_length=10,
@@ -387,6 +393,11 @@ class GymSettingsUpdateSerializer(serializers.Serializer):
             validate_hex_color(value)
         return value
 
+    def validate_telegram_channel(self, value):
+        from apps.core.validators import validate_telegram_channel
+
+        return validate_telegram_channel(value)
+
 
 class ChecklistItemSerializer(serializers.Serializer):
     """Item in first-run onboarding checklist."""
@@ -418,3 +429,43 @@ class GymPublicEntryResponseSerializer(serializers.Serializer):
     currency = serializers.CharField(required=False)
     message = serializers.CharField(required=False)
     online_payment_verified = serializers.BooleanField(default=False)
+
+
+class GymNoticeSerializer(serializers.ModelSerializer):
+    posted_by_name = serializers.SerializerMethodField(read_only=True)
+
+    class Meta:
+        from apps.tenants.models import GymNotice
+
+        model = GymNotice
+        fields = [
+            "id",
+            "title",
+            "body",
+            "posted_by",
+            "posted_by_name",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = [
+            "id",
+            "posted_by",
+            "posted_by_name",
+            "created_at",
+            "updated_at",
+        ]
+
+    def get_posted_by_name(self, obj) -> str:
+        if obj.posted_by:
+            return getattr(obj.posted_by, "full_name", "") or obj.posted_by.email
+        return "Gym Staff"
+
+    def validate_title(self, value):
+        from apps.core.validators import validate_notice_title
+
+        return validate_notice_title(value)
+
+    def validate_body(self, value):
+        from apps.core.validators import validate_notice_body
+
+        return validate_notice_body(value)

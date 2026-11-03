@@ -4,6 +4,7 @@ import {
   updateGymSettings,
   uploadGymLogo,
 } from "../../api/gyms";
+import { testTelegramBroadcast } from "../../api/notices";
 import { useAuth } from "../../context/AuthContext";
 import { Alert } from "../ui/Alert";
 import { Button } from "../ui/Button";
@@ -36,6 +37,12 @@ export const GymBrandingSection: React.FC<GymBrandingSectionProps> = ({
     useState(false);
   const [isEquipmentListComplete, setIsEquipmentListComplete] =
     useState(false);
+  const [telegramChannel, setTelegramChannel] = useState("");
+  const [testingTelegram, setTestingTelegram] = useState(false);
+  const [telegramTestResult, setTelegramTestResult] = useState<{
+    success: boolean;
+    message: string;
+  } | null>(null);
   const [memberReminderDays, setMemberReminderDays] = useState("7, 2");
   const [freezeDaysAllowed, setFreezeDaysAllowed] = useState<number>(0);
   const [freezeDaysCap, setFreezeDaysCap] = useState<number>(30);
@@ -57,6 +64,7 @@ export const GymBrandingSection: React.FC<GymBrandingSectionProps> = ({
         setLogoUrl(res.logo || "");
         setShowUnavailableEquipment(Boolean(res.show_unavailable_equipment));
         setIsEquipmentListComplete(Boolean(res.is_equipment_list_complete));
+        setTelegramChannel((res as { telegram_channel?: string }).telegram_channel || "");
         if (Array.isArray(res.member_reminder_days)) {
           setMemberReminderDays(res.member_reminder_days.join(", "));
         }
@@ -113,6 +121,12 @@ export const GymBrandingSection: React.FC<GymBrandingSectionProps> = ({
     setFieldErrors({});
 
     const errors: Record<string, string> = {};
+    const trimmedChannel = telegramChannel.trim();
+    if (trimmedChannel && !/^@[a-zA-Z][a-zA-Z0-9_]{4,31}$/.test(trimmedChannel)) {
+      errors.telegram_channel =
+        "Telegram channel must be in the format @channel_name (5–32 letters, digits, or underscores starting with a letter).";
+    }
+
     const trimmedColor = brandColor.trim();
     if (trimmedColor) {
       const colorErr = validateHexColor(trimmedColor, "Brand color");
@@ -159,6 +173,7 @@ export const GymBrandingSection: React.FC<GymBrandingSectionProps> = ({
           brand_color: trimmedColor || null,
           show_unavailable_equipment: showUnavailableEquipment,
           is_equipment_list_complete: isEquipmentListComplete,
+          telegram_channel: trimmedChannel || null,
           member_reminder_days: reminderDays.length ? reminderDays : undefined,
           freeze_days_allowed: gymTier === "starter" ? 0 : Number(freezeDaysAllowed),
         },
@@ -174,6 +189,22 @@ export const GymBrandingSection: React.FC<GymBrandingSectionProps> = ({
       setErrorMsg(msg);
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleTestTelegram = async () => {
+    setTelegramTestResult(null);
+    setTestingTelegram(true);
+    try {
+      const res = await testTelegramBroadcast();
+      setTelegramTestResult({ success: res.success, message: res.detail });
+    } catch (err: unknown) {
+      const msg =
+        (err as { data?: { detail?: string } })?.data?.detail ||
+        "Failed to send test message.";
+      setTelegramTestResult({ success: false, message: msg });
+    } finally {
+      setTestingTelegram(false);
     }
   };
 
@@ -374,6 +405,42 @@ export const GymBrandingSection: React.FC<GymBrandingSectionProps> = ({
           >
             My equipment list is complete (AI workout plans use only registered usable gym equipment)
           </label>
+        </div>
+
+        {/* Telegram Channel Bridge (Sprint 28) */}
+        <div className="pt-4 border-t border-border space-y-3">
+          <FormField
+            id="telegram_channel"
+            label="Telegram Channel Bridge (Optional)"
+            helpText="Enter your gym's public announcement channel (e.g. @fitgate_bole) to broadcast notice board posts."
+            error={fieldErrors.telegram_channel}
+          >
+            <div className="flex flex-col sm:flex-row gap-2">
+              <Input
+                id="telegram_channel"
+                value={telegramChannel}
+                onChange={(e) => setTelegramChannel(e.target.value)}
+                placeholder="@your_gym_channel"
+                maxLength={33}
+                error={fieldErrors.telegram_channel}
+                className="text-sm font-mono flex-1"
+              />
+              <Button
+                type="button"
+                variant="secondary"
+                disabled={testingTelegram || !telegramChannel.trim()}
+                onClick={handleTestTelegram}
+              >
+                {testingTelegram ? "Sending Test..." : "Send test message"}
+              </Button>
+            </div>
+          </FormField>
+
+          {telegramTestResult && (
+            <Alert variant={telegramTestResult.success ? "success" : "danger"}>
+              {telegramTestResult.message}
+            </Alert>
+          )}
         </div>
 
         <div className="flex justify-end pt-4 border-t border-border">

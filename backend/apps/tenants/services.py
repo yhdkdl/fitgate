@@ -473,6 +473,12 @@ def update_gym_settings(
     if "member_reminder_days" in data:
         config.member_reminder_days = data["member_reminder_days"]
         update_fields.append("member_reminder_days")
+    if "is_equipment_list_complete" in data:
+        config.is_equipment_list_complete = bool(data["is_equipment_list_complete"])
+        update_fields.append("is_equipment_list_complete")
+    if "telegram_channel" in data:
+        config.telegram_channel = data["telegram_channel"] or ""
+        update_fields.append("telegram_channel")
 
     if "freeze_days_allowed" in data:
         try:

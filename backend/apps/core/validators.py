@@ -902,3 +902,40 @@ def validate_equipment_issue_reason(
         details = ""
 
     return cleaned_reason, details
+
+
+_TELEGRAM_CHANNEL_REGEX = re.compile(r"^@[a-zA-Z][a-zA-Z0-9_]{4,31}$")
+
+
+def validate_telegram_channel(value: Optional[str]) -> str:
+    """Telegram channel in @channel_name format (5–32 letters, digits, or underscores starting with a letter)."""
+    if not value or not isinstance(value, str):
+        return ""
+    cleaned = value.strip()
+    if not cleaned:
+        return ""
+    if not _TELEGRAM_CHANNEL_REGEX.match(cleaned):
+        raise ValidationError(
+            "Telegram channel must be in the format @channel_name (5–32 letters, digits, or underscores starting with a letter)."
+        )
+    return cleaned
+
+
+def validate_notice_title(value: str) -> str:
+    """Notice title must be 2–100 characters."""
+    if not value or not isinstance(value, str):
+        raise ValidationError("Notice title must be 2–100 characters.")
+    cleaned = value.strip()
+    if len(cleaned) < 2 or len(cleaned) > 100:
+        raise ValidationError("Notice title must be 2–100 characters.")
+    return cleaned
+
+
+def validate_notice_body(value: str) -> str:
+    """Notice body must be between 5 and 1,000 characters."""
+    if not value or not isinstance(value, str):
+        raise ValidationError("Notice body must be between 5 and 1,000 characters.")
+    cleaned = value.strip()
+    if len(cleaned) < 5 or len(cleaned) > 1000:
+        raise ValidationError("Notice body must be between 5 and 1,000 characters.")
+    return cleaned

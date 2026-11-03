@@ -2510,6 +2510,7 @@ export interface components {
             readonly logo: string | null;
             readonly show_unavailable_equipment: boolean;
             readonly is_equipment_list_complete?: boolean;
+            readonly telegram_channel?: string | null;
             /** Format: date-time */
             readonly first_run_dismissed_at: string | null;
         };
@@ -2926,6 +2927,7 @@ export interface components {
             brand_color?: string | null;
             show_unavailable_equipment?: boolean;
             is_equipment_list_complete?: boolean;
+            telegram_channel?: string | null;
             member_reminder_days?: number[];
             freeze_days_allowed?: number;
         };

@@ -32,6 +32,7 @@ import { AuditLogSection } from "../components/dashboard/AuditLogSection";
 import { AttendanceScannerSection } from "../components/attendance/AttendanceScannerSection";
 import { EquipmentSection } from "../components/equipment/EquipmentSection";
 import { AnalyticsOverviewSection } from "../components/analytics/AnalyticsOverviewSection";
+import { NoticeBoardSection } from "../components/notices/NoticeBoardSection";
 import { useAuth } from "../context/AuthContext";
 import { getTenantFromHostname } from "../utils/tenant";
 
@@ -54,6 +55,7 @@ const ROLE_NAV_ITEMS: Record<string, NavItem[]> = {
     { label: "Freeze requests", path: "/freezes" },
     { label: "Staff", path: "/staff" },
     { label: "Audit log", path: "/audit-log" },
+    { label: "Notices", path: "/notices" },
     { label: "Settings", path: "/settings" },
   ],
   manager: [
@@ -68,17 +70,20 @@ const ROLE_NAV_ITEMS: Record<string, NavItem[]> = {
     { label: "Freeze requests", path: "/freezes" },
     { label: "Staff", path: "/staff" },
     { label: "Audit log", path: "/audit-log" },
+    { label: "Notices", path: "/notices" },
   ],
   reception: [
     { label: "Members", path: "/members" },
     { label: "Check-in", path: "/check-in" },
     { label: "Equipment", path: "/equipment" },
+    { label: "Notices", path: "/notices" },
   ],
   trainer: [
     { label: "Overview", path: "/dashboard" },
     { label: "My clients", path: "/my-clients" },
     { label: "Member measurements", path: "/measurements" },
     { label: "Equipment", path: "/equipment" },
+    { label: "Notices", path: "/notices" },
   ],
   member: [
     { label: "Home", path: "/dashboard" },
@@ -86,6 +91,7 @@ const ROLE_NAV_ITEMS: Record<string, NavItem[]> = {
     { label: "Equipment", path: "/equipment" },
     { label: "Freeze request", path: "/freeze-request" },
     { label: "My payments", path: "/payments" },
+    { label: "Notices", path: "/notices" },
     { label: "Profile", path: "/profile" },
   ],
   super_admin: [
@@ -410,6 +416,15 @@ export const DashboardScreen: React.FC = () => {
       return (
         <SectionErrorBoundary title="Trainer Measurements">
           <TrainerMeasurementsSection />
+        </SectionErrorBoundary>
+      );
+    }
+
+    // Notice Board (Sprint 28)
+    if (currentPath.startsWith("/notices")) {
+      return (
+        <SectionErrorBoundary title="Notice Board">
+          <NoticeBoardSection userRole={role} />
         </SectionErrorBoundary>
       );
     }
