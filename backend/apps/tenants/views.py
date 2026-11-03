@@ -12,12 +12,14 @@ from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from apps.accounts.authentication import FitGateJWTAuthentication
 from apps.accounts.models import User
 from apps.accounts.notifications import notify_demo_request_received
 from apps.accounts.permissions import (
     CanEditGymEntitlements,
     CanEditGymSettings,
     IsGymOwner,
+    IsOwnerOrManager,
     IsSuperAdmin,
     RequirePasswordChanged,
 )
@@ -1101,4 +1103,30 @@ class GymPublicEntryView(APIView):
             "plans": PublicPlanSerializer(active_plans, many=True).data,
             "online_payment_verified": online_payment_verified,
         }
+        return Response(data, status=status.HTTP_200_OK)
+
+
+class GymAnalyticsOverviewView(APIView):
+    """
+    Dashboard analytics for Gym Owner and Gym Manager.
+    Returns active members, today's check-ins, monthly net revenue,
+    memberships expiring in 7 days, and premium revenue by plan (Growth/Pro only).
+    """
+
+    authentication_classes = [FitGateJWTAuthentication]
+    permission_classes = [IsAuthenticated, RequirePasswordChanged, IsOwnerOrManager]
+
+    @extend_schema(
+        summary="Get gym analytics overview",
+        description="Returns core operational metrics and revenue by plan for Owner and Manager.",
+        responses={200: OpenApiResponse(description="Analytics overview metrics")},
+    )
+    def get(self, request):
+        tenant = request.tenant
+        if not tenant:
+            raise PermissionDenied("Tenant context required.")
+
+        from apps.tenants.analytics import get_gym_analytics_overview
+
+        data = get_gym_analytics_overview(tenant)
         return Response(data, status=status.HTTP_200_OK)

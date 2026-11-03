@@ -31,6 +31,7 @@ import { AuthenticatedImage } from "../components/ui/AuthenticatedImage";
 import { AuditLogSection } from "../components/dashboard/AuditLogSection";
 import { AttendanceScannerSection } from "../components/attendance/AttendanceScannerSection";
 import { EquipmentSection } from "../components/equipment/EquipmentSection";
+import { AnalyticsOverviewSection } from "../components/analytics/AnalyticsOverviewSection";
 import { useAuth } from "../context/AuthContext";
 import { getTenantFromHostname } from "../utils/tenant";
 
@@ -713,6 +714,10 @@ export const DashboardScreen: React.FC = () => {
               )}
             </Card>
           </div>
+        ) : role === "owner" || role === "manager" ? (
+          <SectionErrorBoundary title="Operational Analytics">
+            <AnalyticsOverviewSection onUpgradeClick={() => navigate("/settings")} />
+          </SectionErrorBoundary>
         ) : (
           <div>
             <h2 className="text-lg font-semibold text-text mb-4">
