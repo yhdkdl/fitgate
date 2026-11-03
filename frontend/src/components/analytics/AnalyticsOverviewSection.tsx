@@ -5,6 +5,7 @@ import {
   getGymAnalyticsOverview,
 } from "../../api/analytics";
 import { Card, Button, Badge, Modal, Spinner, Alert } from "../ui";
+import { ExportDataModal } from "../export/ExportDataModal";
 
 interface AnalyticsOverviewSectionProps {
   onUpgradeClick?: () => void;
@@ -17,6 +18,7 @@ export const AnalyticsOverviewSection: React.FC<AnalyticsOverviewSectionProps> =
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [showExpiringModal, setShowExpiringModal] = useState<boolean>(false);
+  const [showExportAttendanceModal, setShowExportAttendanceModal] = useState<boolean>(false);
 
   const fetchAnalytics = async () => {
     try {
@@ -70,7 +72,14 @@ export const AnalyticsOverviewSection: React.FC<AnalyticsOverviewSectionProps> =
             Live operational metrics and membership performance for your gym.
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
+          <Button
+            size="sm"
+            variant="secondary"
+            onClick={() => setShowExportAttendanceModal(true)}
+          >
+            Export Attendance CSV
+          </Button>
           <Button
             size="sm"
             variant="secondary"
@@ -323,6 +332,12 @@ export const AnalyticsOverviewSection: React.FC<AnalyticsOverviewSectionProps> =
           </div>
         </Modal>
       )}
+
+      <ExportDataModal
+        isOpen={showExportAttendanceModal}
+        onClose={() => setShowExportAttendanceModal(false)}
+        exportType="attendance"
+      />
     </div>
   );
 };

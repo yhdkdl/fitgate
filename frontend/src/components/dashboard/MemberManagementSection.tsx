@@ -22,6 +22,7 @@ import { Input } from "../ui/Input";
 import { Spinner } from "../ui/Spinner";
 import { RecordPaymentModal } from "../staff/RecordPaymentModal";
 import { DigitalReceiptModal } from "../ui/DigitalReceiptModal";
+import { ExportDataModal } from "../export/ExportDataModal";
 import { getMembershipPlans, type MembershipPlan } from "../../api/plans";
 import type { DigitalReceipt } from "../../api/payments";
 import {
@@ -135,6 +136,9 @@ export const MemberManagementSection: React.FC<Props> = ({
 
   const canRegister =
     userRole === "owner" || userRole === "manager" || userRole === "reception";
+  const canExport =
+    userRole === "owner" || userRole === "manager" || user?.role === "owner" || user?.role === "manager";
+  const [showExportModal, setShowExportModal] = useState(false);
 
   const fetchMembers = useCallback(async () => {
     setLoading(true);
@@ -649,10 +653,21 @@ export const MemberManagementSection: React.FC<Props> = ({
           </p>
         </div>
 
-        {canRegister && (
-          <Button
-            size="md"
-            onClick={() => {
+        <div className="flex items-center gap-2 flex-wrap">
+          {canExport && (
+            <Button
+              size="md"
+              variant="secondary"
+              onClick={() => setShowExportModal(true)}
+              className="self-start sm:self-center min-h-[44px]"
+            >
+              Export CSV
+            </Button>
+          )}
+          {canRegister && (
+            <Button
+              size="md"
+              onClick={() => {
               setRegIdempotencyKey(crypto.randomUUID());
               setRegPaymentMethod("none");
               setRegPlanId("");
@@ -675,6 +690,7 @@ export const MemberManagementSection: React.FC<Props> = ({
             + Register Member
           </Button>
         )}
+        </div>
       </div>
 
       {error && <Alert variant="danger">{error}</Alert>}
@@ -1717,6 +1733,14 @@ export const MemberManagementSection: React.FC<Props> = ({
         receipt={viewingReceipt}
         onClose={() => setViewingReceipt(null)}
       />
+
+      {canExport && (
+        <ExportDataModal
+          isOpen={showExportModal}
+          onClose={() => setShowExportModal(false)}
+          exportType="members"
+        />
+      )}
     </div>
   );
 };
