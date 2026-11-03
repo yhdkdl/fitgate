@@ -21,6 +21,14 @@ interface Props {
     id: string;
     full_name: string;
     phone?: string;
+    status?: string;
+    is_on_trainer_plan?: boolean;
+    active_subscription?: {
+      id?: string;
+      plan_id?: string;
+      plan_name?: string;
+      trainer_inclusive?: boolean;
+    } | null;
   } | null;
   onPaymentSuccess?: (receipt: DigitalReceipt) => void;
 }
@@ -88,7 +96,10 @@ export const RecordPaymentModal: React.FC<Props> = ({
         const errObj = err as { data?: { detail?: string | string[] }; message?: string };
         const detail = errObj?.data?.detail || errObj?.message || "";
         const detailStr = Array.isArray(detail) ? detail.join(" ") : String(detail);
-        if (detailStr.includes("costs less than your current one")) {
+        if (
+          detailStr.includes("costs less than your current one") ||
+          detailStr.includes("does not include a trainer")
+        ) {
           setUpgradeRefusal(detailStr);
         } else {
           setUpgradeQuote(null);
@@ -274,12 +285,20 @@ export const RecordPaymentModal: React.FC<Props> = ({
                   className="w-full bg-surface-2 border border-border rounded-input px-3 py-2 text-sm text-text focus:outline-none focus:border-primary min-h-[44px]"
                   required
                 >
-                  {plans.map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.name} ({p.duration_value} {p.duration_unit}) —{" "}
-                      {Number(p.price_etb).toLocaleString()} ETB
-                    </option>
-                  ))}
+                  {plans.map((p) => {
+                    const isDowngradeNoTrainer =
+                      member.status === "active" &&
+                      (member.is_on_trainer_plan || member.active_subscription?.trainer_inclusive) &&
+                      !p.trainer_inclusive &&
+                      p.id !== member.active_subscription?.plan_id;
+                    return (
+                      <option key={p.id} value={p.id} disabled={isDowngradeNoTrainer}>
+                        {p.name} ({p.duration_value} {p.duration_unit}) —{" "}
+                        {Number(p.price_etb).toLocaleString()} ETB
+                        {isDowngradeNoTrainer ? " (Disabled - no trainer)" : ""}
+                      </option>
+                    );
+                  })}
                 </select>
               )}
             </FormField>
@@ -287,6 +306,16 @@ export const RecordPaymentModal: React.FC<Props> = ({
             {upgradeRefusal && (
               <Alert variant="warning">{upgradeRefusal}</Alert>
             )}
+
+            {/* Warning when choosing non-trainer plan after having a trainer plan */}
+            {selectedPlan &&
+              !selectedPlan.trainer_inclusive &&
+              (member.is_on_trainer_plan || member.active_subscription?.trainer_inclusive) &&
+              !upgradeRefusal && (
+                <Alert variant="warning">
+                  This plan has no trainer. The member will lose their trainer's AI plans.
+                </Alert>
+              )}
 
             {upgradeQuote && (
               <div className="bg-primary/5 border border-primary/20 rounded-lg p-3.5 space-y-2.5 text-xs">

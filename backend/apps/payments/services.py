@@ -721,6 +721,28 @@ def flag_unfinished_payments(window_minutes: int = 30) -> int:
     return count
 
 
+def calculate_subscription_days(sub, today=None):
+    """
+    Calculate (total_days, used_days, remaining_days) for a subscription using
+    authoritative upgrade-quote whole-day rules.
+    """
+    from django.utils import timezone
+
+    if today is None:
+        today = timezone.localdate()
+    used_days = max(0, (today - sub.start_date).days)
+    raw_diff = (sub.end_date - sub.start_date).days
+    if sub.plan and sub.plan.duration_unit == "days":
+        total_days = max(1, sub.plan.duration_value)
+    else:
+        if raw_diff in (28, 29) or sub.end_date.day == sub.start_date.day - 1:
+            total_days = 30
+        else:
+            total_days = max(1, raw_diff)
+    remaining_days = max(0, total_days - used_days)
+    return total_days, used_days, remaining_days
+
+
 def calculate_plan_upgrade_quote(
     member: Member,
     new_plan: MembershipPlan,
@@ -818,6 +840,12 @@ def calculate_plan_upgrade_quote(
             f"This plan costs less than your current one. It can start when your current plan ends on {current_sub.end_date}."
         )
 
+    # Entitlement check: new plan must include everything current plan includes (trainer-inclusive)
+    if current_sub.plan.trainer_inclusive and not new_plan.trainer_inclusive:
+        raise ValidationError(
+            f"This plan does not include a trainer. You can choose it when your current plan ends on {current_sub.end_date}."
+        )
+
     # Net amount actually paid for member's current subscription
     confirmed_payments = Payment.all_objects.filter(
         subscription=current_sub,
@@ -828,25 +856,9 @@ def calculate_plan_upgrade_quote(
     else:
         net_paid = current_sub.plan.price_etb
 
-    # Calculate days:
-    # Used days = today minus start date (whole days)
-    used_days = max(0, (today - current_sub.start_date).days)
-
-    # Total days of that subscription
-    raw_diff = (current_sub.end_date - current_sub.start_date).days
-    if current_sub.plan and current_sub.plan.duration_unit == "days":
-        total_days = max(1, current_sub.plan.duration_value)
-    else:
-        # 1 month plans span 30 standard days (or raw_diff + 1 if inclusive)
-        if (
-            raw_diff in (28, 29)
-            or current_sub.end_date.day == current_sub.start_date.day - 1
-        ):
-            total_days = 30
-        else:
-            total_days = max(1, raw_diff)
-
-    remaining_days = max(0, total_days - used_days)
+    total_days, used_days, remaining_days = calculate_subscription_days(
+        current_sub, today=today
+    )
 
     # Credit = net_paid * remaining_days / total_days, round DOWN to 2 decimals
     raw_credit = Decimal(str(net_paid)) * Decimal(remaining_days) / Decimal(total_days)

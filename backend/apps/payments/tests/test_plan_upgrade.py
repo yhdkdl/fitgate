@@ -724,3 +724,181 @@ def test_queued_second_subscription_start_date_shifted(
     assert queued_sub.end_date == calculate_plan_end_date(
         queued_sub.start_date, 1, MembershipPlan.DURATION_MONTHS
     )
+
+
+# --- 14. Plan Entitlements Upgrade Refusal Across All 3 Payment Paths ---
+@pytest.mark.django_db
+def test_upgrade_refused_when_downgrading_trainer_entitlement_cash(
+    gym, owner, member, trainer_plan
+):
+    # Member is currently on a trainer-inclusive plan
+    today = timezone.localdate()
+    current_sub = MemberSubscription.objects.create(
+        gym=gym,
+        member=member,
+        plan=trainer_plan,
+        start_date=today - timedelta(days=5),
+        end_date=today + timedelta(days=25),
+        status=MemberSubscription.STATUS_ACTIVE,
+    )
+    update_member_status(member)
+
+    # New plan is more expensive but NOT trainer-inclusive
+    expensive_no_trainer_plan = MembershipPlan.objects.create(
+        gym=gym,
+        name="VIP Access No Trainer",
+        price_etb=Decimal("5000.00"),
+        duration_value=1,
+        duration_unit=MembershipPlan.DURATION_MONTHS,
+        trainer_inclusive=False,
+        is_active=True,
+    )
+
+    # Cash payment path refuses
+    with pytest.raises(ValidationError) as exc:
+        record_cash_payment(
+            gym=gym,
+            recorded_by=owner,
+            member=member,
+            plan=expensive_no_trainer_plan,
+            idempotency_key="entitlement-refusal-cash",
+        )
+    assert (
+        f"This plan does not include a trainer. You can choose it when your current plan ends on {current_sub.end_date}."
+        in str(exc.value)
+    )
+
+
+@pytest.mark.django_db
+def test_upgrade_refused_when_downgrading_trainer_entitlement_bank_transfer(
+    gym, owner, member, trainer_plan
+):
+    today = timezone.localdate()
+    current_sub = MemberSubscription.objects.create(
+        gym=gym,
+        member=member,
+        plan=trainer_plan,
+        start_date=today - timedelta(days=5),
+        end_date=today + timedelta(days=25),
+        status=MemberSubscription.STATUS_ACTIVE,
+    )
+    update_member_status(member)
+
+    expensive_no_trainer_plan = MembershipPlan.objects.create(
+        gym=gym,
+        name="VIP Access No Trainer",
+        price_etb=Decimal("5000.00"),
+        duration_value=1,
+        duration_unit=MembershipPlan.DURATION_MONTHS,
+        trainer_inclusive=False,
+        is_active=True,
+    )
+
+    # Bank transfer path refuses
+    with pytest.raises(ValidationError) as exc:
+        record_bank_transfer_payment(
+            gym=gym,
+            recorded_by=owner,
+            member=member,
+            plan=expensive_no_trainer_plan,
+            bank_reference="FT-NO-TRAINER-REFUSE",
+            transfer_date=today,
+            idempotency_key="entitlement-refusal-bt",
+        )
+    assert (
+        f"This plan does not include a trainer. You can choose it when your current plan ends on {current_sub.end_date}."
+        in str(exc.value)
+    )
+
+
+@pytest.mark.django_db
+def test_upgrade_refused_when_downgrading_trainer_entitlement_chapa_and_quote(
+    gym, member_user, member, trainer_plan
+):
+    today = timezone.localdate()
+    current_sub = MemberSubscription.objects.create(
+        gym=gym,
+        member=member,
+        plan=trainer_plan,
+        start_date=today - timedelta(days=5),
+        end_date=today + timedelta(days=25),
+        status=MemberSubscription.STATUS_ACTIVE,
+    )
+    update_member_status(member)
+
+    expensive_no_trainer_plan = MembershipPlan.objects.create(
+        gym=gym,
+        name="VIP Access No Trainer",
+        price_etb=Decimal("5000.00"),
+        duration_value=1,
+        duration_unit=MembershipPlan.DURATION_MONTHS,
+        trainer_inclusive=False,
+        is_active=True,
+    )
+
+    # Configure verified gateway
+    cfg = GymPaymentConfig.objects.create(gym=gym, is_verified=True)
+    cfg.public_key = "CHAPUBK_TEST_12345"
+    cfg.secret_key = "mock_sec_key_12345"
+    cfg.webhook_secret = "mock_wh_sec_12345"
+    cfg.save()
+
+    client = auth_client(member_user, gym)
+
+    # 1. Member upgrade quote endpoint refuses
+    res_quote = client.get(
+        f"/api/payments/upgrade-quote/?plan_id={expensive_no_trainer_plan.id}"
+    )
+    assert res_quote.status_code == 400
+    expected_msg = f"This plan does not include a trainer. You can choose it when your current plan ends on {current_sub.end_date}."
+    assert expected_msg in str(res_quote.data)
+
+    # 2. Chapa checkout view refuses
+    res_checkout = client.post(
+        "/api/payments/checkout/chapa/",
+        {"plan_id": str(expensive_no_trainer_plan.id)},
+    )
+    assert res_checkout.status_code == 400
+    assert expected_msg in str(res_checkout.data)
+
+
+# --- 15. Member Subscription Serializer with Queued Plan ---
+@pytest.mark.django_db
+def test_member_detail_serializer_includes_queued_plan_and_days(
+    gym, member_user, member, standard_plan, trainer_plan
+):
+    today = timezone.localdate()
+    MemberSubscription.objects.create(
+        gym=gym,
+        member=member,
+        plan=standard_plan,
+        start_date=today - timedelta(days=10),
+        end_date=today + timedelta(days=20),
+        status=MemberSubscription.STATUS_ACTIVE,
+    )
+    MemberSubscription.objects.create(
+        gym=gym,
+        member=member,
+        plan=trainer_plan,
+        start_date=today + timedelta(days=21),
+        end_date=today + timedelta(days=51),
+        status=MemberSubscription.STATUS_ACTIVE,
+    )
+    update_member_status(member)
+
+    from apps.memberships.serializers import MemberDetailSerializer
+
+    serializer = MemberDetailSerializer(member)
+    data = serializer.data
+
+    assert data["active_subscription"] is not None
+    assert data["active_subscription"]["plan_name"] == standard_plan.name
+    assert data["active_subscription"]["trainer_inclusive"] is False
+    assert data["active_subscription"]["total_days"] == 30
+    assert data["active_subscription"]["used_days"] == 10
+    assert data["active_subscription"]["remaining_days"] == 20
+
+    assert data["queued_subscription"] is not None
+    assert data["queued_subscription"]["plan_name"] == trainer_plan.name
+    assert data["queued_subscription"]["trainer_inclusive"] is True
+    assert data["queued_subscription"]["start_date"] == str(today + timedelta(days=21))

@@ -32,6 +32,7 @@ interface MemberCheckoutCardProps {
     plan_id: string;
     plan_name: string;
     plan_price_etb: string;
+    trainer_inclusive?: boolean;
     start_date: string;
     end_date: string;
   } | null;
@@ -331,6 +332,17 @@ export const MemberCheckoutCard: React.FC<MemberCheckoutCardProps> = ({
                 const isUpgrade = planPrice > currentPrice;
                 const isCheaper = !isCurrentPlan && planPrice <= currentPrice;
 
+                // Entitlement check: upgrade must include trainer if current plan has trainer
+                if (!isCurrentPlan && activeSubscription.trainer_inclusive && !plan.trainer_inclusive) {
+                  return (
+                    <div className="mt-5 pt-3 border-t border-border/50">
+                      <p className="text-xs text-text-muted bg-surface/80 p-2.5 rounded border border-border/60">
+                        This plan does not include a trainer. You can choose it when your current plan ends on {activeSubscription.end_date}.
+                      </p>
+                    </div>
+                  );
+                }
+
                 if (isCheaper) {
                   return (
                     <div className="mt-5 pt-3 border-t border-border/50">
@@ -374,8 +386,16 @@ export const MemberCheckoutCard: React.FC<MemberCheckoutCardProps> = ({
                 );
               }
 
+              const hadTrainerPlan = Boolean(activeSubscription?.trainer_inclusive);
+              const isNonTrainerPlan = !plan.trainer_inclusive;
+
               return (
-                <div className="mt-5 pt-3 border-t border-border/50">
+                <div className="mt-5 pt-3 border-t border-border/50 space-y-2">
+                  {hadTrainerPlan && isNonTrainerPlan && (
+                    <p className="text-xs text-amber-500 bg-amber-500/10 p-2 rounded border border-amber-500/20">
+                      This plan has no trainer. The member will lose their trainer's AI plans.
+                    </p>
+                  )}
                   <Button
                     size="sm"
                     variant="primary"

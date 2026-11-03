@@ -13,6 +13,7 @@ import { MemberCheckoutCard } from "../member/MemberCheckoutCard";
 import { MemberFitnessProfileCard } from "../member/MemberFitnessProfileCard";
 import { MemberApprovedPlanCard } from "../member/MemberApprovedPlanCard";
 import { MemberPaymentHistoryCard } from "../member/MemberPaymentHistoryCard";
+import { MemberSubscriptionCard } from "../member/MemberSubscriptionCard";
 
 interface MemberSelfSectionProps {
   view?: "home" | "membership" | "payments" | "all";
@@ -118,6 +119,11 @@ export const MemberSelfSection: React.FC<MemberSelfSectionProps> = ({
           </div>
         </div>
       </div>
+
+      {/* Member Subscription Card (Shown on Home and My membership) */}
+      {(view === "home" || view === "membership" || view === "all") && (
+        <MemberSubscriptionCard member={profile} />
+      )}
 
       {/* Dynamic QR Pass & Attendance Calendar */}
       {(view === "home" || view === "all") && (

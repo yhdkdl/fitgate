@@ -155,13 +155,38 @@ class Member(TenantAwareModel):
 
     @property
     def active_subscription(self) -> Optional["MemberSubscription"]:
+        from django.utils import timezone
+
         from apps.memberships.models import MemberSubscription
+
+        today = timezone.localdate()
+        current = (
+            MemberSubscription.all_objects.filter(
+                gym=self.gym,
+                member=self,
+                status__in=[
+                    MemberSubscription.STATUS_ACTIVE,
+                    MemberSubscription.STATUS_FROZEN,
+                ],
+                start_date__lte=today,
+                end_date__gte=today,
+            )
+            .order_by("-end_date", "-created_at")
+            .first()
+        )
+        if current:
+            return current
 
         return (
             MemberSubscription.all_objects.filter(
-                gym=self.gym, member=self, status=self.STATUS_ACTIVE
+                gym=self.gym,
+                member=self,
+                status__in=[
+                    MemberSubscription.STATUS_ACTIVE,
+                    MemberSubscription.STATUS_FROZEN,
+                ],
             )
-            .order_by("-end_date")
+            .order_by("-end_date", "-created_at")
             .first()
         )
 
