@@ -672,8 +672,8 @@ _Increment 6 runs after Increment 7; go/no-go decision date: to be set by the ow
 
 ### Sprint 29a: Expenses & Reports (November 2, 2026)
 
-- [ ] Expense tracking for Owner and Manager roles only.
-- [ ] Expense fields: amount (> 0 up to 10,000,000 ETB), category (`rent`, `salaries`, `utilities`, `equipment`, `maintenance`, `marketing`, `supplies`, `other`), optional note (up to 500 characters), incurred date not in future.
-- [ ] No hard deletes: mistaken entries are voided (`is_voided=True`, voided_by, voided_at, void_reason, excluded from totals, audit-logged).
-- [ ] Equipment integration: Adding equipment item with price offers checkbox "Also record as an expense" (category equipment, linked to equipment item, not counted twice).
-- [ ] Reports: Revenue vs. expenses (confirmed net revenue minus active expenses), attendance summary, revenue breakdown by plan; all tenant-isolated.
+- [x] Expense tracking for Owner and Manager roles only.
+- [x] Expense fields: amount (> 0 up to 10,000,000 ETB), category (`rent`, `salaries`, `utilities`, `equipment`, `maintenance`, `marketing`, `supplies`, `other`), optional note (up to 500 characters), incurred date not in future.
+- [x] No hard deletes: mistaken entries are voided (`is_voided=True`, voided_by, voided_at, void_reason, excluded from totals, audit-logged).
+- [x] Equipment integration: Adding equipment item with price offers checkbox "Also record as an expense" (category equipment, linked to equipment item, not counted twice).
+- [x] Reports: Revenue vs. expenses (confirmed net revenue minus active expenses), attendance summary, revenue breakdown by plan; all tenant-isolated.

@@ -114,6 +114,10 @@ class EquipmentSerializer(serializers.ModelSerializer):
 
 
 class EquipmentCreateUpdateSerializer(serializers.ModelSerializer):
+    record_as_expense = serializers.BooleanField(
+        required=False, default=False, write_only=True
+    )
+
     class Meta:
         model = Equipment
         fields = [
@@ -126,6 +130,7 @@ class EquipmentCreateUpdateSerializer(serializers.ModelSerializer):
             "purchase_date",
             "unit_purchase_price_etb",
             "branch_id",
+            "record_as_expense",
         ]
 
     def validate_name(self, value):

@@ -1,4 +1,7 @@
+from decimal import Decimal
+
 from django.core.exceptions import ValidationError as DjangoValidationError
+from django.utils import timezone
 from drf_spectacular.utils import extend_schema
 from rest_framework import status
 from rest_framework.exceptions import NotFound, PermissionDenied
@@ -80,8 +83,30 @@ class EquipmentListCreateView(APIView):
         if not serializer.is_valid():
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
+        record_as_expense = serializer.validated_data.pop("record_as_expense", False)
         equipment = Equipment(gym=tenant, **serializer.validated_data)
         equipment.save()
+
+        if (
+            record_as_expense
+            and equipment.unit_purchase_price_etb
+            and equipment.unit_purchase_price_etb > Decimal("0.00")
+        ):
+            from apps.payments.models import Expense
+
+            total_cost = equipment.unit_purchase_price_etb * Decimal(
+                str(equipment.quantity)
+            )
+            if total_cost > Decimal("0.00"):
+                Expense.objects.create(
+                    gym=tenant,
+                    amount_etb=total_cost,
+                    category=Expense.CATEGORY_EQUIPMENT,
+                    note=f"Equipment purchase: {equipment.name} (Qty: {equipment.quantity} @ {equipment.unit_purchase_price_etb} ETB)",
+                    incurred_on=equipment.purchase_date or timezone.localdate(),
+                    logged_by=request.user,
+                    equipment=equipment,
+                )
 
         record_audit_log(
             actor=request.user,
@@ -165,7 +190,33 @@ class EquipmentDetailView(APIView):
         if not serializer.is_valid():
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
+        record_as_expense = serializer.validated_data.pop("record_as_expense", False)
         serializer.save()
+
+        if (
+            record_as_expense
+            and item.unit_purchase_price_etb
+            and item.unit_purchase_price_etb > Decimal("0.00")
+        ):
+            from apps.payments.models import Expense
+
+            total_cost = item.unit_purchase_price_etb * Decimal(str(item.quantity))
+            existing_expense = Expense.all_objects.filter(
+                gym=request.tenant, equipment=item, is_void=False
+            ).first()
+            if existing_expense:
+                existing_expense.amount_etb = total_cost
+                existing_expense.save()
+            else:
+                Expense.objects.create(
+                    gym=request.tenant,
+                    amount_etb=total_cost,
+                    category=Expense.CATEGORY_EQUIPMENT,
+                    note=f"Equipment purchase: {item.name} (Qty: {item.quantity} @ {item.unit_purchase_price_etb} ETB)",
+                    incurred_on=item.purchase_date or timezone.localdate(),
+                    logged_by=request.user,
+                    equipment=item,
+                )
 
         record_audit_log(
             actor=request.user,

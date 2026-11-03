@@ -33,6 +33,7 @@ import { AttendanceScannerSection } from "../components/attendance/AttendanceSca
 import { EquipmentSection } from "../components/equipment/EquipmentSection";
 import { AnalyticsOverviewSection } from "../components/analytics/AnalyticsOverviewSection";
 import { NoticeBoardSection } from "../components/notices/NoticeBoardSection";
+import { ExpensesSection } from "../components/expenses/ExpensesSection";
 import { useAuth } from "../context/AuthContext";
 import { getTenantFromHostname } from "../utils/tenant";
 
@@ -48,6 +49,7 @@ const ROLE_NAV_ITEMS: Record<string, NavItem[]> = {
     { label: "Check-in", path: "/check-in" },
     { label: "Equipment", path: "/equipment" },
     { label: "Payments", path: "/payments" },
+    { label: "Expenses & Reports", path: "/expenses" },
     { label: "Bank transfers", path: "/bank-transfers" },
     { label: "Plans", path: "/plans" },
     { label: "Trainers", path: "/trainers" },
@@ -64,6 +66,7 @@ const ROLE_NAV_ITEMS: Record<string, NavItem[]> = {
     { label: "Check-in", path: "/check-in" },
     { label: "Equipment", path: "/equipment" },
     { label: "Payments", path: "/payments" },
+    { label: "Expenses & Reports", path: "/expenses" },
     { label: "Plans", path: "/plans" },
     { label: "Trainers", path: "/trainers" },
     { label: "Assignments", path: "/assignments" },
@@ -434,6 +437,15 @@ export const DashboardScreen: React.FC = () => {
       return (
         <SectionErrorBoundary title="Gym Equipment">
           <EquipmentSection userRole={role} />
+        </SectionErrorBoundary>
+      );
+    }
+
+    // Expenses & Reports (Sprint 29a)
+    if (currentPath.startsWith("/expenses")) {
+      return (
+        <SectionErrorBoundary title="Expenses & Reports">
+          <ExpensesSection userRole={role} />
         </SectionErrorBoundary>
       );
     }
