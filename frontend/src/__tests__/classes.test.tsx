@@ -125,22 +125,17 @@ describe("ClassScheduleSection", () => {
     vi.spyOn(trainersApi, "listTrainers").mockResolvedValue([
       {
         id: "trainer-1",
-        gym: "gym-1",
-        specialties: [],
-        bio: "",
-        photo: null,
-        photo_url: null,
-        phone: "+251911000000",
+        photo_url: "",
         max_clients: 20,
-        active_client_count: 5,
+        client_count: 5,
         created_at: "",
+        updated_at: "",
         user: {
           id: "user-t1",
           email: "dawit@example.com",
-          first_name: "Dawit",
-          last_name: "Trainer",
           full_name: "Dawit Trainer",
-          role: "trainer",
+          phone: "+251911000000",
+          is_active: true,
         },
       },
     ]);
@@ -226,15 +221,13 @@ describe("ClassScheduleSection", () => {
     vi.spyOn(membersApi, "listGymMembers").mockResolvedValue([
       {
         id: "member-abc",
-        gym: "gym-1",
+        email: "kebede@example.com",
         full_name: "Kebede Michael",
         phone: "+251911999888",
         status: "active",
-        created_at: "",
-        updated_at: "",
+        joined_at: "",
         waiver_accepted_at: "",
-        photo: null,
-        photo_url: null,
+        photo_url: "",
       },
     ]);
 
