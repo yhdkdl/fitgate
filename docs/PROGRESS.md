@@ -63,6 +63,9 @@
 
 Increment 5 (Equipment, analytics, communication: Sprints 25, 27, 28, 29, 29a) in progress.
 
+- Sprint 28: Notice board & Telegram bridge in progress.
+- fix/equipment-registry-rules: Completeness setting, 3 AI plan modes, purchase price tracking, and member privacy (tag `fix-equipment-registry-done`).
+
 - fix/plan-entitlements-and-member-plan-card: Upgrade entitlement matching (trainer-inclusive guard), renewal warning, and enhanced member subscription cards.
 
 ## Next
