@@ -56,6 +56,8 @@
 - Fix: AI plan generation reliability, unified single shared choice lists, and lightweight failure accounting — Standardized client-server choice lists for weekly focus, health limitations, equipment access, dietary notes, and plan rejection reasons; lenient JSON parsing with strict safety enforcement; ordered AI model fallback chain with rate-limit retry; and lightweight atomic failure counters with 30-day auto-pruning (branch `fix/ai-reliability-and-focus-codes`, tag `fix-ai-reliability-done`).
 - Fix: AI plan generation first-try failure resolution (Gemini Flash Lite priority), clean 503 error handling on rejection regeneration failures with draft status reversion, and multi-focus distribution support (branch `fix/rejection-error-and-multi-focus`, tag `fix-rejection-and-multi-focus-done`).
 - Increment 4 Complete: Sprints 20, 21, 22, 23, and 24 completed, verified, merged to `develop`, and documented with end-to-end testing script (`docs/INCREMENT_4_TEST.md`).
+- Sprint 25: Equipment management, issue reporting, maintenance logs, and rules engine integration (tag `sprint-25-done`).
+- Sprint 27: Operational dashboard and revenue analytics for Owner and Manager, tier-gated revenue by plan, and sub-3s query performance (tag `sprint-27-done`).
 
 ## Current
 

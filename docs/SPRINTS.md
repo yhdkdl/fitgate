@@ -469,6 +469,8 @@ _Increment 5 = Sprints 25, 27, 28, 29, 29a; Sprints 26 and 28a are deferred to a
     - AI WIRING: Usable equipment for plan generation is gym registry items with condition `good` or `needs_maintenance` and quantity > 0, mapped through category and INTERSECTED with the member's profile equipment access. Items `under_maintenance` or `out_of_service` (or quantity 0) are always excluded. If the gym has no registry items at all, gym-side filtering is OFF (the member's equipment access alone decides, exactly as in Sprint 22). The previous stand-in `unavailable_equipment` source is replaced with the gym's equipment registry.
     - An Owner setting controls whether members see unavailable equipment (default off).
 
+    - [x] Status: done — merged to develop (tag sprint-25-done)
+
 26. **Group class scheduling & booking** (Deferred to a future version, see docs/SPEC.md §10) — `ClassSession`, `ClassBooking`, capacity enforcement, Growth/Pro gated.
     - Booking is accepted for the last available slot and rejected on the next attempt once `max_capacity` is reached (boundary test); booking closes automatically at capacity.
     - Booking endpoints reject a gym with `has_group_classes = false` at the API level.
@@ -484,6 +486,8 @@ _Increment 5 = Sprints 25, 27, 28, 29, 29a; Sprints 26 and 28a are deferred to a
       - Superseded subscriptions are never counted anywhere.
     - Premium analytics: revenue by plan = net cash received per plan, Growth and Pro only (`has_analytics = true`), enforced on the server; Starter sees an upgrade prompt. (Heatmap, cohort retention, and referral analytics deferred, see §10).
     - Timing check against a seeded dataset (1,000 members, a year of attendance) executes in under 3 seconds.
+
+    - [x] Status: done — merged to develop (tag sprint-27-done)
 
 28. **Notice board & broadcast communication**
     - Owner and Manager post notices (title 2–100 chars, body 5–1,000 characters). Members of that gym see the latest notices on their Home screen and on a Notices screen; no one outside the gym sees them. Does NOT create one notification row per member.
