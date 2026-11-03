@@ -318,7 +318,6 @@ def filter_prescribed_equipment(
 
     equip_set = {str(c).strip().lower() for c in (equipment_codes or [])}
     limit_set = {str(c).strip().lower() for c in (limitation_codes or [])}
-    unavailable = [str(e).strip().lower() for e in (unavailable_equipment or [])]
 
     EQUIP_CODE_MAP = {
         "full_gym": {
@@ -425,13 +424,38 @@ def filter_prescribed_equipment(
                     exclusion_reasons[item] = reason
 
     # Gym maintenance / out-of-service exclusions
-    for unavail in unavailable:
+    for unavail_item in unavailable_equipment or []:
+        if isinstance(unavail_item, dict):
+            unavail_name = unavail_item.get("name", "")
+            unavail_cat = unavail_item.get("category", "")
+        else:
+            unavail_name = str(unavail_item)
+            unavail_cat = str(unavail_item)
+
+        name_clean = unavail_name.strip()
+        cat_clean = unavail_cat.strip().lower()
+
         for cat in list(available):
-            if cat in unavail or unavail in cat:
+            matched = False
+            if cat_clean and (cat_clean == cat or cat_clean in cat or cat in cat_clean):
+                matched = True
+            elif cat == "cable_machine" and "cable" in cat_clean:
+                matched = True
+            elif cat == "resistance_bands" and "band" in cat_clean:
+                matched = True
+            elif cat == "cardio_machines" and "cardio" in cat_clean:
+                matched = True
+            elif name_clean and (
+                cat in name_clean.lower() or name_clean.lower() in cat
+            ):
+                matched = True
+
+            if matched:
                 available.remove(cat)
                 excluded.add(cat)
+                item_label = name_clean or cat_clean or cat
                 exclusion_reasons[cat] = (
-                    f"Gym equipment item '{unavail}' is currently out of service or under maintenance."
+                    f"Gym equipment item '{item_label}' is currently unavailable (out of service or under maintenance)."
                 )
 
     ALL_CATALOG_EQUIPMENT = {
@@ -667,6 +691,24 @@ def build_ai_generation_context(
         checkin=checkin,
         history=history,
     )
+
+    if unavailable_equipment is None and gym is not None:
+        try:
+            from django.db import models
+
+            from apps.equipment.models import Equipment
+
+            gym_equip_qs = Equipment.all_objects.filter(gym=gym)
+            if gym_equip_qs.exists():
+                unavail_qs = gym_equip_qs.filter(
+                    models.Q(condition__in=["under_maintenance", "out_of_service"])
+                    | models.Q(quantity=0)
+                )
+                unavailable_equipment = [
+                    {"name": eq.name, "category": eq.category} for eq in unavail_qs
+                ]
+        except Exception:
+            unavailable_equipment = None
 
     equipment_info = filter_prescribed_equipment(
         equipment_codes=profile.equipment_access,

@@ -30,6 +30,7 @@ import { getMyClients, getTrainerProfileMe, type Trainer, type TrainerMyClient }
 import { AuthenticatedImage } from "../components/ui/AuthenticatedImage";
 import { AuditLogSection } from "../components/dashboard/AuditLogSection";
 import { AttendanceScannerSection } from "../components/attendance/AttendanceScannerSection";
+import { EquipmentSection } from "../components/equipment/EquipmentSection";
 import { useAuth } from "../context/AuthContext";
 import { getTenantFromHostname } from "../utils/tenant";
 
@@ -43,6 +44,7 @@ const ROLE_NAV_ITEMS: Record<string, NavItem[]> = {
     { label: "Overview", path: "/dashboard" },
     { label: "Members", path: "/members" },
     { label: "Check-in", path: "/check-in" },
+    { label: "Equipment", path: "/equipment" },
     { label: "Payments", path: "/payments" },
     { label: "Bank transfers", path: "/bank-transfers" },
     { label: "Plans", path: "/plans" },
@@ -57,6 +59,7 @@ const ROLE_NAV_ITEMS: Record<string, NavItem[]> = {
     { label: "Overview", path: "/dashboard" },
     { label: "Members", path: "/members" },
     { label: "Check-in", path: "/check-in" },
+    { label: "Equipment", path: "/equipment" },
     { label: "Payments", path: "/payments" },
     { label: "Plans", path: "/plans" },
     { label: "Trainers", path: "/trainers" },
@@ -68,15 +71,18 @@ const ROLE_NAV_ITEMS: Record<string, NavItem[]> = {
   reception: [
     { label: "Members", path: "/members" },
     { label: "Check-in", path: "/check-in" },
+    { label: "Equipment", path: "/equipment" },
   ],
   trainer: [
     { label: "Overview", path: "/dashboard" },
     { label: "My clients", path: "/my-clients" },
     { label: "Member measurements", path: "/measurements" },
+    { label: "Equipment", path: "/equipment" },
   ],
   member: [
     { label: "Home", path: "/dashboard" },
     { label: "My membership", path: "/membership" },
+    { label: "Equipment", path: "/equipment" },
     { label: "Freeze request", path: "/freeze-request" },
     { label: "My payments", path: "/payments" },
     { label: "Profile", path: "/profile" },
@@ -403,6 +409,15 @@ export const DashboardScreen: React.FC = () => {
       return (
         <SectionErrorBoundary title="Trainer Measurements">
           <TrainerMeasurementsSection />
+        </SectionErrorBoundary>
+      );
+    }
+
+    // Equipment Catalog & Maintenance
+    if (currentPath.startsWith("/equipment")) {
+      return (
+        <SectionErrorBoundary title="Gym Equipment">
+          <EquipmentSection userRole={role} />
         </SectionErrorBoundary>
       );
     }
