@@ -303,3 +303,30 @@ class TestTelegramBridgeAndSettings:
         auth_client(api_client, member, gym_tenant_a)
         res_mem = api_client.post("/api/gym/settings/telegram/test/")
         assert res_mem.status_code == 403
+
+    def test_telegram_channel_uniqueness_across_gyms(
+        self, api_client, gym_tenant_a, gym_tenant_b
+    ):
+        """A second gym entering an already-used Telegram channel is rejected."""
+        owner_a = create_user(gym_tenant_a, User.ROLE_OWNER, "owner_a_tg@bole.com")
+        owner_b = create_user(gym_tenant_b, User.ROLE_OWNER, "owner_b_tg@adama.com")
+
+        # Gym A configures channel
+        auth_client(api_client, owner_a, gym_tenant_a)
+        res_a = api_client.patch(
+            "/api/gym/settings/",
+            {"telegram_channel": "@fitgate_announcements"},
+            format="json",
+        )
+        assert res_a.status_code == 200
+        assert res_a.data["telegram_channel"] == "@fitgate_announcements"
+
+        # Gym B attempts to configure the same channel -> rejected
+        auth_client(api_client, owner_b, gym_tenant_b)
+        res_b = api_client.patch(
+            "/api/gym/settings/",
+            {"telegram_channel": "@fitgate_announcements"},
+            format="json",
+        )
+        assert res_b.status_code == 400
+        assert "already connected to another gym" in str(res_b.data)

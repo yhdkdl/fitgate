@@ -412,7 +412,7 @@ export const GymBrandingSection: React.FC<GymBrandingSectionProps> = ({
           <FormField
             id="telegram_channel"
             label="Telegram Channel Bridge (Optional)"
-            helpText="Enter your gym's public announcement channel (e.g. @fitgate_bole) to broadcast notice board posts."
+            helpText="Add the FitGate platform bot to your public Telegram channel as an Administrator with 'Post Messages' rights, enter your channel handle here (e.g. @your_gym_channel), save settings, and press 'Send test message'."
             error={fieldErrors.telegram_channel}
           >
             <div className="flex flex-col sm:flex-row gap-2">

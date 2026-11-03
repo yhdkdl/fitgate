@@ -477,7 +477,22 @@ def update_gym_settings(
         config.is_equipment_list_complete = bool(data["is_equipment_list_complete"])
         update_fields.append("is_equipment_list_complete")
     if "telegram_channel" in data:
-        config.telegram_channel = data["telegram_channel"] or ""
+        raw_chan = (data["telegram_channel"] or "").strip()
+        if raw_chan:
+            existing = (
+                GymConfig.objects.filter(telegram_channel__iexact=raw_chan)
+                .exclude(gym=gym)
+                .first()
+            )
+            if existing:
+                raise ValidationError(
+                    {
+                        "telegram_channel": [
+                            "This Telegram channel is already connected to another gym."
+                        ]
+                    }
+                )
+        config.telegram_channel = raw_chan
         update_fields.append("telegram_channel")
 
     if "freeze_days_allowed" in data:

@@ -396,7 +396,21 @@ class GymSettingsUpdateSerializer(serializers.Serializer):
     def validate_telegram_channel(self, value):
         from apps.core.validators import validate_telegram_channel
 
-        return validate_telegram_channel(value)
+        cleaned = validate_telegram_channel(value)
+        if cleaned:
+            from apps.tenants.models import GymConfig
+
+            tenant = self.context.get("tenant") or getattr(
+                self.context.get("request"), "tenant", None
+            )
+            qs = GymConfig.objects.filter(telegram_channel__iexact=cleaned)
+            if tenant:
+                qs = qs.exclude(gym=tenant)
+            if qs.exists():
+                raise serializers.ValidationError(
+                    "This Telegram channel is already connected to another gym."
+                )
+        return cleaned
 
 
 class ChecklistItemSerializer(serializers.Serializer):
