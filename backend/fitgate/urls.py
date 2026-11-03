@@ -115,6 +115,7 @@ urlpatterns = [
     path("", include("apps.payments.urls")),
     path("", include("apps.trainers.urls")),
     path("api/gym/", include("apps.equipment.urls")),
+    path("api/gym/", include("apps.classes.urls")),
     # OpenAPI Documentation
     path("api/schema/", FitGateSpectacularAPIView.as_view(), name="schema"),
     path(

@@ -34,6 +34,7 @@ import { EquipmentSection } from "../components/equipment/EquipmentSection";
 import { AnalyticsOverviewSection } from "../components/analytics/AnalyticsOverviewSection";
 import { NoticeBoardSection } from "../components/notices/NoticeBoardSection";
 import { ExpensesSection } from "../components/expenses/ExpensesSection";
+import { ClassScheduleSection } from "../components/classes/ClassScheduleSection";
 import { useAuth } from "../context/AuthContext";
 import { getTenantFromHostname } from "../utils/tenant";
 
@@ -46,6 +47,7 @@ const ROLE_NAV_ITEMS: Record<string, NavItem[]> = {
   owner: [
     { label: "Overview", path: "/dashboard" },
     { label: "Members", path: "/members" },
+    { label: "Classes", path: "/classes" },
     { label: "Check-in", path: "/check-in" },
     { label: "Equipment", path: "/equipment" },
     { label: "Payments", path: "/payments" },
@@ -63,6 +65,7 @@ const ROLE_NAV_ITEMS: Record<string, NavItem[]> = {
   manager: [
     { label: "Overview", path: "/dashboard" },
     { label: "Members", path: "/members" },
+    { label: "Classes", path: "/classes" },
     { label: "Check-in", path: "/check-in" },
     { label: "Equipment", path: "/equipment" },
     { label: "Payments", path: "/payments" },
@@ -77,12 +80,14 @@ const ROLE_NAV_ITEMS: Record<string, NavItem[]> = {
   ],
   reception: [
     { label: "Members", path: "/members" },
+    { label: "Classes", path: "/classes" },
     { label: "Check-in", path: "/check-in" },
     { label: "Equipment", path: "/equipment" },
     { label: "Notices", path: "/notices" },
   ],
   trainer: [
     { label: "Overview", path: "/dashboard" },
+    { label: "My classes", path: "/my-classes" },
     { label: "My clients", path: "/my-clients" },
     { label: "Member measurements", path: "/measurements" },
     { label: "Equipment", path: "/equipment" },
@@ -90,6 +95,7 @@ const ROLE_NAV_ITEMS: Record<string, NavItem[]> = {
   ],
   member: [
     { label: "Home", path: "/dashboard" },
+    { label: "Classes", path: "/classes" },
     { label: "My membership", path: "/membership" },
     { label: "Equipment", path: "/equipment" },
     { label: "Freeze request", path: "/freeze-request" },
@@ -149,17 +155,26 @@ export const DashboardScreen: React.FC = () => {
     name?: string;
     logo?: string | null;
     brand_color?: string | null;
+    has_group_classes?: boolean;
   } | null>(null);
 
   const role = user?.role || "member";
   const userRoleNav = useMemo<Array<{ label: string; path: string; icon?: React.ReactNode }>>(
-    () =>
-      ROLE_NAV_ITEMS[role] ||
-      (dashboardConfig?.navigation as Array<{ label: string; path: string; icon?: React.ReactNode }>) || [
-        { label: "Overview", path: "/dashboard" },
-        { label: "Profile", path: "/profile" },
-      ],
-    [role, dashboardConfig?.navigation]
+    () => {
+      const baseNav =
+        ROLE_NAV_ITEMS[role] ||
+        (dashboardConfig?.navigation as Array<{ label: string; path: string; icon?: React.ReactNode }>) || [
+          { label: "Overview", path: "/dashboard" },
+          { label: "Profile", path: "/profile" },
+        ];
+      if (gymBranding && gymBranding.has_group_classes === false) {
+        return baseNav.filter(
+          (item) => item.path !== "/classes" && item.path !== "/my-classes"
+        );
+      }
+      return baseNav;
+    },
+    [role, dashboardConfig?.navigation, gymBranding]
   );
 
   const currentPath = location.pathname.replace(/\/+$/, "") || "/dashboard";
@@ -207,6 +222,7 @@ export const DashboardScreen: React.FC = () => {
             name: res.name,
             logo: res.logo,
             brand_color: res.brand_color,
+            has_group_classes: res.has_group_classes,
           });
         }
       })
@@ -446,6 +462,24 @@ export const DashboardScreen: React.FC = () => {
       return (
         <SectionErrorBoundary title="Expenses & Reports">
           <ExpensesSection userRole={role} />
+        </SectionErrorBoundary>
+      );
+    }
+
+    // Group Classes (Sprint 26)
+    if (currentPath.startsWith("/classes")) {
+      return (
+        <SectionErrorBoundary title="Group Classes">
+          <ClassScheduleSection userRole={role} />
+        </SectionErrorBoundary>
+      );
+    }
+
+    // Trainer: My Classes (Sprint 26)
+    if (currentPath.startsWith("/my-classes")) {
+      return (
+        <SectionErrorBoundary title="My Classes">
+          <ClassScheduleSection userRole={role} />
         </SectionErrorBoundary>
       );
     }

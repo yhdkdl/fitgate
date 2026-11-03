@@ -443,6 +443,7 @@ class GymPublicEntryResponseSerializer(serializers.Serializer):
     currency = serializers.CharField(required=False)
     message = serializers.CharField(required=False)
     online_payment_verified = serializers.BooleanField(default=False)
+    has_group_classes = serializers.BooleanField(default=False)
 
 
 class GymNoticeSerializer(serializers.ModelSerializer):

@@ -27,6 +27,7 @@ export type GymPublicEntryResponse =
       price_etb: string;
       trainer_inclusive: boolean;
     }>;
+    has_group_classes?: boolean;
   };
 export type FirstRunChecklistResponse =
   components["schemas"]["FirstRunChecklistResponse"];

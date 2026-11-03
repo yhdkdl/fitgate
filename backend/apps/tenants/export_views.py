@@ -16,11 +16,12 @@ from django.core.exceptions import ValidationError
 from django.http import HttpResponse
 from django.utils import timezone
 from rest_framework import status
+from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.accounts.models import AuditLog
-from apps.accounts.permissions import IsOwnerOrManager
+from apps.accounts.permissions import IsOwnerOrManager, RequirePasswordChanged
 from apps.attendance.models import Attendance
 from apps.core.validators import sanitize_csv_cell, validate_export_date_range
 from apps.memberships.models import Member, MemberSubscription
@@ -37,7 +38,7 @@ class GymDataExportView(APIView):
     - attendance: Date and Time, Member Name, Check-in Method
     """
 
-    permission_classes = [IsOwnerOrManager]
+    permission_classes = [IsAuthenticated, RequirePasswordChanged, IsOwnerOrManager]
 
     VALID_EXPORT_TYPES = ("members", "payments", "attendance")
 
