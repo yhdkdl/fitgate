@@ -507,7 +507,7 @@ export const ExpensesSection: React.FC<ExpensesSectionProps> = ({ userRole }) =>
                     ETB
                   </span>
                   <span className="text-[11px] text-text-muted block">
-                    Confirmed receipts minus refunds
+                    Confirmed receipts minus reversed payments
                   </span>
                 </Card>
 
