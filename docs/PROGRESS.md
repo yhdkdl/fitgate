@@ -109,3 +109,15 @@ From Sprint 10, check-in directly reads MemberSubscription and verifies valid pl
   - `IsSuperAdmin` and `RequirePasswordChanged` enforced on all `/api/platform/gyms/*` endpoints. Tested: Owner, Manager, Trainer, Reception, Member receive 403; unauthenticated receives 401.
   - Certificate safeguard: `TenantSubdomainMiddleware` checks `tls_confirmed_at`; unconfirmed subdomains return HTTP 503 `still_securing` for all `/api/` paths except `api/health/` and `api/public/gym-entry/` (tested).
   - Transaction atomicity: Provisioning failure with cPanel UAPI triggers complete database rollback of GymTenant, GymConfig, Payment, and User records (tested).
+
+## Fix / Increment 5: Equipment Registry Rules & Pricing (November 2, 2026)
+
+- **Branch:** `fix/equipment-registry-rules`
+- **Scope:**
+  - Owner setting `is_equipment_list_complete` (default false) in Gym Settings.
+  - Three plan generation equipment modes (profile only, unusable removed, complete list intersection) with bodyweight allowed.
+  - Training plan review screen indicates equipment source.
+  - Equipment registry screen displays `Categories registered: x of y`.
+  - Unit purchase price field with `Total investment` summary restricted to Owner/Manager, price audit logging.
+  - Member equipment card privacy (no serial, notes, or prices; unavailable filtered when setting off).
+- **Status:** In progress.

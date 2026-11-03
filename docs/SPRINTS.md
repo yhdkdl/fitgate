@@ -640,3 +640,13 @@ _Increment 6 runs after Increment 7; go/no-go decision date: to be set by the ow
 - Move freezegun to a dev/test requirements file and check @types/qrcode.react is needed with qrcode.react v4.
 - Alert close button min 44px per DESIGN.md.
 - [x] Before the staging deploy: pin exact versions and split dev/test packages (pytest, freezegun) from production requirements.txt. The Sprint 8 and Increment 1 reports gave different versions for cryptography and freezegun, and different QR libraries (qrcode vs qrcode.react), so regenerate the list from pip freeze / npm ls. (Done in Staging deploy prep).
+
+### Sprint 25 Enhancements: Equipment Registry Rules & Plan Generation (November 2, 2026)
+
+- [x] Owner setting "My equipment list is complete" in Gym Settings (`is_equipment_list_complete`, default false).
+- [x] Three plan generation modes: registry empty (member profile only), registry populated & setting off (unusable items removed), setting on (complete list intersection). Bodyweight always permitted.
+- [x] Training plan review screen displays `Equipment source: member profile only | gym registry (unusable items removed) | gym registry (complete list)`.
+- [x] Equipment screen displays note and `Categories registered: x of y`.
+- [x] Equipment optional unit purchase price (> 0, up to 10,000,000.00 ETB, 2 decimals).
+- [x] Equipment screen shows `Total investment` with `N items have no price` note for Owner and Manager only; hidden from Trainer, Reception, Member. Price edits audit-logged.
+- [x] Member equipment view hides maintenance notes, serial numbers, and prices; unavailable equipment hidden unless Owner enables "Members see unavailable equipment".
