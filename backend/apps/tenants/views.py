@@ -1130,3 +1130,151 @@ class GymAnalyticsOverviewView(APIView):
 
         data = get_gym_analytics_overview(tenant)
         return Response(data, status=status.HTTP_200_OK)
+
+
+class GymNoticeListCreateView(APIView):
+    """
+    List notices for all authenticated gym users (members and staff).
+    Post notice for Owner and Manager only, with optional Telegram channel broadcast.
+    """
+
+    permission_classes = [IsAuthenticated, RequirePasswordChanged]
+
+    def get(self, request, *args, **kwargs):
+        from apps.tenants.models import GymNotice
+        from apps.tenants.serializers import GymNoticeSerializer
+
+        tenant = getattr(request, "tenant", None)
+        if not tenant:
+            return Response([], status=status.HTTP_200_OK)
+
+        notices = GymNotice.objects.filter(gym=tenant).order_by("-created_at")
+        serializer = GymNoticeSerializer(notices, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+    def post(self, request, *args, **kwargs):
+        from apps.accounts.models import User
+        from apps.accounts.services import record_audit_log
+        from apps.tenants.models import GymConfig, GymNotice
+        from apps.tenants.serializers import GymNoticeSerializer
+        from apps.tenants.telegram import send_telegram_channel_message
+
+        tenant = getattr(request, "tenant", None)
+        if not tenant:
+            return Response(
+                {"detail": "Tenant required."}, status=status.HTTP_400_BAD_REQUEST
+            )
+
+        role = getattr(request.user, "role", None)
+        if role not in (User.ROLE_OWNER, User.ROLE_MANAGER):
+            raise PermissionDenied("Only Owner and Manager can post announcements.")
+
+        serializer = GymNoticeSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        notice = GymNotice.objects.create(
+            gym=tenant,
+            posted_by=request.user,
+            title=serializer.validated_data["title"],
+            body=serializer.validated_data["body"],
+        )
+
+        config = GymConfig.objects.filter(gym=tenant).first()
+        telegram_channel = getattr(config, "telegram_channel", "") if config else ""
+        telegram_sent = False
+        telegram_note = "Telegram channel is not configured for this gym."
+
+        if telegram_channel:
+            telegram_msg = f"*{notice.title}*\n\n{notice.body}"
+            telegram_sent, telegram_note = send_telegram_channel_message(
+                channel=telegram_channel,
+                message=telegram_msg,
+            )
+
+        record_audit_log(
+            actor=request.user,
+            action_type="notice_posted",
+            affected_record_type="GymNotice",
+            affected_record_id=str(notice.id),
+            gym=tenant,
+            metadata={
+                "title": notice.title,
+                "telegram_channel": telegram_channel,
+                "telegram_sent": telegram_sent,
+            },
+        )
+
+        data = GymNoticeSerializer(notice).data
+        data["telegram_sent"] = telegram_sent
+        data["telegram_note"] = telegram_note
+        return Response(data, status=status.HTTP_201_CREATED)
+
+
+class GymNoticeDetailView(APIView):
+    """Delete a notice board announcement (Owner and Manager only)."""
+
+    permission_classes = [IsAuthenticated, RequirePasswordChanged]
+
+    def delete(self, request, pk, *args, **kwargs):
+        from apps.accounts.models import User
+        from apps.accounts.services import record_audit_log
+        from apps.tenants.models import GymNotice
+
+        tenant = getattr(request, "tenant", None)
+        role = getattr(request.user, "role", None)
+        if role not in (User.ROLE_OWNER, User.ROLE_MANAGER):
+            raise PermissionDenied("Only Owner and Manager can delete announcements.")
+
+        try:
+            notice = GymNotice.objects.get(id=pk, gym=tenant)
+        except GymNotice.DoesNotExist:
+            return Response(
+                {"detail": "Notice not found."}, status=status.HTTP_404_NOT_FOUND
+            )
+
+        notice_title = notice.title
+        notice_id = str(notice.id)
+        notice.delete()
+
+        record_audit_log(
+            actor=request.user,
+            action_type="notice_deleted",
+            affected_record_type="GymNotice",
+            affected_record_id=notice_id,
+            gym=tenant,
+            metadata={"title": notice_title},
+        )
+
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class TelegramTestMessageView(APIView):
+    """Send a test message to the configured gym Telegram channel (Owner only)."""
+
+    permission_classes = [IsAuthenticated, RequirePasswordChanged, CanEditGymSettings]
+
+    def post(self, request, *args, **kwargs):
+        from apps.tenants.models import GymConfig
+        from apps.tenants.telegram import send_telegram_channel_message
+
+        tenant = getattr(request, "tenant", None)
+        config = GymConfig.objects.filter(gym=tenant).first()
+        channel = getattr(config, "telegram_channel", "") if config else ""
+
+        if not channel:
+            return Response(
+                {
+                    "success": False,
+                    "detail": "Please configure and save a Telegram channel first.",
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        test_msg = f"🔔 FitGate Test: Telegram channel broadcast is configured successfully for {tenant.name}!"
+        success, note = send_telegram_channel_message(channel, test_msg)
+
+        return Response(
+            {"success": success, "detail": note},
+            status=status.HTTP_200_OK if success else status.HTTP_400_BAD_REQUEST,
+        )

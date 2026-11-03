@@ -170,6 +170,7 @@ class GymConfig(models.Model):
     logo = models.CharField(max_length=500, null=True, blank=True)
     show_unavailable_equipment = models.BooleanField(default=False)
     is_equipment_list_complete = models.BooleanField(default=False)
+    telegram_channel = models.CharField(max_length=33, blank=True, default="")
     first_run_dismissed_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:
@@ -377,3 +378,31 @@ class DemoRequest(models.Model):
 
     def __str__(self):
         return f"DemoRequest({self.gym_name} - {self.status})"
+
+
+class GymNotice(TenantAwareModel):
+    """
+    Notice board announcement posted by Owner or Manager.
+    Visible to all gym members on Home and Notices views without creating per-member notification rows.
+    """
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    title = models.CharField(max_length=100)
+    body = models.TextField(max_length=1000)
+    posted_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="posted_notices",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+        verbose_name = "Gym Notice"
+        verbose_name_plural = "Gym Notices"
+
+    def __str__(self):
+        return f"[{self.gym.name}] {self.title}"
