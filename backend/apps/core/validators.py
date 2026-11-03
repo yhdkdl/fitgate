@@ -512,6 +512,57 @@ def validate_date_range(
         raise ValidationError("From date cannot be after to date.")
 
 
+def validate_export_date_range(
+    start_date_val: Optional[Union[datetime.date, str]],
+    end_date_val: Optional[Union[datetime.date, str]],
+) -> tuple[Optional[datetime.date], Optional[datetime.date]]:
+    """
+    Validate optional export start_date and end_date.
+    Ensures valid ISO format, start_date <= end_date, and maximum span of 366 days (1 year).
+    """
+    start_date = None
+    end_date = None
+
+    if start_date_val:
+        if isinstance(start_date_val, datetime.date):
+            start_date = start_date_val
+        else:
+            try:
+                start_date = datetime.date.fromisoformat(str(start_date_val).strip())
+            except (ValueError, TypeError):
+                raise ValidationError("Invalid start date format. Use YYYY-MM-DD.")
+
+    if end_date_val:
+        if isinstance(end_date_val, datetime.date):
+            end_date = end_date_val
+        else:
+            try:
+                end_date = datetime.date.fromisoformat(str(end_date_val).strip())
+            except (ValueError, TypeError):
+                raise ValidationError("Invalid end date format. Use YYYY-MM-DD.")
+
+    if start_date and end_date:
+        if start_date > end_date:
+            raise ValidationError("Start date cannot be after end date.")
+        if (end_date - start_date).days > 366:
+            raise ValidationError("Export date range cannot exceed 1 year.")
+
+    return start_date, end_date
+
+
+def sanitize_csv_cell(value: Any) -> str:
+    """
+    Sanitize value to prevent spreadsheet formula injection.
+    Prefix with a single quote if the string representation begins with =, +, -, or @.
+    """
+    if value is None:
+        return ""
+    val_str = str(value)
+    if val_str and val_str[0] in ("=", "+", "-", "@"):
+        return f"'{val_str}"
+    return val_str
+
+
 def validate_text_length(
     value: str,
     min_len: int = 1,

@@ -2,6 +2,7 @@
 
 from django.urls import path
 
+from apps.tenants.export_views import GymDataExportView
 from apps.tenants.views import (
     ConfirmGymTLSView,
     CreateGymView,
@@ -128,5 +129,11 @@ urlpatterns = [
         "api/gym/settings/telegram/test/",
         TelegramTestMessageView.as_view(),
         name="gym-settings-telegram-test",
+    ),
+    # Data Export (Sprint 29)
+    path(
+        "api/gym/export/<str:export_type>/",
+        GymDataExportView.as_view(),
+        name="gym-data-export",
     ),
 ]

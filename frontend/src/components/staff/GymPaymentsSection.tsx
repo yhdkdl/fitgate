@@ -13,6 +13,7 @@ import { useAuth } from "../../context/AuthContext";
 import { RecordCashPaymentModal } from "./RecordCashPaymentModal";
 import { RecordBankTransferModal } from "./RecordBankTransferModal";
 import { DigitalReceiptModal } from "../ui/DigitalReceiptModal";
+import { ExportDataModal } from "../export/ExportDataModal";
 import { AuthenticatedImage } from "../ui/AuthenticatedImage";
 
 interface GymPaymentsSectionProps {
@@ -24,6 +25,8 @@ export const GymPaymentsSection: React.FC<GymPaymentsSectionProps> = ({
 }) => {
   const { user } = useAuth();
   const isOwner = user?.role === "owner";
+  const isOwnerOrManager = user?.role === "owner" || user?.role === "manager";
+  const [showExportModal, setShowExportModal] = useState(false);
 
   const [activeTab, setActiveTab] = useState<"payments" | "unreconciled">(
     defaultTab
@@ -233,6 +236,27 @@ export const GymPaymentsSection: React.FC<GymPaymentsSectionProps> = ({
           </p>
         </div>
         <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
+          {isOwnerOrManager && (
+            <button
+              type="button"
+              onClick={() => setShowExportModal(true)}
+              style={{
+                backgroundColor: "#334155",
+                color: "#ffffff",
+                border: "1px solid #475569",
+                borderRadius: "6px",
+                padding: "8px 14px",
+                fontSize: "13px",
+                fontWeight: 600,
+                cursor: "pointer",
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "6px",
+              }}
+            >
+              📥 Export CSV
+            </button>
+          )}
           <button
             type="button"
             onClick={() => setShowRecordCashModal(true)}
@@ -1198,6 +1222,14 @@ export const GymPaymentsSection: React.FC<GymPaymentsSectionProps> = ({
           if (isOwner) fetchUnreconciled();
         }}
       />
+
+      {isOwnerOrManager && (
+        <ExportDataModal
+          isOpen={showExportModal}
+          onClose={() => setShowExportModal(false)}
+          exportType="payments"
+        />
+      )}
     </div>
   );
 };
