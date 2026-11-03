@@ -78,6 +78,7 @@ INSTALLED_APPS = [
     "apps.memberships.apps.MembershipsConfig",
     "apps.attendance.apps.AttendanceConfig",
     "apps.trainers.apps.TrainersConfig",
+    "apps.equipment.apps.EquipmentConfig",
 ]
 
 

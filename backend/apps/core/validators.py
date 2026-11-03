@@ -2,11 +2,13 @@
 
 import datetime
 import re
+from datetime import date
 from decimal import Decimal, InvalidOperation
 from typing import Any, Optional, Union
 
 from django.core.exceptions import ValidationError
 from django.core.validators import EmailValidator
+from django.utils import timezone
 
 # Phone validator
 # Allowed chars: digits, optional leading +, spaces, hyphens
@@ -796,3 +798,107 @@ def validate_plan_rejection_reasons(
         other_val = ""
 
     return cleaned_codes, other_val
+
+
+def validate_equipment_category(value: str) -> str:
+    """Equipment category is required and must come from the shared equipment catalog."""
+    from apps.equipment.constants import EQUIPMENT_CATEGORY_CODES
+
+    if not value or not isinstance(value, str):
+        raise ValidationError("Equipment category is required.")
+    cleaned = str(value).strip().lower()
+    if cleaned not in EQUIPMENT_CATEGORY_CODES:
+        raise ValidationError(f"Invalid equipment category: '{cleaned}'.")
+    return cleaned
+
+
+_EQUIPMENT_NAME_REGEX = re.compile(r"^[a-zA-Z0-9\s\-'.]{2,100}$")
+
+
+def validate_equipment_name(value: str) -> str:
+    """Name is free text 2 to 100 characters (letters, digits, spaces, hyphen, apostrophe, period)."""
+    if not value or not isinstance(value, str):
+        raise ValidationError("Equipment name is required.")
+    cleaned = value.strip()
+    if len(cleaned) < 2 or len(cleaned) > 100:
+        raise ValidationError(
+            "Equipment name must be 2–100 characters and contain only letters, numbers, spaces, hyphens, apostrophes, and periods."
+        )
+    if not _EQUIPMENT_NAME_REGEX.match(cleaned):
+        raise ValidationError(
+            "Equipment name must be 2–100 characters and contain only letters, numbers, spaces, hyphens, apostrophes, and periods."
+        )
+    return cleaned
+
+
+def validate_equipment_quantity(value: Any) -> int:
+    """Quantity is a whole number from 0 to 10000."""
+    try:
+        val = int(value)
+    except (TypeError, ValueError):
+        raise ValidationError("Quantity must be a whole number between 0 and 10,000.")
+    if val < 0 or val > 10000:
+        raise ValidationError("Quantity must be a whole number between 0 and 10,000.")
+    return val
+
+
+def validate_equipment_min_quantity(value: Any) -> Optional[int]:
+    """Minimum quantity is an optional whole number from 0 to 10000."""
+    if value is None or value == "":
+        return None
+    try:
+        val = int(value)
+    except (TypeError, ValueError):
+        raise ValidationError(
+            "Minimum quantity must be a whole number between 0 and 10,000."
+        )
+    if val < 0 or val > 10000:
+        raise ValidationError(
+            "Minimum quantity must be a whole number between 0 and 10,000."
+        )
+    return val
+
+
+def validate_equipment_purchase_date(value: Any) -> Optional[date]:
+    """Purchase date is optional, not in the future."""
+    if not value:
+        return None
+    if isinstance(value, str):
+        try:
+            value = date.fromisoformat(value)
+        except ValueError:
+            raise ValidationError(
+                "Invalid date format for purchase date (use YYYY-MM-DD)."
+            )
+    elif isinstance(value, datetime.datetime):
+        value = value.date()
+    elif not isinstance(value, date):
+        raise ValidationError("Purchase date must be a valid date.")
+
+    if value > timezone.localdate():
+        raise ValidationError("Purchase date cannot be in the future.")
+    return value
+
+
+def validate_equipment_issue_reason(
+    reason: str, other_details: Optional[str] = None
+) -> tuple[str, str]:
+    """Reporting an issue uses a predefined list of reasons; other requires short text up to 200 chars."""
+    from apps.equipment.constants import ISSUE_REASON_CODES
+
+    if not reason or not isinstance(reason, str):
+        raise ValidationError("Please select an issue reason.")
+    cleaned_reason = str(reason).strip().lower()
+    if cleaned_reason not in ISSUE_REASON_CODES:
+        raise ValidationError(f"Invalid issue reason: '{cleaned_reason}'.")
+
+    details = str(other_details or "").strip()
+    if cleaned_reason == "other":
+        if not details:
+            raise ValidationError("Please specify issue details (max 200 characters).")
+        if len(details) > 200:
+            raise ValidationError("Issue details cannot exceed 200 characters.")
+    else:
+        details = ""
+
+    return cleaned_reason, details
