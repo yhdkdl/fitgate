@@ -75,6 +75,27 @@ export interface Member {
     plan_id: string;
     plan_name: string;
     plan_price_etb: string;
+    trainer_inclusive?: boolean;
+    status?: string;
+    start_date: string;
+    end_date: string;
+    duration_value?: number;
+    duration_unit?: string;
+    total_days?: number;
+    used_days?: number;
+    remaining_days?: number;
+  } | null;
+  queued_subscription?: {
+    id: string;
+    plan_id: string;
+    plan_name: string;
+    trainer_inclusive?: boolean;
+    start_date: string;
+    end_date: string;
+    status: string;
+  } | null;
+  active_freeze?: {
+    id: string;
     start_date: string;
     end_date: string;
   } | null;

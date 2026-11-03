@@ -223,13 +223,77 @@ class MemberSerializer(serializers.ModelSerializer):
     def get_active_subscription(self, obj):
         sub = obj.active_subscription
         if sub and sub.plan:
+            from apps.payments.services import calculate_subscription_days
+
+            total_days, used_days, remaining_days = calculate_subscription_days(sub)
             return {
                 "id": str(sub.id),
                 "plan_id": str(sub.plan.id),
                 "plan_name": sub.plan.name,
                 "plan_price_etb": str(sub.plan.price_etb),
+                "trainer_inclusive": bool(sub.plan.trainer_inclusive),
+                "status": sub.status,
                 "start_date": str(sub.start_date),
                 "end_date": str(sub.end_date),
+                "duration_value": sub.plan.duration_value,
+                "duration_unit": sub.plan.duration_unit,
+                "total_days": total_days,
+                "used_days": used_days,
+                "remaining_days": remaining_days,
+            }
+        return None
+
+    def get_queued_subscription(self, obj):
+        from django.utils import timezone
+
+        from apps.memberships.models import MemberSubscription
+
+        today = timezone.localdate()
+        queued = (
+            MemberSubscription.all_objects.select_related("plan")
+            .filter(
+                gym=obj.gym,
+                member=obj,
+                start_date__gt=today,
+            )
+            .exclude(status=MemberSubscription.STATUS_SUPERSEDED)
+            .order_by("start_date")
+            .first()
+        )
+        if queued and queued.plan:
+            return {
+                "id": str(queued.id),
+                "plan_id": str(queued.plan.id),
+                "plan_name": queued.plan.name,
+                "trainer_inclusive": bool(queued.plan.trainer_inclusive),
+                "start_date": str(queued.start_date),
+                "end_date": str(queued.end_date),
+                "status": queued.status,
+            }
+        return None
+
+    def get_active_freeze(self, obj):
+        from django.utils import timezone
+
+        from apps.memberships.models import MemberFreeze
+
+        today = timezone.localdate()
+        freeze = (
+            MemberFreeze.all_objects.filter(
+                gym=obj.gym,
+                member=obj,
+                status=MemberFreeze.STATUS_APPROVED,
+                start_date__lte=today,
+                end_date__gte=today,
+            )
+            .order_by("-end_date")
+            .first()
+        )
+        if freeze:
+            return {
+                "id": str(freeze.id),
+                "start_date": str(freeze.start_date),
+                "end_date": str(freeze.end_date),
             }
         return None
 
@@ -285,6 +349,8 @@ class MemberDetailSerializer(serializers.ModelSerializer):
     assigned_trainer = serializers.SerializerMethodField(read_only=True)
     is_on_trainer_plan = serializers.SerializerMethodField(read_only=True)
     active_subscription = serializers.SerializerMethodField(read_only=True)
+    queued_subscription = serializers.SerializerMethodField(read_only=True)
+    active_freeze = serializers.SerializerMethodField(read_only=True)
 
     class Meta:
         model = Member
@@ -306,6 +372,8 @@ class MemberDetailSerializer(serializers.ModelSerializer):
             "assigned_trainer",
             "is_on_trainer_plan",
             "active_subscription",
+            "queued_subscription",
+            "active_freeze",
         ]
         read_only_fields = [
             "id",
@@ -342,13 +410,77 @@ class MemberDetailSerializer(serializers.ModelSerializer):
     def get_active_subscription(self, obj):
         sub = obj.active_subscription
         if sub and sub.plan:
+            from apps.payments.services import calculate_subscription_days
+
+            total_days, used_days, remaining_days = calculate_subscription_days(sub)
             return {
                 "id": str(sub.id),
                 "plan_id": str(sub.plan.id),
                 "plan_name": sub.plan.name,
                 "plan_price_etb": str(sub.plan.price_etb),
+                "trainer_inclusive": bool(sub.plan.trainer_inclusive),
+                "status": sub.status,
                 "start_date": str(sub.start_date),
                 "end_date": str(sub.end_date),
+                "duration_value": sub.plan.duration_value,
+                "duration_unit": sub.plan.duration_unit,
+                "total_days": total_days,
+                "used_days": used_days,
+                "remaining_days": remaining_days,
+            }
+        return None
+
+    def get_queued_subscription(self, obj):
+        from django.utils import timezone
+
+        from apps.memberships.models import MemberSubscription
+
+        today = timezone.localdate()
+        queued = (
+            MemberSubscription.all_objects.select_related("plan")
+            .filter(
+                gym=obj.gym,
+                member=obj,
+                start_date__gt=today,
+            )
+            .exclude(status=MemberSubscription.STATUS_SUPERSEDED)
+            .order_by("start_date")
+            .first()
+        )
+        if queued and queued.plan:
+            return {
+                "id": str(queued.id),
+                "plan_id": str(queued.plan.id),
+                "plan_name": queued.plan.name,
+                "trainer_inclusive": bool(queued.plan.trainer_inclusive),
+                "start_date": str(queued.start_date),
+                "end_date": str(queued.end_date),
+                "status": queued.status,
+            }
+        return None
+
+    def get_active_freeze(self, obj):
+        from django.utils import timezone
+
+        from apps.memberships.models import MemberFreeze
+
+        today = timezone.localdate()
+        freeze = (
+            MemberFreeze.all_objects.filter(
+                gym=obj.gym,
+                member=obj,
+                status=MemberFreeze.STATUS_APPROVED,
+                start_date__lte=today,
+                end_date__gte=today,
+            )
+            .order_by("-end_date")
+            .first()
+        )
+        if freeze:
+            return {
+                "id": str(freeze.id),
+                "start_date": str(freeze.start_date),
+                "end_date": str(freeze.end_date),
             }
         return None
 
