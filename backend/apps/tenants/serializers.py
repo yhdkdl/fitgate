@@ -83,6 +83,7 @@ class GymConfigSerializer(serializers.ModelSerializer):
             "brand_color",
             "logo",
             "show_unavailable_equipment",
+            "is_equipment_list_complete",
             "first_run_dismissed_at",
         ]
         read_only_fields = fields
@@ -352,6 +353,7 @@ class GymSettingsUpdateSerializer(serializers.Serializer):
         max_length=7, required=False, allow_null=True, allow_blank=True
     )
     show_unavailable_equipment = serializers.BooleanField(required=False)
+    is_equipment_list_complete = serializers.BooleanField(required=False)
     member_reminder_days = serializers.ListField(
         child=serializers.IntegerField(min_value=0, max_value=90),
         max_length=10,

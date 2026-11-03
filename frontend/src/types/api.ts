@@ -2509,6 +2509,7 @@ export interface components {
             readonly brand_color: string | null;
             readonly logo: string | null;
             readonly show_unavailable_equipment: boolean;
+            readonly is_equipment_list_complete?: boolean;
             /** Format: date-time */
             readonly first_run_dismissed_at: string | null;
         };
@@ -2924,6 +2925,7 @@ export interface components {
         PatchedGymSettingsUpdateRequest: {
             brand_color?: string | null;
             show_unavailable_equipment?: boolean;
+            is_equipment_list_complete?: boolean;
             member_reminder_days?: number[];
             freeze_days_allowed?: number;
         };

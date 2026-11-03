@@ -58,6 +58,7 @@ export const EquipmentSection: React.FC<EquipmentSectionProps> = ({ userRole }) 
   const [formMinQty, setFormMinQty] = useState<number | "">("");
   const [formCondition, setFormCondition] = useState<string>("good");
   const [formPurchaseDate, setFormPurchaseDate] = useState<string>("");
+  const [formUnitPrice, setFormUnitPrice] = useState<string>("");
   const [formSubmitting, setFormSubmitting] = useState<boolean>(false);
   const [modalError, setModalError] = useState<string | null>(null);
 
@@ -101,6 +102,7 @@ export const EquipmentSection: React.FC<EquipmentSectionProps> = ({ userRole }) 
     setFormMinQty("");
     setFormCondition("good");
     setFormPurchaseDate("");
+    setFormUnitPrice("");
     setModalError(null);
     setIsAddOpen(true);
   };
@@ -114,6 +116,11 @@ export const EquipmentSection: React.FC<EquipmentSectionProps> = ({ userRole }) 
     setFormMinQty(item.min_qty_threshold !== null ? item.min_qty_threshold : "");
     setFormCondition(item.condition);
     setFormPurchaseDate(item.purchase_date || "");
+    setFormUnitPrice(
+      item.unit_purchase_price_etb !== null && item.unit_purchase_price_etb !== undefined
+        ? String(item.unit_purchase_price_etb)
+        : ""
+    );
     setModalError(null);
   };
 
@@ -130,6 +137,7 @@ export const EquipmentSection: React.FC<EquipmentSectionProps> = ({ userRole }) 
         min_qty_threshold: formMinQty === "" ? null : Number(formMinQty),
         condition: formCondition,
         purchase_date: formPurchaseDate || null,
+        unit_purchase_price_etb: formUnitPrice.trim() ? parseFloat(formUnitPrice) : null,
       });
       setIsAddOpen(false);
       await fetchEquipment();
@@ -154,6 +162,7 @@ export const EquipmentSection: React.FC<EquipmentSectionProps> = ({ userRole }) 
         min_qty_threshold: formMinQty === "" ? null : Number(formMinQty),
         condition: formCondition,
         purchase_date: formPurchaseDate || null,
+        unit_purchase_price_etb: formUnitPrice.trim() ? parseFloat(formUnitPrice) : null,
       });
       setEditingItem(null);
       await fetchEquipment();
@@ -229,6 +238,20 @@ export const EquipmentSection: React.FC<EquipmentSectionProps> = ({ userRole }) 
 
   const lowQuantityItems = equipmentList.filter((item) => item.is_low_quantity);
 
+  const distinctCategoriesCount = new Set(equipmentList.map((item) => item.category)).size;
+  const totalCategoriesCount = EQUIPMENT_CATEGORIES.length;
+
+  let totalInvestment = 0;
+  let noPriceCount = 0;
+  equipmentList.forEach((item) => {
+    const price = Number(item.unit_purchase_price_etb);
+    if (price && price > 0) {
+      totalInvestment += price * item.quantity;
+    } else {
+      noPriceCount += 1;
+    }
+  });
+
   const getCategoryLabel = (code: string) => {
     const found = EQUIPMENT_CATEGORIES.find((c) => c.code === code);
     return found ? found.label : code;
@@ -268,6 +291,39 @@ export const EquipmentSection: React.FC<EquipmentSectionProps> = ({ userRole }) 
       )}
 
       {error && <Alert variant="danger">{error}</Alert>}
+
+      {/* Categories Registered Note */}
+      <div className="p-3 bg-surface-2/60 border border-border rounded-lg text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-1">
+        <span className="text-text-muted">
+          Register all available machines and gear to keep member workout routines accurate.
+        </span>
+        <span className="font-semibold text-text whitespace-nowrap">
+          Categories registered: {distinctCategoriesCount} of {totalCategoriesCount}
+        </span>
+      </div>
+
+      {/* Total Investment Card for Owner / Manager */}
+      {canManage && (
+        <Card className="p-4 bg-surface border-border flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div>
+            <span className="text-xs uppercase tracking-wider text-text-muted block font-semibold">
+              Total Investment
+            </span>
+            <span className="text-xl font-bold text-text">
+              {totalInvestment.toLocaleString(undefined, {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2,
+              })}{" "}
+              ETB
+            </span>
+          </div>
+          <div className="text-xs text-text-muted">
+            {noPriceCount === 0
+              ? "All registered equipment items have purchase prices recorded."
+              : `${noPriceCount} item${noPriceCount === 1 ? "" : "s"} have no price.`}
+          </div>
+        </Card>
+      )}
 
       {/* Filter and Search Bar */}
       <Card className="p-4">
@@ -330,10 +386,11 @@ export const EquipmentSection: React.FC<EquipmentSectionProps> = ({ userRole }) 
                 <tr>
                   <th className="py-3 px-4">Name</th>
                   <th className="py-3 px-4">Category</th>
-                  <th className="py-3 px-4">Serial #</th>
+                  {userRole !== "member" && <th className="py-3 px-4">Serial #</th>}
                   <th className="py-3 px-4">Qty</th>
                   <th className="py-3 px-4">Condition</th>
                   <th className="py-3 px-4">Purchase Date</th>
+                  {canManage && <th className="py-3 px-4">Price (ETB)</th>}
                   {canReportIssue && <th className="py-3 px-4 text-right">Actions</th>}
                 </tr>
               </thead>
@@ -356,9 +413,11 @@ export const EquipmentSection: React.FC<EquipmentSectionProps> = ({ userRole }) 
                       <td className="py-3 px-4 text-text-muted">
                         {getCategoryLabel(item.category)}
                       </td>
-                      <td className="py-3 px-4 text-text-muted font-mono text-xs">
-                        {item.serial_number || "—"}
-                      </td>
+                      {userRole !== "member" && (
+                        <td className="py-3 px-4 text-text-muted font-mono text-xs">
+                          {item.serial_number || "—"}
+                        </td>
+                      )}
                       <td className="py-3 px-4">
                         <span className="font-semibold">{item.quantity}</span>
                         {item.min_qty_threshold !== null && (
@@ -373,6 +432,16 @@ export const EquipmentSection: React.FC<EquipmentSectionProps> = ({ userRole }) 
                       <td className="py-3 px-4 text-text-muted">
                         {item.purchase_date || "—"}
                       </td>
+                      {canManage && (
+                        <td className="py-3 px-4 font-mono text-xs">
+                          {item.unit_purchase_price_etb
+                            ? `${Number(item.unit_purchase_price_etb).toLocaleString(undefined, {
+                                minimumFractionDigits: 2,
+                                maximumFractionDigits: 2,
+                              })} ETB`
+                            : "—"}
+                        </td>
+                      )}
                       {canReportIssue && (
                         <td className="py-3 px-4 text-right space-x-2 whitespace-nowrap">
                           {canManage && (
@@ -498,6 +567,22 @@ export const EquipmentSection: React.FC<EquipmentSectionProps> = ({ userRole }) 
               />
             </div>
           </div>
+          {canManage && (
+            <div>
+              <label className="block text-xs font-medium text-text-muted mb-1">
+                Unit Purchase Price (ETB, optional)
+              </label>
+              <Input
+                type="number"
+                step="0.01"
+                min="0.01"
+                max="10000000"
+                placeholder="e.g. 45000.00"
+                value={formUnitPrice}
+                onChange={(e) => setFormUnitPrice(e.target.value)}
+              />
+            </div>
+          )}
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-xs font-medium text-text-muted mb-1">Condition</label>
@@ -587,6 +672,22 @@ export const EquipmentSection: React.FC<EquipmentSectionProps> = ({ userRole }) 
               />
             </div>
           </div>
+          {canManage && (
+            <div>
+              <label className="block text-xs font-medium text-text-muted mb-1">
+                Unit Purchase Price (ETB, optional)
+              </label>
+              <Input
+                type="number"
+                step="0.01"
+                min="0.01"
+                max="10000000"
+                placeholder="e.g. 45000.00"
+                value={formUnitPrice}
+                onChange={(e) => setFormUnitPrice(e.target.value)}
+              />
+            </div>
+          )}
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-xs font-medium text-text-muted mb-1">Condition</label>

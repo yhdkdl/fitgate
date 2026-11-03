@@ -62,7 +62,7 @@ class EquipmentListCreateView(APIView):
                     quantity__gt=0,
                 )
 
-        serializer = EquipmentSerializer(qs, many=True)
+        serializer = EquipmentSerializer(qs, many=True, context={"request": request})
         return Response(serializer.data, status=status.HTTP_200_OK)
 
     @extend_schema(
@@ -98,7 +98,8 @@ class EquipmentListCreateView(APIView):
         )
 
         return Response(
-            EquipmentSerializer(equipment).data, status=status.HTTP_201_CREATED
+            EquipmentSerializer(equipment, context={"request": request}).data,
+            status=status.HTTP_201_CREATED,
         )
 
 
@@ -141,7 +142,10 @@ class EquipmentDetailView(APIView):
     )
     def get(self, request, pk):
         item = self._get_equipment(request, pk)
-        return Response(EquipmentSerializer(item).data, status=status.HTTP_200_OK)
+        return Response(
+            EquipmentSerializer(item, context={"request": request}).data,
+            status=status.HTTP_200_OK,
+        )
 
     @extend_schema(
         tags=["equipment"],
@@ -154,6 +158,7 @@ class EquipmentDetailView(APIView):
 
     def patch(self, request, pk):
         item = self._get_equipment(request, pk)
+        old_price = item.unit_purchase_price_etb
         serializer = EquipmentCreateUpdateSerializer(
             item, data=request.data, partial=True
         )
@@ -171,7 +176,31 @@ class EquipmentDetailView(APIView):
             metadata={"updated_fields": list(serializer.validated_data.keys())},
         )
 
-        return Response(EquipmentSerializer(item).data, status=status.HTTP_200_OK)
+        if (
+            "unit_purchase_price_etb" in serializer.validated_data
+            and item.unit_purchase_price_etb != old_price
+        ):
+            record_audit_log(
+                actor=request.user,
+                action_type="equipment_price_updated",
+                affected_record_type="Equipment",
+                affected_record_id=str(item.id),
+                gym=request.tenant,
+                metadata={
+                    "name": item.name,
+                    "old_price": str(old_price) if old_price is not None else None,
+                    "new_price": (
+                        str(item.unit_purchase_price_etb)
+                        if item.unit_purchase_price_etb is not None
+                        else None
+                    ),
+                },
+            )
+
+        return Response(
+            EquipmentSerializer(item, context={"request": request}).data,
+            status=status.HTTP_200_OK,
+        )
 
     @extend_schema(
         tags=["equipment"],

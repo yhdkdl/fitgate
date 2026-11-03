@@ -56,6 +56,7 @@ export interface PlanDataStructure {
   sessions: SessionPlan[];
   nutrition?: NutritionData;
   nutrition_guidance?: NutritionData;
+  equipment_source?: string;
 }
 
 export interface TrainingPlan {
@@ -66,6 +67,7 @@ export interface TrainingPlan {
   draft_number: number;
   status: "pending_review" | "approved" | "rejected";
   generated_by_model: string;
+  equipment_source?: string;
   plan_data: PlanDataStructure;
   focus_this_week: string[];
   other_focus?: string;

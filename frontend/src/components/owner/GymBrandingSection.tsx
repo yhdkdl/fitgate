@@ -34,6 +34,8 @@ export const GymBrandingSection: React.FC<GymBrandingSectionProps> = ({
   const [logoUrl, setLogoUrl] = useState("");
   const [showUnavailableEquipment, setShowUnavailableEquipment] =
     useState(false);
+  const [isEquipmentListComplete, setIsEquipmentListComplete] =
+    useState(false);
   const [memberReminderDays, setMemberReminderDays] = useState("7, 2");
   const [freezeDaysAllowed, setFreezeDaysAllowed] = useState<number>(0);
   const [freezeDaysCap, setFreezeDaysCap] = useState<number>(30);
@@ -54,6 +56,7 @@ export const GymBrandingSection: React.FC<GymBrandingSectionProps> = ({
         setBrandColor(res.brand_color || "#2563EB");
         setLogoUrl(res.logo || "");
         setShowUnavailableEquipment(Boolean(res.show_unavailable_equipment));
+        setIsEquipmentListComplete(Boolean(res.is_equipment_list_complete));
         if (Array.isArray(res.member_reminder_days)) {
           setMemberReminderDays(res.member_reminder_days.join(", "));
         }
@@ -155,6 +158,7 @@ export const GymBrandingSection: React.FC<GymBrandingSectionProps> = ({
         {
           brand_color: trimmedColor || null,
           show_unavailable_equipment: showUnavailableEquipment,
+          is_equipment_list_complete: isEquipmentListComplete,
           member_reminder_days: reminderDays.length ? reminderDays : undefined,
           freeze_days_allowed: gymTier === "starter" ? 0 : Number(freezeDaysAllowed),
         },
@@ -353,6 +357,22 @@ export const GymBrandingSection: React.FC<GymBrandingSectionProps> = ({
             className="text-sm text-text cursor-pointer select-none"
           >
             Show unavailable equipment to members in catalog
+          </label>
+        </div>
+
+        <div className="flex items-center gap-3 pt-1">
+          <input
+            type="checkbox"
+            id="is_equipment_list_complete"
+            checked={isEquipmentListComplete}
+            onChange={(e) => setIsEquipmentListComplete(e.target.checked)}
+            className="w-5 h-5 rounded border-border bg-surface-2 text-primary focus:ring-ring cursor-pointer"
+          />
+          <label
+            htmlFor="is_equipment_list_complete"
+            className="text-sm text-text cursor-pointer select-none"
+          >
+            My equipment list is complete (AI workout plans use only registered usable gym equipment)
           </label>
         </div>
 

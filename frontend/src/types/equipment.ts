@@ -21,6 +21,7 @@ export interface EquipmentItem {
   min_qty_threshold: number | null;
   condition: "good" | "needs_maintenance" | "under_maintenance" | "out_of_service";
   purchase_date: string | null;
+  unit_purchase_price_etb?: string | number | null;
   branch_id?: string | null;
   is_low_quantity: boolean;
   maintenance_logs?: MaintenanceLog[];
@@ -36,6 +37,7 @@ export interface EquipmentCreatePayload {
   min_qty_threshold?: number | null;
   condition?: string;
   purchase_date?: string | null;
+  unit_purchase_price_etb?: string | number | null;
 }
 
 export interface EquipmentUpdatePayload {
@@ -46,6 +48,7 @@ export interface EquipmentUpdatePayload {
   min_qty_threshold?: number | null;
   condition?: string;
   purchase_date?: string | null;
+  unit_purchase_price_etb?: string | number | null;
 }
 
 export interface ReportIssuePayload {
