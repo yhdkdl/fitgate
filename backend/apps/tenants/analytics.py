@@ -1,4 +1,4 @@
-﻿"""Analytics and overview dashboard queries for Gym Owners and Managers (Sprint 27)."""
+"""Analytics and overview dashboard queries for Gym Owners and Managers (Sprint 27)."""
 
 from datetime import datetime, time, timedelta
 from decimal import Decimal
