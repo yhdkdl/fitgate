@@ -66,8 +66,8 @@
 
 Increment 5 (Equipment, analytics, communication: Sprints 25, 27, 28, 29, 29a) in progress.
 
-- Sprint 29: CSV data export (members, payments, attendance) with Excel UTF-8 BOM, formula sanitization, date range cap, and audit logging (`feature/sprint-29-csv-export`).
-- Sprint 29a: Expenses and financial reporting (`feature/sprint-29a-expenses`).
+- Sprint 29: CSV data export (members, payments, attendance) with Excel UTF-8 BOM, formula sanitization, date range cap, and audit logging (`feature/sprint-29-csv-export`, completed, unmerged per owner instructions).
+- Sprint 29a: Expenses and financial reporting (`feature/sprint-29a-expenses`, in progress).
 
 ## Next
 
