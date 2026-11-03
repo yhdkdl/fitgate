@@ -63,6 +63,8 @@
 
 Increment 5 (Equipment, analytics, communication: Sprints 25, 27, 28, 29, 29a) in progress.
 
+- fix/plan-entitlements-and-member-plan-card: Upgrade entitlement matching (trainer-inclusive guard), renewal warning, and enhanced member subscription cards.
+
 ## Next
 
 Increment 7 (Platform administration, PWA, demo, deployment).
