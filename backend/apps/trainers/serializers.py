@@ -398,6 +398,14 @@ class TrainingPlanSerializer(serializers.ModelSerializer):
     approved_by_name = serializers.CharField(
         source="approved_by.full_name", read_only=True, default=None
     )
+    equipment_source = serializers.SerializerMethodField(read_only=True)
+
+    def get_equipment_source(self, obj) -> str:
+        if getattr(obj, "equipment_source", None):
+            return obj.equipment_source
+        if isinstance(obj.plan_data, dict):
+            return obj.plan_data.get("equipment_source", "member profile only")
+        return "member profile only"
 
     class Meta:
         from apps.trainers.models import TrainingPlan
@@ -411,6 +419,7 @@ class TrainingPlanSerializer(serializers.ModelSerializer):
             "draft_number",
             "status",
             "generated_by_model",
+            "equipment_source",
             "plan_data",
             "focus_this_week",
             "other_focus",

@@ -67,6 +67,7 @@ class EquipmentSerializer(serializers.ModelSerializer):
             "min_qty_threshold",
             "condition",
             "purchase_date",
+            "unit_purchase_price_etb",
             "branch_id",
             "is_low_quantity",
             "maintenance_logs",
@@ -90,6 +91,27 @@ class EquipmentSerializer(serializers.ModelSerializer):
     def validate_purchase_date(self, value):
         return validate_equipment_purchase_date(value)
 
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        from apps.accounts.models import User
+
+        request = self.context.get("request")
+        user = getattr(request, "user", None) if request else None
+        role = getattr(user, "role", None) if user and user.is_authenticated else None
+
+        # Price visibility: strictly Owner and Manager only
+        if role not in (User.ROLE_OWNER, User.ROLE_MANAGER):
+            data.pop("unit_purchase_price_etb", None)
+
+        # Member privacy: never see maintenance notes, serial numbers, or prices
+        if role == User.ROLE_MEMBER:
+            data.pop("serial_number", None)
+            data.pop("maintenance_logs", None)
+            data.pop("min_qty_threshold", None)
+            data.pop("unit_purchase_price_etb", None)
+
+        return data
+
 
 class EquipmentCreateUpdateSerializer(serializers.ModelSerializer):
     class Meta:
@@ -102,6 +124,7 @@ class EquipmentCreateUpdateSerializer(serializers.ModelSerializer):
             "min_qty_threshold",
             "condition",
             "purchase_date",
+            "unit_purchase_price_etb",
             "branch_id",
         ]
 
@@ -119,6 +142,18 @@ class EquipmentCreateUpdateSerializer(serializers.ModelSerializer):
 
     def validate_purchase_date(self, value):
         return validate_equipment_purchase_date(value)
+
+    def validate_unit_purchase_price_etb(self, value):
+        if value is not None:
+            if value <= 0:
+                raise serializers.ValidationError(
+                    "Unit purchase price must be strictly greater than 0."
+                )
+            if value > 10000000:
+                raise serializers.ValidationError(
+                    "Unit purchase price cannot exceed 10,000,000.00 ETB."
+                )
+        return value
 
 
 class ReportIssueSerializer(serializers.Serializer):

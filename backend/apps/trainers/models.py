@@ -212,6 +212,11 @@ class TrainingPlan(TenantAwareModel):
         default=STATUS_PENDING_REVIEW,
     )
     generated_by_model = models.CharField(max_length=100, blank=True, default="")
+    equipment_source = models.CharField(
+        max_length=60,
+        default="member profile only",
+        blank=True,
+    )
     plan_data = models.JSONField(default=dict)
     focus_this_week = models.JSONField(default=list, blank=True)
     other_focus = models.CharField(max_length=200, blank=True, default="")

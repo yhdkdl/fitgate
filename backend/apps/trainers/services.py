@@ -724,6 +724,12 @@ def generate_training_plan(
 
     # 9. Save plan and audit log
     with transaction.atomic():
+        eq_source = ai_context.get("plan_parameters", {}).get(
+            "equipment_source", "member profile only"
+        )
+        if isinstance(plan_data, dict):
+            plan_data["equipment_source"] = eq_source
+
         plan = TrainingPlan.all_objects.create(
             gym=gym,
             member=member,
@@ -731,6 +737,7 @@ def generate_training_plan(
             draft_number=draft_number,
             status=TrainingPlan.STATUS_PENDING_REVIEW,
             generated_by_model=model_name,
+            equipment_source=eq_source,
             plan_data=plan_data,
             focus_this_week=cleaned_focus,
             other_focus=cleaned_other_focus,

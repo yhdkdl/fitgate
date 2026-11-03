@@ -169,6 +169,7 @@ class GymConfig(models.Model):
     )
     logo = models.CharField(max_length=500, null=True, blank=True)
     show_unavailable_equipment = models.BooleanField(default=False)
+    is_equipment_list_complete = models.BooleanField(default=False)
     first_run_dismissed_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:

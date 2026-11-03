@@ -300,6 +300,7 @@ def filter_prescribed_equipment(
     *,
     equipment_access: Optional[Union[List[str], str]] = None,
     health_limitations: Optional[Union[List[str], str]] = None,
+    usable_categories: Optional[set] = None,
 ) -> Dict[str, Any]:
     if equipment_codes is None and equipment_access is not None:
         equipment_codes = equipment_access
@@ -456,6 +457,18 @@ def filter_prescribed_equipment(
                 item_label = name_clean or cat_clean or cat
                 exclusion_reasons[cat] = (
                     f"Gym equipment item '{item_label}' is currently unavailable (out of service or under maintenance)."
+                )
+
+    # Intersect with registered usable categories if provided (Mode 3: complete list mode)
+    if usable_categories is not None:
+        usable_clean = {str(c).strip().lower() for c in usable_categories}
+        usable_clean.add("bodyweight")
+        for cat in list(available):
+            if cat != "bodyweight" and cat not in usable_clean:
+                available.remove(cat)
+                excluded.add(cat)
+                exclusion_reasons[cat] = (
+                    "Not registered as usable in gym equipment registry (complete list mode)."
                 )
 
     ALL_CATALOG_EQUIPMENT = {
@@ -692,14 +705,25 @@ def build_ai_generation_context(
         history=history,
     )
 
-    if unavailable_equipment is None and gym is not None:
+    equipment_source = "member profile only"
+    usable_categories = None
+
+    if gym is not None:
         try:
             from django.db import models
 
             from apps.equipment.models import Equipment
+            from apps.tenants.models import GymConfig
+
+            config = GymConfig.objects.filter(gym=gym).first()
+            is_complete = bool(config and config.is_equipment_list_complete)
 
             gym_equip_qs = Equipment.all_objects.filter(gym=gym)
-            if gym_equip_qs.exists():
+            if not gym_equip_qs.exists():
+                equipment_source = "member profile only"
+                unavailable_equipment = []
+            elif not is_complete:
+                equipment_source = "gym registry (unusable items removed)"
                 unavail_qs = gym_equip_qs.filter(
                     models.Q(condition__in=["under_maintenance", "out_of_service"])
                     | models.Q(quantity=0)
@@ -707,14 +731,25 @@ def build_ai_generation_context(
                 unavailable_equipment = [
                     {"name": eq.name, "category": eq.category} for eq in unavail_qs
                 ]
+            else:
+                equipment_source = "gym registry (complete list)"
+                usable_qs = gym_equip_qs.filter(
+                    condition__in=["good", "needs_maintenance"],
+                    quantity__gt=0,
+                )
+                usable_categories = {eq.category for eq in usable_qs}
+                usable_categories.add("bodyweight")
         except Exception:
-            unavailable_equipment = None
+            equipment_source = "member profile only"
+            unavailable_equipment = []
 
     equipment_info = filter_prescribed_equipment(
         equipment_codes=profile.equipment_access,
         limitation_codes=profile.health_limitations,
         unavailable_equipment=unavailable_equipment,
+        usable_categories=usable_categories,
     )
+    equipment_info["equipment_source"] = equipment_source
 
     age = None
     if member.date_of_birth:
@@ -770,6 +805,7 @@ def build_ai_generation_context(
             "week_start_date": str(week_start_date),
             "phase": phase,
             "intensity": intensity,
+            "equipment_source": equipment_source,
             "available_equipment": equipment_info["available_equipment"],
             "excluded_equipment": equipment_info["excluded_equipment"],
             "exclusion_reasons": equipment_info["exclusion_reasons"],

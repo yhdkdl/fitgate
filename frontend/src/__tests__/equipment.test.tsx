@@ -117,4 +117,44 @@ describe("Sprint 25: EquipmentSection", () => {
       });
     });
   });
+
+  it("shows categories registered note and total investment card to owner with prices", async () => {
+    const pricedItems: EquipmentItem[] = [
+      {
+        ...mockItems[0],
+        unit_purchase_price_etb: 15000,
+      },
+      {
+        ...mockItems[1],
+        unit_purchase_price_etb: null,
+      },
+    ];
+    vi.spyOn(equipmentApi, "listEquipment").mockResolvedValue(pricedItems);
+
+    render(<EquipmentSection userRole="owner" />);
+
+    expect(await screen.findByText(/Categories registered: 2 of 12/i)).toBeInTheDocument();
+    expect(screen.getByText("Total Investment")).toBeInTheDocument();
+    // 15000 * 2 = 30,000.00 ETB
+    expect(screen.getByText(/30,000.00 ETB/i)).toBeInTheDocument();
+    expect(screen.getByText(/1 item.*no price/i)).toBeInTheDocument();
+    expect(screen.getByText("Price (ETB)")).toBeInTheDocument();
+  });
+
+  it("hides total investment, prices, and serial numbers from member role", async () => {
+    const pricedItems: EquipmentItem[] = [
+      {
+        ...mockItems[0],
+        unit_purchase_price_etb: 15000,
+      },
+    ];
+    vi.spyOn(equipmentApi, "listEquipment").mockResolvedValue(pricedItems);
+
+    render(<EquipmentSection userRole="member" />);
+
+    expect(await screen.findByText(/Categories registered: 1 of 12/i)).toBeInTheDocument();
+    expect(screen.queryByText("Total Investment")).not.toBeInTheDocument();
+    expect(screen.queryByText("Price (ETB)")).not.toBeInTheDocument();
+    expect(screen.queryByText("Serial #")).not.toBeInTheDocument();
+  });
 });

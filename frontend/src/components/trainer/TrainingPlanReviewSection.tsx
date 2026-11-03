@@ -274,6 +274,14 @@ export const TrainingPlanReviewSection: React.FC<TrainingPlanReviewSectionProps>
               </div>
             )}
 
+            {/* Equipment Source Indicator */}
+            <div className="bg-surface-2/60 p-2.5 rounded border border-border flex items-center justify-between text-xs">
+              <span className="text-text-muted">Equipment source:</span>
+              <span className="font-semibold text-text">
+                {currentPlan.equipment_source || currentPlan.plan_data?.equipment_source || "member profile only"}
+              </span>
+            </div>
+
             {/* Plan Meta Information */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
               <div className="bg-surface-2/60 p-2 rounded border border-border">

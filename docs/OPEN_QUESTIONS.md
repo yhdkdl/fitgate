@@ -200,3 +200,13 @@ If less than 90% sure how a requirement should be implemented and the doubt does
       - **CSV Export Scoping & Formula Injection Protection (Sprint 29):** Owner and Manager only, audit-logged with export type and row count. UTF-8 BOM (`\ufeff`) ensures correct Amharic rendering in Excel. All cell values starting with `=`, `+`, `-`, or `@` receive a leading apostrophe (`'`). Members export strictly excludes health limitations, dietary notes, measurements, and photos. Optional date range is capped at 1 year.
       - **Expenses & Void Lifecycle (Sprint 29a):** Owner and Manager log expenses with amount (> 0 up to 10,000,000 ETB), category (`rent`, `salaries`, `utilities`, `equipment`, `maintenance`, `marketing`, `supplies`, `other`), optional note (up to 500 chars), and date (not in future). Mistakes cannot be hard-deleted: they are voided (`is_void=True`), retained for audit, and excluded from totals. Net income combines confirmed net payments minus active expenses for the period.
     - **Reason for choice:** Enforces strict role access, prevents formula injection and memory exhaustion on export, aligns AI equipment filtering with actual gym inventory, and provides an immutable financial audit trail.
+
+### Decision: Equipment Registry Completeness, AI Plan Sources, Price Tracking, and Privacy (November 2, 2026)
+
+- **Question:** How does the gym equipment registry integrate with member profile equipment during AI training plan generation?
+- **Decision:**
+  1. Default mode (setting off): If registry has items, unusable items (under maintenance / out of service) are removed from the member's profile equipment selection. If registry is empty, profile equipment is used directly.
+  2. Complete registry mode: Gym Owner enables "My equipment list is complete" in Gym Settings (`is_equipment_list_complete`, default off). Plan generator intersects profile equipment with registered usable equipment (good or needs maintenance with quantity > 0, matched by category). Bodyweight exercises are always permitted.
+  3. Visibility & Audit: Review screen surfaces `Equipment source: member profile only | gym registry (unusable items removed) | gym registry (complete list)`. Equipment registry displays `Categories registered: x of y`.
+  4. Investment tracking: Equipment includes optional unit purchase price (ETB, > 0, max 10,000,000.00, 2 decimals). Equipment screen shows `Total investment` (sum of price x quantity) and `N items have no price`. Restricted exclusively to Owner and Manager roles. Price updates are audit-logged.
+  5. Member view: Members view usable equipment unless Owner setting "Members see unavailable equipment" is enabled. Members never see maintenance notes, serial numbers, or prices.

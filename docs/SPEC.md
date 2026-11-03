@@ -467,3 +467,15 @@ To protect domain reputation, prevent sender blacklisting, and ensure reliable d
    - Super Admin types Owner email twice with confirmation match.
    - Front-desk member registration is lenient: member creation and check-in are never blocked by email failures; invitation status shows "Email not delivered" until corrected.
    - "Email not delivered" statuses are visible strictly to staff of the same gym (and Super Admin for owners).
+
+### Equipment Registry Rules and Plan Generation Modes (November 2, 2026)
+
+- **Completeness setting:** Gym Owner can toggle "My equipment list is complete" (`is_equipment_list_complete`, default false) in Gym Settings.
+- **Three Plan Generation Modes:**
+  1. Registry empty: equipment taken strictly from member fitness profile (`member profile only`).
+  2. Registry not empty and completeness setting off: member profile equipment minus registered unusable equipment (under maintenance or out of service) (`gym registry (unusable items removed)`).
+  3. Completeness setting on: member profile equipment intersected with registered usable items (status good or needs maintenance, quantity > 0, matched by category). Bodyweight exercises are always allowed (`gym registry (complete list)`).
+- **Plan Review Display:** The training plan review screen displays `Equipment source: member profile only | gym registry (unusable items removed) | gym registry (complete list)` for Trainer, Owner, and Manager roles.
+- **Registry Categories Indicator:** The Equipment screen displays `Categories registered: x of y` along with a guidance note.
+- **Equipment Price Tracking:** Optional unit purchase price in ETB (> 0, up to 10,000,000.00, 2 decimals). Equipment screen displays `Total investment` (sum of price x quantity) with note `N items have no price`. Owner and Manager can view and edit prices; Trainer, Reception, and Member never see prices or total investment. Price updates record audit logs.
+- **Member Privacy:** Members view only usable equipment when Owner setting "Members see unavailable equipment" is off (default off). Members never see maintenance notes, serial numbers, or purchase prices.
