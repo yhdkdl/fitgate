@@ -58,15 +58,16 @@
 - Increment 4 Complete: Sprints 20, 21, 22, 23, and 24 completed, verified, merged to `develop`, and documented with end-to-end testing script (`docs/INCREMENT_4_TEST.md`).
 - Sprint 25: Equipment management, issue reporting, maintenance logs, and rules engine integration (tag `sprint-25-done`).
 - Sprint 27: Operational dashboard and revenue analytics for Owner and Manager, tier-gated revenue by plan, and sub-3s query performance (tag `sprint-27-done`).
+- fix/plan-entitlements-and-member-plan-card: Upgrade entitlement matching (trainer-inclusive guard), renewal warning, and enhanced member subscription cards (tag `fix-plan-entitlements-done`).
+- fix/equipment-registry-rules: Completeness setting, 3 AI plan modes, purchase price tracking, and member privacy (tag `fix-equipment-registry-done`).
+- Sprint 28: Gym notice board and Telegram channel bridge (tag `sprint-28-done`).
 
 ## Current
 
 Increment 5 (Equipment, analytics, communication: Sprints 25, 27, 28, 29, 29a) in progress.
 
-- Sprint 28: Notice board & Telegram bridge in progress.
-- fix/equipment-registry-rules: Completeness setting, 3 AI plan modes, purchase price tracking, and member privacy (tag `fix-equipment-registry-done`).
-
-- fix/plan-entitlements-and-member-plan-card: Upgrade entitlement matching (trainer-inclusive guard), renewal warning, and enhanced member subscription cards.
+- Sprint 29: CSV data export (members, payments, attendance) with Excel UTF-8 BOM, formula sanitization, date range cap, and audit logging (`feature/sprint-29-csv-export`).
+- Sprint 29a: Expenses and financial reporting (`feature/sprint-29a-expenses`).
 
 ## Next
 

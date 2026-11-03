@@ -652,3 +652,28 @@ _Increment 6 runs after Increment 7; go/no-go decision date: to be set by the ow
 - [x] Equipment optional unit purchase price (> 0, up to 10,000,000.00 ETB, 2 decimals).
 - [x] Equipment screen shows `Total investment` with `N items have no price` note for Owner and Manager only; hidden from Trainer, Reception, Member. Price edits audit-logged.
 - [x] Member equipment view hides maintenance notes, serial numbers, and prices; unavailable equipment hidden unless Owner enables "Members see unavailable equipment".
+
+### Sprint 28: Notice Board & Telegram Channel Bridge (November 2, 2026)
+
+- [x] Gym notice board (Owner and Manager can create and delete notices, visible to all gym roles: Owner, Manager, Trainer, Reception, Member).
+- [x] Dedicated Notice Board route and navigation pill for all roles; Member Home card shows latest active gym notices.
+- [x] Optional Telegram channel bridge: posts published notices to configured public channel (`@channel_name`); failure to broadcast does not block notice creation.
+- [x] Test message button on Gym Settings for Owner with dev/test mock sender.
+- [x] Avoids per-member `Notification` rows; notices are fetched directly via `GymNotice` scoped by tenant.
+
+### Sprint 29: CSV Export (November 2, 2026)
+
+- [ ] CSV Export for Owner and Manager roles only; blocked for Trainer, Reception, and Member.
+- [ ] 3 export types: `members` (name, phone, email, status, plan, start/end dates; strictly no health, measurement, workout or photo data), `payments` (receipt, date, method, plan, gross, credit, net received, upgrade yes/no, status, bank ref, confirmed by), `attendance` (date and time, member name/id, method).
+- [ ] CSV injection protection: any cell starting with `=`, `+`, `-`, or `@` gets a leading apostrophe (`'`).
+- [ ] Output formatted as UTF-8 with BOM (`utf-8-sig`) for Excel Amharic compatibility.
+- [ ] Optional date range filter with max span of 366 days (1 year).
+- [ ] Audit log entry created on every export recording actor, export type, and exported row count.
+
+### Sprint 29a: Expenses & Reports (November 2, 2026)
+
+- [ ] Expense tracking for Owner and Manager roles only.
+- [ ] Expense fields: amount (> 0 up to 10,000,000 ETB), category (`rent`, `salaries`, `utilities`, `equipment`, `maintenance`, `marketing`, `supplies`, `other`), optional note (up to 500 characters), incurred date not in future.
+- [ ] No hard deletes: mistaken entries are voided (`is_voided=True`, voided_by, voided_at, void_reason, excluded from totals, audit-logged).
+- [ ] Equipment integration: Adding equipment item with price offers checkbox "Also record as an expense" (category equipment, linked to equipment item, not counted twice).
+- [ ] Reports: Revenue vs. expenses (confirmed net revenue minus active expenses), attendance summary, revenue breakdown by plan; all tenant-isolated.
