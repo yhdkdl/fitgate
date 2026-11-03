@@ -137,7 +137,7 @@ describe("Sprint 25: EquipmentSection", () => {
     expect(screen.getByText("Total Investment")).toBeInTheDocument();
     // 15000 * 2 = 30,000.00 ETB
     expect(screen.getByText(/30,000.00 ETB/i)).toBeInTheDocument();
-    expect(screen.getByText(/1 item.*no price/i)).toBeInTheDocument();
+    expect(screen.getByText(/1 item has no price/i)).toBeInTheDocument();
     expect(screen.getByText("Price (ETB)")).toBeInTheDocument();
   });
 

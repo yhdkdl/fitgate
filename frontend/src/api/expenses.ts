@@ -7,6 +7,12 @@ import type {
   AttendanceReport,
 } from "../types/expenses";
 
+interface ExpenseListApiResponse {
+  expenses?: Expense[];
+  total_active_etb?: string;
+  count?: number;
+}
+
 export async function listExpenses(params?: {
   category?: string;
   include_void?: boolean;
@@ -19,7 +25,16 @@ export async function listExpenses(params?: {
     query.set("include_void", "true");
   }
   const qs = query.toString();
-  return apiFetch<Expense[]>(`/api/gym/expenses/${qs ? `?${qs}` : ""}`);
+  const res = await apiFetch<Expense[] | ExpenseListApiResponse>(
+    `/api/gym/expenses/${qs ? `?${qs}` : ""}`
+  );
+  if (Array.isArray(res)) {
+    return res;
+  }
+  if (res && Array.isArray(res.expenses)) {
+    return res.expenses;
+  }
+  return [];
 }
 
 export async function createExpense(payload: ExpenseCreatePayload): Promise<Expense> {

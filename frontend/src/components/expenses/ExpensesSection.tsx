@@ -59,9 +59,11 @@ export const ExpensesSection: React.FC<ExpensesSectionProps> = ({ userRole }) =>
         category: selectedCategory === "all" ? undefined : selectedCategory,
         include_void: true,
       });
-      setExpenses(data);
+      const list = Array.isArray(data) ? data : [];
+      setExpenses(list);
     } catch (err: unknown) {
       setExpensesError(err instanceof Error ? err.message : "Failed to load expenses.");
+      setExpenses([]);
     } finally {
       setLoadingExpenses(false);
     }
@@ -169,14 +171,16 @@ export const ExpensesSection: React.FC<ExpensesSectionProps> = ({ userRole }) =>
   };
 
   const filteredExpenses = useMemo(() => {
-    return expenses.filter((item) => {
+    const list = Array.isArray(expenses) ? expenses : [];
+    return list.filter((item) => {
       if (!showVoided && item.is_void) return false;
       return true;
     });
   }, [expenses, showVoided]);
 
   const activeTotalETB = useMemo(() => {
-    return expenses
+    const list = Array.isArray(expenses) ? expenses : [];
+    return list
       .filter((e) => !e.is_void)
       .reduce((sum, e) => sum + Number(e.amount_etb), 0);
   }, [expenses]);
@@ -274,10 +278,10 @@ export const ExpensesSection: React.FC<ExpensesSectionProps> = ({ userRole }) =>
                 Recorded Entries
               </span>
               <span className="text-2xl font-bold text-text mt-1 block">
-                {expenses.filter((e) => !e.is_void).length}
+                {(Array.isArray(expenses) ? expenses : []).filter((e) => !e.is_void).length}
               </span>
               <span className="text-xs text-text-muted mt-1 block">
-                {expenses.filter((e) => e.is_void).length} voided records
+                {(Array.isArray(expenses) ? expenses : []).filter((e) => e.is_void).length} voided records
               </span>
             </Card>
 
@@ -553,11 +557,11 @@ export const ExpensesSection: React.FC<ExpensesSectionProps> = ({ userRole }) =>
                     <h3 className="text-sm font-bold text-text">Expenses by Category</h3>
                     <p className="text-xs text-text-muted">Breakdown of operational expenditures.</p>
                   </div>
-                  {Object.keys(financialReport.expenses_by_category).length === 0 ? (
+                  {Object.keys(financialReport.expenses_by_category || {}).length === 0 ? (
                     <p className="text-xs text-text-muted py-4 text-center">No expenses recorded for this period.</p>
                   ) : (
                     <div className="space-y-3">
-                      {Object.entries(financialReport.expenses_by_category).map(([catKey, item]) => (
+                      {Object.entries(financialReport.expenses_by_category || {}).map(([catKey, item]) => (
                         <div key={catKey} className="flex items-center justify-between text-xs">
                           <span className="font-medium text-text">{getCategoryLabel(catKey)}</span>
                           <div className="flex items-center gap-3">
@@ -582,11 +586,11 @@ export const ExpensesSection: React.FC<ExpensesSectionProps> = ({ userRole }) =>
                     <h3 className="text-sm font-bold text-text">Revenue by Membership Plan</h3>
                     <p className="text-xs text-text-muted">Confirmed income collected per membership tier.</p>
                   </div>
-                  {financialReport.revenue_by_plan.length === 0 ? (
+                  {(financialReport.revenue_by_plan || []).length === 0 ? (
                     <p className="text-xs text-text-muted py-4 text-center">No plan payment revenue recorded for this period.</p>
                   ) : (
                     <div className="space-y-3">
-                      {financialReport.revenue_by_plan.map((p) => (
+                      {(financialReport.revenue_by_plan || []).map((p) => (
                         <div key={p.plan_id} className="flex items-center justify-between text-xs">
                           <span className="font-medium text-text">{p.plan_name}</span>
                           <div className="flex items-center gap-3">
@@ -716,11 +720,11 @@ export const ExpensesSection: React.FC<ExpensesSectionProps> = ({ userRole }) =>
                   <h3 className="text-sm font-bold text-text">Daily Check-in Activity</h3>
                   <p className="text-xs text-text-muted">Recorded check-in volume per day.</p>
                 </div>
-                {attendanceReport.daily_counts.length === 0 ? (
+                {(attendanceReport.daily_counts || []).length === 0 ? (
                   <p className="text-xs text-text-muted py-4 text-center">No attendance records found for this period.</p>
                 ) : (
                   <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
-                    {attendanceReport.daily_counts.map((d) => (
+                    {(attendanceReport.daily_counts || []).map((d) => (
                       <div
                         key={d.date}
                         className="p-3 bg-surface-2/40 border border-border rounded-lg flex items-center justify-between text-xs"
