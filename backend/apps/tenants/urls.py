@@ -10,6 +10,7 @@ from apps.tenants.views import (
     DemoRequestListView,
     DismissFirstRunChecklistView,
     FirstRunChecklistView,
+    GymAnalyticsOverviewView,
     GymDetailView,
     GymPublicEntryView,
     GymSettingsView,
@@ -102,5 +103,11 @@ urlpatterns = [
         "api/public/gym-entry/",
         GymPublicEntryView.as_view(),
         name="public-gym-entry",
+    ),
+    # Analytics Overview (Sprint 27)
+    path(
+        "api/gym/analytics/overview/",
+        GymAnalyticsOverviewView.as_view(),
+        name="gym-analytics-overview",
     ),
 ]
