@@ -79,7 +79,10 @@ async function downloadReceiptPdf(receipt: DigitalReceipt) {
   addRow("Issued At:", new Date(receipt.issued_at).toLocaleString());
 
   if (receipt.is_upgrade && receipt.credit_amount_etb) {
-    addRow("Gross Plan Price:", `${receipt.gross_amount_etb || receipt.amount_etb} ETB`);
+    addRow(
+      "Gross Plan Price:",
+      `${receipt.gross_amount_etb || receipt.amount_etb} ETB`
+    );
     addRow("Upgrade Credit:", `-${receipt.credit_amount_etb} ETB`);
   }
 
@@ -244,7 +247,9 @@ export const DigitalReceiptModal: React.FC<DigitalReceiptModalProps> = ({
               <>
                 <div className="flex justify-between text-text-muted">
                   <span>Gross Plan Price:</span>
-                  <span>{receipt.gross_amount_etb || receipt.amount_etb} ETB</span>
+                  <span>
+                    {receipt.gross_amount_etb || receipt.amount_etb} ETB
+                  </span>
                 </div>
                 <div className="flex justify-between text-success">
                   <span>Upgrade Credit:</span>

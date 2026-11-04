@@ -43,13 +43,19 @@ describe("Sprint 28: NoticeBoardSection and MemberNoticesCard", () => {
     );
 
     expect(await screen.findByText("Notice Board")).toBeInTheDocument();
-    expect(await screen.findByText("Holiday Schedule Update")).toBeInTheDocument();
+    expect(
+      await screen.findByText("Holiday Schedule Update")
+    ).toBeInTheDocument();
     expect(screen.getByText("New Weightlifting Barbells")).toBeInTheDocument();
     expect(screen.getByText(/Owner Abebe/i)).toBeInTheDocument();
 
     // Member should NOT see post or delete buttons
-    expect(screen.queryByRole("button", { name: /Post Notice/i })).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /Delete/i })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: /Post Notice/i })
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: /Delete/i })
+    ).not.toBeInTheDocument();
   });
 
   it("allows owner to open post modal, publish notice, and view Telegram broadcast status", async () => {
@@ -78,13 +84,23 @@ describe("Sprint 28: NoticeBoardSection and MemberNoticesCard", () => {
     fireEvent.click(postBtn);
 
     // Modal is open
-    expect(await screen.findByText("Post Notice Announcement")).toBeInTheDocument();
+    expect(
+      await screen.findByText("Post Notice Announcement")
+    ).toBeInTheDocument();
 
     const titleInput = screen.getByPlaceholderText(/Holiday Hours/i);
-    const bodyInput = screen.getByPlaceholderText(/Write announcement details/i);
+    const bodyInput = screen.getByPlaceholderText(
+      /Write announcement details/i
+    );
 
-    fireEvent.change(titleInput, { target: { value: "Saturday Calisthenics Workshop" } });
-    fireEvent.change(bodyInput, { target: { value: "Free bodyweight masterclass with coach Dawit at 9:00 AM." } });
+    fireEvent.change(titleInput, {
+      target: { value: "Saturday Calisthenics Workshop" },
+    });
+    fireEvent.change(bodyInput, {
+      target: {
+        value: "Free bodyweight masterclass with coach Dawit at 9:00 AM.",
+      },
+    });
 
     const publishBtn = screen.getByRole("button", { name: /Publish Notice/i });
     fireEvent.click(publishBtn);
@@ -97,7 +113,9 @@ describe("Sprint 28: NoticeBoardSection and MemberNoticesCard", () => {
     });
 
     expect(
-      await screen.findByText(/Notice published in-app and broadcast to Telegram channel/i)
+      await screen.findByText(
+        /Notice published in-app and broadcast to Telegram channel/i
+      )
     ).toBeInTheDocument();
   });
 

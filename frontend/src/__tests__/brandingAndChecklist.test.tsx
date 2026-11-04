@@ -39,6 +39,7 @@ describe("Sprint 4c: Gym branding, entry page, first-run checklist", () => {
         still_securing: true,
         name: "Bole Power Fitness",
         online_payment_verified: false,
+        has_group_classes: false,
         message:
           "This gym portal is still being secured. Please check back shortly.",
       });
@@ -75,6 +76,7 @@ describe("Sprint 4c: Gym branding, entry page, first-run checklist", () => {
         location: "Bole Atlas, Addis Ababa",
         currency: "ETB",
         online_payment_verified: true,
+        has_group_classes: false,
       });
 
       render(
@@ -170,7 +172,7 @@ describe("Sprint 4c: Gym branding, entry page, first-run checklist", () => {
   describe("GymBrandingSection", () => {
     const mockConfig: gymsApi.GymConfig = {
       tier: "pro",
-        has_trainer_module: false,
+      has_trainer_module: false,
       has_ai_plans: false,
       has_analytics: false,
       has_group_classes: false,
@@ -183,6 +185,8 @@ describe("Sprint 4c: Gym branding, entry page, first-run checklist", () => {
       brand_color: "#1E40AF",
       logo: "https://storage.fitgate.com/logo.webp",
       show_unavailable_equipment: false,
+      is_equipment_list_complete: false,
+      telegram_channel: "",
       first_run_dismissed_at: null,
     };
 

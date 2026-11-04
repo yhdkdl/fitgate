@@ -311,7 +311,6 @@ export async function getMemberPaymentStatus(
   );
 }
 
-
 export interface PlanUpgradeQuote {
   current_subscription_id: string;
   current_plan_id: string;

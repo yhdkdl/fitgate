@@ -1090,7 +1090,10 @@ class GymPublicEntryView(APIView):
 
         payment_cfg = GymPaymentConfig.all_objects.filter(gym=gym).first()
         online_payment_verified = bool(
-            payment_cfg and payment_cfg.is_configured and payment_cfg.is_verified
+            payment_cfg
+            and payment_cfg.is_configured
+            and payment_cfg.is_verified
+            and payment_cfg.is_enabled
         )
 
         data = {

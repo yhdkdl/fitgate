@@ -1,8 +1,5 @@
 import React, { useState, useEffect } from "react";
-import {
-  recordBankTransferPayment,
-  DigitalReceipt,
-} from "../../api/payments";
+import { recordBankTransferPayment, DigitalReceipt } from "../../api/payments";
 import { getMembershipPlans } from "../../api/plans";
 import { listGymMembers } from "../../api/members";
 
@@ -40,20 +37,29 @@ export const RecordBankTransferModal: React.FC<Props> = ({
   onPaymentSuccess,
   initialMemberId,
 }) => {
-  const [availablePlans, setAvailablePlans] = useState<PlanOption[]>(plans || []);
-  const [availableMembers, setAvailableMembers] = useState<MemberOption[]>(members || []);
+  const [availablePlans, setAvailablePlans] = useState<PlanOption[]>(
+    plans || []
+  );
+  const [availableMembers, setAvailableMembers] = useState<MemberOption[]>(
+    members || []
+  );
   const [selectedMemberId, setSelectedMemberId] = useState<string>(
     initialMemberId || (members?.[0]?.id ?? "")
   );
-  const [selectedPlanId, setSelectedPlanId] = useState<string>(plans?.[0]?.id ?? "");
+  const [selectedPlanId, setSelectedPlanId] = useState<string>(
+    plans?.[0]?.id ?? ""
+  );
   const [bankReference, setBankReference] = useState("");
-  const [transferDate, setTransferDate] = useState(() => new Date().toISOString().split("T")[0]);
+  const [transferDate, setTransferDate] = useState(
+    () => new Date().toISOString().split("T")[0]
+  );
   const [channel, setChannel] = useState("");
   const [notes, setNotes] = useState("");
   const [idempotencyKey, setIdempotencyKey] = useState<string>("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [confirmedReceipt, setConfirmedReceipt] = useState<DigitalReceipt | null>(null);
+  const [confirmedReceipt, setConfirmedReceipt] =
+    useState<DigitalReceipt | null>(null);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -78,7 +84,8 @@ export const RecordBankTransferModal: React.FC<Props> = ({
             duration_unit: p.duration_unit,
           }));
           setAvailablePlans(mapped);
-          if (mapped.length > 0) setSelectedPlanId((prev) => prev || mapped[0].id);
+          if (mapped.length > 0)
+            setSelectedPlanId((prev) => prev || mapped[0].id);
         })
         .catch(() => {});
     }
@@ -89,14 +96,22 @@ export const RecordBankTransferModal: React.FC<Props> = ({
     } else {
       listGymMembers()
         .then((data) => {
-          const mapped = (data || []).map((m: { id: string; full_name: string; phone?: string; email?: string }) => ({
-            id: m.id,
-            full_name: m.full_name,
-            phone: m.phone,
-            email: m.email,
-          }));
+          const mapped = (data || []).map(
+            (m: {
+              id: string;
+              full_name: string;
+              phone?: string;
+              email?: string;
+            }) => ({
+              id: m.id,
+              full_name: m.full_name,
+              phone: m.phone,
+              email: m.email,
+            })
+          );
           setAvailableMembers(mapped);
-          if (mapped.length > 0) setSelectedMemberId((prev) => prev || mapped[0].id);
+          if (mapped.length > 0)
+            setSelectedMemberId((prev) => prev || mapped[0].id);
         })
         .catch(() => {});
     }
@@ -126,7 +141,9 @@ export const RecordBankTransferModal: React.FC<Props> = ({
     }
     const trimmedRef = bankReference.trim();
     if (trimmedRef.length < 3 || trimmedRef.length > 100) {
-      setError("Bank transaction reference must be between 3 and 100 characters.");
+      setError(
+        "Bank transaction reference must be between 3 and 100 characters."
+      );
       return;
     }
     if (!transferDate) {
@@ -166,7 +183,9 @@ export const RecordBankTransferModal: React.FC<Props> = ({
       } else if (typeof detail === "object" && detail !== null) {
         setError(Object.values(detail).flat().join(", "));
       } else {
-        setError("Failed to record bank-transfer payment. Please verify inputs.");
+        setError(
+          "Failed to record bank-transfer payment. Please verify inputs."
+        );
       }
     } finally {
       setIsSubmitting(false);
@@ -207,7 +226,9 @@ export const RecordBankTransferModal: React.FC<Props> = ({
               <h3 style={{ fontSize: "20px", fontWeight: "bold", margin: 0 }}>
                 Payment Confirmed & Receipt Issued
               </h3>
-              <p style={{ color: "#94a3b8", fontSize: "14px", marginTop: "4px" }}>
+              <p
+                style={{ color: "#94a3b8", fontSize: "14px", marginTop: "4px" }}
+              >
                 Receipt #{confirmedReceipt.receipt_number}
               </p>
             </div>
@@ -222,51 +243,130 @@ export const RecordBankTransferModal: React.FC<Props> = ({
                 fontSize: "14px",
               }}
             >
-              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "8px" }}>
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  marginBottom: "8px",
+                }}
+              >
                 <span style={{ color: "#94a3b8" }}>Member:</span>
-                <span style={{ fontWeight: 600 }}>{confirmedReceipt.member_name}</span>
+                <span style={{ fontWeight: 600 }}>
+                  {confirmedReceipt.member_name}
+                </span>
               </div>
-              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "8px" }}>
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  marginBottom: "8px",
+                }}
+              >
                 <span style={{ color: "#94a3b8" }}>Plan:</span>
-                <span style={{ fontWeight: 600 }}>{confirmedReceipt.plan_name}</span>
+                <span style={{ fontWeight: 600 }}>
+                  {confirmedReceipt.plan_name}
+                </span>
               </div>
-              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "8px" }}>
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  marginBottom: "8px",
+                }}
+              >
                 <span style={{ color: "#94a3b8" }}>Method:</span>
-                <span style={{ textTransform: "uppercase", color: "#38bdf8", fontWeight: 600 }}>
+                <span
+                  style={{
+                    textTransform: "uppercase",
+                    color: "#38bdf8",
+                    fontWeight: 600,
+                  }}
+                >
                   Bank Transfer
                 </span>
               </div>
               {confirmedReceipt.bank_reference && (
-                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "8px" }}>
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    marginBottom: "8px",
+                  }}
+                >
                   <span style={{ color: "#94a3b8" }}>Reference:</span>
-                  <span style={{ fontFamily: "monospace", color: "#a78bfa", fontWeight: 600 }}>
+                  <span
+                    style={{
+                      fontFamily: "monospace",
+                      color: "#a78bfa",
+                      fontWeight: 600,
+                    }}
+                  >
                     {confirmedReceipt.bank_reference}
                   </span>
                 </div>
               )}
               {confirmedReceipt.transfer_channel && (
-                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "8px" }}>
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    marginBottom: "8px",
+                  }}
+                >
                   <span style={{ color: "#94a3b8" }}>Channel:</span>
                   <span>{confirmedReceipt.transfer_channel}</span>
                 </div>
               )}
-              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "8px" }}>
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  marginBottom: "8px",
+                }}
+              >
                 <span style={{ color: "#94a3b8" }}>Issued By:</span>
                 <span>{confirmedReceipt.issued_by_name}</span>
               </div>
-              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "8px" }}>
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  marginBottom: "8px",
+                }}
+              >
                 <span style={{ color: "#94a3b8" }}>Date:</span>
-                <span>{new Date(confirmedReceipt.issued_at).toLocaleString()}</span>
+                <span>
+                  {new Date(confirmedReceipt.issued_at).toLocaleString()}
+                </span>
               </div>
-              <hr style={{ borderColor: "#334155", margin: "12px 0", borderTopWidth: "1px" }} />
-              <div style={{ display: "flex", justifyContent: "space-between", fontSize: "16px", fontWeight: "bold" }}>
+              <hr
+                style={{
+                  borderColor: "#334155",
+                  margin: "12px 0",
+                  borderTopWidth: "1px",
+                }}
+              />
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  fontSize: "16px",
+                  fontWeight: "bold",
+                }}
+              >
                 <span>Total Amount:</span>
                 <span style={{ color: "#34d399" }}>
                   {confirmedReceipt.amount_etb} {confirmedReceipt.currency}
                 </span>
               </div>
               {confirmedReceipt.notes && (
-                <div style={{ marginTop: "12px", color: "#94a3b8", fontSize: "13px" }}>
+                <div
+                  style={{
+                    marginTop: "12px",
+                    color: "#94a3b8",
+                    fontSize: "13px",
+                  }}
+                >
                   <span style={{ fontWeight: 600 }}>Notes: </span>
                   {confirmedReceipt.notes}
                 </div>
@@ -310,7 +410,14 @@ export const RecordBankTransferModal: React.FC<Props> = ({
           </div>
         ) : (
           <form onSubmit={handleSubmit}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px" }}>
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                marginBottom: "16px",
+              }}
+            >
               <h3 style={{ fontSize: "18px", fontWeight: "bold", margin: 0 }}>
                 🏦 Record Bank Transfer Payment
               </h3>
@@ -347,7 +454,15 @@ export const RecordBankTransferModal: React.FC<Props> = ({
 
             {/* Member Selection */}
             <div style={{ marginBottom: "14px" }}>
-              <label style={{ display: "block", fontSize: "13px", fontWeight: 500, color: "#cbd5e1", marginBottom: "4px" }}>
+              <label
+                style={{
+                  display: "block",
+                  fontSize: "13px",
+                  fontWeight: 500,
+                  color: "#cbd5e1",
+                  marginBottom: "4px",
+                }}
+              >
                 Select Member *
               </label>
               <select
@@ -373,7 +488,15 @@ export const RecordBankTransferModal: React.FC<Props> = ({
 
             {/* Plan Selection */}
             <div style={{ marginBottom: "14px" }}>
-              <label style={{ display: "block", fontSize: "13px", fontWeight: 500, color: "#cbd5e1", marginBottom: "4px" }}>
+              <label
+                style={{
+                  display: "block",
+                  fontSize: "13px",
+                  fontWeight: 500,
+                  color: "#cbd5e1",
+                  marginBottom: "4px",
+                }}
+              >
                 Select Membership Plan *
               </label>
               <select
@@ -391,7 +514,8 @@ export const RecordBankTransferModal: React.FC<Props> = ({
               >
                 {availablePlans.map((p) => (
                   <option key={p.id} value={p.id}>
-                    {p.name} - {p.price_etb} ETB ({p.duration_value} {p.duration_unit})
+                    {p.name} - {p.price_etb} ETB ({p.duration_value}{" "}
+                    {p.duration_unit})
                   </option>
                 ))}
               </select>
@@ -412,12 +536,28 @@ export const RecordBankTransferModal: React.FC<Props> = ({
                 }}
               >
                 <div>
-                  <div style={{ fontSize: "12px", color: "#94a3b8" }}>Plan Amount (Locked)</div>
-                  <div style={{ fontSize: "16px", fontWeight: "bold", color: "#34d399" }}>
+                  <div style={{ fontSize: "12px", color: "#94a3b8" }}>
+                    Plan Amount (Locked)
+                  </div>
+                  <div
+                    style={{
+                      fontSize: "16px",
+                      fontWeight: "bold",
+                      color: "#34d399",
+                    }}
+                  >
                     {selectedPlan.price_etb} ETB
                   </div>
                 </div>
-                <div style={{ fontSize: "11px", color: "#64748b", backgroundColor: "#1e293b", padding: "3px 6px", borderRadius: "4px" }}>
+                <div
+                  style={{
+                    fontSize: "11px",
+                    color: "#64748b",
+                    backgroundColor: "#1e293b",
+                    padding: "3px 6px",
+                    borderRadius: "4px",
+                  }}
+                >
                   Locked to plan price
                 </div>
               </div>
@@ -425,7 +565,15 @@ export const RecordBankTransferModal: React.FC<Props> = ({
 
             {/* Bank Reference */}
             <div style={{ marginBottom: "14px" }}>
-              <label style={{ display: "block", fontSize: "13px", fontWeight: 500, color: "#cbd5e1", marginBottom: "4px" }}>
+              <label
+                style={{
+                  display: "block",
+                  fontSize: "13px",
+                  fontWeight: 500,
+                  color: "#cbd5e1",
+                  marginBottom: "4px",
+                }}
+              >
                 Bank Transaction Reference * (3 to 100 characters)
               </label>
               <input
@@ -452,7 +600,15 @@ export const RecordBankTransferModal: React.FC<Props> = ({
             {/* Transfer Date & Channel in two columns */}
             <div style={{ display: "flex", gap: "12px", marginBottom: "14px" }}>
               <div style={{ flex: 1 }}>
-                <label style={{ display: "block", fontSize: "13px", fontWeight: 500, color: "#cbd5e1", marginBottom: "4px" }}>
+                <label
+                  style={{
+                    display: "block",
+                    fontSize: "13px",
+                    fontWeight: 500,
+                    color: "#cbd5e1",
+                    marginBottom: "4px",
+                  }}
+                >
                   Transfer Date *
                 </label>
                 <input
@@ -473,7 +629,15 @@ export const RecordBankTransferModal: React.FC<Props> = ({
                 />
               </div>
               <div style={{ flex: 1 }}>
-                <label style={{ display: "block", fontSize: "13px", fontWeight: 500, color: "#cbd5e1", marginBottom: "4px" }}>
+                <label
+                  style={{
+                    display: "block",
+                    fontSize: "13px",
+                    fontWeight: 500,
+                    color: "#cbd5e1",
+                    marginBottom: "4px",
+                  }}
+                >
                   Channel (Optional)
                 </label>
                 <select
@@ -501,7 +665,15 @@ export const RecordBankTransferModal: React.FC<Props> = ({
 
             {/* Optional Notes */}
             <div style={{ marginBottom: "18px" }}>
-              <label style={{ display: "block", fontSize: "13px", fontWeight: 500, color: "#cbd5e1", marginBottom: "4px" }}>
+              <label
+                style={{
+                  display: "block",
+                  fontSize: "13px",
+                  fontWeight: 500,
+                  color: "#cbd5e1",
+                  marginBottom: "4px",
+                }}
+              >
                 Notes (Optional, max 1000 characters)
               </label>
               <textarea
@@ -523,7 +695,13 @@ export const RecordBankTransferModal: React.FC<Props> = ({
               />
             </div>
 
-            <div style={{ display: "flex", justifyContent: "flex-end", gap: "10px" }}>
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "flex-end",
+                gap: "10px",
+              }}
+            >
               <button
                 type="button"
                 onClick={onClose}
@@ -554,7 +732,9 @@ export const RecordBankTransferModal: React.FC<Props> = ({
                   opacity: isSubmitting ? 0.7 : 1,
                 }}
               >
-                {isSubmitting ? "Recording..." : "Confirm Bank Transfer & Issue Receipt"}
+                {isSubmitting
+                  ? "Recording..."
+                  : "Confirm Bank Transfer & Issue Receipt"}
               </button>
             </div>
           </form>

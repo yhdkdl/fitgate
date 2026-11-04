@@ -9,9 +9,7 @@ import {
   type PlanPrerequisites,
   type TrainingPlan,
 } from "../../api/trainingPlans";
-import {
-  WEEKLY_FOCUS_OPTIONS,
-} from "../../utils/trainingPlanConstants";
+import { WEEKLY_FOCUS_OPTIONS } from "../../utils/trainingPlanConstants";
 
 interface GeneratePlanModalProps {
   isOpen: boolean;
@@ -73,19 +71,25 @@ export const GeneratePlanModal: React.FC<GeneratePlanModalProps> = ({
       const plan = await generateTrainingPlan(memberId, {
         week_choice: weekChoice,
         focus_this_week: focusSelected,
-        other_focus: focusSelected.includes("other") ? otherFocusText.trim() : undefined,
+        other_focus: focusSelected.includes("other")
+          ? otherFocusText.trim()
+          : undefined,
       });
       onPlanGenerated(plan);
       onClose();
     } catch (err: unknown) {
-      const errObj = err as { data?: { detail?: string; message?: string }; message?: string };
+      const errObj = err as {
+        data?: { detail?: string; message?: string };
+        message?: string;
+      };
       const rawMsg =
         errObj?.data?.detail ||
         errObj?.data?.message ||
         errObj?.message ||
         "Generation failed, try again later.";
       const msg =
-        typeof rawMsg === "string" && (rawMsg.startsWith("<!DOCTYPE") || rawMsg.startsWith("<html"))
+        typeof rawMsg === "string" &&
+        (rawMsg.startsWith("<!DOCTYPE") || rawMsg.startsWith("<html"))
           ? "Generation failed, try again later."
           : rawMsg;
       setError(msg);
@@ -95,11 +99,16 @@ export const GeneratePlanModal: React.FC<GeneratePlanModalProps> = ({
   };
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title={`Generate AI Workout Plan for ${memberName}`}>
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      title={`Generate AI Workout Plan for ${memberName}`}
+    >
       <form onSubmit={handleSubmit} className="space-y-4 text-text">
         {hasMedicalCaution && (
           <div className="p-3 bg-amber-500/10 border border-amber-500/30 rounded text-xs text-amber-300">
-            <strong>Medical Caution:</strong> Confirm with the member's doctor; review plans for this member extra carefully.
+            <strong>Medical Caution:</strong> Confirm with the member's doctor;
+            review plans for this member extra carefully.
           </div>
         )}
 
@@ -125,8 +134,8 @@ export const GeneratePlanModal: React.FC<GeneratePlanModalProps> = ({
                 {prereqs.this_week_draft_count >= 3
                   ? "Weekly draft limit reached (3/3)"
                   : prereqs.has_open_draft_this_week
-                  ? "Draft pending review"
-                  : `Drafts used: ${prereqs.this_week_draft_count}/3`}
+                    ? "Draft pending review"
+                    : `Drafts used: ${prereqs.this_week_draft_count}/3`}
               </div>
             </button>
 
@@ -145,8 +154,8 @@ export const GeneratePlanModal: React.FC<GeneratePlanModalProps> = ({
                 {prereqs.next_week_draft_count >= 3
                   ? "Weekly draft limit reached (3/3)"
                   : prereqs.has_open_draft_next_week
-                  ? "Draft pending review"
-                  : `Drafts used: ${prereqs.next_week_draft_count}/3`}
+                    ? "Draft pending review"
+                    : `Drafts used: ${prereqs.next_week_draft_count}/3`}
               </div>
             </button>
           </div>
@@ -193,7 +202,12 @@ export const GeneratePlanModal: React.FC<GeneratePlanModalProps> = ({
         </div>
 
         <div className="flex justify-end gap-2 pt-3 border-t border-border">
-          <Button type="button" variant="secondary" onClick={onClose} disabled={loading}>
+          <Button
+            type="button"
+            variant="secondary"
+            onClick={onClose}
+            disabled={loading}
+          >
             Cancel
           </Button>
           <Button

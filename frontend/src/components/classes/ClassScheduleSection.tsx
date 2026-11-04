@@ -66,7 +66,9 @@ export const ClassScheduleSection: React.FC<ClassScheduleSectionProps> = ({
   const [cancellingSession, setCancellingSession] =
     useState<ClassSession | null>(null);
   const [rosterSession, setRosterSession] = useState<ClassSession | null>(null);
-  const [rosterData, setRosterData] = useState<ClassRosterResponse | null>(null);
+  const [rosterData, setRosterData] = useState<ClassRosterResponse | null>(
+    null
+  );
   const [loadingRoster, setLoadingRoster] = useState<boolean>(false);
   const [rosterError, setRosterError] = useState<string | null>(null);
 
@@ -486,8 +488,8 @@ export const ClassScheduleSection: React.FC<ClassScheduleSectionProps> = ({
             {isTrainer
               ? "View your assigned class sessions and mark attendance."
               : isMember
-              ? "Discover and book upcoming group fitness sessions."
-              : "Schedule, manage, and track attendance for group classes."}
+                ? "Discover and book upcoming group fitness sessions."
+                : "Schedule, manage, and track attendance for group classes."}
           </p>
         </div>
 

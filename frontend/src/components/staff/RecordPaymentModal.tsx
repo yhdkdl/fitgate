@@ -69,7 +69,9 @@ export const RecordPaymentModal: React.FC<Props> = ({
   const [error, setError] = useState<string | null>(null);
   const [receipt, setReceipt] = useState<DigitalReceipt | null>(null);
 
-  const [upgradeQuote, setUpgradeQuote] = useState<PlanUpgradeQuote | null>(null);
+  const [upgradeQuote, setUpgradeQuote] = useState<PlanUpgradeQuote | null>(
+    null
+  );
   const [upgradeRefusal, setUpgradeRefusal] = useState<string | null>(null);
   const [loadingQuote, setLoadingQuote] = useState(false);
 
@@ -93,9 +95,14 @@ export const RecordPaymentModal: React.FC<Props> = ({
       })
       .catch((err: unknown) => {
         if (!isMounted) return;
-        const errObj = err as { data?: { detail?: string | string[] }; message?: string };
+        const errObj = err as {
+          data?: { detail?: string | string[] };
+          message?: string;
+        };
         const detail = errObj?.data?.detail || errObj?.message || "";
-        const detailStr = Array.isArray(detail) ? detail.join(" ") : String(detail);
+        const detailStr = Array.isArray(detail)
+          ? detail.join(" ")
+          : String(detail);
         if (
           detailStr.includes("costs less than your current one") ||
           detailStr.includes("does not include a trainer")
@@ -288,11 +295,16 @@ export const RecordPaymentModal: React.FC<Props> = ({
                   {plans.map((p) => {
                     const isDowngradeNoTrainer =
                       member.status === "active" &&
-                      (member.is_on_trainer_plan || member.active_subscription?.trainer_inclusive) &&
+                      (member.is_on_trainer_plan ||
+                        member.active_subscription?.trainer_inclusive) &&
                       !p.trainer_inclusive &&
                       p.id !== member.active_subscription?.plan_id;
                     return (
-                      <option key={p.id} value={p.id} disabled={isDowngradeNoTrainer}>
+                      <option
+                        key={p.id}
+                        value={p.id}
+                        disabled={isDowngradeNoTrainer}
+                      >
                         {p.name} ({p.duration_value} {p.duration_unit}) —{" "}
                         {Number(p.price_etb).toLocaleString()} ETB
                         {isDowngradeNoTrainer ? " (Disabled - no trainer)" : ""}
@@ -310,10 +322,12 @@ export const RecordPaymentModal: React.FC<Props> = ({
             {/* Warning when choosing non-trainer plan after having a trainer plan */}
             {selectedPlan &&
               !selectedPlan.trainer_inclusive &&
-              (member.is_on_trainer_plan || member.active_subscription?.trainer_inclusive) &&
+              (member.is_on_trainer_plan ||
+                member.active_subscription?.trainer_inclusive) &&
               !upgradeRefusal && (
                 <Alert variant="warning">
-                  This plan has no trainer. The member will lose their trainer's AI plans.
+                  This plan has no trainer. The member will lose their trainer's
+                  AI plans.
                 </Alert>
               )}
 
@@ -324,24 +338,31 @@ export const RecordPaymentModal: React.FC<Props> = ({
                     Plan Upgrade with Credit
                   </span>
                   <span className="text-text-muted">
-                    {upgradeQuote.remaining_days} of {upgradeQuote.total_days} days remaining
+                    {upgradeQuote.remaining_days} of {upgradeQuote.total_days}{" "}
+                    days remaining
                   </span>
                 </div>
                 <div className="space-y-1.5">
                   <div className="flex justify-between">
                     <span className="text-text-muted">Current Plan:</span>
-                    <span className="text-text font-medium">{upgradeQuote.current_plan_name}</span>
+                    <span className="text-text font-medium">
+                      {upgradeQuote.current_plan_name}
+                    </span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-text-muted">Prorated Credit:</span>
                     <span className="text-success font-bold">
-                      -{Number(upgradeQuote.credit_amount_etb).toLocaleString()} ETB
+                      -{Number(upgradeQuote.credit_amount_etb).toLocaleString()}{" "}
+                      ETB
                     </span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-text-muted">New Plan Price (Gross):</span>
+                    <span className="text-text-muted">
+                      New Plan Price (Gross):
+                    </span>
                     <span className="text-text font-medium">
-                      {Number(upgradeQuote.gross_amount_etb).toLocaleString()} ETB
+                      {Number(upgradeQuote.gross_amount_etb).toLocaleString()}{" "}
+                      ETB
                     </span>
                   </div>
                   <div className="flex justify-between border-t border-primary/15 pt-2 font-bold text-sm">
@@ -351,7 +372,8 @@ export const RecordPaymentModal: React.FC<Props> = ({
                     </span>
                   </div>
                   <div className="text-[11px] text-text-muted pt-1">
-                    New subscription period: {upgradeQuote.new_start_date} to {upgradeQuote.new_end_date}
+                    New subscription period: {upgradeQuote.new_start_date} to{" "}
+                    {upgradeQuote.new_end_date}
                   </div>
                 </div>
               </div>
@@ -505,14 +527,19 @@ export const RecordPaymentModal: React.FC<Props> = ({
               <Button
                 type="submit"
                 variant="primary"
-                disabled={submitting || !selectedPlanId || Boolean(upgradeRefusal) || loadingQuote}
+                disabled={
+                  submitting ||
+                  !selectedPlanId ||
+                  Boolean(upgradeRefusal) ||
+                  loadingQuote
+                }
                 className="min-h-[44px]"
               >
                 {submitting
                   ? "Processing..."
                   : upgradeQuote
-                  ? `Confirm ${paymentMethod === "cash" ? "Cash" : "Bank Transfer"} Upgrade (${Number(upgradeQuote.net_amount_etb).toLocaleString()} ETB)`
-                  : `Confirm ${paymentMethod === "cash" ? "Cash" : "Bank Transfer"} Payment`}
+                    ? `Confirm ${paymentMethod === "cash" ? "Cash" : "Bank Transfer"} Upgrade (${Number(upgradeQuote.net_amount_etb).toLocaleString()} ETB)`
+                    : `Confirm ${paymentMethod === "cash" ? "Cash" : "Bank Transfer"} Payment`}
               </Button>
             </div>
           </form>

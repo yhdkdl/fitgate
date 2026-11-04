@@ -42,7 +42,9 @@ export const MemberApprovedPlanCard: React.FC<MemberApprovedPlanCardProps> = ({
     return (
       <Card className="p-6 text-center bg-surface border-border">
         <Spinner size="sm" />
-        <p className="text-xs text-text-muted mt-2">Loading your workout routine...</p>
+        <p className="text-xs text-text-muted mt-2">
+          Loading your workout routine...
+        </p>
       </Card>
     );
   }
@@ -60,8 +62,8 @@ export const MemberApprovedPlanCard: React.FC<MemberApprovedPlanCardProps> = ({
           Waiting for your trainer
         </h3>
         <p className="text-xs text-text-muted max-w-sm mx-auto">
-          Your trainer is preparing your personalized training and nutrition plan.
-          You will receive an in-app notification once it is approved.
+          Your trainer is preparing your personalized training and nutrition
+          plan. You will receive an in-app notification once it is approved.
         </p>
       </Card>
     );
@@ -116,7 +118,8 @@ export const MemberApprovedPlanCard: React.FC<MemberApprovedPlanCardProps> = ({
 
       {latestPlan.trainer_notes && (
         <div className="text-xs text-text-muted bg-primary/5 border border-primary/20 p-2.5 rounded">
-          <strong className="text-primary">Trainer Note:</strong> {latestPlan.trainer_notes}
+          <strong className="text-primary">Trainer Note:</strong>{" "}
+          {latestPlan.trainer_notes}
         </div>
       )}
 
@@ -196,7 +199,9 @@ export const MemberApprovedPlanCard: React.FC<MemberApprovedPlanCardProps> = ({
                             {String(ex.rpe ?? "—")}
                           </td>
                           <td className="py-2 px-2 text-text-muted">
-                            {ex.rest_seconds != null ? `${ex.rest_seconds}s` : "—"}
+                            {ex.rest_seconds != null
+                              ? `${ex.rest_seconds}s`
+                              : "—"}
                           </td>
                           <td className="py-2 px-2 text-text-muted">
                             {ex.notes || "—"}

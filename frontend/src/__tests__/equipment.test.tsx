@@ -66,10 +66,14 @@ describe("Sprint 25: EquipmentSection", () => {
 
     // Low stock alert
     expect(screen.getByText(/Low Quantity Alert:/i)).toBeInTheDocument();
-    expect(screen.getAllByText(/Olympic Barbell 20kg/i).length).toBeGreaterThanOrEqual(1);
+    expect(
+      screen.getAllByText(/Olympic Barbell 20kg/i).length
+    ).toBeGreaterThanOrEqual(1);
 
     // Owner controls
-    expect(screen.getByRole("button", { name: /Add Equipment/i })).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: /Add Equipment/i })
+    ).toBeInTheDocument();
   });
 
   it("does not show add or edit buttons for member role", async () => {
@@ -79,8 +83,12 @@ describe("Sprint 25: EquipmentSection", () => {
     expect(await screen.findByText("Olympic Barbell 20kg")).toBeInTheDocument();
 
     // Member should not see management buttons or low stock alert
-    expect(screen.queryByRole("button", { name: /Add Equipment/i })).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /Edit/i })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: /Add Equipment/i })
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: /Edit/i })
+    ).not.toBeInTheDocument();
     expect(screen.queryByText(/Low Quantity Alert:/i)).not.toBeInTheDocument();
   });
 
@@ -105,7 +113,9 @@ describe("Sprint 25: EquipmentSection", () => {
     const reportBtns = screen.getAllByRole("button", { name: /Report Issue/i });
     fireEvent.click(reportBtns[0]);
 
-    expect(await screen.findByText(/Report Issue: Olympic Barbell 20kg/i)).toBeInTheDocument();
+    expect(
+      await screen.findByText(/Report Issue: Olympic Barbell 20kg/i)
+    ).toBeInTheDocument();
 
     const submitBtn = screen.getByRole("button", { name: /Submit Report/i });
     fireEvent.click(submitBtn);
@@ -133,7 +143,9 @@ describe("Sprint 25: EquipmentSection", () => {
 
     render(<EquipmentSection userRole="owner" />);
 
-    expect(await screen.findByText(/Categories registered: 2 of 12/i)).toBeInTheDocument();
+    expect(
+      await screen.findByText(/Categories registered: 2 of 12/i)
+    ).toBeInTheDocument();
     expect(screen.getByText("Total Investment")).toBeInTheDocument();
     // 15000 * 2 = 30,000.00 ETB
     expect(screen.getByText(/30,000.00 ETB/i)).toBeInTheDocument();
@@ -152,7 +164,9 @@ describe("Sprint 25: EquipmentSection", () => {
 
     render(<EquipmentSection userRole="member" />);
 
-    expect(await screen.findByText(/Categories registered: 1 of 12/i)).toBeInTheDocument();
+    expect(
+      await screen.findByText(/Categories registered: 1 of 12/i)
+    ).toBeInTheDocument();
     expect(screen.queryByText("Total Investment")).not.toBeInTheDocument();
     expect(screen.queryByText("Price (ETB)")).not.toBeInTheDocument();
     expect(screen.queryByText("Serial #")).not.toBeInTheDocument();

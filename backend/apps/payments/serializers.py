@@ -17,6 +17,8 @@ class GymPaymentConfigSerializer(serializers.ModelSerializer):
     has_webhook_secret = serializers.BooleanField(read_only=True)
     use_mock = serializers.SerializerMethodField()
     detected_mode = serializers.SerializerMethodField()
+    is_enabled = serializers.BooleanField(read_only=True)
+    unfinished_online_payments = serializers.SerializerMethodField()
 
     class Meta:
         model = GymPaymentConfig
@@ -24,14 +26,25 @@ class GymPaymentConfigSerializer(serializers.ModelSerializer):
             "is_configured",
             "is_test_mode",
             "is_verified",
+            "is_enabled",
             "verified_at",
             "masked_public_key",
             "has_secret_key",
             "has_webhook_secret",
             "use_mock",
             "detected_mode",
+            "unfinished_online_payments",
         ]
         read_only_fields = fields
+
+    def get_unfinished_online_payments(self, obj) -> int:
+        from apps.payments.models import Payment
+
+        return Payment.objects.filter(
+            gym=obj.gym,
+            method=Payment.METHOD_CHAPA,
+            status=Payment.STATUS_PENDING,
+        ).count()
 
     def get_use_mock(self, obj) -> bool:
         from django.conf import settings
@@ -50,6 +63,8 @@ class GymPaymentConfigSerializer(serializers.ModelSerializer):
 
 class GymPaymentConfigUpdateSerializer(serializers.Serializer):
     """Input serializer for gym owner configuring Chapa credentials."""
+
+    is_enabled = serializers.BooleanField(required=False)
 
     public_key = serializers.CharField(
         required=False,

@@ -2,7 +2,11 @@ import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { getProfile } from "../api/auth";
 import { getMemberProfileMe, type Member } from "../api/members";
-import { getTrainerProfileMe, uploadTrainerPhoto, type Trainer } from "../api/trainers";
+import {
+  getTrainerProfileMe,
+  uploadTrainerPhoto,
+  type Trainer,
+} from "../api/trainers";
 import { AuthenticatedImage } from "../components/ui/AuthenticatedImage";
 import { Alert } from "../components/ui/Alert";
 import { Badge } from "../components/ui/Badge";
@@ -38,9 +42,13 @@ export const ProfileScreen: React.FC = () => {
   const [trainerData, setTrainerData] = useState<Trainer | null>(null);
   const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
   const [photoUploadError, setPhotoUploadError] = useState<string | null>(null);
-  const [photoUploadSuccess, setPhotoUploadSuccess] = useState<string | null>(null);
+  const [photoUploadSuccess, setPhotoUploadSuccess] = useState<string | null>(
+    null
+  );
 
-  const handleTrainerPhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleTrainerPhotoUpload = async (
+    e: React.ChangeEvent<HTMLInputElement>
+  ) => {
     const file = e.target.files?.[0];
     if (!file) return;
     setPhotoUploadError(null);
@@ -65,9 +73,12 @@ export const ProfileScreen: React.FC = () => {
     try {
       const res = await uploadTrainerPhoto(user.gym_id, file);
       setPhotoUploadSuccess("Photo uploaded successfully.");
-      setTrainerData((prev) => (prev ? { ...prev, photo_url: res.photo_url } : null));
+      setTrainerData((prev) =>
+        prev ? { ...prev, photo_url: res.photo_url } : null
+      );
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : "Failed to upload photo.";
+      const msg =
+        err instanceof Error ? err.message : "Failed to upload photo.";
       setPhotoUploadError(msg);
     } finally {
       setIsUploadingPhoto(false);
@@ -293,7 +304,8 @@ export const ProfileScreen: React.FC = () => {
               )}
               <div className="flex-1 space-y-2 text-center sm:text-left">
                 <p className="text-xs text-text-muted">
-                  Trainer photo (optional): JPEG, PNG, or WebP up to 2 MB. Visible to management and assigned clients.
+                  Trainer photo (optional): JPEG, PNG, or WebP up to 2 MB.
+                  Visible to management and assigned clients.
                 </p>
                 <div className="flex flex-wrap items-center gap-2">
                   <input
@@ -308,13 +320,21 @@ export const ProfileScreen: React.FC = () => {
                     htmlFor="trainer-photo-input"
                     className="inline-flex items-center justify-center px-3 py-1.5 text-xs font-medium rounded-input border border-border bg-surface-2 hover:bg-border/60 cursor-pointer min-h-[36px]"
                   >
-                    {isUploadingPhoto ? "Uploading..." : trainerData.photo_url ? "Replace photo" : "Upload photo"}
+                    {isUploadingPhoto
+                      ? "Uploading..."
+                      : trainerData.photo_url
+                        ? "Replace photo"
+                        : "Upload photo"}
                   </label>
                   {photoUploadError && (
-                    <span className="text-xs text-danger">{photoUploadError}</span>
+                    <span className="text-xs text-danger">
+                      {photoUploadError}
+                    </span>
                   )}
                   {photoUploadSuccess && (
-                    <span className="text-xs text-success">{photoUploadSuccess}</span>
+                    <span className="text-xs text-success">
+                      {photoUploadSuccess}
+                    </span>
                   )}
                 </div>
               </div>

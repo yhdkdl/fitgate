@@ -18,10 +18,14 @@ interface ExpensesSectionProps {
   userRole?: string;
 }
 
-export const ExpensesSection: React.FC<ExpensesSectionProps> = ({ userRole }) => {
+export const ExpensesSection: React.FC<ExpensesSectionProps> = ({
+  userRole,
+}) => {
   const canManage = userRole === "owner" || userRole === "manager";
 
-  const [activeTab, setActiveTab] = useState<"ledger" | "financial" | "attendance">("ledger");
+  const [activeTab, setActiveTab] = useState<
+    "ledger" | "financial" | "attendance"
+  >("ledger");
 
   // Expenses Ledger state
   const [expenses, setExpenses] = useState<Expense[]>([]);
@@ -44,8 +48,10 @@ export const ExpensesSection: React.FC<ExpensesSectionProps> = ({ userRole }) =>
   const [modalError, setModalError] = useState<string | null>(null);
 
   // Reports state
-  const [financialReport, setFinancialReport] = useState<FinancialReport | null>(null);
-  const [attendanceReport, setAttendanceReport] = useState<AttendanceReport | null>(null);
+  const [financialReport, setFinancialReport] =
+    useState<FinancialReport | null>(null);
+  const [attendanceReport, setAttendanceReport] =
+    useState<AttendanceReport | null>(null);
   const [loadingReport, setLoadingReport] = useState<boolean>(false);
   const [reportError, setReportError] = useState<string | null>(null);
   const [reportStartDate, setReportStartDate] = useState<string>("");
@@ -62,7 +68,9 @@ export const ExpensesSection: React.FC<ExpensesSectionProps> = ({ userRole }) =>
       const list = Array.isArray(data) ? data : [];
       setExpenses(list);
     } catch (err: unknown) {
-      setExpensesError(err instanceof Error ? err.message : "Failed to load expenses.");
+      setExpensesError(
+        err instanceof Error ? err.message : "Failed to load expenses."
+      );
       setExpenses([]);
     } finally {
       setLoadingExpenses(false);
@@ -79,7 +87,9 @@ export const ExpensesSection: React.FC<ExpensesSectionProps> = ({ userRole }) =>
       });
       setFinancialReport(data);
     } catch (err: unknown) {
-      setReportError(err instanceof Error ? err.message : "Failed to load financial report.");
+      setReportError(
+        err instanceof Error ? err.message : "Failed to load financial report."
+      );
     } finally {
       setLoadingReport(false);
     }
@@ -95,7 +105,9 @@ export const ExpensesSection: React.FC<ExpensesSectionProps> = ({ userRole }) =>
       });
       setAttendanceReport(data);
     } catch (err: unknown) {
-      setReportError(err instanceof Error ? err.message : "Failed to load attendance report.");
+      setReportError(
+        err instanceof Error ? err.message : "Failed to load attendance report."
+      );
     } finally {
       setLoadingReport(false);
     }
@@ -143,7 +155,9 @@ export const ExpensesSection: React.FC<ExpensesSectionProps> = ({ userRole }) =>
       setIsAddOpen(false);
       await fetchExpensesList();
     } catch (err: unknown) {
-      setModalError(err instanceof Error ? err.message : "Failed to record expense.");
+      setModalError(
+        err instanceof Error ? err.message : "Failed to record expense."
+      );
     } finally {
       setModalSubmitting(false);
     }
@@ -156,7 +170,9 @@ export const ExpensesSection: React.FC<ExpensesSectionProps> = ({ userRole }) =>
     setModalError(null);
     try {
       if (!voidReason.trim() || voidReason.trim().length < 2) {
-        throw new Error("Please provide a reason for voiding (at least 2 characters).");
+        throw new Error(
+          "Please provide a reason for voiding (at least 2 characters)."
+        );
       }
 
       await voidExpense(voidingExpense.id, voidReason.trim());
@@ -164,7 +180,9 @@ export const ExpensesSection: React.FC<ExpensesSectionProps> = ({ userRole }) =>
       setVoidReason("");
       await fetchExpensesList();
     } catch (err: unknown) {
-      setModalError(err instanceof Error ? err.message : "Failed to void expense.");
+      setModalError(
+        err instanceof Error ? err.message : "Failed to void expense."
+      );
     } finally {
       setModalSubmitting(false);
     }
@@ -193,7 +211,8 @@ export const ExpensesSection: React.FC<ExpensesSectionProps> = ({ userRole }) =>
   if (!canManage) {
     return (
       <Alert variant="danger" title="Access Denied">
-        Expense tracking and financial reports are restricted to gym Owners and Managers.
+        Expense tracking and financial reports are restricted to gym Owners and
+        Managers.
       </Alert>
     );
   }
@@ -203,13 +222,20 @@ export const ExpensesSection: React.FC<ExpensesSectionProps> = ({ userRole }) =>
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-text">Expenses & Reports</h1>
+          <h1 className="text-2xl font-bold tracking-tight text-text">
+            Expenses & Reports
+          </h1>
           <p className="text-sm text-text-muted mt-1">
-            Track gym expenditures, review net financial income, and monitor attendance summaries.
+            Track gym expenditures, review net financial income, and monitor
+            attendance summaries.
           </p>
         </div>
         {activeTab === "ledger" && (
-          <Button variant="primary" onClick={handleOpenAdd} data-testid="btn-open-log-expense">
+          <Button
+            variant="primary"
+            onClick={handleOpenAdd}
+            data-testid="btn-open-log-expense"
+          >
             Log Expense
           </Button>
         )}
@@ -261,7 +287,10 @@ export const ExpensesSection: React.FC<ExpensesSectionProps> = ({ userRole }) =>
               <span className="text-xs uppercase tracking-wider text-text-muted font-semibold block">
                 Total Active Expenses
               </span>
-              <span className="text-2xl font-bold text-text mt-1 block" data-testid="total-active-expenses">
+              <span
+                className="text-2xl font-bold text-text mt-1 block"
+                data-testid="total-active-expenses"
+              >
                 {activeTotalETB.toLocaleString(undefined, {
                   minimumFractionDigits: 2,
                   maximumFractionDigits: 2,
@@ -278,10 +307,19 @@ export const ExpensesSection: React.FC<ExpensesSectionProps> = ({ userRole }) =>
                 Recorded Entries
               </span>
               <span className="text-2xl font-bold text-text mt-1 block">
-                {(Array.isArray(expenses) ? expenses : []).filter((e) => !e.is_void).length}
+                {
+                  (Array.isArray(expenses) ? expenses : []).filter(
+                    (e) => !e.is_void
+                  ).length
+                }
               </span>
               <span className="text-xs text-text-muted mt-1 block">
-                {(Array.isArray(expenses) ? expenses : []).filter((e) => e.is_void).length} voided records
+                {
+                  (Array.isArray(expenses) ? expenses : []).filter(
+                    (e) => e.is_void
+                  ).length
+                }{" "}
+                voided records
               </span>
             </Card>
 
@@ -290,7 +328,8 @@ export const ExpensesSection: React.FC<ExpensesSectionProps> = ({ userRole }) =>
                 Audit Guarantee
               </span>
               <span className="text-xs text-text-muted mt-2 block leading-relaxed">
-                Immutable records: expenses are never deleted from database. Corrections create void audit entries.
+                Immutable records: expenses are never deleted from database.
+                Corrections create void audit entries.
               </span>
             </Card>
           </div>
@@ -299,7 +338,9 @@ export const ExpensesSection: React.FC<ExpensesSectionProps> = ({ userRole }) =>
           <Card className="p-4">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div className="flex items-center gap-3">
-                <label className="text-xs font-medium text-text-muted">Category:</label>
+                <label className="text-xs font-medium text-text-muted">
+                  Category:
+                </label>
                 <select
                   value={selectedCategory}
                   onChange={(e) => setSelectedCategory(e.target.value)}
@@ -393,7 +434,10 @@ export const ExpensesSection: React.FC<ExpensesSectionProps> = ({ userRole }) =>
                             <div className="flex flex-col items-end">
                               <Badge variant="neutral">Voided</Badge>
                               {exp.void_reason && (
-                                <span className="text-[10px] text-text-muted mt-0.5 truncate max-w-[150px]" title={exp.void_reason}>
+                                <span
+                                  className="text-[10px] text-text-muted mt-0.5 truncate max-w-[150px]"
+                                  title={exp.void_reason}
+                                >
                                   Reason: {exp.void_reason}
                                 </span>
                               )}
@@ -431,7 +475,9 @@ export const ExpensesSection: React.FC<ExpensesSectionProps> = ({ userRole }) =>
           <Card className="p-4">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div className="flex flex-wrap items-center gap-3">
-                <span className="text-xs font-medium text-text-muted">Period:</span>
+                <span className="text-xs font-medium text-text-muted">
+                  Period:
+                </span>
                 <Input
                   type="date"
                   value={reportStartDate}
@@ -445,7 +491,12 @@ export const ExpensesSection: React.FC<ExpensesSectionProps> = ({ userRole }) =>
                   onChange={(e) => setReportEndDate(e.target.value)}
                   className="w-36 h-9 text-xs"
                 />
-                <Button size="sm" variant="secondary" onClick={fetchFinancialData} disabled={loadingReport}>
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  onClick={fetchFinancialData}
+                  disabled={loadingReport}
+                >
                   Apply
                 </Button>
                 {(reportStartDate || reportEndDate) && (
@@ -462,7 +513,8 @@ export const ExpensesSection: React.FC<ExpensesSectionProps> = ({ userRole }) =>
                 )}
               </div>
               <span className="text-xs text-text-muted">
-                {financialReport?.period?.start_date && financialReport?.period?.end_date
+                {financialReport?.period?.start_date &&
+                financialReport?.period?.end_date
                   ? `${financialReport.period.start_date} to ${financialReport.period.end_date}`
                   : "All-time to date"}
               </span>
@@ -484,14 +536,20 @@ export const ExpensesSection: React.FC<ExpensesSectionProps> = ({ userRole }) =>
                     Confirmed Revenue
                   </span>
                   <span className="text-xl font-bold text-text block">
-                    {Number(financialReport.confirmed_gross_revenue_etb).toLocaleString(undefined, {
+                    {Number(
+                      financialReport.confirmed_gross_revenue_etb
+                    ).toLocaleString(undefined, {
                       minimumFractionDigits: 2,
                       maximumFractionDigits: 2,
                     })}{" "}
                     ETB
                   </span>
                   <span className="text-[11px] text-text-muted block">
-                    Reversals: {Number(financialReport.reversed_payments_etb).toLocaleString()} ETB
+                    Reversals:{" "}
+                    {Number(
+                      financialReport.reversed_payments_etb
+                    ).toLocaleString()}{" "}
+                    ETB
                   </span>
                 </Card>
 
@@ -499,11 +557,17 @@ export const ExpensesSection: React.FC<ExpensesSectionProps> = ({ userRole }) =>
                   <span className="text-xs font-semibold uppercase tracking-wider text-text-muted block">
                     Net Revenue
                   </span>
-                  <span className="text-xl font-bold text-emerald-500 block" data-testid="stat-net-revenue">
-                    {Number(financialReport.net_revenue_etb).toLocaleString(undefined, {
-                      minimumFractionDigits: 2,
-                      maximumFractionDigits: 2,
-                    })}{" "}
+                  <span
+                    className="text-xl font-bold text-emerald-500 block"
+                    data-testid="stat-net-revenue"
+                  >
+                    {Number(financialReport.net_revenue_etb).toLocaleString(
+                      undefined,
+                      {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2,
+                      }
+                    )}{" "}
                     ETB
                   </span>
                   <span className="text-[11px] text-text-muted block">
@@ -515,11 +579,17 @@ export const ExpensesSection: React.FC<ExpensesSectionProps> = ({ userRole }) =>
                   <span className="text-xs font-semibold uppercase tracking-wider text-text-muted block">
                     Active Expenses
                   </span>
-                  <span className="text-xl font-bold text-amber-500 block" data-testid="stat-total-expenses">
-                    {Number(financialReport.total_expenses_etb).toLocaleString(undefined, {
-                      minimumFractionDigits: 2,
-                      maximumFractionDigits: 2,
-                    })}{" "}
+                  <span
+                    className="text-xl font-bold text-amber-500 block"
+                    data-testid="stat-total-expenses"
+                  >
+                    {Number(financialReport.total_expenses_etb).toLocaleString(
+                      undefined,
+                      {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2,
+                      }
+                    )}{" "}
                     ETB
                   </span>
                   <span className="text-[11px] text-text-muted block">
@@ -533,14 +603,19 @@ export const ExpensesSection: React.FC<ExpensesSectionProps> = ({ userRole }) =>
                   </span>
                   <span
                     className={`text-xl font-bold block ${
-                      Number(financialReport.net_income_etb) >= 0 ? "text-emerald-500" : "text-rose-500"
+                      Number(financialReport.net_income_etb) >= 0
+                        ? "text-emerald-500"
+                        : "text-rose-500"
                     }`}
                     data-testid="stat-net-income"
                   >
-                    {Number(financialReport.net_income_etb).toLocaleString(undefined, {
-                      minimumFractionDigits: 2,
-                      maximumFractionDigits: 2,
-                    })}{" "}
+                    {Number(financialReport.net_income_etb).toLocaleString(
+                      undefined,
+                      {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2,
+                      }
+                    )}{" "}
                     ETB
                   </span>
                   <span className="text-[11px] text-text-muted block">
@@ -554,23 +629,42 @@ export const ExpensesSection: React.FC<ExpensesSectionProps> = ({ userRole }) =>
                 {/* Expenses by Category */}
                 <Card className="p-5 space-y-4">
                   <div className="border-b border-border pb-3">
-                    <h3 className="text-sm font-bold text-text">Expenses by Category</h3>
-                    <p className="text-xs text-text-muted">Breakdown of operational expenditures.</p>
+                    <h3 className="text-sm font-bold text-text">
+                      Expenses by Category
+                    </h3>
+                    <p className="text-xs text-text-muted">
+                      Breakdown of operational expenditures.
+                    </p>
                   </div>
-                  {Object.keys(financialReport.expenses_by_category || {}).length === 0 ? (
-                    <p className="text-xs text-text-muted py-4 text-center">No expenses recorded for this period.</p>
+                  {Object.keys(financialReport.expenses_by_category || {})
+                    .length === 0 ? (
+                    <p className="text-xs text-text-muted py-4 text-center">
+                      No expenses recorded for this period.
+                    </p>
                   ) : (
                     <div className="space-y-3">
-                      {Object.entries(financialReport.expenses_by_category || {}).map(([catKey, item]) => (
-                        <div key={catKey} className="flex items-center justify-between text-xs">
-                          <span className="font-medium text-text">{getCategoryLabel(catKey)}</span>
+                      {Object.entries(
+                        financialReport.expenses_by_category || {}
+                      ).map(([catKey, item]) => (
+                        <div
+                          key={catKey}
+                          className="flex items-center justify-between text-xs"
+                        >
+                          <span className="font-medium text-text">
+                            {getCategoryLabel(catKey)}
+                          </span>
                           <div className="flex items-center gap-3">
-                            <span className="text-text-muted">({item.count} items)</span>
+                            <span className="text-text-muted">
+                              ({item.count} items)
+                            </span>
                             <span className="font-mono font-semibold text-text">
-                              {Number(item.total_etb).toLocaleString(undefined, {
-                                minimumFractionDigits: 2,
-                                maximumFractionDigits: 2,
-                              })}{" "}
+                              {Number(item.total_etb).toLocaleString(
+                                undefined,
+                                {
+                                  minimumFractionDigits: 2,
+                                  maximumFractionDigits: 2,
+                                }
+                              )}{" "}
                               ETB
                             </span>
                           </div>
@@ -583,18 +677,31 @@ export const ExpensesSection: React.FC<ExpensesSectionProps> = ({ userRole }) =>
                 {/* Revenue by Plan */}
                 <Card className="p-5 space-y-4">
                   <div className="border-b border-border pb-3">
-                    <h3 className="text-sm font-bold text-text">Revenue by Membership Plan</h3>
-                    <p className="text-xs text-text-muted">Confirmed income collected per membership tier.</p>
+                    <h3 className="text-sm font-bold text-text">
+                      Revenue by Membership Plan
+                    </h3>
+                    <p className="text-xs text-text-muted">
+                      Confirmed income collected per membership tier.
+                    </p>
                   </div>
                   {(financialReport.revenue_by_plan || []).length === 0 ? (
-                    <p className="text-xs text-text-muted py-4 text-center">No plan payment revenue recorded for this period.</p>
+                    <p className="text-xs text-text-muted py-4 text-center">
+                      No plan payment revenue recorded for this period.
+                    </p>
                   ) : (
                     <div className="space-y-3">
                       {(financialReport.revenue_by_plan || []).map((p) => (
-                        <div key={p.plan_id} className="flex items-center justify-between text-xs">
-                          <span className="font-medium text-text">{p.plan_name}</span>
+                        <div
+                          key={p.plan_id}
+                          className="flex items-center justify-between text-xs"
+                        >
+                          <span className="font-medium text-text">
+                            {p.plan_name}
+                          </span>
                           <div className="flex items-center gap-3">
-                            <span className="text-text-muted">({p.payment_count} payments)</span>
+                            <span className="text-text-muted">
+                              ({p.payment_count} payments)
+                            </span>
                             <span className="font-mono font-semibold text-emerald-500">
                               {Number(p.total_etb).toLocaleString(undefined, {
                                 minimumFractionDigits: 2,
@@ -621,7 +728,9 @@ export const ExpensesSection: React.FC<ExpensesSectionProps> = ({ userRole }) =>
           <Card className="p-4">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div className="flex flex-wrap items-center gap-3">
-                <span className="text-xs font-medium text-text-muted">Period:</span>
+                <span className="text-xs font-medium text-text-muted">
+                  Period:
+                </span>
                 <Input
                   type="date"
                   value={reportStartDate}
@@ -635,7 +744,12 @@ export const ExpensesSection: React.FC<ExpensesSectionProps> = ({ userRole }) =>
                   onChange={(e) => setReportEndDate(e.target.value)}
                   className="w-36 h-9 text-xs"
                 />
-                <Button size="sm" variant="secondary" onClick={fetchAttendanceData} disabled={loadingReport}>
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  onClick={fetchAttendanceData}
+                  disabled={loadingReport}
+                >
                   Apply
                 </Button>
                 {(reportStartDate || reportEndDate) && (
@@ -652,7 +766,8 @@ export const ExpensesSection: React.FC<ExpensesSectionProps> = ({ userRole }) =>
                 )}
               </div>
               <span className="text-xs text-text-muted">
-                {attendanceReport?.period?.start_date && attendanceReport?.period?.end_date
+                {attendanceReport?.period?.start_date &&
+                attendanceReport?.period?.end_date
                   ? `${attendanceReport.period.start_date} to ${attendanceReport.period.end_date}`
                   : "All-time to date"}
               </span>
@@ -673,20 +788,30 @@ export const ExpensesSection: React.FC<ExpensesSectionProps> = ({ userRole }) =>
                   <span className="text-xs font-semibold uppercase tracking-wider text-text-muted block">
                     Total Check-ins
                   </span>
-                  <span className="text-2xl font-bold text-text block" data-testid="stat-total-checkins">
+                  <span
+                    className="text-2xl font-bold text-text block"
+                    data-testid="stat-total-checkins"
+                  >
                     {attendanceReport.total_check_ins}
                   </span>
-                  <span className="text-[11px] text-text-muted block">Gym visits logged</span>
+                  <span className="text-[11px] text-text-muted block">
+                    Gym visits logged
+                  </span>
                 </Card>
 
                 <Card className="p-4 bg-surface border-border space-y-1">
                   <span className="text-xs font-semibold uppercase tracking-wider text-text-muted block">
                     Unique Members
                   </span>
-                  <span className="text-2xl font-bold text-primary block" data-testid="stat-unique-members">
+                  <span
+                    className="text-2xl font-bold text-primary block"
+                    data-testid="stat-unique-members"
+                  >
                     {attendanceReport.unique_members}
                   </span>
-                  <span className="text-[11px] text-text-muted block">Distinct members who visited</span>
+                  <span className="text-[11px] text-text-muted block">
+                    Distinct members who visited
+                  </span>
                 </Card>
 
                 <Card className="p-4 bg-surface border-border space-y-1">
@@ -710,18 +835,26 @@ export const ExpensesSection: React.FC<ExpensesSectionProps> = ({ userRole }) =>
                   <span className="text-2xl font-bold text-amber-500 block">
                     {attendanceReport.manual_override_check_ins}
                   </span>
-                  <span className="text-[11px] text-text-muted block">Staff verified admissions</span>
+                  <span className="text-[11px] text-text-muted block">
+                    Staff verified admissions
+                  </span>
                 </Card>
               </div>
 
               {/* Daily Breakdown List */}
               <Card className="p-5 space-y-4">
                 <div className="border-b border-border pb-3">
-                  <h3 className="text-sm font-bold text-text">Daily Check-in Activity</h3>
-                  <p className="text-xs text-text-muted">Recorded check-in volume per day.</p>
+                  <h3 className="text-sm font-bold text-text">
+                    Daily Check-in Activity
+                  </h3>
+                  <p className="text-xs text-text-muted">
+                    Recorded check-in volume per day.
+                  </p>
                 </div>
                 {(attendanceReport.daily_counts || []).length === 0 ? (
-                  <p className="text-xs text-text-muted py-4 text-center">No attendance records found for this period.</p>
+                  <p className="text-xs text-text-muted py-4 text-center">
+                    No attendance records found for this period.
+                  </p>
                 ) : (
                   <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
                     {(attendanceReport.daily_counts || []).map((d) => (
@@ -730,7 +863,9 @@ export const ExpensesSection: React.FC<ExpensesSectionProps> = ({ userRole }) =>
                         className="p-3 bg-surface-2/40 border border-border rounded-lg flex items-center justify-between text-xs"
                       >
                         <span className="font-medium text-text">{d.date}</span>
-                        <span className="font-semibold text-primary">{d.count} visits</span>
+                        <span className="font-semibold text-primary">
+                          {d.count} visits
+                        </span>
                       </div>
                     ))}
                   </div>
@@ -742,11 +877,17 @@ export const ExpensesSection: React.FC<ExpensesSectionProps> = ({ userRole }) =>
       )}
 
       {/* Log Expense Modal */}
-      <Modal isOpen={isAddOpen} onClose={() => setIsAddOpen(false)} title="Log New Expense">
+      <Modal
+        isOpen={isAddOpen}
+        onClose={() => setIsAddOpen(false)}
+        title="Log New Expense"
+      >
         <form onSubmit={handleSaveExpense} className="space-y-4">
           {modalError && <Alert variant="danger">{modalError}</Alert>}
           <div>
-            <label className="block text-xs font-medium text-text-muted mb-1">Amount (ETB) *</label>
+            <label className="block text-xs font-medium text-text-muted mb-1">
+              Amount (ETB) *
+            </label>
             <Input
               type="number"
               step="0.01"
@@ -760,7 +901,9 @@ export const ExpensesSection: React.FC<ExpensesSectionProps> = ({ userRole }) =>
             />
           </div>
           <div>
-            <label className="block text-xs font-medium text-text-muted mb-1">Category *</label>
+            <label className="block text-xs font-medium text-text-muted mb-1">
+              Category *
+            </label>
             <select
               required
               className="w-full h-10 px-3 py-2 text-sm rounded-md border border-border bg-surface text-text focus:outline-none focus:ring-2 focus:ring-primary"
@@ -776,7 +919,9 @@ export const ExpensesSection: React.FC<ExpensesSectionProps> = ({ userRole }) =>
             </select>
           </div>
           <div>
-            <label className="block text-xs font-medium text-text-muted mb-1">Date Incurred *</label>
+            <label className="block text-xs font-medium text-text-muted mb-1">
+              Date Incurred *
+            </label>
             <Input
               type="date"
               required
@@ -787,7 +932,9 @@ export const ExpensesSection: React.FC<ExpensesSectionProps> = ({ userRole }) =>
             />
           </div>
           <div>
-            <label className="block text-xs font-medium text-text-muted mb-1">Note / Description (optional)</label>
+            <label className="block text-xs font-medium text-text-muted mb-1">
+              Note / Description (optional)
+            </label>
             <textarea
               maxLength={500}
               className="w-full h-20 px-3 py-2 text-sm rounded-md border border-border bg-surface text-text focus:outline-none focus:ring-2 focus:ring-primary resize-none"
@@ -796,14 +943,25 @@ export const ExpensesSection: React.FC<ExpensesSectionProps> = ({ userRole }) =>
               onChange={(e) => setFormNote(e.target.value)}
               data-testid="input-expense-note"
             />
-            <span className="text-[10px] text-text-muted block text-right">{formNote.length}/500</span>
+            <span className="text-[10px] text-text-muted block text-right">
+              {formNote.length}/500
+            </span>
           </div>
 
           <div className="flex justify-end gap-2 pt-4 border-t border-border">
-            <Button type="button" variant="ghost" onClick={() => setIsAddOpen(false)}>
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={() => setIsAddOpen(false)}
+            >
               Cancel
             </Button>
-            <Button type="submit" variant="primary" disabled={modalSubmitting} data-testid="btn-save-expense">
+            <Button
+              type="submit"
+              variant="primary"
+              disabled={modalSubmitting}
+              data-testid="btn-save-expense"
+            >
               {modalSubmitting ? "Recording..." : "Record Expense"}
             </Button>
           </div>
@@ -822,13 +980,18 @@ export const ExpensesSection: React.FC<ExpensesSectionProps> = ({ userRole }) =>
             <div className="flex justify-between">
               <span className="text-text-muted">Category:</span>
               <span className="font-semibold text-text">
-                {voidingExpense ? getCategoryLabel(voidingExpense.category) : ""}
+                {voidingExpense
+                  ? getCategoryLabel(voidingExpense.category)
+                  : ""}
               </span>
             </div>
             <div className="flex justify-between">
               <span className="text-text-muted">Amount:</span>
               <span className="font-semibold text-text font-mono">
-                {voidingExpense ? Number(voidingExpense.amount_etb).toLocaleString() : ""} ETB
+                {voidingExpense
+                  ? Number(voidingExpense.amount_etb).toLocaleString()
+                  : ""}{" "}
+                ETB
               </span>
             </div>
             <div className="flex justify-between">
@@ -838,7 +1001,9 @@ export const ExpensesSection: React.FC<ExpensesSectionProps> = ({ userRole }) =>
           </div>
 
           <Alert variant="warning">
-            Voiding removes this expense from financial totals and reports. For auditing integrity, this entry remains on the ledger marked as voided.
+            Voiding removes this expense from financial totals and reports. For
+            auditing integrity, this entry remains on the ledger marked as
+            voided.
           </Alert>
 
           <div>
@@ -857,7 +1022,11 @@ export const ExpensesSection: React.FC<ExpensesSectionProps> = ({ userRole }) =>
           </div>
 
           <div className="flex justify-end gap-2 pt-4 border-t border-border">
-            <Button type="button" variant="ghost" onClick={() => setVoidingExpense(null)}>
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={() => setVoidingExpense(null)}
+            >
               Cancel
             </Button>
             <Button

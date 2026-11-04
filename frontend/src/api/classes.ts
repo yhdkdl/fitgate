@@ -150,7 +150,8 @@ export async function cancelClassBooking(
   }
   return {
     message:
-      (res as { message?: string }).message || "Booking cancelled successfully.",
+      (res as { message?: string }).message ||
+      "Booking cancelled successfully.",
     booking: (res as { booking: ClassBooking }).booking,
   };
 }
@@ -195,7 +196,11 @@ export async function getMyBookings(): Promise<ClassBooking[]> {
 export async function getTrainerSessions(): Promise<ClassSession[]> {
   const res = await apiFetch<
     | ClassSession[]
-    | { sessions?: ClassSession[]; upcoming?: ClassSession[]; past?: ClassSession[] }
+    | {
+        sessions?: ClassSession[];
+        upcoming?: ClassSession[];
+        past?: ClassSession[];
+      }
   >("/api/gym/classes/trainer-sessions/");
   if (Array.isArray(res)) {
     return res;

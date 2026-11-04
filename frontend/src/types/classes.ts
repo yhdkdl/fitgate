@@ -9,17 +9,18 @@ export type ClassTitle =
   | "stretching_mobility"
   | "other";
 
-export const CLASS_TITLE_OPTIONS: Array<{ value: ClassTitle; label: string }> = [
-  { value: "yoga", label: "Yoga" },
-  { value: "zumba", label: "Zumba" },
-  { value: "spinning", label: "Spinning" },
-  { value: "boxing", label: "Boxing" },
-  { value: "aerobics", label: "Aerobics" },
-  { value: "crossfit", label: "CrossFit" },
-  { value: "strength_circuit", label: "Strength Circuit" },
-  { value: "stretching_mobility", label: "Stretching & Mobility" },
-  { value: "other", label: "Other" },
-];
+export const CLASS_TITLE_OPTIONS: Array<{ value: ClassTitle; label: string }> =
+  [
+    { value: "yoga", label: "Yoga" },
+    { value: "zumba", label: "Zumba" },
+    { value: "spinning", label: "Spinning" },
+    { value: "boxing", label: "Boxing" },
+    { value: "aerobics", label: "Aerobics" },
+    { value: "crossfit", label: "CrossFit" },
+    { value: "strength_circuit", label: "Strength Circuit" },
+    { value: "stretching_mobility", label: "Stretching & Mobility" },
+    { value: "other", label: "Other" },
+  ];
 
 export const CLASS_DURATION_OPTIONS: Array<{ value: number; label: string }> = [
   { value: 30, label: "30 minutes" },

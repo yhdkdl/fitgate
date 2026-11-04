@@ -26,10 +26,9 @@ interface TrainingPlanReviewSectionProps {
   memberName: string;
 }
 
-export const TrainingPlanReviewSection: React.FC<TrainingPlanReviewSectionProps> = ({
-  memberId,
-  memberName,
-}) => {
+export const TrainingPlanReviewSection: React.FC<
+  TrainingPlanReviewSectionProps
+> = ({ memberId, memberName }) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [prereqs, setPrereqs] = useState<PlanPrerequisites | null>(null);
@@ -42,7 +41,8 @@ export const TrainingPlanReviewSection: React.FC<TrainingPlanReviewSectionProps>
 
   // Edit mode state
   const [isEditing, setIsEditing] = useState(false);
-  const [editedPlanData, setEditedPlanData] = useState<PlanDataStructure | null>(null);
+  const [editedPlanData, setEditedPlanData] =
+    useState<PlanDataStructure | null>(null);
   const [savingEdit, setSavingEdit] = useState(false);
   const [approving, setApproving] = useState(false);
   const [actionSuccess, setActionSuccess] = useState<string | null>(null);
@@ -57,7 +57,9 @@ export const TrainingPlanReviewSection: React.FC<TrainingPlanReviewSectionProps>
       ]);
       setPrereqs(prereqRes);
       setPlans(plansRes);
-      setSelectedPlanId((current) => current || (plansRes.length > 0 ? plansRes[0].id : null));
+      setSelectedPlanId(
+        (current) => current || (plansRes.length > 0 ? plansRes[0].id : null)
+      );
     } catch (err: unknown) {
       const errObj = err as { message?: string };
       setError(errObj?.message || "Failed to load workout plans.");
@@ -70,7 +72,8 @@ export const TrainingPlanReviewSection: React.FC<TrainingPlanReviewSectionProps>
     loadData();
   }, [loadData]);
 
-  const currentPlan = plans.find((p) => p.id === selectedPlanId) || plans[0] || null;
+  const currentPlan =
+    plans.find((p) => p.id === selectedPlanId) || plans[0] || null;
 
   useEffect(() => {
     if (currentPlan) {
@@ -88,7 +91,9 @@ export const TrainingPlanReviewSection: React.FC<TrainingPlanReviewSectionProps>
     try {
       const updated = await approveTrainingPlan(currentPlan.id);
       setPlans((prev) => prev.map((p) => (p.id === updated.id ? updated : p)));
-      setActionSuccess("Workout plan approved successfully! The member can now view their sessions.");
+      setActionSuccess(
+        "Workout plan approved successfully! The member can now view their sessions."
+      );
       const refreshedPrereqs = await getPlanPrerequisites(memberId);
       setPrereqs(refreshedPrereqs);
     } catch (err: unknown) {
@@ -110,10 +115,14 @@ export const TrainingPlanReviewSection: React.FC<TrainingPlanReviewSectionProps>
       });
       setPlans((prev) => prev.map((p) => (p.id === updated.id ? updated : p)));
       setIsEditing(false);
-      setActionSuccess("Changes saved to draft. You can now approve when ready.");
+      setActionSuccess(
+        "Changes saved to draft. You can now approve when ready."
+      );
     } catch (err: unknown) {
       const errObj = err as { data?: { detail?: string }; message?: string };
-      setError(errObj?.data?.detail || errObj?.message || "Failed to save edits.");
+      setError(
+        errObj?.data?.detail || errObj?.message || "Failed to save edits."
+      );
     } finally {
       setSavingEdit(false);
     }
@@ -127,9 +136,16 @@ export const TrainingPlanReviewSection: React.FC<TrainingPlanReviewSectionProps>
   };
 
   const handlePlanRejected = (regeneratedPlan: TrainingPlan) => {
-    setPlans((prev) => [regeneratedPlan, ...prev.map((p) => (p.id === currentPlan?.id ? { ...p, status: "rejected" as const } : p))]);
+    setPlans((prev) => [
+      regeneratedPlan,
+      ...prev.map((p) =>
+        p.id === currentPlan?.id ? { ...p, status: "rejected" as const } : p
+      ),
+    ]);
     setSelectedPlanId(regeneratedPlan.id);
-    setActionSuccess(`Draft rejected. Generated Draft ${regeneratedPlan.draft_number} pending review.`);
+    setActionSuccess(
+      `Draft rejected. Generated Draft ${regeneratedPlan.draft_number} pending review.`
+    );
     loadData();
   };
 
@@ -149,7 +165,8 @@ export const TrainingPlanReviewSection: React.FC<TrainingPlanReviewSectionProps>
         <div>
           <h3 className="text-base font-bold text-text">AI Workout Plans</h3>
           <p className="text-xs text-text-muted">
-            Weekly structured workout and nutrition guidance tailored to {memberName}.
+            Weekly structured workout and nutrition guidance tailored to{" "}
+            {memberName}.
           </p>
         </div>
 
@@ -160,7 +177,10 @@ export const TrainingPlanReviewSection: React.FC<TrainingPlanReviewSectionProps>
               variant="primary"
               size="sm"
               onClick={() => setIsGenerateModalOpen(true)}
-              disabled={!prereqs.can_generate_this_week && !prereqs.can_generate_next_week}
+              disabled={
+                !prereqs.can_generate_this_week &&
+                !prereqs.can_generate_next_week
+              }
             >
               Generate AI Plan
             </Button>
@@ -182,25 +202,30 @@ export const TrainingPlanReviewSection: React.FC<TrainingPlanReviewSectionProps>
       {error && <Alert variant="error">{error}</Alert>}
 
       {/* Ineligibility Warning if prerequisites not met */}
-      {prereqs && !prereqs.eligible && prereqs.missing_requirements.length > 0 && (
-        <Card className="bg-amber-500/10 border-amber-500/30 p-4 space-y-2">
-          <div className="text-xs font-bold text-amber-400 uppercase tracking-wider">
-            Plan Generation Requirements Missing:
-          </div>
-          <ul className="list-disc list-inside text-xs text-amber-200/90 space-y-1">
-            {prereqs.missing_requirements.map((req, i) => (
-              <li key={i}>{req}</li>
-            ))}
-          </ul>
-        </Card>
-      )}
+      {prereqs &&
+        !prereqs.eligible &&
+        prereqs.missing_requirements.length > 0 && (
+          <Card className="bg-amber-500/10 border-amber-500/30 p-4 space-y-2">
+            <div className="text-xs font-bold text-amber-400 uppercase tracking-wider">
+              Plan Generation Requirements Missing:
+            </div>
+            <ul className="list-disc list-inside text-xs text-amber-200/90 space-y-1">
+              {prereqs.missing_requirements.map((req, i) => (
+                <li key={i}>{req}</li>
+              ))}
+            </ul>
+          </Card>
+        )}
 
       {/* No plans created yet */}
       {plans.length === 0 && (
         <Card className="p-10 text-center bg-surface border-border">
-          <p className="text-sm font-semibold text-text">No workout plans generated yet.</p>
+          <p className="text-sm font-semibold text-text">
+            No workout plans generated yet.
+          </p>
           <p className="text-xs text-text-muted mt-1 max-w-md mx-auto">
-            Once measurements and fitness profile are recorded, click "Generate AI Plan" above to create an Ethiopian-adapted weekly routine.
+            Once measurements and fitness profile are recorded, click "Generate
+            AI Plan" above to create an Ethiopian-adapted weekly routine.
           </p>
         </Card>
       )}
@@ -232,17 +257,19 @@ export const TrainingPlanReviewSection: React.FC<TrainingPlanReviewSectionProps>
                     currentPlan.status === "approved"
                       ? "success"
                       : currentPlan.status === "rejected"
-                      ? "danger"
-                      : "warning"
+                        ? "danger"
+                        : "warning"
                   }
                 >
                   {currentPlan.status === "pending_review"
                     ? "Pending Review"
                     : currentPlan.status === "approved"
-                    ? "Approved"
-                    : "Rejected"}
+                      ? "Approved"
+                      : "Rejected"}
                 </Badge>
-                <Badge variant="neutral">Draft {currentPlan.draft_number} / 3</Badge>
+                <Badge variant="neutral">
+                  Draft {currentPlan.draft_number} / 3
+                </Badge>
                 {currentPlan.was_edited && (
                   <Badge variant="primary">Edited by Trainer</Badge>
                 )}
@@ -259,7 +286,8 @@ export const TrainingPlanReviewSection: React.FC<TrainingPlanReviewSectionProps>
                   >
                     {plans.map((p) => (
                       <option key={p.id} value={p.id}>
-                        {p.week_start_date || "Week"} (Draft {p.draft_number} - {p.status})
+                        {p.week_start_date || "Week"} (Draft {p.draft_number} -{" "}
+                        {p.status})
                       </option>
                     ))}
                   </select>
@@ -270,7 +298,8 @@ export const TrainingPlanReviewSection: React.FC<TrainingPlanReviewSectionProps>
             {/* Medical caution & Cautions */}
             {currentPlan.has_medical_caution && (
               <div className="p-2.5 bg-amber-500/10 border border-amber-500/30 rounded text-xs text-amber-300 font-medium">
-                ⚠️ Medical Caution: Confirm with the member's doctor; review plans for this member extra carefully.
+                ⚠️ Medical Caution: Confirm with the member's doctor; review
+                plans for this member extra carefully.
               </div>
             )}
 
@@ -278,20 +307,26 @@ export const TrainingPlanReviewSection: React.FC<TrainingPlanReviewSectionProps>
             <div className="bg-surface-2/60 p-2.5 rounded border border-border flex items-center justify-between text-xs">
               <span className="text-text-muted">Equipment source:</span>
               <span className="font-semibold text-text">
-                {currentPlan.equipment_source || currentPlan.plan_data?.equipment_source || "member profile only"}
+                {currentPlan.equipment_source ||
+                  currentPlan.plan_data?.equipment_source ||
+                  "member profile only"}
               </span>
             </div>
 
             {/* Plan Meta Information */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
               <div className="bg-surface-2/60 p-2 rounded border border-border">
-                <span className="text-text-muted block text-[10px]">Training Phase</span>
+                <span className="text-text-muted block text-[10px]">
+                  Training Phase
+                </span>
                 <span className="font-semibold text-text uppercase">
                   {currentPlan.plan_data?.training_phase || "General"}
                 </span>
               </div>
               <div className="bg-surface-2/60 p-2 rounded border border-border">
-                <span className="text-text-muted block text-[10px]">Target Intensity</span>
+                <span className="text-text-muted block text-[10px]">
+                  Target Intensity
+                </span>
                 <span className="font-semibold text-primary">
                   {currentPlan.plan_data?.target_intensity?.rpe_target
                     ? `RPE ${currentPlan.plan_data.target_intensity.rpe_target}`
@@ -304,7 +339,9 @@ export const TrainingPlanReviewSection: React.FC<TrainingPlanReviewSectionProps>
                 )}
               </div>
               <div className="bg-surface-2/60 p-2 rounded border border-border">
-                <span className="text-text-muted block text-[10px]">Days / Session</span>
+                <span className="text-text-muted block text-[10px]">
+                  Days / Session
+                </span>
                 <span className="font-semibold text-text">
                   {currentPlan.plan_data?.training_days_per_week ||
                     (Array.isArray(currentPlan.plan_data?.sessions)
@@ -314,7 +351,9 @@ export const TrainingPlanReviewSection: React.FC<TrainingPlanReviewSectionProps>
                 </span>
               </div>
               <div className="bg-surface-2/60 p-2 rounded border border-border">
-                <span className="text-text-muted block text-[10px]">Source</span>
+                <span className="text-text-muted block text-[10px]">
+                  Source
+                </span>
                 <span
                   className="font-semibold text-text truncate block"
                   title={currentPlan.generated_by_model || "Mock AI Provider"}
@@ -331,17 +370,22 @@ export const TrainingPlanReviewSection: React.FC<TrainingPlanReviewSectionProps>
                   <strong className="text-text">Focus this week:</strong>{" "}
                   {currentPlan.focus_this_week
                     .map((code) => {
-                      const match = WEEKLY_FOCUS_OPTIONS.find((opt) => opt.code === code);
+                      const match = WEEKLY_FOCUS_OPTIONS.find(
+                        (opt) => opt.code === code
+                      );
                       return match ? match.label : String(code);
                     })
                     .join(", ")}
-                  {currentPlan.other_focus ? ` (${currentPlan.other_focus})` : ""}
+                  {currentPlan.other_focus
+                    ? ` (${currentPlan.other_focus})`
+                    : ""}
                 </div>
               )}
 
             {currentPlan.trainer_notes && (
               <div className="text-xs text-text-muted bg-surface-2/40 p-2 rounded border border-border">
-                <strong className="text-text">Trainer Note:</strong> {currentPlan.trainer_notes}
+                <strong className="text-text">Trainer Note:</strong>{" "}
+                {currentPlan.trainer_notes}
               </div>
             )}
 
@@ -380,10 +424,14 @@ export const TrainingPlanReviewSection: React.FC<TrainingPlanReviewSectionProps>
               <div className="text-xs text-text-muted">
                 {currentPlan.draft_number >= 3 ? (
                   <span className="font-semibold text-amber-300">
-                    Draft limit reached (3/3). You must edit this draft yourself before approval.
+                    Draft limit reached (3/3). You must edit this draft yourself
+                    before approval.
                   </span>
                 ) : (
-                  <span>Review the AI-generated routine below. You can edit directly or approve.</span>
+                  <span>
+                    Review the AI-generated routine below. You can edit directly
+                    or approve.
+                  </span>
                 )}
               </div>
 
@@ -445,11 +493,12 @@ export const TrainingPlanReviewSection: React.FC<TrainingPlanReviewSectionProps>
               : [];
             const activeSession = sessions[activeSessionTab];
             const currentExercises =
-              isEditing && editedPlanData?.sessions?.[activeSessionTab]?.exercises
+              isEditing &&
+              editedPlanData?.sessions?.[activeSessionTab]?.exercises
                 ? editedPlanData.sessions[activeSessionTab].exercises
                 : Array.isArray(activeSession?.exercises)
-                ? activeSession.exercises
-                : [];
+                  ? activeSession.exercises
+                  : [];
 
             return (
               <Card className="bg-surface border-border p-4 space-y-4">
@@ -487,7 +536,9 @@ export const TrainingPlanReviewSection: React.FC<TrainingPlanReviewSectionProps>
                   <div className="space-y-3">
                     <div className="flex items-center justify-between">
                       <h4 className="text-xs font-bold text-text uppercase tracking-wider">
-                        {activeSession.name || `Session ${activeSessionTab + 1}`}:{" "}
+                        {activeSession.name ||
+                          `Session ${activeSessionTab + 1}`}
+                        :{" "}
                         <span className="text-primary">
                           {activeSession.focus || "Standard Routine"}
                         </span>
@@ -523,9 +574,10 @@ export const TrainingPlanReviewSection: React.FC<TrainingPlanReviewSectionProps>
                                         updated.sessions?.[activeSessionTab]
                                           ?.exercises?.[exIdx]
                                       ) {
-                                        updated.sessions[activeSessionTab].exercises[
-                                          exIdx
-                                        ].name = e.target.value;
+                                        updated.sessions[
+                                          activeSessionTab
+                                        ].exercises[exIdx].name =
+                                          e.target.value;
                                         setEditedPlanData(updated);
                                       }
                                     }}
@@ -549,9 +601,10 @@ export const TrainingPlanReviewSection: React.FC<TrainingPlanReviewSectionProps>
                                         updated.sessions?.[activeSessionTab]
                                           ?.exercises?.[exIdx]
                                       ) {
-                                        updated.sessions[activeSessionTab].exercises[
-                                          exIdx
-                                        ].sets = e.target.value;
+                                        updated.sessions[
+                                          activeSessionTab
+                                        ].exercises[exIdx].sets =
+                                          e.target.value;
                                         setEditedPlanData(updated);
                                       }
                                     }}
@@ -572,9 +625,10 @@ export const TrainingPlanReviewSection: React.FC<TrainingPlanReviewSectionProps>
                                         updated.sessions?.[activeSessionTab]
                                           ?.exercises?.[exIdx]
                                       ) {
-                                        updated.sessions[activeSessionTab].exercises[
-                                          exIdx
-                                        ].reps = e.target.value;
+                                        updated.sessions[
+                                          activeSessionTab
+                                        ].exercises[exIdx].reps =
+                                          e.target.value;
                                         setEditedPlanData(updated);
                                       }
                                     }}
@@ -595,9 +649,9 @@ export const TrainingPlanReviewSection: React.FC<TrainingPlanReviewSectionProps>
                                         updated.sessions?.[activeSessionTab]
                                           ?.exercises?.[exIdx]
                                       ) {
-                                        updated.sessions[activeSessionTab].exercises[
-                                          exIdx
-                                        ].rpe = e.target.value;
+                                        updated.sessions[
+                                          activeSessionTab
+                                        ].exercises[exIdx].rpe = e.target.value;
                                         setEditedPlanData(updated);
                                       }
                                     }}
@@ -608,7 +662,9 @@ export const TrainingPlanReviewSection: React.FC<TrainingPlanReviewSectionProps>
                                 )}
                               </td>
                               <td className="py-2 px-2 text-text-muted">
-                                {ex.rest_seconds != null ? `${ex.rest_seconds}s` : "—"}
+                                {ex.rest_seconds != null
+                                  ? `${ex.rest_seconds}s`
+                                  : "—"}
                               </td>
                               <td className="py-2 px-2 text-text-muted">
                                 {isEditing && editedPlanData ? (
@@ -620,9 +676,10 @@ export const TrainingPlanReviewSection: React.FC<TrainingPlanReviewSectionProps>
                                         updated.sessions?.[activeSessionTab]
                                           ?.exercises?.[exIdx]
                                       ) {
-                                        updated.sessions[activeSessionTab].exercises[
-                                          exIdx
-                                        ].notes = e.target.value;
+                                        updated.sessions[
+                                          activeSessionTab
+                                        ].exercises[exIdx].notes =
+                                          e.target.value;
                                         setEditedPlanData(updated);
                                       }
                                     }}
@@ -648,7 +705,8 @@ export const TrainingPlanReviewSection: React.FC<TrainingPlanReviewSectionProps>
                         Ethiopian Dietary & Nutrition Principles
                       </h4>
                       <p className="text-[11px] text-text-muted">
-                        No strict calorie precision; focuses on wholesome Ethiopian staples respecting dietary choices & fasting.
+                        No strict calorie precision; focuses on wholesome
+                        Ethiopian staples respecting dietary choices & fasting.
                       </p>
                     </div>
 
@@ -698,9 +756,11 @@ export const TrainingPlanReviewSection: React.FC<TrainingPlanReviewSectionProps>
                                 Daily Principles
                               </span>
                               <ul className="list-disc list-inside text-xs text-text-muted space-y-1">
-                                {dailyPrinciples.map((pr: string, i: number) => (
-                                  <li key={i}>{pr}</li>
-                                ))}
+                                {dailyPrinciples.map(
+                                  (pr: string, i: number) => (
+                                    <li key={i}>{pr}</li>
+                                  )
+                                )}
                               </ul>
                             </div>
                           )}
@@ -710,7 +770,9 @@ export const TrainingPlanReviewSection: React.FC<TrainingPlanReviewSectionProps>
                               <span className="text-xs font-bold text-text block mb-1">
                                 Hydration
                               </span>
-                              <p className="text-xs text-text-muted">{hydration}</p>
+                              <p className="text-xs text-text-muted">
+                                {hydration}
+                              </p>
                             </div>
                           )}
 
@@ -738,7 +800,8 @@ export const TrainingPlanReviewSection: React.FC<TrainingPlanReviewSectionProps>
                                     )
                                   )}
                                 </div>
-                              ) : typeof nutrition.meal_patterns === "object" ? (
+                              ) : typeof nutrition.meal_patterns ===
+                                "object" ? (
                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                   {Object.entries(nutrition.meal_patterns).map(
                                     ([mealKey, items]: [string, unknown]) => (

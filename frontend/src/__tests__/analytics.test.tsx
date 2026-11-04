@@ -75,7 +75,9 @@ describe("Sprint 27: AnalyticsOverviewSection", () => {
 
     expect(screen.getByText("(3 frozen)")).toBeInTheDocument();
     expect(screen.getByTestId("stat-today-checkins")).toHaveTextContent("15");
-    expect(screen.getByTestId("stat-monthly-revenue")).toHaveTextContent("45,000.00");
+    expect(screen.getByTestId("stat-monthly-revenue")).toHaveTextContent(
+      "45,000.00"
+    );
     expect(screen.getByTestId("stat-expiring-count")).toHaveTextContent("2");
   });
 
@@ -87,13 +89,13 @@ describe("Sprint 27: AnalyticsOverviewSection", () => {
     render(<AnalyticsOverviewSection />);
 
     await waitFor(() => {
-      expect(
-        screen.getByText(/Revenue by Plan Locked/i)
-      ).toBeInTheDocument();
+      expect(screen.getByText(/Revenue by Plan Locked/i)).toBeInTheDocument();
     });
 
     expect(
-      screen.getByText(/Upgrade to Growth or Pro to unlock revenue by plan breakdowns/i)
+      screen.getByText(
+        /Upgrade to Growth or Pro to unlock revenue by plan breakdowns/i
+      )
     ).toBeInTheDocument();
   });
 

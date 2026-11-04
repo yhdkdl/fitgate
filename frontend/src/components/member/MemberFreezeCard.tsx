@@ -26,8 +26,12 @@ interface MemberFreezeCardProps {
   memberStatus: string;
 }
 
-export const MemberFreezeCard: React.FC<MemberFreezeCardProps> = ({ memberStatus }) => {
-  const [allowance, setAllowance] = useState<MemberFreezeAllowance | null>(null);
+export const MemberFreezeCard: React.FC<MemberFreezeCardProps> = ({
+  memberStatus,
+}) => {
+  const [allowance, setAllowance] = useState<MemberFreezeAllowance | null>(
+    null
+  );
   const [freezes, setFreezes] = useState<MemberFreeze[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -52,7 +56,9 @@ export const MemberFreezeCard: React.FC<MemberFreezeCardProps> = ({ memberStatus
       setAllowance(allowanceData);
       setFreezes(freezesData);
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Failed to load freeze allowance.");
+      setError(
+        err instanceof Error ? err.message : "Failed to load freeze allowance."
+      );
     } finally {
       setLoading(false);
     }
@@ -101,12 +107,17 @@ export const MemberFreezeCard: React.FC<MemberFreezeCardProps> = ({ memberStatus
         end_date: endDate,
         reason: trimmedReason,
       });
-      setSuccessMessage("Freeze request submitted successfully. Awaiting staff review.");
+      setSuccessMessage(
+        "Freeze request submitted successfully. Awaiting staff review."
+      );
       setModalOpen(false);
       await fetchData();
     } catch (err: unknown) {
       if (err instanceof ApiError) {
-        setFormError(err.message || formatApiErrorMessage(err.data, "Failed to submit freeze request."));
+        setFormError(
+          err.message ||
+            formatApiErrorMessage(err.data, "Failed to submit freeze request.")
+        );
       } else if (err instanceof Error) {
         setFormError(err.message);
       } else {
@@ -121,7 +132,9 @@ export const MemberFreezeCard: React.FC<MemberFreezeCardProps> = ({ memberStatus
     return (
       <Card className="bg-surface border-border p-6 text-center space-y-2">
         <Spinner size="sm" />
-        <p className="text-xs text-text-muted">Loading membership freeze options...</p>
+        <p className="text-xs text-text-muted">
+          Loading membership freeze options...
+        </p>
       </Card>
     );
   }
@@ -162,15 +175,18 @@ export const MemberFreezeCard: React.FC<MemberFreezeCardProps> = ({ memberStatus
         <div>
           <h3 className="text-base font-bold text-text">Membership Freeze</h3>
           <p className="text-xs text-text-muted mt-0.5">
-            Temporarily pause your membership pass and extend your subscription end date.
+            Temporarily pause your membership pass and extend your subscription
+            end date.
           </p>
         </div>
 
-        {allowance.has_active_subscription && allowance.remaining_days > 0 && memberStatus !== "suspended" && (
-          <Button variant="primary" size="sm" onClick={openModal}>
-            Request Freeze
-          </Button>
-        )}
+        {allowance.has_active_subscription &&
+          allowance.remaining_days > 0 &&
+          memberStatus !== "suspended" && (
+            <Button variant="primary" size="sm" onClick={openModal}>
+              Request Freeze
+            </Button>
+          )}
       </div>
 
       {successMessage && (
@@ -182,21 +198,27 @@ export const MemberFreezeCard: React.FC<MemberFreezeCardProps> = ({ memberStatus
       {/* Allowance Metrics Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <div className="bg-surface-2/60 border border-border/60 rounded-card p-4 text-center">
-          <span className="text-xs text-text-muted block font-medium">Total Allowed</span>
+          <span className="text-xs text-text-muted block font-medium">
+            Total Allowed
+          </span>
           <span className="text-xl font-extrabold text-text mt-1 block">
             {allowance.total_allowed} Days
           </span>
         </div>
 
         <div className="bg-surface-2/60 border border-border/60 rounded-card p-4 text-center">
-          <span className="text-xs text-text-muted block font-medium">Used Days</span>
+          <span className="text-xs text-text-muted block font-medium">
+            Used Days
+          </span>
           <span className="text-xl font-extrabold text-text-muted mt-1 block">
             {allowance.used_days} Days
           </span>
         </div>
 
         <div className="bg-surface-2/60 border border-border/60 rounded-card p-4 text-center">
-          <span className="text-xs text-text-muted block font-medium">Remaining Days</span>
+          <span className="text-xs text-text-muted block font-medium">
+            Remaining Days
+          </span>
           <span className="text-xl font-extrabold text-primary mt-1 block">
             {allowance.remaining_days} Days
           </span>
@@ -228,20 +250,35 @@ export const MemberFreezeCard: React.FC<MemberFreezeCardProps> = ({ memberStatus
               <tbody className="divide-y divide-border/60">
                 {freezes.map((f) => (
                   <tr key={f.id} className="hover:bg-surface-2/30">
-                    <td className="py-2.5 px-3 font-medium text-text">{f.start_date}</td>
-                    <td className="py-2.5 px-3 font-medium text-text">{f.end_date}</td>
-                    <td className="py-2.5 px-3 font-semibold text-primary">{f.days}</td>
-                    <td className="py-2.5 px-3 text-text max-w-[200px] truncate" title={f.reason}>
+                    <td className="py-2.5 px-3 font-medium text-text">
+                      {f.start_date}
+                    </td>
+                    <td className="py-2.5 px-3 font-medium text-text">
+                      {f.end_date}
+                    </td>
+                    <td className="py-2.5 px-3 font-semibold text-primary">
+                      {f.days}
+                    </td>
+                    <td
+                      className="py-2.5 px-3 text-text max-w-[200px] truncate"
+                      title={f.reason}
+                    >
                       {f.reason}
                     </td>
                     <td className="py-2.5 px-3">{getStatusBadge(f.status)}</td>
                     <td className="py-2.5 px-3 text-text-muted">
                       {f.status === "rejected" && f.rejection_reason ? (
-                        <span className="text-danger" title={f.rejection_reason}>
+                        <span
+                          className="text-danger"
+                          title={f.rejection_reason}
+                        >
                           Rejected: {f.rejection_reason}
                         </span>
                       ) : f.status === "approved" && f.reviewed_at ? (
-                        <span>Approved on {new Date(f.reviewed_at).toLocaleDateString()}</span>
+                        <span>
+                          Approved on{" "}
+                          {new Date(f.reviewed_at).toLocaleDateString()}
+                        </span>
                       ) : (
                         "—"
                       )}
@@ -264,14 +301,17 @@ export const MemberFreezeCard: React.FC<MemberFreezeCardProps> = ({ memberStatus
           {formError && <Alert variant="danger">{formError}</Alert>}
 
           <p className="text-xs text-text-muted">
-            You have <strong>{allowance.remaining_days}</strong> freeze days remaining.
-            Your pass will be temporarily paused during this period and your subscription
-            will be extended by the approved days.
+            You have <strong>{allowance.remaining_days}</strong> freeze days
+            remaining. Your pass will be temporarily paused during this period
+            and your subscription will be extended by the approved days.
           </p>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label htmlFor="freeze-start-date" className="block text-xs font-medium text-text mb-1">
+              <label
+                htmlFor="freeze-start-date"
+                className="block text-xs font-medium text-text mb-1"
+              >
                 Start Date *
               </label>
               <input
@@ -286,7 +326,10 @@ export const MemberFreezeCard: React.FC<MemberFreezeCardProps> = ({ memberStatus
             </div>
 
             <div>
-              <label htmlFor="freeze-end-date" className="block text-xs font-medium text-text mb-1">
+              <label
+                htmlFor="freeze-end-date"
+                className="block text-xs font-medium text-text mb-1"
+              >
                 End Date *
               </label>
               <input
@@ -302,7 +345,10 @@ export const MemberFreezeCard: React.FC<MemberFreezeCardProps> = ({ memberStatus
           </div>
 
           <div>
-            <label htmlFor="freeze-reason" className="block text-xs font-medium text-text mb-1">
+            <label
+              htmlFor="freeze-reason"
+              className="block text-xs font-medium text-text mb-1"
+            >
               Reason (5 to 500 characters) *
             </label>
             <textarea

@@ -21,7 +21,9 @@ export const MemberFreezeSection: React.FC = () => {
       } catch (err: unknown) {
         if (isMounted) {
           setError(
-            err instanceof Error ? err.message : "Failed to load member profile."
+            err instanceof Error
+              ? err.message
+              : "Failed to load member profile."
           );
         }
       } finally {
@@ -38,13 +40,17 @@ export const MemberFreezeSection: React.FC = () => {
     return (
       <div className="p-8 text-center flex flex-col items-center gap-3">
         <Spinner size="md" />
-        <p className="text-xs text-text-muted">Loading membership freeze options...</p>
+        <p className="text-xs text-text-muted">
+          Loading membership freeze options...
+        </p>
       </div>
     );
   }
 
   if (error || !profile) {
-    return <Alert variant="danger">{error || "Member profile not found."}</Alert>;
+    return (
+      <Alert variant="danger">{error || "Member profile not found."}</Alert>
+    );
   }
 
   return (
@@ -61,8 +67,8 @@ export const MemberFreezeSection: React.FC = () => {
                 profile.status === "active"
                   ? "success"
                   : profile.status === "frozen"
-                  ? "warning"
-                  : "secondary"
+                    ? "warning"
+                    : "secondary"
               }
               className="capitalize"
             >
@@ -70,7 +76,8 @@ export const MemberFreezeSection: React.FC = () => {
             </Badge>
           </div>
           <p className="text-xs text-text-muted mt-1">
-            Request to pause your pass and extend your subscription expiration date.
+            Request to pause your pass and extend your subscription expiration
+            date.
           </p>
         </div>
       </div>
@@ -78,25 +85,28 @@ export const MemberFreezeSection: React.FC = () => {
       {/* Currently Frozen Notice */}
       {profile.status === "frozen" && (
         <Alert variant="warning">
-          <strong>Your membership is currently frozen.</strong> Check-in passes are
-          temporarily paused. Your pass will automatically reactivate when the freeze
-          period ends, or front-desk staff can end your freeze early if you return sooner.
+          <strong>Your membership is currently frozen.</strong> Check-in passes
+          are temporarily paused. Your pass will automatically reactivate when
+          the freeze period ends, or front-desk staff can end your freeze early
+          if you return sooner.
         </Alert>
       )}
 
       {/* Suspended Notice */}
       {profile.status === "suspended" && (
         <Alert variant="danger">
-          <strong>Your membership is currently suspended.</strong> You cannot request
-          a membership freeze while suspended. Please contact the front desk.
+          <strong>Your membership is currently suspended.</strong> You cannot
+          request a membership freeze while suspended. Please contact the front
+          desk.
         </Alert>
       )}
 
       {/* Pending Notice */}
       {profile.status === "pending" && (
         <Alert variant="warning">
-          <strong>You do not have an active subscription yet.</strong> Please purchase or
-          activate a membership plan at the front desk or online before requesting a freeze.
+          <strong>You do not have an active subscription yet.</strong> Please
+          purchase or activate a membership plan at the front desk or online
+          before requesting a freeze.
         </Alert>
       )}
 

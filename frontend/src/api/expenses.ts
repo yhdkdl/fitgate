@@ -37,14 +37,19 @@ export async function listExpenses(params?: {
   return [];
 }
 
-export async function createExpense(payload: ExpenseCreatePayload): Promise<Expense> {
+export async function createExpense(
+  payload: ExpenseCreatePayload
+): Promise<Expense> {
   return apiFetch<Expense>("/api/gym/expenses/", {
     method: "POST",
     body: JSON.stringify(payload),
   });
 }
 
-export async function voidExpense(id: string, reason: string): Promise<Expense> {
+export async function voidExpense(
+  id: string,
+  reason: string
+): Promise<Expense> {
   const payload: ExpenseVoidPayload = { void_reason: reason };
   return apiFetch<Expense>(`/api/gym/expenses/${id}/void/`, {
     method: "POST",
@@ -60,7 +65,9 @@ export async function getFinancialReport(params?: {
   if (params?.start_date) query.set("start_date", params.start_date);
   if (params?.end_date) query.set("end_date", params.end_date);
   const qs = query.toString();
-  return apiFetch<FinancialReport>(`/api/gym/reports/financial/${qs ? `?${qs}` : ""}`);
+  return apiFetch<FinancialReport>(
+    `/api/gym/reports/financial/${qs ? `?${qs}` : ""}`
+  );
 }
 
 export async function getAttendanceReport(params?: {
@@ -71,5 +78,7 @@ export async function getAttendanceReport(params?: {
   if (params?.start_date) query.set("start_date", params.start_date);
   if (params?.end_date) query.set("end_date", params.end_date);
   const qs = query.toString();
-  return apiFetch<AttendanceReport>(`/api/gym/reports/attendance/${qs ? `?${qs}` : ""}`);
+  return apiFetch<AttendanceReport>(
+    `/api/gym/reports/attendance/${qs ? `?${qs}` : ""}`
+  );
 }

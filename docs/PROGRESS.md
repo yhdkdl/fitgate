@@ -67,9 +67,11 @@
 - Sprint 26: Lean Group Classes (ClassSession, ClassBooking, capacity locking with select_for_update, member 2-hour cancellation window, separate attendance without daily check-in rows, Growth/Pro tier gating via has_group_classes) (tag sprint-26-done).
 - Increment 5 Complete: Sprints 25, 27, fix/plan-entitlements, fix/equipment-registry, 28, 29, 29a, and 26 completed, verified, merged to develop, and documented with end-to-end testing script (docs/INCREMENT_5_TEST.md).
 
+- Fix: Owner switch for online (Chapa) payments (separate from keys, verified-first guard, all new checkout routes refused when off with front desk notice, in-flight payments complete, public payment status reports availability, role and tenant isolation) (tag fix-online-payments-switch-done).
+
 ## Current
 
-- Fix: Owner switch for online (Chapa) payments (branch ix/online-payments-switch).
+- Sprint 12d: Bank receipt verification (branch feature/sprint-12d-receipt-verification).
 
 ## Next
 

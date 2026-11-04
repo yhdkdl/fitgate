@@ -16,7 +16,9 @@ export async function downloadGymExport(
   if (params?.endDate) query.set("end_date", params.endDate);
 
   const queryString = query.toString() ? `?${query.toString()}` : "";
-  const blob = await apiFetchBlob(`/api/gym/export/${exportType}/${queryString}`);
+  const blob = await apiFetchBlob(
+    `/api/gym/export/${exportType}/${queryString}`
+  );
 
   const now = new Date();
   const dateStr = now.toISOString().slice(0, 10).replace(/-/g, "");

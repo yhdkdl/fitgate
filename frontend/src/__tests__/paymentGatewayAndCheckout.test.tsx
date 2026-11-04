@@ -19,6 +19,8 @@ describe("Sprint 11 - PaymentGatewaySection", () => {
     has_webhook_secret: true,
     use_mock: false,
     detected_mode: "Test",
+    is_enabled: true,
+    unfinished_online_payments: 0,
   };
 
   beforeEach(() => {

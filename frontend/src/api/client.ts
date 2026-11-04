@@ -74,13 +74,17 @@ function extractErrorMessage(status: number, data: unknown): string {
     if (typeof dataObj.reason === "string" && dataObj.reason.trim() !== "") {
       return dataObj.reason;
     }
-    if (typeof dataObj.rejection_reason === "string" && dataObj.rejection_reason.trim() !== "") {
+    if (
+      typeof dataObj.rejection_reason === "string" &&
+      dataObj.rejection_reason.trim() !== ""
+    ) {
       return dataObj.rejection_reason;
     }
     // Collect all field errors
     const messages: string[] = [];
     for (const [key, val] of Object.entries(dataObj)) {
-      if (key === "detail" || key === "reason" || key === "rejection_reason") continue;
+      if (key === "detail" || key === "reason" || key === "rejection_reason")
+        continue;
       if (Array.isArray(val)) {
         messages.push(...val.map(String));
       } else if (typeof val === "string") {

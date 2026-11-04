@@ -19,7 +19,8 @@ export interface EquipmentItem {
   serial_number: string;
   quantity: number;
   min_qty_threshold: number | null;
-  condition: "good" | "needs_maintenance" | "under_maintenance" | "out_of_service";
+  condition:
+    "good" | "needs_maintenance" | "under_maintenance" | "out_of_service";
   purchase_date: string | null;
   unit_purchase_price_etb?: string | number | null;
   record_as_expense?: boolean;
@@ -79,7 +80,10 @@ export const EQUIPMENT_CATEGORIES: Array<{ code: string; label: string }> = [
   { code: "other", label: "Other" },
 ];
 
-export const CONDITION_LABELS: Record<string, { label: string; variant: "success" | "warning" | "danger" | "neutral" }> = {
+export const CONDITION_LABELS: Record<
+  string,
+  { label: string; variant: "success" | "warning" | "danger" | "neutral" }
+> = {
   good: { label: "Good", variant: "success" },
   needs_maintenance: { label: "Needs Maintenance", variant: "warning" },
   under_maintenance: { label: "Under Maintenance", variant: "neutral" },

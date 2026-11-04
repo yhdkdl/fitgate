@@ -11,14 +11,15 @@ interface AnalyticsOverviewSectionProps {
   onUpgradeClick?: () => void;
 }
 
-export const AnalyticsOverviewSection: React.FC<AnalyticsOverviewSectionProps> = ({
-  onUpgradeClick,
-}) => {
+export const AnalyticsOverviewSection: React.FC<
+  AnalyticsOverviewSectionProps
+> = ({ onUpgradeClick }) => {
   const [data, setData] = useState<GymAnalyticsOverview | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [showExpiringModal, setShowExpiringModal] = useState<boolean>(false);
-  const [showExportAttendanceModal, setShowExportAttendanceModal] = useState<boolean>(false);
+  const [showExportAttendanceModal, setShowExportAttendanceModal] =
+    useState<boolean>(false);
 
   const fetchAnalytics = async () => {
     try {
@@ -28,7 +29,9 @@ export const AnalyticsOverviewSection: React.FC<AnalyticsOverviewSectionProps> =
       setData(res);
     } catch (err: unknown) {
       const msg =
-        err instanceof Error ? err.message : "Failed to load gym analytics overview.";
+        err instanceof Error
+          ? err.message
+          : "Failed to load gym analytics overview.";
       setError(msg);
     } finally {
       setLoading(false);
@@ -43,7 +46,9 @@ export const AnalyticsOverviewSection: React.FC<AnalyticsOverviewSectionProps> =
     return (
       <Card className="p-8 flex flex-col items-center justify-center space-y-3 bg-surface border-border">
         <Spinner size="md" />
-        <p className="text-xs text-text-muted">Loading live operational analytics...</p>
+        <p className="text-xs text-text-muted">
+          Loading live operational analytics...
+        </p>
       </Card>
     );
   }
@@ -96,11 +101,16 @@ export const AnalyticsOverviewSection: React.FC<AnalyticsOverviewSectionProps> =
         {/* Metric 1: Active Members */}
         <Card className="bg-surface border-border p-5 space-y-2">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-medium text-text-muted">Active Members</span>
+            <span className="text-xs font-medium text-text-muted">
+              Active Members
+            </span>
             <Badge variant="success">Active</Badge>
           </div>
           <div className="flex items-baseline gap-2">
-            <span className="text-2xl font-bold text-text" data-testid="stat-active-members">
+            <span
+              className="text-2xl font-bold text-text"
+              data-testid="stat-active-members"
+            >
               {data.active_members}
             </span>
             <span className="text-xs text-text-muted">
@@ -115,11 +125,16 @@ export const AnalyticsOverviewSection: React.FC<AnalyticsOverviewSectionProps> =
         {/* Metric 2: Today's Check-ins */}
         <Card className="bg-surface border-border p-5 space-y-2">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-medium text-text-muted">Today's Check-ins</span>
+            <span className="text-xs font-medium text-text-muted">
+              Today's Check-ins
+            </span>
             <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
           </div>
           <div className="flex items-baseline gap-2">
-            <span className="text-2xl font-bold text-primary" data-testid="stat-today-checkins">
+            <span
+              className="text-2xl font-bold text-primary"
+              data-testid="stat-today-checkins"
+            >
               {data.today_checkins}
             </span>
             <span className="text-xs text-text-muted">scans</span>
@@ -132,13 +147,18 @@ export const AnalyticsOverviewSection: React.FC<AnalyticsOverviewSectionProps> =
         {/* Metric 3: Monthly Net Revenue */}
         <Card className="bg-surface border-border p-5 space-y-2">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-medium text-text-muted">Monthly Net Revenue</span>
+            <span className="text-xs font-medium text-text-muted">
+              Monthly Net Revenue
+            </span>
             <span className="text-[10px] font-semibold text-emerald-500 uppercase tracking-wider">
               {data.currency}
             </span>
           </div>
           <div className="flex items-baseline gap-2">
-            <span className="text-2xl font-bold text-emerald-500" data-testid="stat-monthly-revenue">
+            <span
+              className="text-2xl font-bold text-emerald-500"
+              data-testid="stat-monthly-revenue"
+            >
               {Number(data.monthly_net_revenue).toLocaleString(undefined, {
                 minimumFractionDigits: 2,
                 maximumFractionDigits: 2,
@@ -154,13 +174,24 @@ export const AnalyticsOverviewSection: React.FC<AnalyticsOverviewSectionProps> =
         {/* Metric 4: Memberships Expiring in 7 Days */}
         <Card className="bg-surface border-border p-5 space-y-2">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-medium text-text-muted">Expiring in 7 Days</span>
-            <Badge variant={data.expiring_memberships_count > 0 ? "warning" : "neutral"}>
-              {data.expiring_memberships_count > 0 ? "Action Needed" : "On Track"}
+            <span className="text-xs font-medium text-text-muted">
+              Expiring in 7 Days
+            </span>
+            <Badge
+              variant={
+                data.expiring_memberships_count > 0 ? "warning" : "neutral"
+              }
+            >
+              {data.expiring_memberships_count > 0
+                ? "Action Needed"
+                : "On Track"}
             </Badge>
           </div>
           <div className="flex items-baseline justify-between">
-            <span className="text-2xl font-bold text-amber-500" data-testid="stat-expiring-count">
+            <span
+              className="text-2xl font-bold text-amber-500"
+              data-testid="stat-expiring-count"
+            >
               {data.expiring_memberships_count}
             </span>
             {data.expiring_memberships_count > 0 && (
@@ -212,8 +243,12 @@ export const AnalyticsOverviewSection: React.FC<AnalyticsOverviewSectionProps> =
                   <thead>
                     <tr className="border-b border-border text-text-muted">
                       <th className="py-2 px-3 font-semibold">Plan Name</th>
-                      <th className="py-2 px-3 font-semibold text-center">Payments</th>
-                      <th className="py-2 px-3 font-semibold text-right">Net Revenue</th>
+                      <th className="py-2 px-3 font-semibold text-center">
+                        Payments
+                      </th>
+                      <th className="py-2 px-3 font-semibold text-right">
+                        Net Revenue
+                      </th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border/50">
@@ -283,8 +318,8 @@ export const AnalyticsOverviewSection: React.FC<AnalyticsOverviewSectionProps> =
         >
           <div className="space-y-4">
             <p className="text-xs text-text-muted">
-              These members have active subscriptions expiring within 7 days and do
-              not have a queued renewal.
+              These members have active subscriptions expiring within 7 days and
+              do not have a queued renewal.
             </p>
             <div className="overflow-x-auto max-h-80 overflow-y-auto">
               <table className="w-full text-xs text-left border-collapse">
@@ -294,7 +329,9 @@ export const AnalyticsOverviewSection: React.FC<AnalyticsOverviewSectionProps> =
                     <th className="py-2 px-3 font-semibold">Phone</th>
                     <th className="py-2 px-3 font-semibold">Plan</th>
                     <th className="py-2 px-3 font-semibold">End Date</th>
-                    <th className="py-2 px-3 font-semibold text-right">Remaining</th>
+                    <th className="py-2 px-3 font-semibold text-right">
+                      Remaining
+                    </th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border/50">
@@ -303,12 +340,18 @@ export const AnalyticsOverviewSection: React.FC<AnalyticsOverviewSectionProps> =
                       <td className="py-2 px-3 font-medium text-text">
                         {sub.member_name}
                       </td>
-                      <td className="py-2 px-3 text-text-muted">{sub.member_phone}</td>
+                      <td className="py-2 px-3 text-text-muted">
+                        {sub.member_phone}
+                      </td>
                       <td className="py-2 px-3 text-text">{sub.plan_name}</td>
-                      <td className="py-2 px-3 text-text-muted">{sub.end_date}</td>
+                      <td className="py-2 px-3 text-text-muted">
+                        {sub.end_date}
+                      </td>
                       <td className="py-2 px-3 text-right">
                         <Badge
-                          variant={sub.days_remaining <= 2 ? "danger" : "warning"}
+                          variant={
+                            sub.days_remaining <= 2 ? "danger" : "warning"
+                          }
                         >
                           {sub.days_remaining === 0
                             ? "Expires today"

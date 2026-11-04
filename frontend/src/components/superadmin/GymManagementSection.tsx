@@ -77,14 +77,16 @@ export const GymManagementSection: React.FC<GymManagementSectionProps> = ({
   const [confirmingId, setConfirmingId] = useState<string | null>(null);
 
   // Config modal states
-  const [selectedGymForConfig, setSelectedGymForConfig] = useState<GymTenantSummary | null>(null);
+  const [selectedGymForConfig, setSelectedGymForConfig] =
+    useState<GymTenantSummary | null>(null);
   const [configTier, setConfigTier] = useState<string>("starter");
   const [hasTrainerModule, setHasTrainerModule] = useState(false);
   const [hasAiPlans, setHasAiPlans] = useState(false);
   const [hasAnalytics, setHasAnalytics] = useState(false);
   const [freezeDaysCap, setFreezeDaysCap] = useState<number>(30);
   const [paymentGraceDays, setPaymentGraceDays] = useState<number>(7);
-  const [subscriptionReminderDays, setSubscriptionReminderDays] = useState<string>("14, 7");
+  const [subscriptionReminderDays, setSubscriptionReminderDays] =
+    useState<string>("14, 7");
   const [savingConfig, setSavingConfig] = useState(false);
   const [configSuccessMsg, setConfigSuccessMsg] = useState<string | null>(null);
   const [configErrorMsg, setConfigErrorMsg] = useState<string | null>(null);
@@ -99,8 +101,12 @@ export const GymManagementSection: React.FC<GymManagementSectionProps> = ({
       setHasTrainerModule(Boolean(cfg.has_trainer_module));
       setHasAiPlans(Boolean(cfg.has_ai_plans));
       setHasAnalytics(Boolean(cfg.has_analytics));
-      setFreezeDaysCap(cfg.freeze_days_cap !== undefined ? cfg.freeze_days_cap : 30);
-      setPaymentGraceDays(cfg.payment_grace_days !== undefined ? cfg.payment_grace_days : 7);
+      setFreezeDaysCap(
+        cfg.freeze_days_cap !== undefined ? cfg.freeze_days_cap : 30
+      );
+      setPaymentGraceDays(
+        cfg.payment_grace_days !== undefined ? cfg.payment_grace_days : 7
+      );
       setSubscriptionReminderDays(
         Array.isArray(cfg.subscription_reminder_days)
           ? cfg.subscription_reminder_days.join(", ")
@@ -135,17 +141,23 @@ export const GymManagementSection: React.FC<GymManagementSectionProps> = ({
         has_analytics: hasAnalytics,
         freeze_days_cap: Number(freezeDaysCap),
         payment_grace_days: Number(paymentGraceDays),
-        subscription_reminder_days: reminderParts.length ? reminderParts : [14, 7],
+        subscription_reminder_days: reminderParts.length
+          ? reminderParts
+          : [14, 7],
       };
       if (selectedGymForConfig.tier !== "pro") {
         payload.tier = configTier;
       }
       await updateGymSettings(payload, selectedGymForConfig.id);
-      setConfigSuccessMsg("Gym configuration and entitlements updated successfully.");
+      setConfigSuccessMsg(
+        "Gym configuration and entitlements updated successfully."
+      );
       await fetchGyms();
     } catch (err: unknown) {
       const errObj = err as { message?: string };
-      setConfigErrorMsg(errObj.message || "Failed to update gym configuration.");
+      setConfigErrorMsg(
+        errObj.message || "Failed to update gym configuration."
+      );
     } finally {
       setSavingConfig(false);
     }
@@ -822,7 +834,9 @@ export const GymManagementSection: React.FC<GymManagementSectionProps> = ({
                 </label>
                 {selectedGymForConfig.tier === "pro" ? (
                   <div className="p-3 bg-surface-2 rounded-lg border border-border text-sm text-text">
-                    <span className="font-bold uppercase text-primary">Pro</span>{" "}
+                    <span className="font-bold uppercase text-primary">
+                      Pro
+                    </span>{" "}
                     <span className="text-xs text-text-muted">(Read-only)</span>
                   </div>
                 ) : (
@@ -848,10 +862,19 @@ export const GymManagementSection: React.FC<GymManagementSectionProps> = ({
                     min={0}
                     max={365}
                     value={freezeDaysCap}
-                    onChange={(e) => setFreezeDaysCap(Math.max(0, Math.min(365, parseInt(e.target.value, 10) || 0)))}
+                    onChange={(e) =>
+                      setFreezeDaysCap(
+                        Math.max(
+                          0,
+                          Math.min(365, parseInt(e.target.value, 10) || 0)
+                        )
+                      )
+                    }
                     className="w-full bg-surface-2 border border-border rounded-input px-3 py-2 text-text text-sm focus:outline-none focus:ring-2 focus:ring-primary min-h-[44px]"
                   />
-                  <p className="text-[11px] text-text-muted mt-1">Platform freeze cap for owner (default 30).</p>
+                  <p className="text-[11px] text-text-muted mt-1">
+                    Platform freeze cap for owner (default 30).
+                  </p>
                 </div>
 
                 <div>
@@ -863,10 +886,19 @@ export const GymManagementSection: React.FC<GymManagementSectionProps> = ({
                     min={0}
                     max={365}
                     value={paymentGraceDays}
-                    onChange={(e) => setPaymentGraceDays(Math.max(0, Math.min(365, parseInt(e.target.value, 10) || 0)))}
+                    onChange={(e) =>
+                      setPaymentGraceDays(
+                        Math.max(
+                          0,
+                          Math.min(365, parseInt(e.target.value, 10) || 0)
+                        )
+                      )
+                    }
                     className="w-full bg-surface-2 border border-border rounded-input px-3 py-2 text-text text-sm focus:outline-none focus:ring-2 focus:ring-primary min-h-[44px]"
                   />
-                  <p className="text-[11px] text-text-muted mt-1">Days before gym access cuts off (default 7).</p>
+                  <p className="text-[11px] text-text-muted mt-1">
+                    Days before gym access cuts off (default 7).
+                  </p>
                 </div>
               </div>
 
@@ -881,7 +913,9 @@ export const GymManagementSection: React.FC<GymManagementSectionProps> = ({
                   placeholder="14, 7"
                   className="w-full bg-surface-2 border border-border rounded-input px-3 py-2 text-text text-sm focus:outline-none focus:ring-2 focus:ring-primary min-h-[44px]"
                 />
-                <p className="text-[11px] text-text-muted mt-1">Comma-separated days before expiry for renewal reminders.</p>
+                <p className="text-[11px] text-text-muted mt-1">
+                  Comma-separated days before expiry for renewal reminders.
+                </p>
               </div>
 
               {/* Feature Entitlements */}
