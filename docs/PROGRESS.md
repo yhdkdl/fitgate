@@ -64,14 +64,17 @@
 - Sprint 29: CSV data export (members, payments, attendance) with Excel UTF-8 BOM, formula sanitization, date range cap, and audit logging (tag `sprint-29-done`).
 - Sprint 29a: Expenses and financial reporting with immutable ledger, void audit trails, equipment price integration checkbox, net income calculation, and attendance summaries (tag `sprint-29a-done`).
 - Telegram channel uniqueness across gyms and single platform bot architecture.
+- Sprint 26: Lean Group Classes (ClassSession, ClassBooking, capacity locking with select_for_update, member 2-hour cancellation window, separate attendance without daily check-in rows, Growth/Pro tier gating via has_group_classes) (tag sprint-26-done).
+- Increment 5 Complete: Sprints 25, 27, fix/plan-entitlements, fix/equipment-registry, 28, 29, 29a, and 26 completed, verified, merged to develop, and documented with end-to-end testing script (docs/INCREMENT_5_TEST.md).
 
 ## Current
 
-- Sprint 26: Lean Group Classes (`ClassSession`, `ClassBooking`, capacity locking with `select_for_update`, member 2-hour cancellation window, separate attendance without daily check-in rows, Growth/Pro tier gating via `has_group_classes`) on feature branch `feature/sprint-26-classes`.
+- Fix: Owner switch for online (Chapa) payments (branch ix/online-payments-switch).
 
 ## Next
 
-Increment 7 (Platform administration, PWA, demo, deployment).
+- Sprint 12d: Bank receipt verification (STRICT).
+- Increment 7 (Platform administration, PWA, demo, deployment).
 
 ## Open manual steps
 
