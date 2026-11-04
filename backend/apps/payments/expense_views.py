@@ -21,7 +21,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.accounts.models import AuditLog
-from apps.accounts.permissions import IsOwnerOrManager
+from apps.accounts.permissions import IsOwnerOrManager, RequirePasswordChanged
 from apps.attendance.models import Attendance
 from apps.core.validators import validate_export_date_range
 from apps.payments.models import Expense, Payment
@@ -38,7 +38,7 @@ class ExpenseListCreateView(APIView):
     Restricted to Owner and Manager.
     """
 
-    permission_classes = [IsOwnerOrManager]
+    permission_classes = [RequirePasswordChanged, IsOwnerOrManager]
 
     def get(self, request):
         tenant = request.tenant
@@ -126,7 +126,7 @@ class ExpenseVoidView(APIView):
     Restricted to Owner and Manager.
     """
 
-    permission_classes = [IsOwnerOrManager]
+    permission_classes = [RequirePasswordChanged, IsOwnerOrManager]
 
     def post(self, request, pk):
         tenant = request.tenant
@@ -177,7 +177,7 @@ class GymFinancialReportView(APIView):
     Restricted to Owner and Manager.
     """
 
-    permission_classes = [IsOwnerOrManager]
+    permission_classes = [RequirePasswordChanged, IsOwnerOrManager]
 
     def get(self, request):
         tenant = request.tenant
@@ -282,7 +282,7 @@ class GymAttendanceReportView(APIView):
     Restricted to Owner and Manager.
     """
 
-    permission_classes = [IsOwnerOrManager]
+    permission_classes = [RequirePasswordChanged, IsOwnerOrManager]
 
     def get(self, request):
         tenant = request.tenant

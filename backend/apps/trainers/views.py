@@ -501,7 +501,11 @@ class GymMemberFitnessProfileView(APIView):
     - Unrelated Trainer, Reception, Super Admin, other gyms, Member: 403 Forbidden.
     """
 
-    permission_classes = [CanAccessMemberFitnessProfile]
+    permission_classes = [
+        IsAuthenticated,
+        RequirePasswordChanged,
+        CanAccessMemberFitnessProfile,
+    ]
 
     @extend_schema(
         summary="Get member fitness profile",
@@ -583,7 +587,11 @@ class MemberSelfFitnessProfileView(APIView):
     Read-only fitness profile view for the authenticated member.
     """
 
-    permission_classes = [CanAccessMemberSelfFitnessProfile]
+    permission_classes = [
+        IsAuthenticated,
+        RequirePasswordChanged,
+        CanAccessMemberSelfFitnessProfile,
+    ]
 
     @extend_schema(
         summary="Get authenticated member own fitness profile",

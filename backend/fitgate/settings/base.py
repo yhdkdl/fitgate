@@ -79,6 +79,7 @@ INSTALLED_APPS = [
     "apps.attendance.apps.AttendanceConfig",
     "apps.trainers.apps.TrainersConfig",
     "apps.equipment.apps.EquipmentConfig",
+    "apps.classes.apps.ClassesConfig",
 ]
 
 

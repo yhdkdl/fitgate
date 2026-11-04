@@ -1072,6 +1072,9 @@ class GymPublicEntryView(APIView):
                     "message": "This gym portal is still being secured. Please check back shortly.",
                     "plans": PublicPlanSerializer(active_plans, many=True).data,
                     "online_payment_verified": False,
+                    "has_group_classes": (
+                        getattr(config, "has_group_classes", False) if config else False
+                    ),
                 },
                 status=status.HTTP_503_SERVICE_UNAVAILABLE,
             )
@@ -1102,6 +1105,9 @@ class GymPublicEntryView(APIView):
             "currency": gym.currency,
             "plans": PublicPlanSerializer(active_plans, many=True).data,
             "online_payment_verified": online_payment_verified,
+            "has_group_classes": (
+                getattr(config, "has_group_classes", False) if config else False
+            ),
         }
         return Response(data, status=status.HTTP_200_OK)
 

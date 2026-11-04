@@ -1,0 +1,66 @@
+from django.urls import path
+
+from apps.classes.views import (
+    BookClassSessionView,
+    CancelClassBookingView,
+    ClassSessionCancelView,
+    ClassSessionDetailView,
+    ClassSessionListCreateView,
+    ClassSessionRosterView,
+    MarkClassAttendanceView,
+    MemberClassBookingsView,
+    TrainerClassSessionsView,
+)
+
+urlpatterns = [
+    path(
+        "classes/",
+        ClassSessionListCreateView.as_view(),
+        name="class-session-list-create",
+    ),
+    path(
+        "classes/my-bookings/",
+        MemberClassBookingsView.as_view(),
+        name="class-my-bookings",
+    ),
+    path(
+        "classes/my-trainer-classes/",
+        TrainerClassSessionsView.as_view(),
+        name="class-trainer-sessions",
+    ),
+    path(
+        "classes/trainer-sessions/",
+        TrainerClassSessionsView.as_view(),
+        name="class-trainer-sessions-alt",
+    ),
+    path(
+        "classes/<uuid:pk>/",
+        ClassSessionDetailView.as_view(),
+        name="class-session-detail",
+    ),
+    path(
+        "classes/<uuid:pk>/cancel/",
+        ClassSessionCancelView.as_view(),
+        name="class-session-cancel",
+    ),
+    path(
+        "classes/<uuid:pk>/roster/",
+        ClassSessionRosterView.as_view(),
+        name="class-session-roster",
+    ),
+    path(
+        "classes/<uuid:pk>/book/",
+        BookClassSessionView.as_view(),
+        name="class-session-book",
+    ),
+    path(
+        "classes/<uuid:pk>/cancel-booking/",
+        CancelClassBookingView.as_view(),
+        name="class-session-cancel-booking",
+    ),
+    path(
+        "classes/<uuid:pk>/attendance/",
+        MarkClassAttendanceView.as_view(),
+        name="class-session-attendance",
+    ),
+]

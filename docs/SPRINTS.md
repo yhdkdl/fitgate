@@ -457,7 +457,7 @@ _Increment 3 = Sprints 16 and 17 only; Sprints 18 and 19 are deferred to a futur
 
 ## Increment 5 — Equipment, analytics, communication
 
-_Increment 5 = Sprints 25, 27, 28, 29, 29a; Sprints 26 and 28a are deferred to a future version (see docs/SPEC.md §10)._
+_Increment 5 = Sprints 25, 26, 27, 28, 29, 29a; Sprint 28a is deferred to a future version (see docs/SPEC.md §10)._
 
 **Preflight (external items):** None (Note: Sprint 28 platform Telegram bot token will be requested at Increment 5 preflight)
 
@@ -471,10 +471,14 @@ _Increment 5 = Sprints 25, 27, 28, 29, 29a; Sprints 26 and 28a are deferred to a
 
     - [x] Status: done — merged to develop (tag sprint-25-done)
 
-26. **Group class scheduling & booking** (Deferred to a future version, see docs/SPEC.md §10) — `ClassSession`, `ClassBooking`, capacity enforcement, Growth/Pro gated.
-    - Booking is accepted for the last available slot and rejected on the next attempt once `max_capacity` is reached (boundary test); booking closes automatically at capacity.
-    - Booking endpoints reject a gym with `has_group_classes = false` at the API level.
-    - The class's trainer marks attendance on the booking (`attended`); this creates no daily `Attendance` row.
+26. **Group class scheduling & booking** — `ClassSession`, `ClassBooking`, capacity enforcement, Growth/Pro gated.
+    - **Session:** Title from fixed list (`yoga`, `zumba`, `spinning`, `boxing`, `aerobics`, `crossfit`, `strength circuit`, `stretching and mobility`, or `other` with short label <= 50 chars), assigned trainer (same gym active trainer), start date & time (`Africa/Addis_Ababa`), duration (choice of 30, 45, 60, 90 mins), capacity (integer 1 to 200), and status (`scheduled`, `cancelled`).
+    - **Create & Edit:** Owner and Manager can create and edit sessions. Option "Repeat weekly for N weeks" (1 to 12) creates N separate sessions on the schedule (no recurrence engine). A trainer cannot be scheduled for two overlapping sessions (same start to end window): refuse naming conflict time. Changing session time or trainer before start allowed and sends in-app notice to booked members. Cancelling a session leaves it on schedule with status `cancelled` and sends in-app notice to booked members. Past sessions cannot be edited or booked.
+    - **Booking:** Active member can book a scheduled session in the future; non-active refused with clear reason. One booking per member per session. A member cannot book two overlapping sessions: refuse. Booking reduces remaining spots; when spots = 0, refuse ("Class is full"). Row-locking protects capacity under simultaneous clicks. A member can cancel their own booking up to 2 hours before the start time. Reception, Manager, and Owner can book or cancel on behalf of a member at any time before start.
+    - **Attendance:** Trainer, Owner, and Manager can mark attended / not attended for each booked member from session start until 24 hours after session end. Marking class attendance creates NO daily attendance check-in row and does not change dashboard check-in count.
+    - **Screens (mobile-first):** Owner/Manager "Classes" (week schedule grouped by day, create class with optional repeat, click to view roster, edit, cancel); Trainer "My classes" (assigned sessions upcoming/past, roster, mark attendance); Reception "Classes" (schedule, free spots, book/cancel on behalf of member); Member "Classes" (week schedule, free spots, Book button, "My bookings" tab with cancel booking disabled if < 2 hours).
+    - **Tier Gating & Tenancy:** `has_group_classes` on `GymConfig`: ON for Growth and Pro, OFF for Starter. Direct API call refused with 403; classes menu hidden when OFF. Super Admin and members of other gyms refused.
+    - **Tests only for:** capacity boundary and simultaneous booking (row locking), one booking per member, overlapping sessions (member and trainer), eligibility by member status, tenancy and role refusals, plan gate (Starter refused, Growth allowed), attendance creates no daily attendance check-in row.
 
 27. **Dashboards and analytics** — What gym owners and managers can see after this sprint:
     - Scoped strictly to the requesting gym; Super Admin, Reception, Trainer, and Member are refused (403).
@@ -519,7 +523,7 @@ _Increment 5 = Sprints 25, 27, 28, 29, 29a; Sprints 26 and 28a are deferred to a
 
 35. **Super Admin platform dashboard** — tenant management, renewals, lapse handling, platform reports.
     - Super-Admin-only actions are rejected for every other role, including an Owner acting on their own gym.
-    - Tenant list with tier, status, `subscription_expires_at` and lapse flags; Super Admin can change a gym's tier and flags (the flag editor offers only tiers that exist: Starter and Growth; Pro is hidden until Increment 6 ships; `has_group_classes` is not shown or enabled), enable or disable roles per gym (a disabled role cannot be invited or log in), and every change is audit-logged at platform level.
+    - Tenant list with tier, status, `subscription_expires_at` and lapse flags; Super Admin can change a gym's tier and flags (the flag editor offers only tiers that exist: Starter and Growth; Pro is hidden until Increment 6 ships; `has_group_classes` can be enabled/disabled), enable or disable roles per gym (a disabled role cannot be invited or log in), and every change is audit-logged at platform level.
     - **Renewal:** Super Admin records a `bank_transfer` payment (amount, reference); `subscription_expires_at` extends by one year from the later of the current expiry or today, the lapse flag clears, and a suspended gym is reactivated.
     - **Suspension:** Super Admin confirms suspension of a lapse-flagged gym (it is never automatic). A suspended gym's staff and members cannot log in, while its data stays intact and visible to Super Admin — both halves tested. Its Owner can still log in for 7 days to export (Sprint 29), after which login is refused; nothing is deleted.
     - Platform reports: tenant summary, platform revenue (confirmed `gym_subscription` payments, excluding demo gyms), subscription status overview. Platform-wide notices (an `Announcement` with null gym) appear on every Owner's dashboard.
@@ -527,7 +531,7 @@ _Increment 5 = Sprints 25, 27, 28, 29, 29a; Sprints 26 and 28a are deferred to a
     - Super Admin can edit a gym's name, location and contact; gyms are never deleted, only suspended.
 
 36. **GymConfig feature-flag enforcement** — backend permission layer + frontend render gating, for every tier-gated feature above.
-    - Full regression pass: every previously-built tier-gated endpoint (trainer module, AI plans, premium analytics [revenue by plan], freeze, and entitlement edits) is re-verified to reject a gym missing the corresponding flag, and every entitlement edit by an Owner is re-verified to be rejected. A clean pass here is the actual proof the gating is complete. Group classes are deferred. Note: multi-branch is verified at the end of Increment 6 if Increment 6 ships (Sprint 36's multi-branch regression check and Sprint 38's final-release re-check are run again after Sprint 34).
+    - Full regression pass: every previously-built tier-gated endpoint (trainer module, AI plans, premium analytics [revenue by plan], freeze, group classes, and entitlement edits) is re-verified to reject a gym missing the corresponding flag, and every entitlement edit by an Owner is re-verified to be rejected. A clean pass here is the actual proof the gating is complete. Note: multi-branch is verified at the end of Increment 6 if Increment 6 ships (Sprint 36's multi-branch regression check and Sprint 38's final-release re-check are run again after Sprint 34).
 
 37. **Offline-first PWA** — Workbox service worker, local check-in queue, sync.
     - The member dashboard offers a "Download App" button that installs the PWA on Android (it appears only when the browser reports the app can be installed, which needs the gym's valid HTTPS certificate); on iPhone the app shows short "Add to Home Screen" instructions; an installed app opens without the browser address bar.
@@ -536,7 +540,7 @@ _Increment 5 = Sprints 25, 27, 28, 29, 29a; Sprints 26 and 28a are deferred to a
     - Offline, a scanned token is checked locally against the public key (signature and expiry); membership status is verified on sync, and a rejected queued check-in is surfaced to staff.
     - The app shell is served while offline, not a browser error page; all screens work at 320 px width without sideways scrolling. Staff keep a manual fallback register for the case where browser data is cleared offline.
 
-37a. **Demo gym** - A management command seeds a gym on the `demo` subdomain (flagged `is_demo`) with sample members, plans, attendance, trainers, and equipment (classes removed/deferred), Growth flags on, and Chapa test keys read from the environment. Multi-branch sample data is added only if Increment 6 has shipped. Re-running it resets only that gym's data, never any other gym's — tested with a second seeded gym. Demo gyms are excluded from platform revenue.
+37a. **Demo gym** - A management command seeds a gym on the `demo` subdomain (flagged `is_demo`) with sample members, plans, attendance, trainers, equipment, and group classes, Growth flags on, and Chapa test keys read from the environment. Multi-branch sample data is added only if Increment 6 has shipped. Re-running it resets only that gym's data, never any other gym's — tested with a second seeded gym. Demo gyms are excluded from platform revenue.
 
 38. **Production hardening (cPanel-based)** — Note in plain words that the cPanel provisioning, the AutoSSL behavior, the cron run and the DOMAIN change were already proven on the staging deploy, so this sprint is a re-check of the final release, not new work. Deploy Django via cPanel's Python App Manager (Passenger WSGI), wire the cPanel UAPI subdomain-provisioning call from Sprint 4 to the real account (not a stub), confirm PostgreSQL connection settings against cPanel's database, set up the cPanel Cron Job for Sprint 14's command, configure the cache backend (database cache unless Redis is confirmed), DB backups via whatever cPanel/Yegara provides, `DOMAIN` fully parameterized end-to-end. `.env` carries every environment-specific value: `DOMAIN`, database credentials, JWT and QR signing keys, `TENANT_CREDENTIALS_KEY`, Cloudinary credentials, Super Admin bootstrap values, demo Chapa test keys.
     - A fresh deploy to the actual Yegara Premium account succeeds end-to-end from documented steps, with every environment-specific value sourced from `.env`.
@@ -608,7 +612,7 @@ _Increment 6 runs after Increment 7; go/no-go decision date: to be set by the ow
 9. Brevo: confirm "Authenticated" in the dashboard and DKIM PASS with d=fitgate.tebebtech.com in Gmail's "Show original" — deferred by owner decision.
 10. "Lessons from the first deploy" section in docs/DEPLOY_STAGING.md — deferred by owner decision.
 11. The earlier small follow-ups already in Known follow-ups — deferred by owner decision.
-12. [x] Tier cards on the landing page, the Create Gym tier choices, the default flags set at gym creation, and the Super Admin flag editor must offer only the tiers that exist; Pro appears only after Increment 6 ships; has_group_classes must not be shown or enabled.
+12. [x] Tier cards on the landing page, the Create Gym tier choices, the default flags set at gym creation, and the Super Admin flag editor must offer only the tiers that exist; Pro appears only after Increment 6 ships; has_group_classes is enabled for Growth and Pro.
 
 ## Deferred to a future version
 
@@ -622,7 +626,7 @@ _Increment 6 runs after Increment 7; go/no-go decision date: to be set by the ow
 - A data deletion/archival policy for lapsed gyms
 - Trainer availability schedule (Sprint 18)
 - Trainer-to-member messaging (Sprint 19)
-- Group class scheduling and booking (Sprint 26)
+
 - Badges and member progress charts (Sprint 28a)
 - Premium analytics: peak-hours heatmap, cohort retention, and referral analytics (Sprint 27)
 

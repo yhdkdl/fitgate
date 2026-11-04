@@ -32,6 +32,7 @@ from apps.equipment.services import report_equipment_issue, update_equipment_con
 
 class EquipmentListCreateView(APIView):
     authentication_classes = [FitGateJWTAuthentication]
+    permission_classes = [IsAuthenticated, RequirePasswordChanged]
 
     def get_permissions(self):
         if self.request.method == "POST":
@@ -130,6 +131,7 @@ class EquipmentListCreateView(APIView):
 
 class EquipmentDetailView(APIView):
     authentication_classes = [FitGateJWTAuthentication]
+    permission_classes = [IsAuthenticated, RequirePasswordChanged]
 
     def get_permissions(self):
         if self.request.method == "GET":
@@ -277,6 +279,7 @@ class EquipmentDetailView(APIView):
 
 class EquipmentReportIssueView(APIView):
     authentication_classes = [FitGateJWTAuthentication]
+    permission_classes = [IsAuthenticated, RequirePasswordChanged]
     permission_classes = [
         IsAuthenticated,
         RequirePasswordChanged,
@@ -329,6 +332,7 @@ class EquipmentReportIssueView(APIView):
 
 class EquipmentUpdateConditionView(APIView):
     authentication_classes = [FitGateJWTAuthentication]
+    permission_classes = [IsAuthenticated, RequirePasswordChanged]
     permission_classes = [IsAuthenticated, RequirePasswordChanged, CanManageEquipment]
 
     @extend_schema(

@@ -61,13 +61,13 @@
 - fix/plan-entitlements-and-member-plan-card: Upgrade entitlement matching (trainer-inclusive guard), renewal warning, and enhanced member subscription cards (tag `fix-plan-entitlements-done`).
 - fix/equipment-registry-rules: Completeness setting, 3 AI plan modes, purchase price tracking, and member privacy (tag `fix-equipment-registry-done`).
 - Sprint 28: Gym notice board and Telegram channel bridge (tag `sprint-28-done`).
+- Sprint 29: CSV data export (members, payments, attendance) with Excel UTF-8 BOM, formula sanitization, date range cap, and audit logging (tag `sprint-29-done`).
+- Sprint 29a: Expenses and financial reporting with immutable ledger, void audit trails, equipment price integration checkbox, net income calculation, and attendance summaries (tag `sprint-29a-done`).
+- Telegram channel uniqueness across gyms and single platform bot architecture.
 
 ## Current
 
-Increment 5 (Equipment, analytics, communication: Sprints 25, 27, 28, 29, 29a) complete and awaiting review.
-
-- Sprint 29: CSV data export (members, payments, attendance) with Excel UTF-8 BOM, formula sanitization, date range cap, and audit logging (`feature/sprint-29-csv-export`, completed, unmerged per owner instructions).
-- Sprint 29a: Expenses and financial reporting with immutable ledger, void audit trails, equipment price integration checkbox, net income calculation, and attendance summaries (`feature/sprint-29a-expenses`, completed, unmerged per owner instructions).
+- Sprint 26: Lean Group Classes (`ClassSession`, `ClassBooking`, capacity locking with `select_for_update`, member 2-hour cancellation window, separate attendance without daily check-in rows, Growth/Pro tier gating via `has_group_classes`) on feature branch `feature/sprint-26-classes`.
 
 ## Next
 
