@@ -330,3 +330,29 @@ class TestTelegramBridgeAndSettings:
         )
         assert res_b.status_code == 400
         assert "already connected to another gym" in str(res_b.data)
+
+    def test_telegram_channel_resave_same_gym_succeeds(self, api_client, gym_tenant_a):
+        """A gym can re-save its own settings with its existing channel without duplicate refusal."""
+        owner = create_user(gym_tenant_a, User.ROLE_OWNER, "owner_resave_tg@bole.com")
+        auth_client(api_client, owner, gym_tenant_a)
+
+        # First save with channel
+        res1 = api_client.patch(
+            "/api/gym/settings/",
+            {"telegram_channel": "@my_gym_channel", "show_unavailable_equipment": True},
+            format="json",
+        )
+        assert res1.status_code == 200
+
+        # Re-save with same channel and updated show_unavailable_equipment
+        res2 = api_client.patch(
+            "/api/gym/settings/",
+            {
+                "telegram_channel": "@my_gym_channel",
+                "show_unavailable_equipment": False,
+            },
+            format="json",
+        )
+        assert res2.status_code == 200
+        assert res2.data["telegram_channel"] == "@my_gym_channel"
+        assert res2.data["show_unavailable_equipment"] is False

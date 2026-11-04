@@ -400,12 +400,16 @@ class GymSettingsUpdateSerializer(serializers.Serializer):
         if cleaned:
             from apps.tenants.models import GymConfig
 
-            tenant = self.context.get("tenant") or getattr(
-                self.context.get("request"), "tenant", None
+            tenant = (
+                self.context.get("tenant")
+                or getattr(self.context.get("request"), "tenant", None)
+                or getattr(self.instance, "gym", None)
             )
             qs = GymConfig.objects.filter(telegram_channel__iexact=cleaned)
             if tenant:
                 qs = qs.exclude(gym=tenant)
+            elif self.instance and getattr(self.instance, "pk", None):
+                qs = qs.exclude(pk=self.instance.pk)
             if qs.exists():
                 raise serializers.ValidationError(
                     "This Telegram channel is already connected to another gym."

@@ -871,7 +871,15 @@ class GymSettingsView(APIView):
     )
     def patch(self, request, *args, **kwargs):
         gym = request.tenant
-        serializer = GymSettingsUpdateSerializer(data=request.data, partial=True)
+        config = getattr(gym, "config", None)
+        if config is None:
+            config, _ = GymConfig.objects.get_or_create(gym=gym)
+        serializer = GymSettingsUpdateSerializer(
+            instance=config,
+            data=request.data,
+            context={"request": request, "tenant": gym},
+            partial=True,
+        )
         if not serializer.is_valid():
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
