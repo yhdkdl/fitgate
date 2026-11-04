@@ -58,6 +58,16 @@ urlpatterns = [
         GymReceivingAccountDetailView.as_view(),
         name="gym-receiving-account-detail",
     ),
+    path(
+        "api/gym/payment-config/receiving-accounts/",
+        GymReceivingAccountListView.as_view(),
+        name="gym-payment-config-receiving-accounts",
+    ),
+    path(
+        "api/gym/payment-config/receiving-accounts/<uuid:pk>/",
+        GymReceivingAccountDetailView.as_view(),
+        name="gym-payment-config-receiving-account-detail",
+    ),
     # Bank Receipt Review Queue (strictly Owner and Manager of gym)
     path(
         "api/payments/receipt-reviews/",

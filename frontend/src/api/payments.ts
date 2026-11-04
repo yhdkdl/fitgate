@@ -362,9 +362,7 @@ export interface GymReceivingAccount {
 export async function getGymReceivingAccounts(): Promise<
   GymReceivingAccount[]
 > {
-  return apiFetch<GymReceivingAccount[]>(
-    "/api/gym/payment-config/receiving-accounts/"
-  );
+  return apiFetch<GymReceivingAccount[]>("/api/gym/receiving-accounts/");
 }
 
 export async function createGymReceivingAccount(data: {
@@ -372,18 +370,15 @@ export async function createGymReceivingAccount(data: {
   account_number: string;
   account_holder_name?: string;
 }): Promise<GymReceivingAccount> {
-  return apiFetch<GymReceivingAccount>(
-    "/api/gym/payment-config/receiving-accounts/",
-    {
-      method: "POST",
-      body: JSON.stringify(data),
-      headers: { "Content-Type": "application/json" },
-    }
-  );
+  return apiFetch<GymReceivingAccount>("/api/gym/receiving-accounts/", {
+    method: "POST",
+    body: JSON.stringify(data),
+    headers: { "Content-Type": "application/json" },
+  });
 }
 
 export async function deleteGymReceivingAccount(id: string): Promise<void> {
-  return apiFetch<void>(`/api/gym/payment-config/receiving-accounts/${id}/`, {
+  return apiFetch<void>(`/api/gym/receiving-accounts/${id}/`, {
     method: "DELETE",
   });
 }
