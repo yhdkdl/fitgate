@@ -351,6 +351,7 @@ class MemberDetailSerializer(serializers.ModelSerializer):
     active_subscription = serializers.SerializerMethodField(read_only=True)
     queued_subscription = serializers.SerializerMethodField(read_only=True)
     active_freeze = serializers.SerializerMethodField(read_only=True)
+    has_pending_receipt_review = serializers.SerializerMethodField(read_only=True)
 
     class Meta:
         model = Member
@@ -374,6 +375,7 @@ class MemberDetailSerializer(serializers.ModelSerializer):
             "active_subscription",
             "queued_subscription",
             "active_freeze",
+            "has_pending_receipt_review",
         ]
         read_only_fields = [
             "id",
@@ -385,7 +387,17 @@ class MemberDetailSerializer(serializers.ModelSerializer):
             "body_metrics",
             "assigned_trainer",
             "active_subscription",
+            "has_pending_receipt_review",
         ]
+
+    def get_has_pending_receipt_review(self, obj) -> bool:
+        from apps.payments.models import Payment
+
+        return Payment.all_objects.filter(
+            gym=obj.gym,
+            member=obj,
+            status=Payment.STATUS_PENDING_REVIEW,
+        ).exists()
 
     def get_assigned_trainer(self, obj):
         active_assignment = (

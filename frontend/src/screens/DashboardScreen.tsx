@@ -1,3 +1,4 @@
+import { ReceiptReviewQueueSection } from "../components/payments/ReceiptReviewQueueSection";
 import React, { useEffect, useMemo, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { Badge } from "../components/ui/Badge";
@@ -56,8 +57,10 @@ const ROLE_NAV_ITEMS: Record<string, NavItem[]> = {
     { label: "Check-in", path: "/check-in" },
     { label: "Equipment", path: "/equipment" },
     { label: "Payments", path: "/payments" },
+    { label: "Receipt reviews", path: "/receipt-reviews" },
     { label: "Expenses & Reports", path: "/expenses" },
     { label: "Bank transfers", path: "/bank-transfers" },
+    { label: "Receipt reviews", path: "/receipt-reviews" },
     { label: "Plans", path: "/plans" },
     { label: "Trainers", path: "/trainers" },
     { label: "Assignments", path: "/assignments" },
@@ -479,6 +482,15 @@ export const DashboardScreen: React.FC = () => {
       return (
         <SectionErrorBoundary title="Group Classes">
           <ClassScheduleSection userRole={role} />
+        </SectionErrorBoundary>
+      );
+    }
+
+    // Bank Receipt Reviews (Sprint 12d)
+    if (currentPath.startsWith("/receipt-reviews")) {
+      return (
+        <SectionErrorBoundary title="Bank Receipt Reviews">
+          <ReceiptReviewQueueSection />
         </SectionErrorBoundary>
       );
     }

@@ -1,3 +1,4 @@
+import { Link } from "react-router-dom";
 import React, { useEffect, useState } from "react";
 import {
   GymAnalyticsOverview,
@@ -95,6 +96,36 @@ export const AnalyticsOverviewSection: React.FC<
           </Button>
         </div>
       </div>
+
+      {/* Pending Bank Receipt Reviews Warning */}
+      {Boolean(
+        data.pending_receipt_reviews_count &&
+        data.pending_receipt_reviews_count > 0
+      ) && (
+        <div
+          className="bg-amber-500/10 border border-amber-500/30 rounded-card p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3"
+          data-testid="pending-receipt-reviews-banner"
+        >
+          <div className="flex items-center gap-3">
+            <span className="text-2xl">⚠️</span>
+            <div>
+              <h4 className="text-sm font-bold text-text">
+                Receipts waiting for review:{" "}
+                {data.pending_receipt_reviews_count}
+              </h4>
+              <p className="text-xs text-text-muted mt-0.5">
+                Bank transfer receipts with mismatched details or awaiting
+                approval need statement verification.
+              </p>
+            </div>
+          </div>
+          <Link to="/receipt-reviews">
+            <Button size="sm" variant="primary" className="whitespace-nowrap">
+              Review receipts &rarr;
+            </Button>
+          </Link>
+        </div>
+      )}
 
       {/* 4 Core Operational Metric Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">

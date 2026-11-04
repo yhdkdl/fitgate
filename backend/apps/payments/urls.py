@@ -9,6 +9,8 @@ from apps.payments.expense_views import (
     GymFinancialReportView,
 )
 from apps.payments.views import (
+    BankReceiptReviewDecideView,
+    BankReceiptReviewListView,
     BankTransferScreenshotView,
     ChapaCheckoutView,
     ChapaWebhookView,
@@ -16,6 +18,8 @@ from apps.payments.views import (
     GymPaymentConfigView,
     GymPaymentListView,
     GymPaymentPublicStatusView,
+    GymReceivingAccountDetailView,
+    GymReceivingAccountListView,
     MemberPaymentHistoryView,
     MemberPaymentStatusView,
     MemberUpgradeQuoteView,
@@ -42,6 +46,28 @@ urlpatterns = [
         "api/gym/payment-config/test/",
         GymPaymentConfigTestView.as_view(),
         name="gym-payment-config-test",
+    ),
+    # Gym Receiving Bank Accounts (strictly Owner only)
+    path(
+        "api/gym/receiving-accounts/",
+        GymReceivingAccountListView.as_view(),
+        name="gym-receiving-accounts",
+    ),
+    path(
+        "api/gym/receiving-accounts/<uuid:pk>/",
+        GymReceivingAccountDetailView.as_view(),
+        name="gym-receiving-account-detail",
+    ),
+    # Bank Receipt Review Queue (strictly Owner and Manager of gym)
+    path(
+        "api/payments/receipt-reviews/",
+        BankReceiptReviewListView.as_view(),
+        name="bank-receipt-reviews",
+    ),
+    path(
+        "api/payments/receipt-reviews/<uuid:pk>/decide/",
+        BankReceiptReviewDecideView.as_view(),
+        name="bank-receipt-review-decide",
     ),
     # Plan Upgrade Quotes
     path(

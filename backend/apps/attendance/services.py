@@ -258,6 +258,18 @@ def execute_check_in(
                 member=member,
             )
 
+    # Check if member has an item waiting in receipt review queue
+    from apps.payments.models import Payment
+
+    if Payment.all_objects.filter(
+        gym=gym, member=member, status=Payment.STATUS_PENDING_REVIEW
+    ).exists():
+        raise ScanValidationError(
+            reason="pending_review",
+            message="Your bank transfer is waiting for review by the gym.",
+            member=member,
+        )
+
     # 1. Check member account status
     if member.status == Member.STATUS_SUSPENDED:
         msg = (

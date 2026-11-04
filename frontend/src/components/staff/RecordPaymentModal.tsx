@@ -228,8 +228,13 @@ export const RecordPaymentModal: React.FC<Props> = ({
           idempotency_key: idempotencyKey,
           screenshot: screenshotFile || undefined,
         });
-        setReceipt(res.receipt);
-        onPaymentSuccess?.(res.receipt);
+        if (res.receipt) {
+          setReceipt(res.receipt);
+          onPaymentSuccess?.(res.receipt);
+        } else {
+          setReceipt(null);
+          onClose();
+        }
       }
     } catch (err: unknown) {
       const msg =

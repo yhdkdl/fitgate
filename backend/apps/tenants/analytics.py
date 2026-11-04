@@ -143,6 +143,11 @@ def get_gym_analytics_overview(tenant: GymTenant) -> Dict[str, Any]:
             for item in plan_stats
         ]
 
+    pending_receipt_reviews_count = Payment.all_objects.filter(
+        gym=tenant,
+        status=Payment.STATUS_PENDING_REVIEW,
+    ).count()
+
     return {
         "active_members": active_members,
         "frozen_members": frozen_members,
@@ -151,6 +156,7 @@ def get_gym_analytics_overview(tenant: GymTenant) -> Dict[str, Any]:
         "currency": tenant.currency or "ETB",
         "expiring_memberships_count": len(expiring_members),
         "expiring_memberships": expiring_members,
+        "pending_receipt_reviews_count": pending_receipt_reviews_count,
         "has_analytics": has_analytics,
         "upgrade_prompt": upgrade_prompt,
         "revenue_by_plan": revenue_by_plan,

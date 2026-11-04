@@ -172,6 +172,20 @@ export async function recordCashPayment(data: {
   });
 }
 
+export interface RecordBankTransferResponse {
+  detail: string;
+  payment_id: string;
+  amount_etb: string;
+  status: string;
+  bank_reference: string;
+  is_reconciled?: boolean;
+  is_receipt_verified?: boolean;
+  verification_outcome?: string;
+  verification_message?: string;
+  receipt?: DigitalReceipt | null;
+  subscription_id?: string | null;
+}
+
 export async function recordBankTransferPayment(data: {
   member_id: string;
   plan_id: string;
@@ -181,16 +195,7 @@ export async function recordBankTransferPayment(data: {
   notes?: string;
   idempotency_key?: string;
   screenshot?: File;
-}): Promise<{
-  detail: string;
-  payment_id: string;
-  amount_etb: string;
-  status: string;
-  bank_reference: string;
-  is_reconciled: boolean;
-  receipt: DigitalReceipt;
-  subscription_id: string | null;
-}> {
+}): Promise<RecordBankTransferResponse> {
   if (data.screenshot) {
     const formData = new FormData();
     formData.append("member_id", data.member_id);
@@ -343,4 +348,85 @@ export async function getStaffUpgradeQuote(
   return apiFetch<PlanUpgradeQuote>(
     `/api/gym/members/${encodeURIComponent(memberId)}/upgrade-quote/?plan_id=${encodeURIComponent(planId)}`
   );
+}
+
+export interface GymReceivingAccount {
+  id: string;
+  bank: string;
+  account_number: string;
+  account_holder_name: string;
+  is_active: boolean;
+  created_at: string;
+}
+
+export async function getGymReceivingAccounts(): Promise<
+  GymReceivingAccount[]
+> {
+  return apiFetch<GymReceivingAccount[]>(
+    "/api/gym/payment-config/receiving-accounts/"
+  );
+}
+
+export async function createGymReceivingAccount(data: {
+  bank: string;
+  account_number: string;
+  account_holder_name?: string;
+}): Promise<GymReceivingAccount> {
+  return apiFetch<GymReceivingAccount>(
+    "/api/gym/payment-config/receiving-accounts/",
+    {
+      method: "POST",
+      body: JSON.stringify(data),
+      headers: { "Content-Type": "application/json" },
+    }
+  );
+}
+
+export async function deleteGymReceivingAccount(id: string): Promise<void> {
+  return apiFetch<void>(`/api/gym/payment-config/receiving-accounts/${id}/`, {
+    method: "DELETE",
+  });
+}
+
+export interface BankReceiptReviewItem {
+  id: string;
+  created_at: string;
+  member_id: string;
+  member_name: string;
+  member_phone: string;
+  plan_name: string;
+  expected_amount_etb: string;
+  amount_etb: string;
+  bank: string;
+  bank_reference: string;
+  transfer_date: string;
+  channel: string;
+  status: string;
+  is_upgrade: boolean;
+  verification_outcome: string;
+  receipt_verification_data: Record<string, unknown>;
+  screenshot_url: string | null;
+}
+
+export async function getBankReceiptReviews(): Promise<
+  BankReceiptReviewItem[]
+> {
+  return apiFetch<BankReceiptReviewItem[]>("/api/payments/receipt-reviews/");
+}
+
+export async function decideBankReceiptReview(
+  paymentId: string,
+  decision: "verified" | "declined"
+): Promise<{
+  detail: string;
+  payment_id: string;
+  status: string;
+  receipt_number?: string;
+  subscription_id?: string;
+}> {
+  return apiFetch(`/api/payments/receipt-reviews/${paymentId}/decide/`, {
+    method: "POST",
+    body: JSON.stringify({ decision }),
+    headers: { "Content-Type": "application/json" },
+  });
 }

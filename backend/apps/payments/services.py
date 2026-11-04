@@ -4,10 +4,12 @@ import hashlib
 import hmac
 import json
 import logging
+import re
 from datetime import date, timedelta
 from decimal import Decimal
 from typing import Any, Dict, Optional, Tuple
 
+from django.conf import settings
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.db import transaction
 from django.utils import timezone
@@ -22,8 +24,10 @@ from apps.memberships.services import (
 )
 from apps.payments.chapa_client import ChapaAPIError, ChapaClient
 from apps.payments.models import (
+    BankReceiptLookupCounter,
     GymPaymentConfig,
     GymReceiptCounter,
+    GymReceivingAccount,
     Payment,
     PaymentReversal,
     Receipt,
@@ -70,6 +74,123 @@ def get_next_receipt_sequence_and_number(gym: GymTenant) -> Tuple[int, str]:
     sequence = counter.last_receipt_number
     receipt_number = f"REC-{sequence:06d}"
     return sequence, receipt_number
+
+
+_CBE_FT_REGEX = re.compile(r"^FT[A-Za-z0-9]{8,14}$")
+_CBE_RECEIPT_ID_REGEX = re.compile(r"^(?:v\d{1,2}-)?[A-Za-z0-9]{10,64}$")
+_TELEBIRR_REGEX = re.compile(r"^[A-Za-z0-9]{8,35}$")
+
+
+def validate_bank_receipt_format(bank: str, reference: str) -> Tuple[bool, str]:
+    """
+    Validates bank receipt reference format before any lookup or rate counter increment.
+    Rejects malformed references (with spaces, invalid characters, or mismatching bank patterns).
+    Supports test prefixes starting with MOCK- for test suites.
+    """
+    ref = (reference or "").strip()
+    bank_clean = (bank or "").lower().strip()
+
+    if not ref:
+        return False, "Bank reference is required."
+
+    if " " in ref:
+        return False, "Receipt reference cannot contain spaces."
+
+    if ref.upper().startswith("MOCK-"):
+        return True, ""
+
+    if bank_clean == GymReceivingAccount.BANK_CBE:
+        if not (_CBE_FT_REGEX.match(ref) or _CBE_RECEIPT_ID_REGEX.match(ref)):
+            return (
+                False,
+                "Invalid CBE receipt reference format. Must be a valid Receipt ID or FT reference.",
+            )
+        return True, ""
+    elif bank_clean == GymReceivingAccount.BANK_TELEBIRR:
+        if not _TELEBIRR_REGEX.match(ref):
+            return False, "Invalid Telebirr transaction reference format."
+        return True, ""
+    else:
+        if (
+            _CBE_FT_REGEX.match(ref)
+            or _CBE_RECEIPT_ID_REGEX.match(ref)
+            or _TELEBIRR_REGEX.match(ref)
+        ):
+            return True, ""
+        return False, "Invalid bank receipt reference format."
+
+
+def check_and_increment_bank_lookup_rate_limit() -> bool:
+    """
+    Atomically increments the rate counter for the current minute.
+    Returns True if within limit (<= 20 lookups per minute platform-wide), False if rate limit exceeded.
+    """
+    now = timezone.now()
+    minute_bucket = now.replace(second=0, microsecond=0)
+    with transaction.atomic():
+        counter, _ = BankReceiptLookupCounter.objects.select_for_update().get_or_create(
+            minute_timestamp=minute_bucket,
+            defaults={"lookup_count": 0},
+        )
+        if counter.lookup_count >= 20:
+            return False
+        counter.lookup_count += 1
+        counter.save(update_fields=["lookup_count"])
+        return True
+
+
+def verify_member_bank_receipt(
+    gym: GymTenant,
+    bank: str,
+    reference: str,
+    expected_amount: Decimal,
+) -> Any:
+    """
+    Executes bank receipt verification.
+    Runs one lookup with total timeout 8s, without holding locks.
+    Platform kill switch RECEIPT_VERIFICATION_ENABLED disables the feature.
+    Platform rate limit is capped at 20 lookups per minute.
+    """
+    from apps.payments.verifiers import (
+        BankReceiptVerificationResult,
+        get_bank_receipt_verifier,
+    )
+
+    bank_clean = (bank or "").lower().strip()
+    ref_clean = (reference or "").strip()
+
+    if not getattr(settings, "RECEIPT_VERIFICATION_ENABLED", False):
+        return BankReceiptVerificationResult(
+            status=BankReceiptVerificationResult.STATUS_COULD_NOT_CHECK,
+            bank=bank_clean,
+            reference=ref_clean,
+            error_message="Bank receipt verification is disabled at platform level.",
+        )
+
+    # Check and increment 20/min rate counter
+    if not check_and_increment_bank_lookup_rate_limit():
+        return BankReceiptVerificationResult(
+            status=BankReceiptVerificationResult.STATUS_COULD_NOT_CHECK,
+            bank=bank_clean,
+            reference=ref_clean,
+            error_message="Platform bank receipt lookup rate limit exceeded.",
+        )
+
+    # Fetch active gym receiving accounts
+    receiving_accounts = list(
+        GymReceivingAccount.all_objects.filter(
+            gym=gym,
+            is_active=True,
+        ).values_list("account_number", flat=True)
+    )
+
+    verifier = get_bank_receipt_verifier()
+    return verifier.verify(
+        bank=bank_clean,
+        reference=ref_clean,
+        expected_amount=expected_amount,
+        receiving_accounts=receiving_accounts,
+    )
 
 
 def process_chapa_webhook(
@@ -1116,6 +1237,8 @@ def record_plan_upgrade_bank_transfer_payment(
     transfer_screenshot: str = "",
     idempotency_key: Optional[str] = None,
     today: Optional[date] = None,
+    is_receipt_verified: bool = False,
+    receipt_verification_data: Optional[dict] = None,
 ) -> Tuple[Payment, Receipt, MemberSubscription]:
     """
     Executes a plan upgrade paid by bank transfer in ONE database transaction.
@@ -1224,9 +1347,9 @@ def record_plan_upgrade_bank_transfer_payment(
             prev_end = q_end
 
         is_owner = recorded_by.role == User.ROLE_OWNER
-        is_reconciled = is_owner
-        reconciled_at = timezone.now() if is_owner else None
-        reconciled_by = recorded_by if is_owner else None
+        is_reconciled = is_owner or is_receipt_verified
+        reconciled_at = timezone.now() if is_reconciled else None
+        reconciled_by = recorded_by if is_reconciled else None
 
         payment = Payment.all_objects.create(
             gym=gym,
@@ -1248,6 +1371,8 @@ def record_plan_upgrade_bank_transfer_payment(
             is_reconciled=is_reconciled,
             reconciled_at=reconciled_at,
             reconciled_by=reconciled_by,
+            is_receipt_verified=is_receipt_verified,
+            receipt_verification_data=receipt_verification_data or {},
             status=Payment.STATUS_CONFIRMED,
             confirmed_by=recorded_by,
             idempotency_key=idempotency_key or None,
@@ -1257,6 +1382,11 @@ def record_plan_upgrade_bank_transfer_payment(
                 "notes": notes,
                 "recorded_by": recorded_by.email,
                 "superseded_subscription_id": quote["current_subscription_id"],
+                **(
+                    {"auto_reconciled_by": "receipt_verification"}
+                    if is_receipt_verified and not is_owner
+                    else {}
+                ),
             },
         )
 
@@ -1302,6 +1432,25 @@ def record_plan_upgrade_bank_transfer_payment(
                 "superseded_subscription_id": quote["current_subscription_id"],
             },
         )
+
+        if is_owner or is_receipt_verified:
+            record_audit_log(
+                actor=recorded_by,
+                gym=gym,
+                action_type="bank_transfer_auto_reconciled",
+                affected_record_type="Payment",
+                affected_record_id=str(payment.id),
+                metadata={
+                    "bank_reference": cleaned_ref,
+                    "amount_etb": str(payment.amount_etb),
+                    "receipt_number": receipt.receipt_number,
+                    "reason": (
+                        "auto-reconciled by receipt verification"
+                        if is_receipt_verified
+                        else "owner_recorded"
+                    ),
+                },
+            )
 
         if locked_member.user:
             create_notification(
@@ -1528,6 +1677,8 @@ def record_bank_transfer_payment(
     idempotency_key: Optional[str] = None,
     transfer_screenshot: str = "",
     today: Optional[date] = None,
+    is_receipt_verified: bool = False,
+    receipt_verification_data: Optional[dict] = None,
 ) -> Tuple[Payment, Receipt, MemberSubscription]:
     """
     Record and confirm a bank-transfer payment for a gym member.
@@ -1698,6 +1849,8 @@ def record_bank_transfer_payment(
                     transfer_screenshot=transfer_screenshot,
                     idempotency_key=idempotency_key,
                     today=calc_today,
+                    is_receipt_verified=is_receipt_verified,
+                    receipt_verification_data=receipt_verification_data,
                 )
             else:
                 raise ValidationError(
@@ -1710,11 +1863,11 @@ def record_bank_transfer_payment(
             actor=recorded_by,
         )
 
-        # 6. Auto-reconcile if recorded by Owner
+        # 6. Auto-reconcile if recorded by Owner or verified by receipt
         is_owner = recorded_by.role == User.ROLE_OWNER
-        is_reconciled = is_owner
-        reconciled_at = timezone.now() if is_owner else None
-        reconciled_by = recorded_by if is_owner else None
+        is_reconciled = is_owner or is_receipt_verified
+        reconciled_at = timezone.now() if is_reconciled else None
+        reconciled_by = recorded_by if is_reconciled else None
 
         # 7. Create Payment record
         payment = Payment.all_objects.create(
@@ -1734,6 +1887,8 @@ def record_bank_transfer_payment(
             is_reconciled=is_reconciled,
             reconciled_at=reconciled_at,
             reconciled_by=reconciled_by,
+            is_receipt_verified=is_receipt_verified,
+            receipt_verification_data=receipt_verification_data or {},
             previous_subscription_state=prev_sub_state,
             status=Payment.STATUS_CONFIRMED,
             confirmed_by=recorded_by,
@@ -1742,6 +1897,11 @@ def record_bank_transfer_payment(
                 "notes": notes,
                 "recorded_by": recorded_by.email,
                 "channel": str(channel or "").strip(),
+                **(
+                    {"auto_reconciled_by": "receipt_verification"}
+                    if is_receipt_verified and not is_owner
+                    else {}
+                ),
             },
         )
 
@@ -1787,7 +1947,7 @@ def record_bank_transfer_payment(
             },
         )
 
-        if is_owner:
+        if is_owner or is_receipt_verified:
             record_audit_log(
                 actor=recorded_by,
                 gym=gym,
@@ -1798,6 +1958,11 @@ def record_bank_transfer_payment(
                     "bank_reference": cleaned_ref,
                     "amount_etb": str(payment.amount_etb),
                     "receipt_number": receipt.receipt_number,
+                    "reason": (
+                        "auto-reconciled by receipt verification"
+                        if is_receipt_verified
+                        else "owner_recorded"
+                    ),
                 },
             )
 

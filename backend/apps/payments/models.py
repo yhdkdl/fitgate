@@ -1,5 +1,6 @@
 """Data models for payments, payment configurations, and transactions."""
 
+import re
 import uuid
 from decimal import Decimal
 from typing import Optional
@@ -25,6 +26,18 @@ class GymPaymentConfig(TenantAwareModel):
     is_test_mode = models.BooleanField(default=True)
     is_verified = models.BooleanField(default=False)
     is_enabled = models.BooleanField(default=True)
+    verify_bank_receipts_automatically = models.BooleanField(default=False)
+    POLICY_ACTIVATE_AND_RECONCILE_LATER = "activate_and_reconcile_later"
+    POLICY_HOLD_FOR_APPROVAL = "hold_for_approval"
+    POLICY_CHOICES = [
+        (POLICY_ACTIVATE_AND_RECONCILE_LATER, "Activate now and reconcile later"),
+        (POLICY_HOLD_FOR_APPROVAL, "Hold for Owner or Manager approval"),
+    ]
+    receipt_verification_failure_policy = models.CharField(
+        max_length=40,
+        choices=POLICY_CHOICES,
+        default=POLICY_ACTIVATE_AND_RECONCILE_LATER,
+    )
     verified_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -104,6 +117,89 @@ class GymPaymentConfig(TenantAwareModel):
         return f"GymPaymentConfig({self.gym.subdomain} - {mode} [{status}])"
 
 
+class GymReceivingAccount(TenantAwareModel):
+    """
+    Receiving bank accounts for automatic bank receipt verification.
+    Up to 5 accounts per gym. Configured by Owner only.
+    """
+
+    BANK_CBE = "cbe"
+    BANK_TELEBIRR = "telebirr"
+    BANK_CHOICES = [
+        (BANK_CBE, "Commercial Bank of Ethiopia"),
+        (BANK_TELEBIRR, "Telebirr"),
+    ]
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    bank = models.CharField(max_length=20, choices=BANK_CHOICES)
+    account_number = models.CharField(max_length=50)
+    account_name = models.CharField(max_length=100, blank=True, default="")
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Gym Receiving Account"
+        verbose_name_plural = "Gym Receiving Accounts"
+        ordering = ["created_at"]
+
+    def clean(self):
+        super().clean()
+        acc = (self.account_number or "").strip()
+        if self.bank == self.BANK_CBE:
+            digits = re.sub(r"\D", "", acc)
+            if not (len(digits) == 13 and digits.startswith("1000")):
+                raise ValidationError(
+                    {
+                        "account_number": [
+                            "CBE account number must be 13 digits starting with 1000."
+                        ]
+                    }
+                )
+            self.account_number = digits
+        elif self.bank == self.BANK_TELEBIRR:
+            digits = re.sub(r"\D", "", acc)
+            if digits.startswith("251") and len(digits) == 12:
+                digits = "0" + digits[3:]
+            elif len(digits) == 9 and (
+                digits.startswith("9") or digits.startswith("7")
+            ):
+                digits = "0" + digits
+            if not (
+                len(digits) == 10
+                and (digits.startswith("09") or digits.startswith("07"))
+            ):
+                raise ValidationError(
+                    {
+                        "account_number": [
+                            "Enter a valid Telebirr mobile number (e.g. 0911223344 or 0711223344)."
+                        ]
+                    }
+                )
+            self.account_number = digits
+
+        if not self.pk and self.gym_id:
+            count = GymReceivingAccount.all_objects.filter(
+                gym=self.gym, is_active=True
+            ).count()
+            if count >= 5:
+                raise ValidationError("Gym cannot have more than 5 receiving accounts.")
+
+
+class BankReceiptLookupCounter(models.Model):
+    """
+    Platform-wide database counter for rate-limiting receipt lookups.
+    Maximum 20 lookups per minute across the platform.
+    """
+
+    minute_timestamp = models.DateTimeField(unique=True, db_index=True)
+    lookup_count = models.PositiveIntegerField(default=0)
+
+    class Meta:
+        verbose_name = "Bank Receipt Lookup Counter"
+        verbose_name_plural = "Bank Receipt Lookup Counters"
+
+
 class Payment(TenantAwareModel):
     """
     Records payments for gym platform subscriptions and member plans.
@@ -134,6 +230,8 @@ class Payment(TenantAwareModel):
     STATUS_FAILED = "failed"
     STATUS_ABANDONED = "abandoned"
     STATUS_REVERSED = "reversed"
+    STATUS_PENDING_REVIEW = "pending_review"
+    STATUS_DECLINED = "declined"
 
     STATUS_CHOICES = [
         (STATUS_PENDING, "Pending"),
@@ -141,6 +239,8 @@ class Payment(TenantAwareModel):
         (STATUS_FAILED, "Failed"),
         (STATUS_ABANDONED, "Abandoned"),
         (STATUS_REVERSED, "Reversed"),
+        (STATUS_PENDING_REVIEW, "Pending Review"),
+        (STATUS_DECLINED, "Declined"),
     ]
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
@@ -201,6 +301,21 @@ class Payment(TenantAwareModel):
     )
     flagged_unreconciled_at = models.DateTimeField(null=True, blank=True)
     previous_subscription_state = models.JSONField(default=dict, blank=True)
+    is_receipt_verified = models.BooleanField(default=False)
+    receipt_verification_data = models.JSONField(default=dict, blank=True)
+    expected_amount_etb = models.DecimalField(
+        max_digits=12, decimal_places=2, null=True, blank=True
+    )
+    review_photo = models.CharField(max_length=500, blank=True, default="")
+    review_decided_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="decided_receipt_reviews",
+    )
+    review_decided_at = models.DateTimeField(null=True, blank=True)
+    review_decision = models.CharField(max_length=20, blank=True, default="")
     status = models.CharField(
         max_length=20,
         choices=STATUS_CHOICES,
@@ -235,7 +350,8 @@ class Payment(TenantAwareModel):
             ),
             models.UniqueConstraint(
                 fields=["gym", "bank_reference_normalized"],
-                condition=models.Q(bank_reference_normalized__isnull=False),
+                condition=models.Q(bank_reference_normalized__isnull=False)
+                & ~models.Q(status__in=["pending_review", "declined"]),
                 name="unique_gym_bank_reference_normalized",
             ),
         ]

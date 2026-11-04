@@ -1518,6 +1518,50 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/gym/receiving-accounts/": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * List gym receiving bank accounts
+     * @description Returns list of receiving accounts configured for this gym.
+     */
+    get: operations["gym_receiving_accounts_list"];
+    put?: never;
+    /**
+     * Add gym receiving bank account
+     * @description Owner adds a receiving account (up to 5 accounts per gym).
+     */
+    post: operations["gym_receiving_accounts_create"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/gym/receiving-accounts/{id}/": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post?: never;
+    /**
+     * Delete gym receiving bank account
+     * @description Owner deletes a receiving account.
+     */
+    delete: operations["gym_receiving_accounts_destroy"];
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/gym/reports/attendance/": {
     parameters: {
       query?: never;
@@ -2211,6 +2255,46 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/payments/receipt-reviews/": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * List bank receipt review items
+     * @description Returns pending bank receipt reviews for Owner/Manager approval.
+     */
+    get: operations["payments_receipt_reviews_list"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/payments/receipt-reviews/{id}/decide/": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Decide bank receipt review item
+     * @description Owner or Manager statement decision (verified vs declined).
+     */
+    post: operations["payments_receipt_reviews_decide_create"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/payments/status/{reference}/": {
     parameters: {
       query?: never;
@@ -2457,7 +2541,12 @@ export interface paths {
     delete?: never;
     options?: never;
     head?: never;
-    patch?: never;
+    /**
+     * @description Platform administrator view of gym payment mode (test vs live).
+     *     Super Admin can view whether a gym is running in test or live mode.
+     *     Super Admin cannot view keys, set keys, or access credentials.
+     */
+    patch: operations["platform_gyms_payment_status_partial_update"];
     trace?: never;
   };
   "/api/platform/gyms/propose-subdomain/": {
@@ -2790,6 +2879,42 @@ export interface components {
       readonly full_name: string;
       readonly role: components["schemas"]["UserRoleEnum"];
     };
+    /**
+     * @description * `cbe` - Commercial Bank of Ethiopia
+     *     * `telebirr` - Telebirr
+     * @enum {string}
+     */
+    BankEnum: "cbe" | "telebirr";
+    /** @description Decision input for an item in the receipt review queue. */
+    BankReceiptReviewDecisionRequest: {
+      decision: components["schemas"]["DecisionEnum"];
+    };
+    /** @description Review item in the Owner/Manager review queue. */
+    BankReceiptReviewItem: {
+      /** Format: uuid */
+      readonly id: string;
+      /** Format: uuid */
+      readonly member_id: string | null;
+      readonly member_name: string;
+      readonly member_phone: string;
+      /** Format: uuid */
+      readonly plan_id: string | null;
+      readonly plan_name: string;
+      /** Format: decimal */
+      readonly expected_amount_etb: string | null;
+      /** Format: decimal */
+      readonly amount_etb: string;
+      readonly bank_reference: string | null;
+      readonly channel: string;
+      /** Format: date */
+      readonly transfer_date: string | null;
+      readonly receipt_verification_data: unknown;
+      readonly review_photo: string;
+      readonly is_upgrade: boolean;
+      readonly status: components["schemas"]["PaymentStatusEnum"];
+      /** Format: date-time */
+      readonly created_at: string;
+    };
     /** @enum {unknown} */
     BlankEnum: "";
     /**
@@ -2949,6 +3074,12 @@ export interface components {
       method?: string;
       is_override?: boolean;
     };
+    /**
+     * @description * `verified` - verified
+     *     * `declined` - declined
+     * @enum {string}
+     */
+    DecisionEnum: "verified" | "declined";
     /** @description Serializer for Super Admin lead management. */
     DemoRequest: {
       /** Format: uuid */
@@ -3140,6 +3271,8 @@ export interface components {
       readonly is_test_mode: boolean;
       readonly is_verified: boolean;
       readonly is_enabled: boolean;
+      readonly verify_bank_receipts_automatically: boolean;
+      readonly receipt_verification_failure_policy: string;
       /** Format: date-time */
       readonly verified_at: string | null;
       readonly masked_public_key: string;
@@ -3166,6 +3299,26 @@ export interface components {
       online_payment_verified: boolean;
       /** @default false */
       has_group_classes: boolean;
+    };
+    /** @description Serializer for gym receiving bank accounts (max 5 per gym). */
+    GymReceivingAccount: {
+      /** Format: uuid */
+      readonly id: string;
+      bank: components["schemas"]["BankEnum"];
+      account_number: string;
+      account_name?: string;
+      is_active?: boolean;
+      /** Format: date-time */
+      readonly created_at: string;
+      /** Format: date-time */
+      readonly updated_at: string;
+    };
+    /** @description Serializer for gym receiving bank accounts (max 5 per gym). */
+    GymReceivingAccountRequest: {
+      bank: components["schemas"]["BankEnum"];
+      account_number: string;
+      account_name?: string;
+      is_active?: boolean;
     };
     /**
      * @description * `pending` - Pending
@@ -3341,6 +3494,7 @@ export interface components {
       readonly active_subscription: string;
       readonly queued_subscription: string;
       readonly active_freeze: string;
+      readonly has_pending_receipt_review: boolean;
     };
     /** @description Detailed read serializer for MemberFreeze records. */
     MemberFreeze: {
@@ -3575,6 +3729,8 @@ export interface components {
     /** @description Input serializer for gym owner configuring Chapa credentials. */
     PatchedGymPaymentConfigUpdateRequest: {
       is_enabled?: boolean;
+      verify_bank_receipts_automatically?: boolean;
+      receipt_verification_failure_policy?: components["schemas"]["ReceiptVerificationFailurePolicyEnum"];
       public_key?: string;
       secret_key?: string;
       webhook_secret?: string;
@@ -3670,6 +3826,24 @@ export interface components {
      * @enum {string}
      */
     PaymentMethodEnum: "cash" | "bank_transfer" | "none" | "no_payment";
+    /**
+     * @description * `pending` - Pending
+     *     * `confirmed` - Confirmed
+     *     * `failed` - Failed
+     *     * `abandoned` - Abandoned
+     *     * `reversed` - Reversed
+     *     * `pending_review` - Pending Review
+     *     * `declined` - Declined
+     * @enum {string}
+     */
+    PaymentStatusEnum:
+      | "pending"
+      | "confirmed"
+      | "failed"
+      | "abandoned"
+      | "reversed"
+      | "pending_review"
+      | "declined";
     /** @description Response containing proposed candidate subdomain. */
     ProposeSubdomainResponse: {
       subdomain: string;
@@ -3754,6 +3928,13 @@ export interface components {
       readonly gym_name: string;
       readonly gym_subdomain: string;
     };
+    /**
+     * @description * `activate_and_reconcile_later` - Activate now and reconcile later
+     *     * `hold_for_approval` - Hold for Owner or Manager approval
+     * @enum {string}
+     */
+    ReceiptVerificationFailurePolicyEnum:
+      "activate_and_reconcile_later" | "hold_for_approval";
     /** @description Owner bulk or single reconciliation request. */
     ReconcileBankTransfersRequest: {
       payment_ids: string[];
@@ -3765,6 +3946,8 @@ export interface components {
       /** Format: uuid */
       plan_id: string;
       bank_reference: string;
+      /** @default  */
+      bank: string;
       /** Format: date */
       transfer_date: string;
       /** @default  */
@@ -3778,13 +3961,17 @@ export interface components {
     RecordBankTransferResponse: {
       /** Format: uuid */
       payment_id: string;
-      receipt: components["schemas"]["Receipt"];
+      receipt?: components["schemas"]["Receipt"] | null;
       status: string;
       /** Format: decimal */
       amount_etb: string;
       bank_reference: string;
       is_reconciled: boolean;
+      /** @default false */
+      is_receipt_verified: boolean;
       detail: string;
+      mismatch_message?: string | null;
+      subscription_id?: string | null;
     };
     /**
      * @description Serializer for recording or correcting body metrics entries by a Trainer.
@@ -6840,6 +7027,77 @@ export interface operations {
       };
     };
   };
+  gym_receiving_accounts_list: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["GymReceivingAccount"][];
+        };
+      };
+    };
+  };
+  gym_receiving_accounts_create: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["GymReceivingAccountRequest"];
+        "application/x-www-form-urlencoded": components["schemas"]["GymReceivingAccountRequest"];
+        "multipart/form-data": components["schemas"]["GymReceivingAccountRequest"];
+      };
+    };
+    responses: {
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["GymReceivingAccount"];
+        };
+      };
+      /** @description Validation error or max limit exceeded */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  gym_receiving_accounts_destroy: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Deleted successfully */
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
   gym_reports_attendance_retrieve: {
     parameters: {
       query?: never;
@@ -8020,6 +8278,72 @@ export interface operations {
       };
     };
   };
+  payments_receipt_reviews_list: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["BankReceiptReviewItem"][];
+        };
+      };
+    };
+  };
+  payments_receipt_reviews_decide_create: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["BankReceiptReviewDecisionRequest"];
+        "application/x-www-form-urlencoded": components["schemas"]["BankReceiptReviewDecisionRequest"];
+        "multipart/form-data": components["schemas"]["BankReceiptReviewDecisionRequest"];
+      };
+    };
+    responses: {
+      /** @description Review decision applied */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Already decided or member situation changed */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Permission denied */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Payment not found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
   payments_status_retrieve: {
     parameters: {
       query?: never;
@@ -8473,6 +8797,26 @@ export interface operations {
         content: {
           "application/json": components["schemas"]["SuperAdminGymPaymentStatus"];
         };
+      };
+    };
+  };
+  platform_gyms_payment_status_partial_update: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        gym_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description No response body */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
       };
     };
   };

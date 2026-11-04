@@ -2496,6 +2496,72 @@ paths:
               schema:
                 $ref: '#/components/schemas/Receipt'
           description: ''
+  /api/gym/receiving-accounts/:
+    get:
+      operationId: gym_receiving_accounts_list
+      description: Returns list of receiving accounts configured for this gym.
+      summary: List gym receiving bank accounts
+      tags:
+      - gym
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/GymReceivingAccount'
+          description: ''
+    post:
+      operationId: gym_receiving_accounts_create
+      description: Owner adds a receiving account (up to 5 accounts per gym).
+      summary: Add gym receiving bank account
+      tags:
+      - gym
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GymReceivingAccountRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/GymReceivingAccountRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/GymReceivingAccountRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GymReceivingAccount'
+          description: ''
+        '400':
+          description: Validation error or max limit exceeded
+  /api/gym/receiving-accounts/{id}/:
+    delete:
+      operationId: gym_receiving_accounts_destroy
+      description: Owner deletes a receiving account.
+      summary: Delete gym receiving bank account
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - gym
+      security:
+      - jwtAuth: []
+      responses:
+        '204':
+          description: Deleted successfully
   /api/gym/reports/attendance/:
     get:
       operationId: gym_reports_attendance_retrieve
@@ -3465,6 +3531,61 @@ paths:
                 items:
                   $ref: '#/components/schemas/MemberPaymentHistoryItem'
           description: ''
+  /api/payments/receipt-reviews/:
+    get:
+      operationId: payments_receipt_reviews_list
+      description: Returns pending bank receipt reviews for Owner/Manager approval.
+      summary: List bank receipt review items
+      tags:
+      - payments
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/BankReceiptReviewItem'
+          description: ''
+  /api/payments/receipt-reviews/{id}/decide/:
+    post:
+      operationId: payments_receipt_reviews_decide_create
+      description: Owner or Manager statement decision (verified vs declined).
+      summary: Decide bank receipt review item
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - payments
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BankReceiptReviewDecisionRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/BankReceiptReviewDecisionRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/BankReceiptReviewDecisionRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: Review decision applied
+        '400':
+          description: Already decided or member situation changed
+        '403':
+          description: Permission denied
+        '404':
+          description: Payment not found
   /api/payments/status/{reference}/:
     get:
       operationId: payments_status_retrieve
@@ -3882,6 +4003,26 @@ paths:
               schema:
                 $ref: '#/components/schemas/SuperAdminGymPaymentStatus'
           description: ''
+    patch:
+      operationId: platform_gyms_payment_status_partial_update
+      description: |-
+        Platform administrator view of gym payment mode (test vs live).
+        Super Admin can view whether a gym is running in test or live mode.
+        Super Admin cannot view keys, set keys, or access credentials.
+      parameters:
+      - in: path
+        name: gym_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - platform
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
   /api/platform/gyms/propose-subdomain/:
     get:
       operationId: platform_gyms_propose_subdomain_retrieve
@@ -4383,6 +4524,105 @@ components:
       - full_name
       - id
       - role
+    BankEnum:
+      enum:
+      - cbe
+      - telebirr
+      type: string
+      description: |-
+        * `cbe` - Commercial Bank of Ethiopia
+        * `telebirr` - Telebirr
+    BankReceiptReviewDecisionRequest:
+      type: object
+      description: Decision input for an item in the receipt review queue.
+      properties:
+        decision:
+          $ref: '#/components/schemas/DecisionEnum'
+      required:
+      - decision
+    BankReceiptReviewItem:
+      type: object
+      description: Review item in the Owner/Manager review queue.
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        member_id:
+          type: string
+          format: uuid
+          nullable: true
+          readOnly: true
+        member_name:
+          type: string
+          readOnly: true
+        member_phone:
+          type: string
+          readOnly: true
+        plan_id:
+          type: string
+          format: uuid
+          nullable: true
+          readOnly: true
+        plan_name:
+          type: string
+          readOnly: true
+        expected_amount_etb:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,10}(?:\.\d{0,2})?$
+          readOnly: true
+          nullable: true
+        amount_etb:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,10}(?:\.\d{0,2})?$
+          readOnly: true
+        bank_reference:
+          type: string
+          readOnly: true
+          nullable: true
+        channel:
+          type: string
+          readOnly: true
+        transfer_date:
+          type: string
+          format: date
+          readOnly: true
+          nullable: true
+        receipt_verification_data:
+          readOnly: true
+        review_photo:
+          type: string
+          readOnly: true
+        is_upgrade:
+          type: boolean
+          readOnly: true
+        status:
+          allOf:
+          - $ref: '#/components/schemas/PaymentStatusEnum'
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - amount_etb
+      - bank_reference
+      - channel
+      - created_at
+      - expected_amount_etb
+      - id
+      - is_upgrade
+      - member_id
+      - member_name
+      - member_phone
+      - plan_id
+      - plan_name
+      - receipt_verification_data
+      - review_photo
+      - status
+      - transfer_date
     BlankEnum:
       enum:
       - ''
@@ -4721,6 +4961,14 @@ components:
       - date
       - status
       - symbol
+    DecisionEnum:
+      enum:
+      - verified
+      - declined
+      type: string
+      description: |-
+        * `verified` - verified
+        * `declined` - declined
     DemoRequest:
       type: object
       description: Serializer for Super Admin lead management.
@@ -5218,6 +5466,12 @@ components:
         is_enabled:
           type: boolean
           readOnly: true
+        verify_bank_receipts_automatically:
+          type: boolean
+          readOnly: true
+        receipt_verification_failure_policy:
+          type: string
+          readOnly: true
         verified_at:
           type: string
           format: date-time
@@ -5250,9 +5504,11 @@ components:
       - is_test_mode
       - is_verified
       - masked_public_key
+      - receipt_verification_failure_policy
       - unfinished_online_payments
       - use_mock
       - verified_at
+      - verify_bank_receipts_automatically
     GymPublicEntryResponse:
       type: object
       description: Public details returned on the gym subdomain entry page.
@@ -5289,6 +5545,56 @@ components:
       required:
       - name
       - still_securing
+    GymReceivingAccount:
+      type: object
+      description: Serializer for gym receiving bank accounts (max 5 per gym).
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        bank:
+          $ref: '#/components/schemas/BankEnum'
+        account_number:
+          type: string
+          maxLength: 50
+        account_name:
+          type: string
+          maxLength: 100
+        is_active:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - account_number
+      - bank
+      - created_at
+      - id
+      - updated_at
+    GymReceivingAccountRequest:
+      type: object
+      description: Serializer for gym receiving bank accounts (max 5 per gym).
+      properties:
+        bank:
+          $ref: '#/components/schemas/BankEnum'
+        account_number:
+          type: string
+          minLength: 1
+          maxLength: 50
+        account_name:
+          type: string
+          maxLength: 100
+        is_active:
+          type: boolean
+      required:
+      - account_number
+      - bank
     GymStatusEnum:
       enum:
       - pending
@@ -5712,6 +6018,9 @@ components:
         active_freeze:
           type: string
           readOnly: true
+        has_pending_receipt_review:
+          type: boolean
+          readOnly: true
       required:
       - active_freeze
       - active_subscription
@@ -5719,6 +6028,7 @@ components:
       - body_metrics
       - email
       - full_name
+      - has_pending_receipt_review
       - id
       - is_on_trainer_plan
       - joined_at
@@ -6238,6 +6548,10 @@ components:
       properties:
         is_enabled:
           type: boolean
+        verify_bank_receipts_automatically:
+          type: boolean
+        receipt_verification_failure_policy:
+          $ref: '#/components/schemas/ReceiptVerificationFailurePolicyEnum'
         public_key:
           type: string
           writeOnly: true
@@ -6444,6 +6758,24 @@ components:
         * `bank_transfer` - bank_transfer
         * `none` - none
         * `no_payment` - no_payment
+    PaymentStatusEnum:
+      enum:
+      - pending
+      - confirmed
+      - failed
+      - abandoned
+      - reversed
+      - pending_review
+      - declined
+      type: string
+      description: |-
+        * `pending` - Pending
+        * `confirmed` - Confirmed
+        * `failed` - Failed
+        * `abandoned` - Abandoned
+        * `reversed` - Reversed
+        * `pending_review` - Pending Review
+        * `declined` - Declined
     ProposeSubdomainResponse:
       type: object
       description: Response containing proposed candidate subdomain.
@@ -6699,6 +7031,14 @@ components:
       - reversed_at
       - sequence_number
       - transfer_channel
+    ReceiptVerificationFailurePolicyEnum:
+      enum:
+      - activate_and_reconcile_later
+      - hold_for_approval
+      type: string
+      description: |-
+        * `activate_and_reconcile_later` - Activate now and reconcile later
+        * `hold_for_approval` - Hold for Owner or Manager approval
     ReconcileBankTransfersRequest:
       type: object
       description: Owner bulk or single reconciliation request.
@@ -6724,6 +7064,9 @@ components:
           type: string
           minLength: 3
           maxLength: 100
+        bank:
+          type: string
+          default: ''
         transfer_date:
           type: string
           format: date
@@ -6752,7 +7095,9 @@ components:
           type: string
           format: uuid
         receipt:
-          $ref: '#/components/schemas/Receipt'
+          allOf:
+          - $ref: '#/components/schemas/Receipt'
+          nullable: true
         status:
           type: string
         amount_etb:
@@ -6763,15 +7108,23 @@ components:
           type: string
         is_reconciled:
           type: boolean
+        is_receipt_verified:
+          type: boolean
+          default: false
         detail:
           type: string
+        mismatch_message:
+          type: string
+          nullable: true
+        subscription_id:
+          type: string
+          nullable: true
       required:
       - amount_etb
       - bank_reference
       - detail
       - is_reconciled
       - payment_id
-      - receipt
       - status
     RecordBodyMetricsRequest:
       type: object

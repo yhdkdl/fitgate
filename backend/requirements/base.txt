@@ -28,3 +28,6 @@ cloudinary==1.46.3
 
 # AI & LLM Provider
 litellm>=1.60.0
+
+# Bank Receipt Verification
+cheki[direct]==1.6.0

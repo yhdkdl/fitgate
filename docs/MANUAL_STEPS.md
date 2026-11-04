@@ -189,6 +189,22 @@ The feasibility spike on the real Yegara cPanel host passed all checks:
 
 ---
 
+16. **Sprint 12d — Bank Receipt Verification Staging Verification**
+    - **What to do:** Verify automatic bank receipt verification with real Ethiopian bank receipts at staging.
+    - **What to paste where:** In `/home/<user>/fitgate_env/.env`, set `RECEIPT_VERIFICATION_ENABLED=True`.
+    - **Verification steps:**
+      1. Log in as Gym Owner, navigate to Gym Settings &rarr; Receiving Accounts.
+      2. Add a gym receiving account (CBE 13-digit account number `1000...` or Telebirr phone number `09...`).
+      3. Enable switch "Verify bank receipts automatically". Set failure policy to "Activate now and reconcile later" (or test "Hold for Owner or Manager approval").
+      4. Log in as Receptionist and record a member bank transfer payment with a genuine CBE receipt ID or Telebirr reference.
+      5. Observe verification spinner (~2–4 seconds) and confirmation with "Verified by bank receipt" badge.
+      6. Test with a mismatched or fake receipt reference; verify that activation is refused, photo upload is required, and item is routed to the Owner/Manager review queue.
+      7. Verify as Gym Owner that the Review Queue displays the item, allows Approved/Declined actions with row-locking, and audit-logs the decision.
+    - **Fallback in use:** `MockBankReceiptVerifier` in local development and automated test runs.
+    - **Status:** To be verified at staging with live bank receipts.
+
+---
+
 ## Scheduled Cron Jobs Summary (Single Reference Table)
 
 The table below lists every recurring cron job required by the FitGate production deployment. Each command is executed via `/home/<user>/virtualenv/fitgate_backend/3.11/bin/python /home/<user>/fitgate/backend/manage.py <command> >> /home/<user>/fitgate_logs/<log_file>.log 2>&1`.

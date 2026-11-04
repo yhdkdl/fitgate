@@ -5,7 +5,12 @@ from decimal import Decimal
 from django.utils import timezone
 from rest_framework import serializers
 
-from apps.payments.models import Expense, GymPaymentConfig
+from apps.payments.models import (
+    Expense,
+    GymPaymentConfig,
+    GymReceivingAccount,
+    Payment,
+)
 
 
 class GymPaymentConfigSerializer(serializers.ModelSerializer):
@@ -19,6 +24,8 @@ class GymPaymentConfigSerializer(serializers.ModelSerializer):
     detected_mode = serializers.SerializerMethodField()
     is_enabled = serializers.BooleanField(read_only=True)
     unfinished_online_payments = serializers.SerializerMethodField()
+    verify_bank_receipts_automatically = serializers.BooleanField(read_only=True)
+    receipt_verification_failure_policy = serializers.CharField(read_only=True)
 
     class Meta:
         model = GymPaymentConfig
@@ -27,6 +34,8 @@ class GymPaymentConfigSerializer(serializers.ModelSerializer):
             "is_test_mode",
             "is_verified",
             "is_enabled",
+            "verify_bank_receipts_automatically",
+            "receipt_verification_failure_policy",
             "verified_at",
             "masked_public_key",
             "has_secret_key",
@@ -65,6 +74,11 @@ class GymPaymentConfigUpdateSerializer(serializers.Serializer):
     """Input serializer for gym owner configuring Chapa credentials."""
 
     is_enabled = serializers.BooleanField(required=False)
+    verify_bank_receipts_automatically = serializers.BooleanField(required=False)
+    receipt_verification_failure_policy = serializers.ChoiceField(
+        choices=GymPaymentConfig.POLICY_CHOICES,
+        required=False,
+    )
 
     public_key = serializers.CharField(
         required=False,
@@ -287,12 +301,87 @@ class RecordCashPaymentResponseSerializer(serializers.Serializer):
     detail = serializers.CharField()
 
 
+class GymReceivingAccountSerializer(serializers.ModelSerializer):
+    """Serializer for gym receiving bank accounts (max 5 per gym)."""
+
+    class Meta:
+        model = GymReceivingAccount
+        fields = [
+            "id",
+            "bank",
+            "account_number",
+            "account_name",
+            "is_active",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = ["id", "created_at", "updated_at"]
+
+    def validate(self, attrs):
+        instance = GymReceivingAccount(
+            gym=self.context.get("gym"),
+            bank=attrs.get("bank", getattr(self.instance, "bank", None)),
+            account_number=attrs.get(
+                "account_number", getattr(self.instance, "account_number", "")
+            ),
+            account_name=attrs.get(
+                "account_name", getattr(self.instance, "account_name", "")
+            ),
+        )
+        if self.instance:
+            instance.pk = self.instance.pk
+        instance.clean()
+        attrs["account_number"] = instance.account_number
+        return attrs
+
+
+class BankReceiptReviewItemSerializer(serializers.ModelSerializer):
+    """Review item in the Owner/Manager review queue."""
+
+    member_name = serializers.CharField(source="member.full_name", read_only=True)
+    member_phone = serializers.CharField(source="member.phone", read_only=True)
+    plan_name = serializers.CharField(source="plan.name", read_only=True)
+
+    class Meta:
+        model = Payment
+        fields = [
+            "id",
+            "member_id",
+            "member_name",
+            "member_phone",
+            "plan_id",
+            "plan_name",
+            "expected_amount_etb",
+            "amount_etb",
+            "bank_reference",
+            "channel",
+            "transfer_date",
+            "receipt_verification_data",
+            "review_photo",
+            "is_upgrade",
+            "status",
+            "created_at",
+        ]
+        read_only_fields = fields
+
+
+class BankReceiptReviewDecisionSerializer(serializers.Serializer):
+    """Decision input for an item in the receipt review queue."""
+
+    decision = serializers.ChoiceField(
+        choices=["verified", "declined"],
+        required=True,
+        error_messages={"invalid_choice": "Decision must be 'verified' or 'declined'."},
+    )
+
+
 class RecordBankTransferPaymentRequestSerializer(serializers.Serializer):
     """Input serializer to record a bank-transfer payment."""
 
     member_id = serializers.UUIDField(required=True)
     plan_id = serializers.UUIDField(required=True)
     bank_reference = serializers.CharField(required=True, min_length=3, max_length=100)
+    bank = serializers.CharField(required=False, allow_blank=True, default="")
     transfer_date = serializers.DateField(required=True)
     channel = serializers.CharField(
         required=False, allow_blank=True, default="", max_length=50
@@ -309,12 +398,15 @@ class RecordBankTransferResponseSerializer(serializers.Serializer):
     """Output serializer for bank-transfer payment confirmation."""
 
     payment_id = serializers.UUIDField()
-    receipt = ReceiptSerializer()
+    receipt = ReceiptSerializer(required=False, allow_null=True)
     status = serializers.CharField()
     amount_etb = serializers.DecimalField(max_digits=12, decimal_places=2)
     bank_reference = serializers.CharField()
     is_reconciled = serializers.BooleanField()
+    is_receipt_verified = serializers.BooleanField(default=False)
     detail = serializers.CharField()
+    mismatch_message = serializers.CharField(required=False, allow_null=True)
+    subscription_id = serializers.CharField(required=False, allow_null=True)
 
 
 class UnreconciledBankTransferItemSerializer(serializers.Serializer):
