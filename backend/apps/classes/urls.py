@@ -29,6 +29,11 @@ urlpatterns = [
         name="class-trainer-sessions",
     ),
     path(
+        "classes/trainer-sessions/",
+        TrainerClassSessionsView.as_view(),
+        name="class-trainer-sessions-alt",
+    ),
+    path(
         "classes/<uuid:pk>/",
         ClassSessionDetailView.as_view(),
         name="class-session-detail",

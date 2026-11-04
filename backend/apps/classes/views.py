@@ -572,13 +572,17 @@ class TrainerClassSessionsView(APIView):
             .order_by("-start_time")[:30]
         )
 
+        upcoming_data = ClassSessionSerializer(
+            upcoming, many=True, context={"request": request}
+        ).data
+        past_data = ClassSessionSerializer(
+            past, many=True, context={"request": request}
+        ).data
+
         return Response(
             {
-                "upcoming": ClassSessionSerializer(
-                    upcoming, many=True, context={"request": request}
-                ).data,
-                "past": ClassSessionSerializer(
-                    past, many=True, context={"request": request}
-                ).data,
+                "upcoming": upcoming_data,
+                "past": past_data,
+                "sessions": list(upcoming_data) + list(past_data),
             }
         )
