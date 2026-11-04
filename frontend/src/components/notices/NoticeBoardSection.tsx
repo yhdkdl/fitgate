@@ -109,7 +109,11 @@ export const NoticeBoardSection: React.FC<NoticeBoardSectionProps> = ({
   };
 
   const handleDelete = async (id: string, noticeTitle: string) => {
-    if (!window.confirm(`Are you sure you want to delete notice '${noticeTitle}'?`)) {
+    if (
+      !window.confirm(
+        `Are you sure you want to delete notice '${noticeTitle}'?`
+      )
+    ) {
       return;
     }
 
@@ -263,7 +267,8 @@ export const NoticeBoardSection: React.FC<NoticeBoardSectionProps> = ({
           </div>
 
           <div className="p-3 bg-surface-2/60 border border-border rounded-lg text-xs text-text-muted">
-            If a Telegram channel is configured in Gym Settings, this notice will also broadcast automatically.
+            If a Telegram channel is configured in Gym Settings, this notice
+            will also broadcast automatically.
           </div>
 
           <div className="flex justify-end gap-2 pt-4 border-t border-border">

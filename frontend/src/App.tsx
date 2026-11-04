@@ -99,7 +99,15 @@ export const App: React.FC = () => {
         <Route
           path="/notices"
           element={
-            <ProtectedRoute allowedRoles={["owner", "manager", "reception", "trainer", "member"]}>
+            <ProtectedRoute
+              allowedRoles={[
+                "owner",
+                "manager",
+                "reception",
+                "trainer",
+                "member",
+              ]}
+            >
               <DashboardScreen />
             </ProtectedRoute>
           }
@@ -107,7 +115,15 @@ export const App: React.FC = () => {
         <Route
           path="/classes"
           element={
-            <ProtectedRoute allowedRoles={["owner", "manager", "reception", "trainer", "member"]}>
+            <ProtectedRoute
+              allowedRoles={[
+                "owner",
+                "manager",
+                "reception",
+                "trainer",
+                "member",
+              ]}
+            >
               <DashboardScreen />
             </ProtectedRoute>
           }
@@ -115,7 +131,15 @@ export const App: React.FC = () => {
         <Route
           path="/classes/*"
           element={
-            <ProtectedRoute allowedRoles={["owner", "manager", "reception", "trainer", "member"]}>
+            <ProtectedRoute
+              allowedRoles={[
+                "owner",
+                "manager",
+                "reception",
+                "trainer",
+                "member",
+              ]}
+            >
               <DashboardScreen />
             </ProtectedRoute>
           }
@@ -141,7 +165,15 @@ export const App: React.FC = () => {
         <Route
           path="/equipment"
           element={
-            <ProtectedRoute allowedRoles={["owner", "manager", "reception", "trainer", "member"]}>
+            <ProtectedRoute
+              allowedRoles={[
+                "owner",
+                "manager",
+                "reception",
+                "trainer",
+                "member",
+              ]}
+            >
               <DashboardScreen />
             </ProtectedRoute>
           }
@@ -149,7 +181,15 @@ export const App: React.FC = () => {
         <Route
           path="/equipment/*"
           element={
-            <ProtectedRoute allowedRoles={["owner", "manager", "reception", "trainer", "member"]}>
+            <ProtectedRoute
+              allowedRoles={[
+                "owner",
+                "manager",
+                "reception",
+                "trainer",
+                "member",
+              ]}
+            >
               <DashboardScreen />
             </ProtectedRoute>
           }
@@ -176,7 +216,7 @@ export const App: React.FC = () => {
         <Route
           path="/bank-transfers"
           element={
-            <ProtectedRoute allowedRoles={["owner"]}>
+            <ProtectedRoute allowedRoles={["owner", "super_admin"]}>
               <DashboardScreen />
             </ProtectedRoute>
           }

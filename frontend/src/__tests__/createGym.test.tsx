@@ -125,6 +125,8 @@ describe("GymManagementSection", () => {
         brand_color: null,
         logo: null,
         show_unavailable_equipment: false,
+        is_equipment_list_complete: false,
+        telegram_channel: "",
         first_run_dismissed_at: null,
       },
       owner: {

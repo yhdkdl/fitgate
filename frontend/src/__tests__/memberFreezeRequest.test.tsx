@@ -43,7 +43,9 @@ describe("Member Freeze Request Section & Error Handling", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.mocked(membersApi.getMemberProfileMe).mockResolvedValue(mockProfile);
-    vi.mocked(freezeApi.getMemberFreezeAllowance).mockResolvedValue(mockAllowance);
+    vi.mocked(freezeApi.getMemberFreezeAllowance).mockResolvedValue(
+      mockAllowance
+    );
     vi.mocked(freezeApi.getMyFreezes).mockResolvedValue([]);
   });
 
@@ -65,7 +67,9 @@ describe("Member Freeze Request Section & Error Handling", () => {
     );
 
     // 3. Simple string detail
-    const stringDetail = { detail: "Starter gyms cannot use membership freeze." };
+    const stringDetail = {
+      detail: "Starter gyms cannot use membership freeze.",
+    };
     expect(freezeApi.formatApiErrorMessage(stringDetail, "Fallback")).toBe(
       "Starter gyms cannot use membership freeze."
     );
@@ -109,7 +113,11 @@ describe("Member Freeze Request Section & Error Handling", () => {
       detail: "Freeze start date cannot be in the past.",
       start_date: ["Freeze start date cannot be in the past."],
     };
-    const apiError = new freezeApi.ApiError(400, "Freeze start date cannot be in the past.", errorData);
+    const apiError = new freezeApi.ApiError(
+      400,
+      "Freeze start date cannot be in the past.",
+      errorData
+    );
     vi.mocked(freezeApi.requestFreeze).mockRejectedValueOnce(apiError);
 
     render(
@@ -126,10 +134,14 @@ describe("Member Freeze Request Section & Error Handling", () => {
 
     // Fill in valid reason
     const reasonInput = screen.getByLabelText(/reason/i);
-    fireEvent.change(reasonInput, { target: { value: "Traveling for conference" } });
+    fireEvent.change(reasonInput, {
+      target: { value: "Traveling for conference" },
+    });
 
     // Submit form
-    const submitBtn = screen.getByRole("button", { name: /submit freeze request/i });
+    const submitBtn = screen.getByRole("button", {
+      name: /submit freeze request/i,
+    });
     fireEvent.click(submitBtn);
 
     // Error is displayed as text, strictly NOT "[object Object]"
@@ -143,7 +155,8 @@ describe("Member Freeze Request Section & Error Handling", () => {
   });
 
   it("ensures MemberSelfSection on membership view does not render freeze request card", async () => {
-    const { MemberSelfSection } = await import("../components/dashboard/MemberSelfSection");
+    const { MemberSelfSection } =
+      await import("../components/dashboard/MemberSelfSection");
     render(
       <MemoryRouter>
         <MemberSelfSection view="membership" />
@@ -156,7 +169,9 @@ describe("Member Freeze Request Section & Error Handling", () => {
     });
 
     // Freeze card and its buttons are strictly absent from My membership page
-    expect(screen.queryByRole("button", { name: /request freeze/i })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: /request freeze/i })
+    ).not.toBeInTheDocument();
     expect(screen.queryByText(/membership freeze/i)).not.toBeInTheDocument();
   });
 });

@@ -515,6 +515,14 @@ _Increment 5 = Sprints 25, 26, 27, 28, 29, 29a; Sprint 28a is deferred to a futu
 
 - [ ] All sprints in this increment complete
 
+### Fix: Owner Switch for Online (Chapa) Payments (branch `fix/online-payments-switch`)
+
+- Toggle "Accept online payments (Chapa)" on `GymPaymentConfig` (`is_enabled`), separate from credentials.
+- Turning ON requires a verified Chapa connection; refused with "Verify your Chapa connection first" otherwise.
+- Turning OFF preserves keys and verified status, but server refuses all new checkouts (new purchase, renewal, upgrade) with "Online payment is not available at this gym. Please pay at the front desk."
+- In-flight payments continue to complete via webhook and verification sweeps. Cash and bank transfer unaffected.
+- Audit logging of toggle state change and reporting of unfinished online payments count.
+
 ## Increment 7 — Platform administration, PWA, demo, deployment
 
 **Preflight (external items):**

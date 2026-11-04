@@ -413,85 +413,87 @@ export const LandingScreen: React.FC = () => {
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 max-w-4xl mx-auto gap-8 items-stretch">
-              {PLATFORM_PRICING_TIERS.filter((tier) => tier.id !== "pro").map((tier) => {
-                const isPopular = tier.popular;
-                return (
-                  <div
-                    key={tier.id}
-                    className={`rounded-card p-6 sm:p-8 flex flex-col justify-between transition-all ${
-                      isPopular
-                        ? "bg-surface-2 border-2 border-primary shadow-xl shadow-primary/10 relative"
-                        : "bg-surface border border-border"
-                    }`}
-                  >
-                    <div>
-                      {tier.badge && (
-                        <span className="inline-block px-3 py-1 rounded-full text-xs font-semibold uppercase tracking-wider bg-primary/20 text-primary border border-primary/30 mb-4">
-                          {tier.badge}
-                        </span>
-                      )}
-                      <h3 className="text-2xl font-bold text-text mb-1">
-                        {tier.name}
-                      </h3>
-                      <p className="text-sm text-text-muted mb-6">
-                        {tier.tagline}
-                      </p>
+              {PLATFORM_PRICING_TIERS.filter((tier) => tier.id !== "pro").map(
+                (tier) => {
+                  const isPopular = tier.popular;
+                  return (
+                    <div
+                      key={tier.id}
+                      className={`rounded-card p-6 sm:p-8 flex flex-col justify-between transition-all ${
+                        isPopular
+                          ? "bg-surface-2 border-2 border-primary shadow-xl shadow-primary/10 relative"
+                          : "bg-surface border border-border"
+                      }`}
+                    >
+                      <div>
+                        {tier.badge && (
+                          <span className="inline-block px-3 py-1 rounded-full text-xs font-semibold uppercase tracking-wider bg-primary/20 text-primary border border-primary/30 mb-4">
+                            {tier.badge}
+                          </span>
+                        )}
+                        <h3 className="text-2xl font-bold text-text mb-1">
+                          {tier.name}
+                        </h3>
+                        <p className="text-sm text-text-muted mb-6">
+                          {tier.tagline}
+                        </p>
 
-                      <div className="mb-6 pb-6 border-b border-border">
-                        <span className="text-3xl sm:text-4xl font-extrabold text-text">
-                          {tier.pricePerYearETB.toLocaleString()}
-                        </span>
-                        <span className="text-text-muted text-sm ml-2">
-                          ETB / year
-                        </span>
-                        <div className="text-xs text-text-muted mt-1">
-                          Placeholder pricing · Billed annually
-                        </div>
-                      </div>
-
-                      <div className="space-y-3 mb-8">
-                        <div className="text-xs font-semibold uppercase tracking-wider text-text-muted">
-                          What&apos;s Included
-                        </div>
-                        {tier.features.map((feature, idx) => (
-                          <div
-                            key={idx}
-                            className="flex items-start gap-2.5 text-sm"
-                          >
-                            {feature.included ? (
-                              <Check className="w-4 h-4 text-success shrink-0 mt-0.5" />
-                            ) : (
-                              <X className="w-4 h-4 text-text-muted/40 shrink-0 mt-0.5" />
-                            )}
-                            <span
-                              className={
-                                feature.included
-                                  ? "text-text"
-                                  : "text-text-muted/60"
-                              }
-                            >
-                              {feature.name}
-                            </span>
+                        <div className="mb-6 pb-6 border-b border-border">
+                          <span className="text-3xl sm:text-4xl font-extrabold text-text">
+                            {tier.pricePerYearETB.toLocaleString()}
+                          </span>
+                          <span className="text-text-muted text-sm ml-2">
+                            ETB / year
+                          </span>
+                          <div className="text-xs text-text-muted mt-1">
+                            Placeholder pricing · Billed annually
                           </div>
-                        ))}
+                        </div>
+
+                        <div className="space-y-3 mb-8">
+                          <div className="text-xs font-semibold uppercase tracking-wider text-text-muted">
+                            What&apos;s Included
+                          </div>
+                          {tier.features.map((feature, idx) => (
+                            <div
+                              key={idx}
+                              className="flex items-start gap-2.5 text-sm"
+                            >
+                              {feature.included ? (
+                                <Check className="w-4 h-4 text-success shrink-0 mt-0.5" />
+                              ) : (
+                                <X className="w-4 h-4 text-text-muted/40 shrink-0 mt-0.5" />
+                              )}
+                              <span
+                                className={
+                                  feature.included
+                                    ? "text-text"
+                                    : "text-text-muted/60"
+                                }
+                              >
+                                {feature.name}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+
+                      <div>
+                        <Link
+                          to="/request-demo"
+                          className={`w-full inline-flex items-center justify-center px-4 py-3 text-sm font-semibold rounded-xl transition-colors focus-visible:ring-2 focus-visible:ring-ring min-h-[44px] ${
+                            isPopular
+                              ? "bg-primary text-white hover:bg-primary-hover shadow-md shadow-primary/20"
+                              : "bg-surface-2 text-text hover:bg-border border border-border"
+                          }`}
+                        >
+                          Request a Demo
+                        </Link>
                       </div>
                     </div>
-
-                    <div>
-                      <Link
-                        to="/request-demo"
-                        className={`w-full inline-flex items-center justify-center px-4 py-3 text-sm font-semibold rounded-xl transition-colors focus-visible:ring-2 focus-visible:ring-ring min-h-[44px] ${
-                          isPopular
-                            ? "bg-primary text-white hover:bg-primary-hover shadow-md shadow-primary/20"
-                            : "bg-surface-2 text-text hover:bg-border border border-border"
-                        }`}
-                      >
-                        Request a Demo
-                      </Link>
-                    </div>
-                  </div>
-                );
-              })}
+                  );
+                }
+              )}
             </div>
           </div>
         </section>

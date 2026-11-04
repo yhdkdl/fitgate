@@ -81,7 +81,8 @@ const mockDraftPlan = {
         dinner: ["Atkilt wot with injera"],
         snacks: ["Roasted chickpeas (kolo)"],
       },
-      hydration_notes: "Consume at least 2.5 to 3.5 liters of clean water daily.",
+      hydration_notes:
+        "Consume at least 2.5 to 3.5 liters of clean water daily.",
       fasting_compliance_note: "Strictly vegetarian meals provided.",
     },
   },
@@ -120,7 +121,8 @@ const mockYoyoLiveModelDraftPlan = {
             reps: "10-12",
             rpe: "7",
             rest_seconds: 90,
-            notes: "Keep chest upright and core engaged; use a dumbbell held at chest height.",
+            notes:
+              "Keep chest upright and core engaged; use a dumbbell held at chest height.",
           },
         ],
       },
@@ -162,7 +164,8 @@ const mockYoyoLiveModelDraftPlan = {
             reps: "45-60 seconds",
             rpe: "7.5",
             rest_seconds: 60,
-            notes: "Keep a straight line from head to heels; engage core tightly.",
+            notes:
+              "Keep a straight line from head to heels; engage core tightly.",
           },
         ],
       },
@@ -262,7 +265,9 @@ describe("Sprint 22 - AI Workout Plan Review & Generation", () => {
     });
 
     // Switch to Ethiopian Nutrition tab
-    const nutritionTab = screen.getByRole("button", { name: /Ethiopian Nutrition/i });
+    const nutritionTab = screen.getByRole("button", {
+      name: /Ethiopian Nutrition/i,
+    });
     fireEvent.click(nutritionTab);
 
     await waitFor(() => {
@@ -299,7 +304,9 @@ describe("Sprint 22 - AI Workout Plan Review & Generation", () => {
 
     await waitFor(() => {
       expect(screen.getByText(/Draft 3 \/ 3/i)).toBeInTheDocument();
-      expect(screen.getAllByText(/Edit this draft yourself/i).length).toBeGreaterThan(0);
+      expect(
+        screen.getAllByText(/Edit this draft yourself/i).length
+      ).toBeGreaterThan(0);
       expect(screen.queryByText(/Reject Draft/i)).not.toBeInTheDocument();
     });
   });
@@ -375,7 +382,9 @@ describe("Sprint 22 - AI Workout Plan Review & Generation", () => {
     });
 
     // Verify unknown focus code rendered as raw text without crashing
-    expect(screen.getByText(/new_unrecognized_focus_code/i)).toBeInTheDocument();
+    expect(
+      screen.getByText(/new_unrecognized_focus_code/i)
+    ).toBeInTheDocument();
 
     // Verify Session D with text reps "45-60 seconds" and rpe "7.5"
     const sessionDTab = screen.getByRole("button", { name: /Session D/i });
@@ -397,12 +406,8 @@ describe("Sprint 22 - AI Workout Plan Review & Generation", () => {
       expect(
         screen.getByText(/Ethiopian Dietary & Nutrition Principles/i)
       ).toBeInTheDocument();
-      expect(
-        screen.getByText(/To support muscle gain/i)
-      ).toBeInTheDocument();
-      expect(
-        screen.getByText(/Besso mixed with water/i)
-      ).toBeInTheDocument();
+      expect(screen.getByText(/To support muscle gain/i)).toBeInTheDocument();
+      expect(screen.getByText(/Besso mixed with water/i)).toBeInTheDocument();
     });
   });
 
@@ -426,11 +431,11 @@ describe("Sprint 22 - AI Workout Plan Review & Generation", () => {
     );
 
     await waitFor(() => {
+      expect(screen.getByText(/Waiting for your trainer/i)).toBeInTheDocument();
       expect(
-        screen.getByText(/Waiting for your trainer/i)
-      ).toBeInTheDocument();
-      expect(
-        screen.getByText(/Your trainer is preparing your personalized training/i)
+        screen.getByText(
+          /Your trainer is preparing your personalized training/i
+        )
       ).toBeInTheDocument();
     });
   });

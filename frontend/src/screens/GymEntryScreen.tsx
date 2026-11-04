@@ -61,6 +61,7 @@ export const GymEntryScreen: React.FC = () => {
               errObj.data?.message ||
               "This gym portal is still being secured. Please check back shortly.",
             online_payment_verified: false,
+            has_group_classes: false,
           });
         } else {
           setError(
@@ -100,13 +101,20 @@ export const GymEntryScreen: React.FC = () => {
             <span className="text-xl font-bold">🔒</span>
           </div>
           <div>
-            <Badge variant="warning" className="mb-2">Still Being Secured</Badge>
+            <Badge variant="warning" className="mb-2">
+              Still Being Secured
+            </Badge>
             <h1 className="text-xl font-bold text-text">Gym Portal</h1>
             <p className="text-sm text-text-muted mt-2">
               This gym portal is still being secured. Please check back shortly.
             </p>
           </div>
-          <Button variant="secondary" size="sm" onClick={() => window.location.reload()} className="w-full">
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() => window.location.reload()}
+            className="w-full"
+          >
             Refresh Status
           </Button>
         </Card>
@@ -195,7 +203,9 @@ export const GymEntryScreen: React.FC = () => {
           <div className="max-w-5xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-2 text-warning text-sm">
             <div className="flex flex-wrap items-center gap-2">
               <Badge variant="warning">Still Being Secured</Badge>
-              <span className="font-semibold text-text">Notice for Members and Staff:</span>
+              <span className="font-semibold text-text">
+                Notice for Members and Staff:
+              </span>
               <span className="text-text-muted">
                 {data.message ||
                   "This gym portal is still being secured. Please check back shortly."}
@@ -239,7 +249,12 @@ export const GymEntryScreen: React.FC = () => {
                 </Button>
               </Link>
               <Link to="/register">
-                <Button size="lg" variant="secondary" className="min-h-[44px]" disabled={securing}>
+                <Button
+                  size="lg"
+                  variant="secondary"
+                  className="min-h-[44px]"
+                  disabled={securing}
+                >
                   Register
                 </Button>
               </Link>

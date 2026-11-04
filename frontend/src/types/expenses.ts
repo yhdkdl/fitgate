@@ -1,7 +1,15 @@
 export interface Expense {
   id: string;
   amount_etb: string | number;
-  category: "rent" | "salaries" | "utilities" | "equipment" | "maintenance" | "marketing" | "supplies" | "other";
+  category:
+    | "rent"
+    | "salaries"
+    | "utilities"
+    | "equipment"
+    | "maintenance"
+    | "marketing"
+    | "supplies"
+    | "other";
   category_display: string;
   note: string;
   incurred_on: string;

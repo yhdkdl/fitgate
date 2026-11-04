@@ -12,26 +12,22 @@ describe("ExportDataModal", () => {
 
   it("renders export modal with correct title and options", () => {
     render(
-      <ExportDataModal
-        isOpen={true}
-        onClose={vi.fn()}
-        exportType="members"
-      />
+      <ExportDataModal isOpen={true} onClose={vi.fn()} exportType="members" />
     );
 
     expect(screen.getByText("Export Members CSV")).toBeInTheDocument();
-    expect(screen.getByText(/personal health, measurement, workout, and photo data are strictly excluded/i)).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        /personal health, measurement, workout, and photo data are strictly excluded/i
+      )
+    ).toBeInTheDocument();
     expect(screen.getByText("All records")).toBeInTheDocument();
     expect(screen.getByText("Filter by date")).toBeInTheDocument();
   });
 
   it("validates date range > 1 year on submit", async () => {
     render(
-      <ExportDataModal
-        isOpen={true}
-        onClose={vi.fn()}
-        exportType="payments"
-      />
+      <ExportDataModal isOpen={true} onClose={vi.fn()} exportType="payments" />
     );
 
     // Click filter by date
@@ -46,7 +42,9 @@ describe("ExportDataModal", () => {
     fireEvent.click(screen.getByRole("button", { name: /download csv/i }));
 
     await waitFor(() => {
-      expect(screen.getByText(/export date range cannot exceed 1 year/i)).toBeInTheDocument();
+      expect(
+        screen.getByText(/export date range cannot exceed 1 year/i)
+      ).toBeInTheDocument();
     });
     expect(downloadSpy).not.toHaveBeenCalled();
   });

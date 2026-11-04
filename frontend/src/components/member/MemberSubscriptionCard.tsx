@@ -5,10 +5,12 @@ import { Card } from "../ui/Card";
 
 interface MemberSubscriptionCardProps {
   member: Member;
+  onlinePaymentAvailable?: boolean;
 }
 
 export const MemberSubscriptionCard: React.FC<MemberSubscriptionCardProps> = ({
   member,
+  onlinePaymentAvailable = true,
 }) => {
   const activeSub = member.active_subscription;
   const queuedSub = member.queued_subscription;
@@ -26,9 +28,13 @@ export const MemberSubscriptionCard: React.FC<MemberSubscriptionCardProps> = ({
           <Badge variant="warning">Waiting for payment</Badge>
         </div>
         <div className="space-y-1">
-          <h3 className="text-lg font-bold text-text">No Active Subscription</h3>
+          <h3 className="text-lg font-bold text-text">
+            No Active Subscription
+          </h3>
           <p className="text-xs text-text-muted">
-            Waiting for payment. Please choose a membership plan to activate your account.
+            Waiting for payment.{" "}
+            {!onlinePaymentAvailable &&
+              "Online payment is not available at this gym. Please pay at the front desk."}
           </p>
         </div>
       </Card>
@@ -47,7 +53,9 @@ export const MemberSubscriptionCard: React.FC<MemberSubscriptionCardProps> = ({
           </Badge>
         </div>
         <div className="space-y-1">
-          <h3 className="text-lg font-bold text-text">No Active Subscription</h3>
+          <h3 className="text-lg font-bold text-text">
+            No Active Subscription
+          </h3>
           <p className="text-xs text-text-muted">
             Your membership is currently expired or inactive.
           </p>
@@ -59,7 +67,10 @@ export const MemberSubscriptionCard: React.FC<MemberSubscriptionCardProps> = ({
   // Authoritative days left from backend calculation
   const totalDays = activeSub.total_days ?? 30;
   const remainingDays = activeSub.remaining_days ?? 0;
-  const percentage = Math.max(0, Math.min(100, Math.round((remainingDays / totalDays) * 100)));
+  const percentage = Math.max(
+    0,
+    Math.min(100, Math.round((remainingDays / totalDays) * 100))
+  );
 
   const durationDisplay =
     activeSub.duration_value && activeSub.duration_unit
@@ -91,11 +102,11 @@ export const MemberSubscriptionCard: React.FC<MemberSubscriptionCardProps> = ({
           <span className="text-xs font-semibold uppercase tracking-wider text-text-muted block">
             Current Membership Plan
           </span>
-          <h3 className="text-xl font-bold text-text mt-0.5">{activeSub.plan_name}</h3>
+          <h3 className="text-xl font-bold text-text mt-0.5">
+            {activeSub.plan_name}
+          </h3>
         </div>
-        <div className="flex items-center gap-2">
-          {getStatusBadge()}
-        </div>
+        <div className="flex items-center gap-2">{getStatusBadge()}</div>
       </div>
 
       {/* Frozen / Pending Special Banners */}
@@ -110,7 +121,9 @@ export const MemberSubscriptionCard: React.FC<MemberSubscriptionCardProps> = ({
 
       {isPending && (
         <div className="bg-amber-500/10 border border-amber-500/30 text-amber-500 rounded-lg p-3 text-xs font-medium">
-          Waiting for payment
+          Waiting for payment.{" "}
+          {!onlinePaymentAvailable &&
+            "Online payment is not available at this gym. Please pay at the front desk."}
         </div>
       )}
 
@@ -128,7 +141,9 @@ export const MemberSubscriptionCard: React.FC<MemberSubscriptionCardProps> = ({
         </div>
         <div className="space-y-0.5">
           <span className="text-text-muted block">Start Date</span>
-          <span className="font-semibold text-text">{activeSub.start_date}</span>
+          <span className="font-semibold text-text">
+            {activeSub.start_date}
+          </span>
         </div>
         <div className="space-y-0.5">
           <span className="text-text-muted block">End Date</span>
@@ -140,7 +155,9 @@ export const MemberSubscriptionCard: React.FC<MemberSubscriptionCardProps> = ({
       {!isPending && (
         <div className="space-y-1.5 pt-1">
           <div className="flex items-center justify-between text-xs">
-            <span className="font-bold text-text">{remainingDays} days left</span>
+            <span className="font-bold text-text">
+              {remainingDays} days left
+            </span>
             <span className="text-text-muted">
               {remainingDays} of {totalDays} days remaining
             </span>

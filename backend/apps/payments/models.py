@@ -24,6 +24,7 @@ class GymPaymentConfig(TenantAwareModel):
     encrypted_webhook_secret = models.TextField(blank=True, default="")
     is_test_mode = models.BooleanField(default=True)
     is_verified = models.BooleanField(default=False)
+    is_enabled = models.BooleanField(default=True)
     verified_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

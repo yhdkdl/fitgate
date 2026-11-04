@@ -35,8 +35,7 @@ export const GymBrandingSection: React.FC<GymBrandingSectionProps> = ({
   const [logoUrl, setLogoUrl] = useState("");
   const [showUnavailableEquipment, setShowUnavailableEquipment] =
     useState(false);
-  const [isEquipmentListComplete, setIsEquipmentListComplete] =
-    useState(false);
+  const [isEquipmentListComplete, setIsEquipmentListComplete] = useState(false);
   const [telegramChannel, setTelegramChannel] = useState("");
   const [testingTelegram, setTestingTelegram] = useState(false);
   const [telegramTestResult, setTelegramTestResult] = useState<{
@@ -64,12 +63,18 @@ export const GymBrandingSection: React.FC<GymBrandingSectionProps> = ({
         setLogoUrl(res.logo || "");
         setShowUnavailableEquipment(Boolean(res.show_unavailable_equipment));
         setIsEquipmentListComplete(Boolean(res.is_equipment_list_complete));
-        setTelegramChannel((res as { telegram_channel?: string }).telegram_channel || "");
+        setTelegramChannel(
+          (res as { telegram_channel?: string }).telegram_channel || ""
+        );
         if (Array.isArray(res.member_reminder_days)) {
           setMemberReminderDays(res.member_reminder_days.join(", "));
         }
-        setFreezeDaysAllowed(res.freeze_days_allowed !== undefined ? res.freeze_days_allowed : 0);
-        setFreezeDaysCap(res.freeze_days_cap !== undefined ? res.freeze_days_cap : 30);
+        setFreezeDaysAllowed(
+          res.freeze_days_allowed !== undefined ? res.freeze_days_allowed : 0
+        );
+        setFreezeDaysCap(
+          res.freeze_days_cap !== undefined ? res.freeze_days_cap : 30
+        );
         setGymTier((res as { tier?: string }).tier || "");
       } catch (err: unknown) {
         if (!isMounted) return;
@@ -122,7 +127,10 @@ export const GymBrandingSection: React.FC<GymBrandingSectionProps> = ({
 
     const errors: Record<string, string> = {};
     const trimmedChannel = telegramChannel.trim();
-    if (trimmedChannel && !/^@[a-zA-Z][a-zA-Z0-9_]{4,31}$/.test(trimmedChannel)) {
+    if (
+      trimmedChannel &&
+      !/^@[a-zA-Z][a-zA-Z0-9_]{4,31}$/.test(trimmedChannel)
+    ) {
       errors.telegram_channel =
         "Telegram channel must be in the format @channel_name (5–32 letters, digits, or underscores starting with a letter).";
     }
@@ -148,7 +156,8 @@ export const GymBrandingSection: React.FC<GymBrandingSectionProps> = ({
 
     if (gymTier === "starter") {
       if (freezeDaysAllowed > 0) {
-        errors.freeze_days_allowed = "Starter gyms cannot use membership freeze.";
+        errors.freeze_days_allowed =
+          "Starter gyms cannot use membership freeze.";
       }
     } else {
       if (freezeDaysAllowed < 0) {
@@ -175,7 +184,8 @@ export const GymBrandingSection: React.FC<GymBrandingSectionProps> = ({
           is_equipment_list_complete: isEquipmentListComplete,
           telegram_channel: trimmedChannel || null,
           member_reminder_days: reminderDays.length ? reminderDays : undefined,
-          freeze_days_allowed: gymTier === "starter" ? 0 : Number(freezeDaysAllowed),
+          freeze_days_allowed:
+            gymTier === "starter" ? 0 : Number(freezeDaysAllowed),
         },
         gymId
       );
@@ -347,7 +357,9 @@ export const GymBrandingSection: React.FC<GymBrandingSectionProps> = ({
                   min={0}
                   max={freezeDaysCap}
                   value={freezeDaysAllowed}
-                  onChange={(e) => setFreezeDaysAllowed(parseInt(e.target.value, 10) || 0)}
+                  onChange={(e) =>
+                    setFreezeDaysAllowed(parseInt(e.target.value, 10) || 0)
+                  }
                   error={fieldErrors.freeze_days_allowed}
                   className="text-sm"
                 />
@@ -403,7 +415,8 @@ export const GymBrandingSection: React.FC<GymBrandingSectionProps> = ({
             htmlFor="is_equipment_list_complete"
             className="text-sm text-text cursor-pointer select-none"
           >
-            My equipment list is complete (AI workout plans use only registered usable gym equipment)
+            My equipment list is complete (AI workout plans use only registered
+            usable gym equipment)
           </label>
         </div>
 

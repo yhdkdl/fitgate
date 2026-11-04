@@ -26,7 +26,12 @@ import { TrainerMeasurementsSection } from "../components/trainer/TrainerMeasure
 import { TrainersManagementSection } from "../components/owner/TrainersManagementSection";
 import { AssignmentsSection } from "../components/owner/AssignmentsSection";
 import { MyClientsSection } from "../components/trainer/MyClientsSection";
-import { getMyClients, getTrainerProfileMe, type Trainer, type TrainerMyClient } from "../api/trainers";
+import {
+  getMyClients,
+  getTrainerProfileMe,
+  type Trainer,
+  type TrainerMyClient,
+} from "../api/trainers";
 import { AuthenticatedImage } from "../components/ui/AuthenticatedImage";
 import { AuditLogSection } from "../components/dashboard/AuditLogSection";
 import { AttendanceScannerSection } from "../components/attendance/AttendanceScannerSection";
@@ -159,23 +164,25 @@ export const DashboardScreen: React.FC = () => {
   } | null>(null);
 
   const role = user?.role || "member";
-  const userRoleNav = useMemo<Array<{ label: string; path: string; icon?: React.ReactNode }>>(
-    () => {
-      const baseNav =
-        ROLE_NAV_ITEMS[role] ||
-        (dashboardConfig?.navigation as Array<{ label: string; path: string; icon?: React.ReactNode }>) || [
-          { label: "Overview", path: "/dashboard" },
-          { label: "Profile", path: "/profile" },
-        ];
-      if (gymBranding && gymBranding.has_group_classes === false) {
-        return baseNav.filter(
-          (item) => item.path !== "/classes" && item.path !== "/my-classes"
-        );
-      }
-      return baseNav;
-    },
-    [role, dashboardConfig?.navigation, gymBranding]
-  );
+  const userRoleNav = useMemo<
+    Array<{ label: string; path: string; icon?: React.ReactNode }>
+  >(() => {
+    const baseNav = ROLE_NAV_ITEMS[role] ||
+      (dashboardConfig?.navigation as Array<{
+        label: string;
+        path: string;
+        icon?: React.ReactNode;
+      }>) || [
+        { label: "Overview", path: "/dashboard" },
+        { label: "Profile", path: "/profile" },
+      ];
+    if (gymBranding && gymBranding.has_group_classes === false) {
+      return baseNav.filter(
+        (item) => item.path !== "/classes" && item.path !== "/my-classes"
+      );
+    }
+    return baseNav;
+  }, [role, dashboardConfig?.navigation, gymBranding]);
 
   const currentPath = location.pathname.replace(/\/+$/, "") || "/dashboard";
 
@@ -187,6 +194,7 @@ export const DashboardScreen: React.FC = () => {
     allowedPaths.push("/profile");
     if (role === "super_admin") {
       allowedPaths.push("/platform/gyms");
+      allowedPaths.push("/settings");
     }
 
     const isAllowed = allowedPaths.some(
@@ -534,7 +542,9 @@ export const DashboardScreen: React.FC = () => {
           <div className="space-y-6">
             <div className="border-b border-border pb-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
               <div>
-                <h2 className="text-xl font-bold text-text">Trainer Overview</h2>
+                <h2 className="text-xl font-bold text-text">
+                  Trainer Overview
+                </h2>
                 <p className="text-xs text-text-muted">
                   Your live client workload and measurement tracking overview.
                 </p>
@@ -560,14 +570,18 @@ export const DashboardScreen: React.FC = () => {
             {/* Overview Stat Cards (Item J: X of Y clients, clients with no measurements) */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <Card className="bg-surface border-border p-5 space-y-1">
-                <span className="text-xs text-text-muted block">Client Workload</span>
+                <span className="text-xs text-text-muted block">
+                  Client Workload
+                </span>
                 <div className="flex items-baseline justify-between">
                   <span className="text-2xl font-bold text-text">
                     {trainerWorkload
                       ? `${trainerWorkload.client_count} of ${trainerWorkload.max_clients}`
                       : `${trainerClients.length} clients`}
                   </span>
-                  {trainerWorkload && trainerWorkload.client_count >= trainerWorkload.max_clients ? (
+                  {trainerWorkload &&
+                  trainerWorkload.client_count >=
+                    trainerWorkload.max_clients ? (
                     <Badge variant="warning">At Capacity</Badge>
                   ) : (
                     <Badge variant="success">Capacity Available</Badge>
@@ -579,7 +593,9 @@ export const DashboardScreen: React.FC = () => {
               </Card>
 
               <Card className="bg-surface border-border p-5 space-y-1">
-                <span className="text-xs text-text-muted block">No Measurements Recorded</span>
+                <span className="text-xs text-text-muted block">
+                  No Measurements Recorded
+                </span>
                 <span className="text-2xl font-bold text-amber-500">
                   {trainerClients.filter((c) => !c.has_measurements).length}
                 </span>
@@ -589,7 +605,9 @@ export const DashboardScreen: React.FC = () => {
               </Card>
 
               <Card className="bg-surface border-border p-5 space-y-1">
-                <span className="text-xs text-text-muted block">Measured Clients</span>
+                <span className="text-xs text-text-muted block">
+                  Measured Clients
+                </span>
                 <span className="text-2xl font-bold text-primary">
                   {trainerClients.filter((c) => c.has_measurements).length}
                 </span>
@@ -612,19 +630,27 @@ export const DashboardScreen: React.FC = () => {
                         <h3 className="text-sm font-bold text-text uppercase tracking-wider">
                           Clients with no approved plan this week
                         </h3>
-                        <Badge variant={clientsWithoutPlan.length > 0 ? "warning" : "success"}>
+                        <Badge
+                          variant={
+                            clientsWithoutPlan.length > 0
+                              ? "warning"
+                              : "success"
+                          }
+                        >
                           {clientsWithoutPlan.length}
                         </Badge>
                       </div>
                       <p className="text-xs text-text-muted mt-0.5">
-                        Assigned clients needing review or plan generation for the current week.
+                        Assigned clients needing review or plan generation for
+                        the current week.
                       </p>
                     </div>
                   </div>
 
                   {clientsWithoutPlan.length === 0 ? (
                     <div className="text-center py-6 text-text-muted text-xs">
-                      All assigned clients have an approved workout plan for this week.
+                      All assigned clients have an approved workout plan for
+                      this week.
                     </div>
                   ) : (
                     <div className="overflow-x-auto">
@@ -633,7 +659,9 @@ export const DashboardScreen: React.FC = () => {
                           <tr className="border-b border-border text-text-muted">
                             <th className="py-2 px-3 font-semibold">Client</th>
                             <th className="py-2 px-3 font-semibold">Status</th>
-                            <th className="py-2 px-3 font-semibold text-right">Action</th>
+                            <th className="py-2 px-3 font-semibold text-right">
+                              Action
+                            </th>
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-border/50">
@@ -664,7 +692,8 @@ export const DashboardScreen: React.FC = () => {
                                 </div>
                               </td>
                               <td className="py-2.5 px-3">
-                                {c.plan_status_this_week === "pending_review" ? (
+                                {c.plan_status_this_week ===
+                                "pending_review" ? (
                                   <Badge variant="warning">
                                     Draft waiting for your review
                                   </Badge>
@@ -731,14 +760,23 @@ export const DashboardScreen: React.FC = () => {
                       <tr className="border-b border-border text-text-muted">
                         <th className="py-2 px-3 font-semibold">Client</th>
                         <th className="py-2 px-3 font-semibold">Phone</th>
-                        <th className="py-2 px-3 font-semibold">Membership Plan</th>
-                        <th className="py-2 px-3 font-semibold">Assigned Date</th>
-                        <th className="py-2 px-3 font-semibold">Measurements</th>
+                        <th className="py-2 px-3 font-semibold">
+                          Membership Plan
+                        </th>
+                        <th className="py-2 px-3 font-semibold">
+                          Assigned Date
+                        </th>
+                        <th className="py-2 px-3 font-semibold">
+                          Measurements
+                        </th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-border/50">
                       {trainerClients.slice(0, 5).map((c) => (
-                        <tr key={c.assignment_id} className="hover:bg-surface-2/40">
+                        <tr
+                          key={c.assignment_id}
+                          className="hover:bg-surface-2/40"
+                        >
                           <td className="py-2.5 px-3 font-medium text-text">
                             <div className="flex items-center gap-2.5">
                               {c.photo_url ? (
@@ -755,8 +793,12 @@ export const DashboardScreen: React.FC = () => {
                               <span>{c.member_name}</span>
                             </div>
                           </td>
-                          <td className="py-2.5 px-3 text-text-muted">{c.member_phone}</td>
-                          <td className="py-2.5 px-3 text-text">{c.plan_name}</td>
+                          <td className="py-2.5 px-3 text-text-muted">
+                            {c.member_phone}
+                          </td>
+                          <td className="py-2.5 px-3 text-text">
+                            {c.plan_name}
+                          </td>
                           <td className="py-2.5 px-3 text-text-muted">
                             {new Date(c.assigned_at).toLocaleDateString()}
                           </td>
@@ -777,7 +819,9 @@ export const DashboardScreen: React.FC = () => {
           </div>
         ) : role === "owner" || role === "manager" ? (
           <SectionErrorBoundary title="Operational Analytics">
-            <AnalyticsOverviewSection onUpgradeClick={() => navigate("/settings")} />
+            <AnalyticsOverviewSection
+              onUpgradeClick={() => navigate("/settings")}
+            />
           </SectionErrorBoundary>
         ) : (
           <div>

@@ -97,11 +97,17 @@ export interface EditPlanPayload {
   plan_data: PlanDataStructure;
 }
 
-export async function getPlanPrerequisites(memberId: string): Promise<PlanPrerequisites> {
-  return apiFetch<PlanPrerequisites>(`/api/gym/members/${memberId}/plans/status/`);
+export async function getPlanPrerequisites(
+  memberId: string
+): Promise<PlanPrerequisites> {
+  return apiFetch<PlanPrerequisites>(
+    `/api/gym/members/${memberId}/plans/status/`
+  );
 }
 
-export async function listMemberTrainingPlans(memberId: string): Promise<TrainingPlan[]> {
+export async function listMemberTrainingPlans(
+  memberId: string
+): Promise<TrainingPlan[]> {
   return apiFetch<TrainingPlan[]>(`/api/gym/members/${memberId}/plans/`);
 }
 
@@ -115,11 +121,15 @@ export async function generateTrainingPlan(
   });
 }
 
-export async function getTrainingPlanDetail(planId: string): Promise<TrainingPlan> {
+export async function getTrainingPlanDetail(
+  planId: string
+): Promise<TrainingPlan> {
   return apiFetch<TrainingPlan>(`/api/gym/training-plans/${planId}/`);
 }
 
-export async function approveTrainingPlan(planId: string): Promise<TrainingPlan> {
+export async function approveTrainingPlan(
+  planId: string
+): Promise<TrainingPlan> {
   return apiFetch<TrainingPlan>(`/api/gym/training-plans/${planId}/approve/`, {
     method: "POST",
     body: JSON.stringify({}),

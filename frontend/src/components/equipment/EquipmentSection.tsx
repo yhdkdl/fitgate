@@ -25,7 +25,6 @@ interface EquipmentSectionProps {
   userRole: string;
 }
 
-
 function getErrorMessage(err: unknown, fallback: string): string {
   if (typeof err === "object" && err !== null) {
     const obj = err as Record<string, unknown>;
@@ -35,7 +34,9 @@ function getErrorMessage(err: unknown, fallback: string): string {
   return fallback;
 }
 
-export const EquipmentSection: React.FC<EquipmentSectionProps> = ({ userRole }) => {
+export const EquipmentSection: React.FC<EquipmentSectionProps> = ({
+  userRole,
+}) => {
   const [equipmentList, setEquipmentList] = useState<EquipmentItem[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
@@ -47,7 +48,9 @@ export const EquipmentSection: React.FC<EquipmentSectionProps> = ({ userRole }) 
   const [isAddOpen, setIsAddOpen] = useState<boolean>(false);
   const [editingItem, setEditingItem] = useState<EquipmentItem | null>(null);
   const [issueItem, setIssueItem] = useState<EquipmentItem | null>(null);
-  const [conditionItem, setConditionItem] = useState<EquipmentItem | null>(null);
+  const [conditionItem, setConditionItem] = useState<EquipmentItem | null>(
+    null
+  );
   const [logsItem, setLogsItem] = useState<EquipmentItem | null>(null);
 
   // Form states
@@ -59,7 +62,8 @@ export const EquipmentSection: React.FC<EquipmentSectionProps> = ({ userRole }) 
   const [formCondition, setFormCondition] = useState<string>("good");
   const [formPurchaseDate, setFormPurchaseDate] = useState<string>("");
   const [formUnitPrice, setFormUnitPrice] = useState<string>("");
-  const [formRecordAsExpense, setFormRecordAsExpense] = useState<boolean>(false);
+  const [formRecordAsExpense, setFormRecordAsExpense] =
+    useState<boolean>(false);
   const [formSubmitting, setFormSubmitting] = useState<boolean>(false);
   const [modalError, setModalError] = useState<string | null>(null);
 
@@ -115,11 +119,14 @@ export const EquipmentSection: React.FC<EquipmentSectionProps> = ({ userRole }) 
     setFormCategory(item.category);
     setFormSerial(item.serial_number || "");
     setFormQuantity(item.quantity);
-    setFormMinQty(item.min_qty_threshold !== null ? item.min_qty_threshold : "");
+    setFormMinQty(
+      item.min_qty_threshold !== null ? item.min_qty_threshold : ""
+    );
     setFormCondition(item.condition);
     setFormPurchaseDate(item.purchase_date || "");
     setFormUnitPrice(
-      item.unit_purchase_price_etb !== null && item.unit_purchase_price_etb !== undefined
+      item.unit_purchase_price_etb !== null &&
+        item.unit_purchase_price_etb !== undefined
         ? String(item.unit_purchase_price_etb)
         : ""
     );
@@ -140,8 +147,13 @@ export const EquipmentSection: React.FC<EquipmentSectionProps> = ({ userRole }) 
         min_qty_threshold: formMinQty === "" ? null : Number(formMinQty),
         condition: formCondition,
         purchase_date: formPurchaseDate || null,
-        unit_purchase_price_etb: formUnitPrice.trim() ? parseFloat(formUnitPrice) : null,
-        record_as_expense: formRecordAsExpense && !!formUnitPrice.trim() && parseFloat(formUnitPrice) > 0,
+        unit_purchase_price_etb: formUnitPrice.trim()
+          ? parseFloat(formUnitPrice)
+          : null,
+        record_as_expense:
+          formRecordAsExpense &&
+          !!formUnitPrice.trim() &&
+          parseFloat(formUnitPrice) > 0,
       });
       setIsAddOpen(false);
       await fetchEquipment();
@@ -166,8 +178,13 @@ export const EquipmentSection: React.FC<EquipmentSectionProps> = ({ userRole }) 
         min_qty_threshold: formMinQty === "" ? null : Number(formMinQty),
         condition: formCondition,
         purchase_date: formPurchaseDate || null,
-        unit_purchase_price_etb: formUnitPrice.trim() ? parseFloat(formUnitPrice) : null,
-        record_as_expense: formRecordAsExpense && !!formUnitPrice.trim() && parseFloat(formUnitPrice) > 0,
+        unit_purchase_price_etb: formUnitPrice.trim()
+          ? parseFloat(formUnitPrice)
+          : null,
+        record_as_expense:
+          formRecordAsExpense &&
+          !!formUnitPrice.trim() &&
+          parseFloat(formUnitPrice) > 0,
       });
       setEditingItem(null);
       await fetchEquipment();
@@ -230,8 +247,10 @@ export const EquipmentSection: React.FC<EquipmentSectionProps> = ({ userRole }) 
 
   // Filtered equipment list
   const filteredList = equipmentList.filter((item) => {
-    if (filterCategory !== "all" && item.category !== filterCategory) return false;
-    if (filterCondition !== "all" && item.condition !== filterCondition) return false;
+    if (filterCategory !== "all" && item.category !== filterCategory)
+      return false;
+    if (filterCondition !== "all" && item.condition !== filterCondition)
+      return false;
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
       const matchName = item.name.toLowerCase().includes(q);
@@ -243,7 +262,9 @@ export const EquipmentSection: React.FC<EquipmentSectionProps> = ({ userRole }) 
 
   const lowQuantityItems = equipmentList.filter((item) => item.is_low_quantity);
 
-  const distinctCategoriesCount = new Set(equipmentList.map((item) => item.category)).size;
+  const distinctCategoriesCount = new Set(
+    equipmentList.map((item) => item.category)
+  ).size;
   const totalCategoriesCount = EQUIPMENT_CATEGORIES.length;
 
   let totalInvestment = 0;
@@ -266,7 +287,9 @@ export const EquipmentSection: React.FC<EquipmentSectionProps> = ({ userRole }) 
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-text">Gym Equipment</h1>
+          <h1 className="text-2xl font-bold tracking-tight text-text">
+            Gym Equipment
+          </h1>
           <p className="text-sm text-text-muted mt-1">
             {canManage
               ? "Track, manage, and service gym machines and free weights."
@@ -286,9 +309,15 @@ export const EquipmentSection: React.FC<EquipmentSectionProps> = ({ userRole }) 
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
             <div>
               <span className="font-semibold">Low Quantity Alert:</span>{" "}
-              {lowQuantityItems.length} item{lowQuantityItems.length > 1 ? "s have" : " has"} reached or fallen below the minimum stock threshold:
+              {lowQuantityItems.length} item
+              {lowQuantityItems.length > 1 ? "s have" : " has"} reached or
+              fallen below the minimum stock threshold:
               <span className="ml-1 font-medium">
-                {lowQuantityItems.map((i) => `${i.name} (${i.quantity}/${i.min_qty_threshold})`).join(", ")}
+                {lowQuantityItems
+                  .map(
+                    (i) => `${i.name} (${i.quantity}/${i.min_qty_threshold})`
+                  )
+                  .join(", ")}
               </span>
             </div>
           </div>
@@ -300,10 +329,12 @@ export const EquipmentSection: React.FC<EquipmentSectionProps> = ({ userRole }) 
       {/* Categories Registered Note */}
       <div className="p-3 bg-surface-2/60 border border-border rounded-lg text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-1">
         <span className="text-text-muted">
-          Register all available machines and gear to keep member workout routines accurate.
+          Register all available machines and gear to keep member workout
+          routines accurate.
         </span>
         <span className="font-semibold text-text whitespace-nowrap">
-          Categories registered: {distinctCategoriesCount} of {totalCategoriesCount}
+          Categories registered: {distinctCategoriesCount} of{" "}
+          {totalCategoriesCount}
         </span>
       </div>
 
@@ -325,7 +356,9 @@ export const EquipmentSection: React.FC<EquipmentSectionProps> = ({ userRole }) 
           <div className="text-xs text-text-muted">
             {noPriceCount === 0
               ? "All registered equipment items have purchase prices recorded."
-              : `${noPriceCount} item${noPriceCount === 1 ? "" : "s"} have no price.`}
+              : noPriceCount === 1
+                ? "1 item has no price."
+                : `${noPriceCount} items have no price.`}
           </div>
         </Card>
       )}
@@ -334,7 +367,9 @@ export const EquipmentSection: React.FC<EquipmentSectionProps> = ({ userRole }) 
       <Card className="p-4">
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <div>
-            <label className="block text-xs font-medium text-text-muted mb-1">Search</label>
+            <label className="block text-xs font-medium text-text-muted mb-1">
+              Search
+            </label>
             <Input
               type="text"
               placeholder="Filter by name or serial..."
@@ -343,7 +378,9 @@ export const EquipmentSection: React.FC<EquipmentSectionProps> = ({ userRole }) 
             />
           </div>
           <div>
-            <label className="block text-xs font-medium text-text-muted mb-1">Category</label>
+            <label className="block text-xs font-medium text-text-muted mb-1">
+              Category
+            </label>
             <select
               className="w-full h-10 px-3 py-2 text-sm rounded-md border border-border bg-surface text-text focus:outline-none focus:ring-2 focus:ring-primary"
               value={filterCategory}
@@ -358,7 +395,9 @@ export const EquipmentSection: React.FC<EquipmentSectionProps> = ({ userRole }) 
             </select>
           </div>
           <div>
-            <label className="block text-xs font-medium text-text-muted mb-1">Condition</label>
+            <label className="block text-xs font-medium text-text-muted mb-1">
+              Condition
+            </label>
             <select
               className="w-full h-10 px-3 py-2 text-sm rounded-md border border-border bg-surface text-text focus:outline-none focus:ring-2 focus:ring-primary"
               value={filterCondition}
@@ -391,12 +430,16 @@ export const EquipmentSection: React.FC<EquipmentSectionProps> = ({ userRole }) 
                 <tr>
                   <th className="py-3 px-4">Name</th>
                   <th className="py-3 px-4">Category</th>
-                  {userRole !== "member" && <th className="py-3 px-4">Serial #</th>}
+                  {userRole !== "member" && (
+                    <th className="py-3 px-4">Serial #</th>
+                  )}
                   <th className="py-3 px-4">Qty</th>
                   <th className="py-3 px-4">Condition</th>
                   <th className="py-3 px-4">Purchase Date</th>
                   {canManage && <th className="py-3 px-4">Price (ETB)</th>}
-                  {canReportIssue && <th className="py-3 px-4 text-right">Actions</th>}
+                  {canReportIssue && (
+                    <th className="py-3 px-4 text-right">Actions</th>
+                  )}
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
@@ -406,7 +449,10 @@ export const EquipmentSection: React.FC<EquipmentSectionProps> = ({ userRole }) 
                     variant: "neutral",
                   };
                   return (
-                    <tr key={item.id} className="hover:bg-surface-2/30 transition-colors">
+                    <tr
+                      key={item.id}
+                      className="hover:bg-surface-2/30 transition-colors"
+                    >
                       <td className="py-3 px-4 font-medium">
                         <div>{item.name}</div>
                         {item.is_low_quantity && (
@@ -440,7 +486,9 @@ export const EquipmentSection: React.FC<EquipmentSectionProps> = ({ userRole }) 
                       {canManage && (
                         <td className="py-3 px-4 font-mono text-xs">
                           {item.unit_purchase_price_etb
-                            ? `${Number(item.unit_purchase_price_etb).toLocaleString(undefined, {
+                            ? `${Number(
+                                item.unit_purchase_price_etb
+                              ).toLocaleString(undefined, {
                                 minimumFractionDigits: 2,
                                 maximumFractionDigits: 2,
                               })} ETB`
@@ -484,15 +532,16 @@ export const EquipmentSection: React.FC<EquipmentSectionProps> = ({ userRole }) 
                           >
                             Report Issue
                           </Button>
-                          {item.maintenance_logs && item.maintenance_logs.length > 0 && (
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              onClick={() => setLogsItem(item)}
-                            >
-                              Logs ({item.maintenance_logs.length})
-                            </Button>
-                          )}
+                          {item.maintenance_logs &&
+                            item.maintenance_logs.length > 0 && (
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => setLogsItem(item)}
+                              >
+                                Logs ({item.maintenance_logs.length})
+                              </Button>
+                            )}
                           {canManage && (
                             <Button
                               size="sm"
@@ -515,11 +564,17 @@ export const EquipmentSection: React.FC<EquipmentSectionProps> = ({ userRole }) 
       </Card>
 
       {/* Add Equipment Modal */}
-      <Modal isOpen={isAddOpen} onClose={() => setIsAddOpen(false)} title="Add Gym Equipment">
+      <Modal
+        isOpen={isAddOpen}
+        onClose={() => setIsAddOpen(false)}
+        title="Add Gym Equipment"
+      >
         <form onSubmit={handleSaveAdd} className="space-y-4">
           {modalError && <Alert variant="danger">{modalError}</Alert>}
           <div>
-            <label className="block text-xs font-medium text-text-muted mb-1">Equipment Name *</label>
+            <label className="block text-xs font-medium text-text-muted mb-1">
+              Equipment Name *
+            </label>
             <Input
               required
               value={formName}
@@ -528,7 +583,9 @@ export const EquipmentSection: React.FC<EquipmentSectionProps> = ({ userRole }) 
             />
           </div>
           <div>
-            <label className="block text-xs font-medium text-text-muted mb-1">Category *</label>
+            <label className="block text-xs font-medium text-text-muted mb-1">
+              Category *
+            </label>
             <select
               required
               className="w-full h-10 px-3 py-2 text-sm rounded-md border border-border bg-surface text-text focus:outline-none focus:ring-2 focus:ring-primary"
@@ -543,7 +600,9 @@ export const EquipmentSection: React.FC<EquipmentSectionProps> = ({ userRole }) 
             </select>
           </div>
           <div>
-            <label className="block text-xs font-medium text-text-muted mb-1">Serial Number (optional)</label>
+            <label className="block text-xs font-medium text-text-muted mb-1">
+              Serial Number (optional)
+            </label>
             <Input
               value={formSerial}
               onChange={(e) => setFormSerial(e.target.value)}
@@ -552,22 +611,32 @@ export const EquipmentSection: React.FC<EquipmentSectionProps> = ({ userRole }) 
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs font-medium text-text-muted mb-1">Quantity *</label>
+              <label className="block text-xs font-medium text-text-muted mb-1">
+                Quantity *
+              </label>
               <Input
                 type="number"
                 min="0"
                 required
                 value={formQuantity}
-                onChange={(e) => setFormQuantity(parseInt(e.target.value, 10) || 0)}
+                onChange={(e) =>
+                  setFormQuantity(parseInt(e.target.value, 10) || 0)
+                }
               />
             </div>
             <div>
-              <label className="block text-xs font-medium text-text-muted mb-1">Low Stock Alert Min (optional)</label>
+              <label className="block text-xs font-medium text-text-muted mb-1">
+                Low Stock Alert Min (optional)
+              </label>
               <Input
                 type="number"
                 min="0"
                 value={formMinQty}
-                onChange={(e) => setFormMinQty(e.target.value === "" ? "" : parseInt(e.target.value, 10))}
+                onChange={(e) =>
+                  setFormMinQty(
+                    e.target.value === "" ? "" : parseInt(e.target.value, 10)
+                  )
+                }
                 placeholder="Alert threshold"
               />
             </div>
@@ -605,7 +674,9 @@ export const EquipmentSection: React.FC<EquipmentSectionProps> = ({ userRole }) 
           )}
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs font-medium text-text-muted mb-1">Condition</label>
+              <label className="block text-xs font-medium text-text-muted mb-1">
+                Condition
+              </label>
               <select
                 className="w-full h-10 px-3 py-2 text-sm rounded-md border border-border bg-surface text-text focus:outline-none focus:ring-2 focus:ring-primary"
                 value={formCondition}
@@ -618,7 +689,9 @@ export const EquipmentSection: React.FC<EquipmentSectionProps> = ({ userRole }) 
               </select>
             </div>
             <div>
-              <label className="block text-xs font-medium text-text-muted mb-1">Purchase Date</label>
+              <label className="block text-xs font-medium text-text-muted mb-1">
+                Purchase Date
+              </label>
               <Input
                 type="date"
                 value={formPurchaseDate}
@@ -627,7 +700,11 @@ export const EquipmentSection: React.FC<EquipmentSectionProps> = ({ userRole }) 
             </div>
           </div>
           <div className="flex justify-end gap-2 pt-4 border-t border-border">
-            <Button type="button" variant="ghost" onClick={() => setIsAddOpen(false)}>
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={() => setIsAddOpen(false)}
+            >
               Cancel
             </Button>
             <Button type="submit" variant="primary" disabled={formSubmitting}>
@@ -638,11 +715,17 @@ export const EquipmentSection: React.FC<EquipmentSectionProps> = ({ userRole }) 
       </Modal>
 
       {/* Edit Equipment Modal */}
-      <Modal isOpen={!!editingItem} onClose={() => setEditingItem(null)} title="Edit Equipment">
+      <Modal
+        isOpen={!!editingItem}
+        onClose={() => setEditingItem(null)}
+        title="Edit Equipment"
+      >
         <form onSubmit={handleSaveEdit} className="space-y-4">
           {modalError && <Alert variant="danger">{modalError}</Alert>}
           <div>
-            <label className="block text-xs font-medium text-text-muted mb-1">Equipment Name *</label>
+            <label className="block text-xs font-medium text-text-muted mb-1">
+              Equipment Name *
+            </label>
             <Input
               required
               value={formName}
@@ -650,7 +733,9 @@ export const EquipmentSection: React.FC<EquipmentSectionProps> = ({ userRole }) 
             />
           </div>
           <div>
-            <label className="block text-xs font-medium text-text-muted mb-1">Category *</label>
+            <label className="block text-xs font-medium text-text-muted mb-1">
+              Category *
+            </label>
             <select
               required
               className="w-full h-10 px-3 py-2 text-sm rounded-md border border-border bg-surface text-text focus:outline-none focus:ring-2 focus:ring-primary"
@@ -665,7 +750,9 @@ export const EquipmentSection: React.FC<EquipmentSectionProps> = ({ userRole }) 
             </select>
           </div>
           <div>
-            <label className="block text-xs font-medium text-text-muted mb-1">Serial Number (optional)</label>
+            <label className="block text-xs font-medium text-text-muted mb-1">
+              Serial Number (optional)
+            </label>
             <Input
               value={formSerial}
               onChange={(e) => setFormSerial(e.target.value)}
@@ -673,22 +760,32 @@ export const EquipmentSection: React.FC<EquipmentSectionProps> = ({ userRole }) 
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs font-medium text-text-muted mb-1">Quantity *</label>
+              <label className="block text-xs font-medium text-text-muted mb-1">
+                Quantity *
+              </label>
               <Input
                 type="number"
                 min="0"
                 required
                 value={formQuantity}
-                onChange={(e) => setFormQuantity(parseInt(e.target.value, 10) || 0)}
+                onChange={(e) =>
+                  setFormQuantity(parseInt(e.target.value, 10) || 0)
+                }
               />
             </div>
             <div>
-              <label className="block text-xs font-medium text-text-muted mb-1">Low Stock Alert Min (optional)</label>
+              <label className="block text-xs font-medium text-text-muted mb-1">
+                Low Stock Alert Min (optional)
+              </label>
               <Input
                 type="number"
                 min="0"
                 value={formMinQty}
-                onChange={(e) => setFormMinQty(e.target.value === "" ? "" : parseInt(e.target.value, 10))}
+                onChange={(e) =>
+                  setFormMinQty(
+                    e.target.value === "" ? "" : parseInt(e.target.value, 10)
+                  )
+                }
               />
             </div>
           </div>
@@ -725,7 +822,9 @@ export const EquipmentSection: React.FC<EquipmentSectionProps> = ({ userRole }) 
           )}
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs font-medium text-text-muted mb-1">Condition</label>
+              <label className="block text-xs font-medium text-text-muted mb-1">
+                Condition
+              </label>
               <select
                 className="w-full h-10 px-3 py-2 text-sm rounded-md border border-border bg-surface text-text focus:outline-none focus:ring-2 focus:ring-primary"
                 value={formCondition}
@@ -738,7 +837,9 @@ export const EquipmentSection: React.FC<EquipmentSectionProps> = ({ userRole }) 
               </select>
             </div>
             <div>
-              <label className="block text-xs font-medium text-text-muted mb-1">Purchase Date</label>
+              <label className="block text-xs font-medium text-text-muted mb-1">
+                Purchase Date
+              </label>
               <Input
                 type="date"
                 value={formPurchaseDate}
@@ -747,7 +848,11 @@ export const EquipmentSection: React.FC<EquipmentSectionProps> = ({ userRole }) 
             </div>
           </div>
           <div className="flex justify-end gap-2 pt-4 border-t border-border">
-            <Button type="button" variant="ghost" onClick={() => setEditingItem(null)}>
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={() => setEditingItem(null)}
+            >
               Cancel
             </Button>
             <Button type="submit" variant="primary" disabled={formSubmitting}>
@@ -758,14 +863,21 @@ export const EquipmentSection: React.FC<EquipmentSectionProps> = ({ userRole }) 
       </Modal>
 
       {/* Report Issue Modal */}
-      <Modal isOpen={!!issueItem} onClose={() => setIssueItem(null)} title={`Report Issue: ${issueItem?.name}`}>
+      <Modal
+        isOpen={!!issueItem}
+        onClose={() => setIssueItem(null)}
+        title={`Report Issue: ${issueItem?.name}`}
+      >
         <form onSubmit={handleReportIssue} className="space-y-4">
           {modalError && <Alert variant="danger">{modalError}</Alert>}
           <p className="text-sm text-text-muted">
-            Reporting an issue flags this equipment as needing maintenance and alerts the gym owner.
+            Reporting an issue flags this equipment as needing maintenance and
+            alerts the gym owner.
           </p>
           <div>
-            <label className="block text-xs font-medium text-text-muted mb-1">Issue Reason *</label>
+            <label className="block text-xs font-medium text-text-muted mb-1">
+              Issue Reason *
+            </label>
             <select
               required
               className="w-full h-10 px-3 py-2 text-sm rounded-md border border-border bg-surface text-text focus:outline-none focus:ring-2 focus:ring-primary"
@@ -780,7 +892,9 @@ export const EquipmentSection: React.FC<EquipmentSectionProps> = ({ userRole }) 
             </select>
           </div>
           <div>
-            <label className="block text-xs font-medium text-text-muted mb-1">Additional Details</label>
+            <label className="block text-xs font-medium text-text-muted mb-1">
+              Additional Details
+            </label>
             <textarea
               className="w-full h-24 px-3 py-2 text-sm rounded-md border border-border bg-surface text-text focus:outline-none focus:ring-2 focus:ring-primary resize-none"
               placeholder="Describe symptoms, safety hazards, or specific broken parts..."
@@ -788,10 +902,16 @@ export const EquipmentSection: React.FC<EquipmentSectionProps> = ({ userRole }) 
               onChange={(e) => setIssueDetails(e.target.value)}
               maxLength={200}
             />
-            <div className="text-right text-xs text-text-muted">{issueDetails.length}/200</div>
+            <div className="text-right text-xs text-text-muted">
+              {issueDetails.length}/200
+            </div>
           </div>
           <div className="flex justify-end gap-2 pt-4 border-t border-border">
-            <Button type="button" variant="ghost" onClick={() => setIssueItem(null)}>
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={() => setIssueItem(null)}
+            >
               Cancel
             </Button>
             <Button type="submit" variant="primary" disabled={formSubmitting}>
@@ -810,14 +930,18 @@ export const EquipmentSection: React.FC<EquipmentSectionProps> = ({ userRole }) 
         <form onSubmit={handleUpdateCondition} className="space-y-4">
           {modalError && <Alert variant="danger">{modalError}</Alert>}
           <div>
-            <label className="block text-xs font-medium text-text-muted mb-1">Target Condition *</label>
+            <label className="block text-xs font-medium text-text-muted mb-1">
+              Target Condition *
+            </label>
             <select
               required
               className="w-full h-10 px-3 py-2 text-sm rounded-md border border-border bg-surface text-text focus:outline-none focus:ring-2 focus:ring-primary"
               value={newCondition}
               onChange={(e) => setNewCondition(e.target.value)}
             >
-              <option value="good">Good (Resolves open maintenance logs)</option>
+              <option value="good">
+                Good (Resolves open maintenance logs)
+              </option>
               <option value="needs_maintenance">Needs Maintenance</option>
               <option value="under_maintenance">Under Maintenance</option>
               <option value="out_of_service">Out of Service</option>
@@ -825,7 +949,9 @@ export const EquipmentSection: React.FC<EquipmentSectionProps> = ({ userRole }) 
           </div>
           {newCondition === "good" && (
             <div>
-              <label className="block text-xs font-medium text-text-muted mb-1">Resolution Notes</label>
+              <label className="block text-xs font-medium text-text-muted mb-1">
+                Resolution Notes
+              </label>
               <textarea
                 className="w-full h-20 px-3 py-2 text-sm rounded-md border border-border bg-surface text-text focus:outline-none focus:ring-2 focus:ring-primary resize-none"
                 placeholder="Notes on repair or inspection (saved to maintenance logs)..."
@@ -836,7 +962,11 @@ export const EquipmentSection: React.FC<EquipmentSectionProps> = ({ userRole }) 
             </div>
           )}
           <div className="flex justify-end gap-2 pt-4 border-t border-border">
-            <Button type="button" variant="ghost" onClick={() => setConditionItem(null)}>
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={() => setConditionItem(null)}
+            >
               Cancel
             </Button>
             <Button type="submit" variant="primary" disabled={formSubmitting}>
@@ -854,13 +984,19 @@ export const EquipmentSection: React.FC<EquipmentSectionProps> = ({ userRole }) 
       >
         <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-1">
           {logsItem?.maintenance_logs?.length === 0 ? (
-            <p className="text-sm text-text-muted">No maintenance events recorded.</p>
+            <p className="text-sm text-text-muted">
+              No maintenance events recorded.
+            </p>
           ) : (
             logsItem?.maintenance_logs?.map((log) => (
-              <div key={log.id} className="p-3 rounded-lg border border-border bg-surface-2/30 space-y-1">
+              <div
+                key={log.id}
+                className="p-3 rounded-lg border border-border bg-surface-2/30 space-y-1"
+              >
                 <div className="flex items-center justify-between text-xs">
                   <span className="font-semibold text-text uppercase">
-                    {ISSUE_REASONS.find((r) => r.code === log.issue_reason)?.label || log.issue_reason}
+                    {ISSUE_REASONS.find((r) => r.code === log.issue_reason)
+                      ?.label || log.issue_reason}
                   </span>
                   <span className="text-text-muted">
                     {new Date(log.reported_at).toLocaleDateString()}
@@ -875,7 +1011,8 @@ export const EquipmentSection: React.FC<EquipmentSectionProps> = ({ userRole }) 
                 {log.resolved_at ? (
                   <div className="pt-2 border-t border-border/50 text-xs text-emerald-500">
                     <span className="font-medium">Resolved:</span>{" "}
-                    {new Date(log.resolved_at).toLocaleDateString()} by {log.resolved_by_name}
+                    {new Date(log.resolved_at).toLocaleDateString()} by{" "}
+                    {log.resolved_by_name}
                     {log.resolution_notes && (
                       <p className="text-text mt-0.5">{log.resolution_notes}</p>
                     )}

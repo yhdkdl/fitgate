@@ -97,7 +97,7 @@ class TestChapaCheckout:
             HTTP_HOST="alpha.localhost",
         )
         assert resp.status_code == status.HTTP_400_BAD_REQUEST
-        assert "Online payment is not enabled for this gym" in resp.json()["detail"]
+        assert "Online payment is not available at this gym" in resp.json()["detail"]
 
     def test_checkout_succeeds_when_config_is_verified(self, setup_data):
         client = APIClient()

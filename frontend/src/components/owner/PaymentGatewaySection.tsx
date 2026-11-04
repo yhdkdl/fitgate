@@ -23,6 +23,7 @@ export const PaymentGatewaySection: React.FC<PaymentGatewaySectionProps> = ({
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [testing, setTesting] = useState(false);
+  const [togglingSwitch, setTogglingSwitch] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
@@ -52,6 +53,40 @@ export const PaymentGatewaySection: React.FC<PaymentGatewaySectionProps> = ({
   useEffect(() => {
     fetchConfig();
   }, []);
+
+  const handleToggleOnlinePayments = async () => {
+    const nextState = !config?.is_enabled;
+    if (nextState && !config?.is_verified) {
+      setErrorMsg("Verify your Chapa connection first.");
+      return;
+    }
+    setTogglingSwitch(true);
+    setErrorMsg(null);
+    setSuccessMsg(null);
+    try {
+      const updated = await updateGymPaymentConfig({ is_enabled: nextState });
+      setConfig(updated);
+      if (!nextState) {
+        const count = updated.unfinished_online_payments ?? 0;
+        setSuccessMsg(
+          count > 0
+            ? `Online payments disabled. Note: ${count} unfinished online payment${count === 1 ? " is" : "s are"} in progress.`
+            : "Online payments disabled."
+        );
+      } else {
+        setSuccessMsg("Online payments enabled successfully.");
+      }
+      if (onUpdated) onUpdated();
+    } catch (err: unknown) {
+      setErrorMsg(
+        err instanceof Error
+          ? err.message
+          : "Failed to update online payment status."
+      );
+    } finally {
+      setTogglingSwitch(false);
+    }
+  };
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -223,6 +258,38 @@ export const PaymentGatewaySection: React.FC<PaymentGatewaySectionProps> = ({
           )}
         </div>
       )}
+
+      {/* Online Payments Switch (Accept online payments) */}
+      <div className="bg-surface-2 p-5 rounded-lg border border-border/60 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="space-y-1">
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-bold text-text">
+              Accept online payments (Chapa)
+            </span>
+            <Badge variant={config?.is_enabled ? "success" : "secondary"}>
+              {config?.is_enabled ? "Enabled" : "Disabled"}
+            </Badge>
+          </div>
+          <p className="text-xs text-text-muted max-w-xl">
+            When turned off, members must pay at the front desk (cash or bank
+            transfer). Keys and verified connection status are preserved.
+          </p>
+        </div>
+
+        <div className="flex items-center gap-3">
+          <label className="relative inline-flex items-center cursor-pointer">
+            <input
+              type="checkbox"
+              aria-label="Accept online payments (Chapa)"
+              className="sr-only peer"
+              checked={Boolean(config?.is_enabled)}
+              disabled={togglingSwitch || saving}
+              onChange={handleToggleOnlinePayments}
+            />
+            <div className="w-11 h-6 bg-surface-3 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-border after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+          </label>
+        </div>
+      </div>
 
       {/* Credentials Update Form */}
       <form onSubmit={handleSave} className="space-y-4">

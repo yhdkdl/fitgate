@@ -189,7 +189,11 @@ export const TrainersManagementSection: React.FC = () => {
                             />
                           ) : (
                             <div className="w-9 h-9 rounded-full bg-primary/20 text-primary font-bold flex items-center justify-center text-xs border border-border">
-                              {(trainer.user.full_name || trainer.user.email || "TR")
+                              {(
+                                trainer.user.full_name ||
+                                trainer.user.email ||
+                                "TR"
+                              )
                                 .slice(0, 2)
                                 .toUpperCase()}
                             </div>

@@ -19,6 +19,13 @@ _Purpose: A dated record of every scope decision, modification, and addition mad
 
 ## 2. Changed
 
+- **Owner Switch for Online (Chapa) Payments (November 3, 2026):**
+  - **Scope:** Dedicated toggle "Accept online payments (Chapa)" (`is_enabled`, default True) on `GymPaymentConfig`. Visible and editable by Gym Owner (and Super Admin) in Gym Settings, separate from keys.
+  - **Verification Enforcement:** Turning switch ON is refused with `"Verify your Chapa connection first."` unless `is_verified` is True. Turning switch OFF preserves stored encrypted keys and verified connection status. Role-based enforcement strictly denies Manager, Reception, Trainer, Member, and other gyms (403 Forbidden).
+  - **Checkout Restrictions:** When switch is OFF, the server refuses all new online Chapa checkout attempts (new purchase, renewal, upgrade) with `"Online payment is not available at this gym. Please pay at the front desk."` Client screens hide "Pay online" buttons and show that message in the upgrade modal and pending-payment card. Public payment status reports online payments as unavailable (`online_payment_verified=False`).
+  - **In-flight & Offline Payment Continuity:** Existing in-flight payments initiated prior to disabling continue to process normally (webhooks, transaction verification, 5-minute abandoned-payment sweep, and unresolved reviews). Cash and bank transfer paths for staff and members remain completely unaffected.
+  - **Audit Logging & Accounting:** Switching the toggle is audit-logged with actor, from/to states. When toggling OFF, the system reports the count of unfinished online payments currently pending.
+
 - **Group Classes (Sprint 26) Moved from Deferred to Active (November 3, 2026):**
   - **Lean Class Architecture:** `ClassSession` model with fixed title list (`yoga`, `zumba`, `spinning`, `boxing`, `aerobics`, `crossfit`, `strength_circuit`, `stretching_mobility`, `other` with `other_title` up to 50 chars), assigned active trainer from the same gym, Addis Ababa start time, duration (30, 45, 60, 90 mins), capacity (1–200), and status (`scheduled`, `cancelled`).
   - **Create & Edit:** Owner and Manager manage sessions. Weekly repeat option (1–12 weeks) creates N separate independent sessions with no recurring rule engine. Overlapping sessions for the same trainer are refused naming the conflict time. Session rescheduling or cancellation sends in-app notifications to booked members. Past sessions cannot be edited or booked.

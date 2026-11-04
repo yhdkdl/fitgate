@@ -2,7 +2,11 @@ import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { ExpensesSection } from "../components/expenses/ExpensesSection";
 import * as expensesApi from "../api/expenses";
-import type { Expense, FinancialReport, AttendanceReport } from "../types/expenses";
+import type {
+  Expense,
+  FinancialReport,
+  AttendanceReport,
+} from "../types/expenses";
 
 const mockExpenses: Expense[] = [
   {
@@ -76,8 +80,18 @@ const mockFinancialReport: FinancialReport = {
     utilities: { total_etb: "8000.00", count: 1 },
   },
   revenue_by_plan: [
-    { plan_id: "plan-1", plan_name: "Standard Monthly", total_etb: "60000.00", payment_count: 40 },
-    { plan_id: "plan-2", plan_name: "Trainer Monthly", total_etb: "40000.00", payment_count: 20 },
+    {
+      plan_id: "plan-1",
+      plan_name: "Standard Monthly",
+      total_etb: "60000.00",
+      payment_count: 40,
+    },
+    {
+      plan_id: "plan-2",
+      plan_name: "Trainer Monthly",
+      total_etb: "40000.00",
+      payment_count: 20,
+    },
   ],
 };
 
@@ -103,8 +117,12 @@ describe("ExpensesSection", () => {
       is_void: true,
       void_reason: "Duplicate charge",
     });
-    vi.spyOn(expensesApi, "getFinancialReport").mockResolvedValue(mockFinancialReport);
-    vi.spyOn(expensesApi, "getAttendanceReport").mockResolvedValue(mockAttendanceReport);
+    vi.spyOn(expensesApi, "getFinancialReport").mockResolvedValue(
+      mockFinancialReport
+    );
+    vi.spyOn(expensesApi, "getAttendanceReport").mockResolvedValue(
+      mockAttendanceReport
+    );
   });
 
   it("denies access to non-managerial roles", () => {
@@ -120,7 +138,9 @@ describe("ExpensesSection", () => {
     });
 
     // Active total: 25,000 + 8,000 = 33,000.00 ETB
-    expect(screen.getByTestId("total-active-expenses")).toHaveTextContent("33,000.00 ETB");
+    expect(screen.getByTestId("total-active-expenses")).toHaveTextContent(
+      "33,000.00 ETB"
+    );
     expect(screen.getByText("November gym space rent")).toBeInTheDocument();
     expect(screen.getByText("Water & electricity bill")).toBeInTheDocument();
   });
@@ -165,12 +185,17 @@ describe("ExpensesSection", () => {
     expect(screen.getByText("Void Expense Entry")).toBeInTheDocument();
 
     const reasonInput = screen.getByTestId("input-void-reason");
-    fireEvent.change(reasonInput, { target: { value: "Incorrect account billed" } });
+    fireEvent.change(reasonInput, {
+      target: { value: "Incorrect account billed" },
+    });
 
     fireEvent.click(screen.getByTestId("btn-confirm-void"));
 
     await waitFor(() => {
-      expect(expensesApi.voidExpense).toHaveBeenCalledWith("exp-1", "Incorrect account billed");
+      expect(expensesApi.voidExpense).toHaveBeenCalledWith(
+        "exp-1",
+        "Incorrect account billed"
+      );
     });
   });
 
@@ -184,9 +209,15 @@ describe("ExpensesSection", () => {
     fireEvent.click(screen.getByTestId("tab-financial-report"));
 
     await waitFor(() => {
-      expect(screen.getByTestId("stat-net-revenue")).toHaveTextContent("100,000.00 ETB");
-      expect(screen.getByTestId("stat-total-expenses")).toHaveTextContent("33,000.00 ETB");
-      expect(screen.getByTestId("stat-net-income")).toHaveTextContent("67,000.00 ETB");
+      expect(screen.getByTestId("stat-net-revenue")).toHaveTextContent(
+        "100,000.00 ETB"
+      );
+      expect(screen.getByTestId("stat-total-expenses")).toHaveTextContent(
+        "33,000.00 ETB"
+      );
+      expect(screen.getByTestId("stat-net-income")).toHaveTextContent(
+        "67,000.00 ETB"
+      );
     });
   });
 
@@ -200,7 +231,9 @@ describe("ExpensesSection", () => {
     fireEvent.click(screen.getByTestId("tab-attendance-report"));
 
     await waitFor(() => {
-      expect(screen.getByTestId("stat-total-checkins")).toHaveTextContent("150");
+      expect(screen.getByTestId("stat-total-checkins")).toHaveTextContent(
+        "150"
+      );
       expect(screen.getByTestId("stat-unique-members")).toHaveTextContent("65");
     });
   });

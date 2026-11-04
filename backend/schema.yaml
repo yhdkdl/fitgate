@@ -311,6 +311,19 @@ paths:
           description: Email verified successfully
         '400':
           description: Invalid or expired token
+  /api/gym/analytics/overview/:
+    get:
+      operationId: gym_analytics_overview_retrieve
+      description: Returns core operational metrics and revenue by plan for Owner
+        and Manager.
+      summary: Get gym analytics overview
+      tags:
+      - gym
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: Analytics overview metrics
   /api/gym/assignments/:
     get:
       operationId: gym_assignments_list
@@ -554,6 +567,622 @@ paths:
           description: ''
         '403':
           description: Forbidden - only Owner permitted
+  /api/gym/classes/:
+    get:
+      operationId: gym_classes_retrieve
+      description: |-
+        GET: List sessions for the gym.
+             Query params:
+             - start_date (YYYY-MM-DD): defaults to today
+             - end_date (YYYY-MM-DD): defaults to today + 14 days
+             - trainer_id (UUID): filter by trainer
+             - status: scheduled/cancelled (defaults to scheduled, or 'all')
+        POST: Create a session (with optional repeat_weeks 1-12).
+              Restricted to Owner and Manager.
+      tags:
+      - gym
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+    post:
+      operationId: gym_classes_create
+      description: |-
+        GET: List sessions for the gym.
+             Query params:
+             - start_date (YYYY-MM-DD): defaults to today
+             - end_date (YYYY-MM-DD): defaults to today + 14 days
+             - trainer_id (UUID): filter by trainer
+             - status: scheduled/cancelled (defaults to scheduled, or 'all')
+        POST: Create a session (with optional repeat_weeks 1-12).
+              Restricted to Owner and Manager.
+      tags:
+      - gym
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/gym/classes/{id}/:
+    get:
+      operationId: gym_classes_retrieve_2
+      description: |-
+        GET: Retrieve session detail.
+        PATCH: Update session (Owner and Manager only).
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - gym
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+    patch:
+      operationId: gym_classes_partial_update
+      description: |-
+        GET: Retrieve session detail.
+        PATCH: Update session (Owner and Manager only).
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - gym
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/gym/classes/{id}/attendance/:
+    post:
+      operationId: gym_classes_attendance_create
+      description: |-
+        POST: Mark attendance for a member in a class.
+        Allowed roles: Owner, Manager, or the assigned Trainer.
+        Does NOT create daily Attendance check-in rows.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - gym
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/gym/classes/{id}/book/:
+    post:
+      operationId: gym_classes_book_create
+      description: |-
+        POST: Book a slot in a class session.
+        - Member books themselves.
+        - Owner, Manager, Reception can book on behalf of a member (providing member_id).
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - gym
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/gym/classes/{id}/cancel/:
+    post:
+      operationId: gym_classes_cancel_create
+      description: Cancel a scheduled class session. Owner and Manager only.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - gym
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/gym/classes/{id}/cancel-booking/:
+    post:
+      operationId: gym_classes_cancel_booking_create
+      description: |-
+        POST: Cancel a booking.
+        - Member can cancel their own booking (<= 2 hours cutoff).
+        - Staff (Owner, Manager, Reception) can cancel anytime prior to class start.
+        Query param or body param `booking_id` can be used.
+        If Member role and no booking_id passed, finds the member's active booking for session pk.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - gym
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/gym/classes/{id}/roster/:
+    get:
+      operationId: gym_classes_roster_retrieve
+      description: |-
+        Retrieve roster of booked members for a session.
+        Allowed: Owner, Manager, Reception, or assigned Trainer.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - gym
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/gym/classes/my-bookings/:
+    get:
+      operationId: gym_classes_my_bookings_retrieve
+      description: |-
+        GET: List current member's upcoming and past class bookings.
+        Only accessible by members.
+      tags:
+      - gym
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/gym/classes/my-trainer-classes/:
+    get:
+      operationId: gym_classes_my_trainer_classes_retrieve
+      description: |-
+        GET: List sessions assigned to the requesting trainer.
+        Upcoming first, then past.
+      tags:
+      - gym
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/gym/classes/trainer-sessions/:
+    get:
+      operationId: gym_classes_trainer_sessions_retrieve
+      description: |-
+        GET: List sessions assigned to the requesting trainer.
+        Upcoming first, then past.
+      tags:
+      - gym
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/gym/equipment/:
+    get:
+      operationId: gym_equipment_list
+      summary: List gym equipment
+      tags:
+      - equipment
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Equipment'
+          description: ''
+    post:
+      operationId: gym_equipment_create
+      summary: Create gym equipment
+      tags:
+      - equipment
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EquipmentCreateUpdateRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/EquipmentCreateUpdateRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/EquipmentCreateUpdateRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Equipment'
+          description: ''
+  /api/gym/equipment/{id}/:
+    get:
+      operationId: gym_equipment_retrieve
+      summary: Retrieve equipment item
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - equipment
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Equipment'
+          description: ''
+    put:
+      operationId: gym_equipment_update
+      summary: Update equipment item
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - equipment
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EquipmentCreateUpdateRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/EquipmentCreateUpdateRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/EquipmentCreateUpdateRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Equipment'
+          description: ''
+    patch:
+      operationId: gym_equipment_partial_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - gym
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+    delete:
+      operationId: gym_equipment_destroy
+      summary: Delete equipment item
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - equipment
+      security:
+      - jwtAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/gym/equipment/{id}/condition/:
+    post:
+      operationId: gym_equipment_condition_create
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - gym
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+    put:
+      operationId: gym_equipment_condition_update
+      summary: Update condition and log resolution
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - equipment
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateConditionRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/UpdateConditionRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/UpdateConditionRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Equipment'
+          description: ''
+    patch:
+      operationId: gym_equipment_condition_partial_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - gym
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/gym/equipment/{id}/report-issue/:
+    post:
+      operationId: gym_equipment_report_issue_create
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - gym
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+    put:
+      operationId: gym_equipment_report_issue_update
+      summary: Report an issue on equipment
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - equipment
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReportIssueRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/ReportIssueRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/ReportIssueRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MaintenanceLog'
+          description: ''
+    patch:
+      operationId: gym_equipment_report_issue_partial_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - gym
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/gym/equipment/{id}/update-condition/:
+    post:
+      operationId: gym_equipment_update_condition_create
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - gym
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+    put:
+      operationId: gym_equipment_update_condition_update
+      summary: Update condition and log resolution
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - equipment
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateConditionRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/UpdateConditionRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/UpdateConditionRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Equipment'
+          description: ''
+    patch:
+      operationId: gym_equipment_update_condition_partial_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - gym
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/gym/expenses/:
+    get:
+      operationId: gym_expenses_retrieve
+      description: |-
+        List and create expenses for the gym tenant.
+        Restricted to Owner and Manager.
+      tags:
+      - gym
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+    post:
+      operationId: gym_expenses_create
+      description: |-
+        List and create expenses for the gym tenant.
+        Restricted to Owner and Manager.
+      tags:
+      - gym
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/gym/expenses/{id}/void/:
+    post:
+      operationId: gym_expenses_void_create
+      description: |-
+        Void a mistaken expense.
+        Never hard deletes: sets is_void=True, voided_at, voided_by, void_reason.
+        Restricted to Owner and Manager.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - gym
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/gym/export/{export_type}/:
+    get:
+      operationId: gym_export_retrieve
+      description: |-
+        Export gym tenant data as a CSV download.
+
+        Supported export types:
+        - members: Name, Phone, Email, Status, Plan, Start Date, End Date (no health, photos, or measurements)
+        - payments: Receipt Number, Date, Method, Plan, Gross, Credit, Net Received, Upgrade, Status, Bank Ref, Confirmed By
+        - attendance: Date and Time, Member Name, Check-in Method
+      parameters:
+      - in: path
+        name: export_type
+        schema:
+          type: string
+        required: true
+      tags:
+      - gym
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
   /api/gym/freezes/:
     get:
       operationId: gym_freezes_list
@@ -977,6 +1606,25 @@ paths:
       responses:
         '200':
           description: Prerequisites status
+  /api/gym/members/{member_id}/upgrade-quote/:
+    get:
+      operationId: gym_members_upgrade_quote_retrieve
+      description: Staff quote endpoint for calculating member plan upgrade prorated
+        credit before confirmation.
+      parameters:
+      - in: path
+        name: member_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - gym
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
   /api/gym/members/{id}/:
     get:
       operationId: gym_members_retrieve
@@ -1384,6 +2032,49 @@ paths:
                 items:
                   $ref: '#/components/schemas/PublicPlan'
           description: ''
+  /api/gym/notices/:
+    get:
+      operationId: gym_notices_retrieve
+      description: |-
+        List notices for all authenticated gym users (members and staff).
+        Post notice for Owner and Manager only, with optional Telegram channel broadcast.
+      tags:
+      - gym
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+    post:
+      operationId: gym_notices_create
+      description: |-
+        List notices for all authenticated gym users (members and staff).
+        Post notice for Owner and Manager only, with optional Telegram channel broadcast.
+      tags:
+      - gym
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/gym/notices/{id}/:
+    delete:
+      operationId: gym_notices_destroy
+      description: Delete a notice board announcement (Owner and Manager only).
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - gym
+      security:
+      - jwtAuth: []
+      responses:
+        '204':
+          description: No response body
   /api/gym/payment-config/:
     get:
       operationId: gym_payment_config_retrieve
@@ -1805,6 +2496,41 @@ paths:
               schema:
                 $ref: '#/components/schemas/Receipt'
           description: ''
+  /api/gym/reports/attendance/:
+    get:
+      operationId: gym_reports_attendance_retrieve
+      description: |-
+        Attendance summary report:
+        - Total check-ins
+        - Unique members checked in
+        - Method breakdown (QR code vs manual override)
+        - Daily check-in counts
+        Restricted to Owner and Manager.
+      tags:
+      - gym
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/gym/reports/financial/:
+    get:
+      operationId: gym_reports_financial_retrieve
+      description: |-
+        Financial performance report:
+        - Confirmed net revenue (confirmed member payments minus reversals)
+        - Active expenses
+        - Net income (revenue minus expenses)
+        - Category breakdown
+        - Revenue by plan breakdown
+        Restricted to Owner and Manager.
+      tags:
+      - gym
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
   /api/gym/settings/:
     get:
       operationId: gym_settings_retrieve
@@ -1853,6 +2579,18 @@ paths:
         '403':
           description: Forbidden - entitlements restricted to Super Admin or non-Owner
             access
+  /api/gym/settings/telegram/test/:
+    post:
+      operationId: gym_settings_telegram_test_create
+      description: Send a test message to the configured gym Telegram channel (Owner
+        only).
+      tags:
+      - gym
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
   /api/gym/staff/:
     get:
       operationId: gym_staff_list
@@ -2752,6 +3490,18 @@ paths:
           description: ''
         '404':
           description: Payment not found
+  /api/payments/upgrade-quote/:
+    get:
+      operationId: payments_upgrade_quote_retrieve
+      description: Member self-service quote endpoint to calculate plan upgrade prorated
+        credit.
+      tags:
+      - payments
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
   /api/platform/audit-logs/:
     get:
       operationId: platform_audit_logs_list
@@ -3715,6 +4465,34 @@ components:
       - recorded_by_name
       - trainer_name
       - waist_to_hip_ratio
+    CategoryEnum:
+      enum:
+      - barbell
+      - dumbbells
+      - cable_machine
+      - resistance_bands
+      - kettlebells
+      - pull_up_bar
+      - bench
+      - leg_press
+      - squat_rack
+      - cardio_machines
+      - bodyweight
+      - other
+      type: string
+      description: |-
+        * `barbell` - Barbell & Plates
+        * `dumbbells` - Dumbbells
+        * `cable_machine` - Cable Machine
+        * `resistance_bands` - Resistance Bands
+        * `kettlebells` - Kettlebells
+        * `pull_up_bar` - Pull-up Bar
+        * `bench` - Bench
+        * `leg_press` - Leg Press
+        * `squat_rack` - Squat Rack
+        * `cardio_machines` - Cardio Machines
+        * `bodyweight` - Bodyweight / Calisthenics Station
+        * `other` - Other
     ChangePasswordRequestRequest:
       type: object
       description: Payload for changing user password.
@@ -3780,6 +4558,18 @@ components:
       required:
       - completed
       - label
+    ConditionEnum:
+      enum:
+      - good
+      - needs_maintenance
+      - under_maintenance
+      - out_of_service
+      type: string
+      description: |-
+        * `good` - Good
+        * `needs_maintenance` - Needs Maintenance
+        * `under_maintenance` - Under Maintenance
+        * `out_of_service` - Out of Service
     ConfirmTLSResponse:
       type: object
       description: Response returned upon TLS certificate confirmation.
@@ -4060,6 +4850,112 @@ components:
       description: |-
         * `days` - Days
         * `months` - Months
+    Equipment:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        name:
+          type: string
+          maxLength: 100
+        category:
+          $ref: '#/components/schemas/CategoryEnum'
+        serial_number:
+          type: string
+          maxLength: 100
+        quantity:
+          type: integer
+          maximum: 2147483647
+          minimum: 0
+        min_qty_threshold:
+          type: integer
+          maximum: 2147483647
+          minimum: 0
+          nullable: true
+        condition:
+          $ref: '#/components/schemas/ConditionEnum'
+        purchase_date:
+          type: string
+          format: date
+          nullable: true
+        unit_purchase_price_etb:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+          nullable: true
+        branch_id:
+          type: string
+          format: uuid
+          nullable: true
+        is_low_quantity:
+          type: boolean
+          readOnly: true
+        maintenance_logs:
+          type: array
+          items:
+            $ref: '#/components/schemas/MaintenanceLog'
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - category
+      - created_at
+      - id
+      - is_low_quantity
+      - maintenance_logs
+      - name
+      - updated_at
+    EquipmentCreateUpdateRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+        category:
+          $ref: '#/components/schemas/CategoryEnum'
+        serial_number:
+          type: string
+          maxLength: 100
+        quantity:
+          type: integer
+          maximum: 2147483647
+          minimum: 0
+        min_qty_threshold:
+          type: integer
+          maximum: 2147483647
+          minimum: 0
+          nullable: true
+        condition:
+          $ref: '#/components/schemas/ConditionEnum'
+        purchase_date:
+          type: string
+          format: date
+          nullable: true
+        unit_purchase_price_etb:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+          nullable: true
+        branch_id:
+          type: string
+          format: uuid
+          nullable: true
+        record_as_expense:
+          type: boolean
+          writeOnly: true
+          default: false
+      required:
+      - category
+      - name
     FirstRunChecklistResponse:
       type: object
       description: First-run onboarding checklist progress for gym Owner.
@@ -4267,6 +5163,12 @@ components:
         show_unavailable_equipment:
           type: boolean
           readOnly: true
+        is_equipment_list_complete:
+          type: boolean
+          readOnly: true
+        telegram_channel:
+          type: string
+          readOnly: true
         first_run_dismissed_at:
           type: string
           format: date-time
@@ -4282,11 +5184,13 @@ components:
       - has_group_classes
       - has_multi_branch
       - has_trainer_module
+      - is_equipment_list_complete
       - logo
       - member_reminder_days
       - payment_grace_days
       - show_unavailable_equipment
       - subscription_reminder_days
+      - telegram_channel
       - tier
     GymDetailResponse:
       type: object
@@ -4311,6 +5215,9 @@ components:
         is_verified:
           type: boolean
           readOnly: true
+        is_enabled:
+          type: boolean
+          readOnly: true
         verified_at:
           type: string
           format: date-time
@@ -4331,14 +5238,19 @@ components:
         detected_mode:
           type: string
           readOnly: true
+        unfinished_online_payments:
+          type: integer
+          readOnly: true
       required:
       - detected_mode
       - has_secret_key
       - has_webhook_secret
       - is_configured
+      - is_enabled
       - is_test_mode
       - is_verified
       - masked_public_key
+      - unfinished_online_payments
       - use_mock
       - verified_at
     GymPublicEntryResponse:
@@ -4369,6 +5281,9 @@ components:
         message:
           type: string
         online_payment_verified:
+          type: boolean
+          default: false
+        has_group_classes:
           type: boolean
           default: false
       required:
@@ -4516,6 +5431,18 @@ components:
       required:
       - detail
       - user
+    IssueReasonEnum:
+      enum:
+      - broken
+      - worn_out
+      - noisy_unsafe
+      - other
+      type: string
+      description: |-
+        * `broken` - Broken
+        * `worn_out` - Worn out
+        * `noisy_unsafe` - Noisy or unsafe
+        * `other` - Other
     LoginRequestRequest:
       type: object
       description: Payload for user authentication.
@@ -4558,6 +5485,59 @@ components:
           minLength: 1
       required:
       - refresh
+    MaintenanceLog:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        equipment:
+          type: string
+          format: uuid
+        reported_by:
+          type: string
+          format: uuid
+          readOnly: true
+          nullable: true
+        reported_by_name:
+          type: string
+          readOnly: true
+        issue_reason:
+          $ref: '#/components/schemas/IssueReasonEnum'
+        other_details:
+          type: string
+          maxLength: 200
+        reported_at:
+          type: string
+          format: date-time
+          readOnly: true
+        resolved_at:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+        resolved_by:
+          type: string
+          format: uuid
+          readOnly: true
+          nullable: true
+        resolved_by_name:
+          type: string
+          readOnly: true
+        resolution_notes:
+          type: string
+          maxLength: 500
+      required:
+      - equipment
+      - id
+      - issue_reason
+      - reported_at
+      - reported_by
+      - reported_by_name
+      - resolved_at
+      - resolved_by
+      - resolved_by_name
     ManualReassignRequestRequest:
       type: object
       properties:
@@ -4723,7 +5703,18 @@ components:
         is_on_trainer_plan:
           type: boolean
           readOnly: true
+        active_subscription:
+          type: string
+          readOnly: true
+        queued_subscription:
+          type: string
+          readOnly: true
+        active_freeze:
+          type: string
+          readOnly: true
       required:
+      - active_freeze
+      - active_subscription
       - assigned_trainer
       - body_metrics
       - email
@@ -4733,6 +5724,7 @@ components:
       - joined_at
       - latest_metrics
       - phone
+      - queued_subscription
       - status
       - waiver_accepted_at
     MemberFreeze:
@@ -4915,6 +5907,18 @@ components:
           type: string
           format: decimal
           pattern: ^-?\d{0,10}(?:\.\d{0,2})?$
+        gross_amount_etb:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,10}(?:\.\d{0,2})?$
+          nullable: true
+        credit_amount_etb:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,10}(?:\.\d{0,2})?$
+        is_upgrade:
+          type: boolean
+          default: false
         currency:
           type: string
         status:
@@ -5232,6 +6236,8 @@ components:
       type: object
       description: Input serializer for gym owner configuring Chapa credentials.
       properties:
+        is_enabled:
+          type: boolean
         public_key:
           type: string
           writeOnly: true
@@ -5257,6 +6263,12 @@ components:
           maxLength: 7
         show_unavailable_equipment:
           type: boolean
+        is_equipment_list_complete:
+          type: boolean
+        telegram_channel:
+          type: string
+          nullable: true
+          maxLength: 33
         member_reminder_days:
           type: array
           items:
@@ -5604,6 +6616,20 @@ components:
           format: decimal
           pattern: ^-?\d{0,10}(?:\.\d{0,2})?$
           readOnly: true
+        gross_amount_etb:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,10}(?:\.\d{0,2})?$
+          readOnly: true
+          nullable: true
+        credit_amount_etb:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,10}(?:\.\d{0,2})?$
+          readOnly: true
+        is_upgrade:
+          type: boolean
+          readOnly: true
         currency:
           type: string
           readOnly: true
@@ -5651,11 +6677,14 @@ components:
       required:
       - amount_etb
       - bank_reference
+      - credit_amount_etb
       - currency
+      - gross_amount_etb
       - gym_name
       - gym_subdomain
       - id
       - is_reversed
+      - is_upgrade
       - issued_at
       - issued_by_id
       - issued_by_name
@@ -5881,6 +6910,18 @@ components:
           maxLength: 200
       required:
       - rejection_reasons
+    ReportIssueRequest:
+      type: object
+      properties:
+        issue_reason:
+          type: string
+          minLength: 1
+        other_details:
+          type: string
+          default: ''
+          maxLength: 200
+      required:
+      - issue_reason
     ReverseBankTransferRequest:
       type: object
       description: Owner reversal request with mandatory reason.
@@ -6324,6 +7365,9 @@ components:
         generated_by_model:
           type: string
           readOnly: true
+        equipment_source:
+          type: string
+          readOnly: true
         plan_data:
           readOnly: true
         focus_this_week:
@@ -6381,6 +7425,7 @@ components:
       - can_reject
       - created_at
       - draft_number
+      - equipment_source
       - focus_this_week
       - generated_by_model
       - has_medical_caution
@@ -6496,6 +7541,17 @@ components:
       - member_phone
       - receipt_number
       - transfer_date
+    UpdateConditionRequest:
+      type: object
+      properties:
+        condition:
+          $ref: '#/components/schemas/ConditionEnum'
+        resolution_notes:
+          type: string
+          default: ''
+          maxLength: 500
+      required:
+      - condition
     UploadGymLogoRequest:
       type: object
       description: Upload serializer for gym logo.

@@ -36,11 +36,13 @@ export function formatApiErrorMessage(
     }
     if ("reason" in dataObj && dataObj.reason) {
       if (typeof dataObj.reason === "string") return dataObj.reason;
-      if (Array.isArray(dataObj.reason)) return dataObj.reason.map(String).join(" ");
+      if (Array.isArray(dataObj.reason))
+        return dataObj.reason.map(String).join(" ");
     }
     const messages: string[] = [];
     for (const [key, val] of Object.entries(dataObj)) {
-      if (key === "detail" || key === "reason" || key === "rejection_reason") continue;
+      if (key === "detail" || key === "reason" || key === "rejection_reason")
+        continue;
       if (Array.isArray(val)) {
         messages.push(...val.map(String));
       } else if (typeof val === "string") {
@@ -135,7 +137,10 @@ export async function getMyFreezes(): Promise<MemberFreeze[]> {
       ...getAuthHeader(),
     },
   });
-  return handleResponse<MemberFreeze[]>(res, "Failed to fetch your freeze history");
+  return handleResponse<MemberFreeze[]>(
+    res,
+    "Failed to fetch your freeze history"
+  );
 }
 
 /**
@@ -147,7 +152,10 @@ export async function getMemberFreezeAllowance(): Promise<MemberFreezeAllowance>
       ...getAuthHeader(),
     },
   });
-  return handleResponse<MemberFreezeAllowance>(res, "Failed to fetch freeze allowance");
+  return handleResponse<MemberFreezeAllowance>(
+    res,
+    "Failed to fetch freeze allowance"
+  );
 }
 
 /**
@@ -156,13 +164,18 @@ export async function getMemberFreezeAllowance(): Promise<MemberFreezeAllowance>
 export async function getGymFreezes(
   statusFilter?: string
 ): Promise<MemberFreeze[]> {
-  const query = statusFilter ? `?status=${encodeURIComponent(statusFilter)}` : "";
+  const query = statusFilter
+    ? `?status=${encodeURIComponent(statusFilter)}`
+    : "";
   const res = await fetch(`/api/gym/freezes/${query}`, {
     headers: {
       ...getAuthHeader(),
     },
   });
-  return handleResponse<MemberFreeze[]>(res, "Failed to fetch gym freeze requests");
+  return handleResponse<MemberFreeze[]>(
+    res,
+    "Failed to fetch gym freeze requests"
+  );
 }
 
 /**

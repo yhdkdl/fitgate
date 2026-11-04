@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { getMemberProfileMe, type Member } from "../../api/members";
+import { getGymPaymentPublicStatus } from "../../api/payments";
 import { Alert } from "../ui/Alert";
 import { Badge } from "../ui/Badge";
 import { AuthenticatedImage } from "../ui/AuthenticatedImage";
@@ -26,6 +27,8 @@ export const MemberSelfSection: React.FC<MemberSelfSectionProps> = ({
   const [profile, setProfile] = useState<Member | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [onlinePaymentAvailable, setOnlinePaymentAvailable] =
+    useState<boolean>(true);
 
   const fetchProfile = async () => {
     setLoading(true);
@@ -44,6 +47,13 @@ export const MemberSelfSection: React.FC<MemberSelfSectionProps> = ({
 
   useEffect(() => {
     fetchProfile();
+    getGymPaymentPublicStatus()
+      .then((res) => {
+        if (typeof res?.online_payment_verified === "boolean") {
+          setOnlinePaymentAvailable(res.online_payment_verified);
+        }
+      })
+      .catch(() => {});
   }, []);
 
   if (loading) {
@@ -123,7 +133,10 @@ export const MemberSelfSection: React.FC<MemberSelfSectionProps> = ({
 
       {/* Member Subscription Card (Shown on Home and My membership) */}
       {(view === "home" || view === "membership" || view === "all") && (
-        <MemberSubscriptionCard member={profile} />
+        <MemberSubscriptionCard
+          member={profile}
+          onlinePaymentAvailable={onlinePaymentAvailable}
+        />
       )}
 
       {/* Latest Announcement (Shown on Home) */}
@@ -197,7 +210,9 @@ export const MemberSelfSection: React.FC<MemberSelfSectionProps> = ({
       {profile.is_on_trainer_plan && (view === "home" || view === "all") && (
         <MemberApprovedPlanCard
           hasAssignedTrainer={Boolean(profile.assigned_trainer)}
-          isActiveTrainerPlan={Boolean(profile.is_on_trainer_plan && profile.status === "active")}
+          isActiveTrainerPlan={Boolean(
+            profile.is_on_trainer_plan && profile.status === "active"
+          )}
         />
       )}
 

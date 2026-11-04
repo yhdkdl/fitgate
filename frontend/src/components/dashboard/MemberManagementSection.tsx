@@ -137,7 +137,10 @@ export const MemberManagementSection: React.FC<Props> = ({
   const canRegister =
     userRole === "owner" || userRole === "manager" || userRole === "reception";
   const canExport =
-    userRole === "owner" || userRole === "manager" || user?.role === "owner" || user?.role === "manager";
+    userRole === "owner" ||
+    userRole === "manager" ||
+    user?.role === "owner" ||
+    user?.role === "manager";
   const [showExportModal, setShowExportModal] = useState(false);
 
   const fetchMembers = useCallback(async () => {
@@ -609,13 +612,24 @@ export const MemberManagementSection: React.FC<Props> = ({
       setUnfreezeMessage(null);
       setUnfreezeError(null);
       const res = await endMemberFreezeEarly(selectedMember.id);
-      setUnfreezeMessage(res.detail || "Membership freeze ended early successfully.");
-      setSelectedMember((prev) => (prev ? { ...prev, status: "active" } : null));
+      setUnfreezeMessage(
+        res.detail || "Membership freeze ended early successfully."
+      );
+      setSelectedMember((prev) =>
+        prev ? { ...prev, status: "active" } : null
+      );
       await fetchMembers();
     } catch (err: unknown) {
-      const errObj = err as { detail?: string; message?: string; data?: { detail?: string } };
+      const errObj = err as {
+        detail?: string;
+        message?: string;
+        data?: { detail?: string };
+      };
       setUnfreezeError(
-        errObj?.detail || errObj?.data?.detail || errObj?.message || "Failed to end freeze early."
+        errObj?.detail ||
+          errObj?.data?.detail ||
+          errObj?.message ||
+          "Failed to end freeze early."
       );
     } finally {
       setUnfreezingMember(false);
@@ -668,28 +682,28 @@ export const MemberManagementSection: React.FC<Props> = ({
             <Button
               size="md"
               onClick={() => {
-              setRegIdempotencyKey(crypto.randomUUID());
-              setRegPaymentMethod("none");
-              setRegPlanId("");
-              setRegBankReference("");
-              setRegScreenshot(null);
-              setRegNotes("");
-              setShowRegisterModal(true);
-              setRegError(null);
-              setRegSuccess(null);
-              getMembershipPlans()
-                .then((data) => {
-                  const active = (data || []).filter((p) => p.is_active);
-                  setPlans(active);
-                  if (active.length > 0) setRegPlanId(active[0].id);
-                })
-                .catch(() => {});
-            }}
-            className="self-start sm:self-center min-h-[44px]"
-          >
-            + Register Member
-          </Button>
-        )}
+                setRegIdempotencyKey(crypto.randomUUID());
+                setRegPaymentMethod("none");
+                setRegPlanId("");
+                setRegBankReference("");
+                setRegScreenshot(null);
+                setRegNotes("");
+                setShowRegisterModal(true);
+                setRegError(null);
+                setRegSuccess(null);
+                getMembershipPlans()
+                  .then((data) => {
+                    const active = (data || []).filter((p) => p.is_active);
+                    setPlans(active);
+                    if (active.length > 0) setRegPlanId(active[0].id);
+                  })
+                  .catch(() => {});
+              }}
+              className="self-start sm:self-center min-h-[44px]"
+            >
+              + Register Member
+            </Button>
+          )}
         </div>
       </div>
 
@@ -1511,8 +1525,9 @@ export const MemberManagementSection: React.FC<Props> = ({
                       Membership Freeze
                     </h4>
                     <p className="text-xs text-text-muted mt-0.5">
-                      This member is currently frozen. Ending the freeze early will
-                      immediately reactivate their pass and restore unused days to their allowance.
+                      This member is currently frozen. Ending the freeze early
+                      will immediately reactivate their pass and restore unused
+                      days to their allowance.
                     </p>
                   </div>
                   <Button

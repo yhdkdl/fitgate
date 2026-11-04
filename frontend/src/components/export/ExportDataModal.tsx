@@ -28,8 +28,8 @@ export const ExportDataModal: React.FC<ExportDataModalProps> = ({
     (exportType === "members"
       ? "Export Members CSV"
       : exportType === "payments"
-      ? "Export Payments CSV"
-      : "Export Attendance CSV");
+        ? "Export Payments CSV"
+        : "Export Attendance CSV");
 
   const getDescription = () => {
     switch (exportType) {
@@ -94,11 +94,7 @@ export const ExportDataModal: React.FC<ExportDataModalProps> = ({
   return (
     <Modal isOpen={isOpen} onClose={onClose} title={displayTitle}>
       <form onSubmit={handleDownload} className="space-y-4">
-        {errorMessage && (
-          <Alert variant="danger">
-            {errorMessage}
-          </Alert>
-        )}
+        {errorMessage && <Alert variant="danger">{errorMessage}</Alert>}
 
         <p className="text-sm text-gray-600 dark:text-gray-300">
           {getDescription()}

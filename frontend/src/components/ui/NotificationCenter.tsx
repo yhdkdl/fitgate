@@ -194,7 +194,9 @@ export const NotificationCenter: React.FC = () => {
                     />
                   </svg>
                 </div>
-                <p className="text-sm font-medium text-text">No notifications</p>
+                <p className="text-sm font-medium text-text">
+                  No notifications
+                </p>
                 <p className="text-xs mt-0.5">You're all caught up!</p>
               </div>
             ) : (

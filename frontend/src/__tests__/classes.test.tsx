@@ -4,7 +4,11 @@ import { ClassScheduleSection } from "../components/classes/ClassScheduleSection
 import * as classesApi from "../api/classes";
 import * as trainersApi from "../api/trainers";
 import * as membersApi from "../api/members";
-import type { ClassSession, ClassBooking, ClassRosterResponse } from "../types/classes";
+import type {
+  ClassSession,
+  ClassBooking,
+  ClassRosterResponse,
+} from "../types/classes";
 
 const mockClasses: ClassSession[] = [
   {
@@ -57,7 +61,9 @@ const mockBookings: ClassBooking[] = [
     id: "booking-1",
     session: "session-1",
     session_title: "Yoga",
-    session_start_time: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(), // > 2h
+    session_start_time: new Date(
+      Date.now() + 24 * 60 * 60 * 1000
+    ).toISOString(), // > 2h
     session_end_time: new Date(Date.now() + 25 * 60 * 60 * 1000).toISOString(),
     session_duration_minutes: 60,
     session_status: "scheduled",
@@ -80,7 +86,9 @@ const mockBookings: ClassBooking[] = [
     session: "session-2",
     session_title: "Spinning",
     session_start_time: new Date(Date.now() + 1 * 60 * 60 * 1000).toISOString(), // < 2h
-    session_end_time: new Date(Date.now() + 1.75 * 60 * 60 * 1000).toISOString(),
+    session_end_time: new Date(
+      Date.now() + 1.75 * 60 * 60 * 1000
+    ).toISOString(),
     session_duration_minutes: 45,
     session_status: "scheduled",
     trainer_name: "Dawit Trainer",
@@ -194,7 +202,9 @@ describe("ClassScheduleSection", () => {
     const cancelBtn2 = screen.getByTestId("btn-cancel-booking-tab-booking-2");
     expect(cancelBtn2).toBeDisabled();
     expect(
-      screen.getByText("Bookings can only be cancelled up to 2 hours before the class begins.")
+      screen.getByText(
+        "Bookings can only be cancelled up to 2 hours before the class begins."
+      )
     ).toBeInTheDocument();
   });
 
@@ -234,14 +244,18 @@ describe("ClassScheduleSection", () => {
     render(<ClassScheduleSection userRole="reception" />);
 
     await waitFor(() => {
-      expect(screen.getByTestId("btn-reception-book-session-1")).toBeInTheDocument();
+      expect(
+        screen.getByTestId("btn-reception-book-session-1")
+      ).toBeInTheDocument();
     });
 
     // Open booking modal
     fireEvent.click(screen.getByTestId("btn-reception-book-session-1"));
 
     await waitFor(() => {
-      expect(screen.getByTestId("input-search-member-for-class")).toBeInTheDocument();
+      expect(
+        screen.getByTestId("input-search-member-for-class")
+      ).toBeInTheDocument();
     });
 
     // Type member name
@@ -250,7 +264,9 @@ describe("ClassScheduleSection", () => {
     });
 
     await waitFor(() => {
-      expect(screen.getByTestId("member-search-row-member-abc")).toBeInTheDocument();
+      expect(
+        screen.getByTestId("member-search-row-member-abc")
+      ).toBeInTheDocument();
     });
 
     // Select member and confirm booking
@@ -258,7 +274,10 @@ describe("ClassScheduleSection", () => {
     fireEvent.click(screen.getByTestId("btn-confirm-staff-booking"));
 
     await waitFor(() => {
-      expect(classesApi.bookClass).toHaveBeenCalledWith("session-1", "member-abc");
+      expect(classesApi.bookClass).toHaveBeenCalledWith(
+        "session-1",
+        "member-abc"
+      );
     });
   });
 });

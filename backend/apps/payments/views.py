@@ -75,6 +75,39 @@ class CanInitiateCheckout(BasePermission):
         return request.user.role == User.ROLE_MEMBER
 
 
+class CanManageGymPaymentConfig(BasePermission):
+    """
+    Grants access to Gym Owner of the active tenant, or Super Admin (for switch toggle only).
+    Super Admin cannot read keys or set credentials on tenant endpoint (403 on GET/keys).
+    Managers, Receptionists, Trainers, Members, and cross-tenants receive 403 Forbidden.
+    """
+
+    def has_permission(self, request, view):
+        if not request.user or not request.user.is_authenticated:
+            return False
+        tenant = getattr(request, "tenant", None)
+        if not tenant:
+            return False
+        if getattr(request.user, "role", None) == User.ROLE_SUPER_ADMIN or getattr(
+            request.user, "is_superuser", False
+        ):
+            # Super Admin can toggle is_enabled, but cannot read or set credentials on tenant endpoint
+            if (
+                request.method in ("PUT", "PATCH")
+                and "is_enabled" in request.data
+                and not any(
+                    k in request.data
+                    for k in ("public_key", "secret_key", "webhook_secret")
+                )
+            ):
+                return True
+            return False
+        return (
+            getattr(request.user, "gym_id", None) == tenant.id
+            and getattr(request.user, "role", None) == User.ROLE_OWNER
+        )
+
+
 class GymPaymentConfigView(APIView):
     """
     Manage payment gateway credentials for the active gym.
@@ -113,6 +146,36 @@ class GymPaymentConfigView(APIView):
 
         data = serializer.validated_data
         updated = False
+
+        if "is_enabled" in data:
+            new_is_enabled = data["is_enabled"]
+            if new_is_enabled and not config.is_verified:
+                return Response(
+                    {"detail": "Verify your Chapa connection first."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            if config.is_enabled != new_is_enabled:
+                old_is_enabled = config.is_enabled
+                config.is_enabled = new_is_enabled
+                updated = True
+                unfinished_count = Payment.objects.filter(
+                    gym=gym,
+                    method=Payment.METHOD_CHAPA,
+                    status=Payment.STATUS_PENDING,
+                ).count()
+                record_audit_log(
+                    actor=request.user,
+                    gym=gym,
+                    action_type="online_payments_toggled",
+                    affected_record_type="GymPaymentConfig",
+                    affected_record_id=str(config.id),
+                    metadata={
+                        "from": old_is_enabled,
+                        "to": new_is_enabled,
+                        "unfinished_online_payments": unfinished_count,
+                    },
+                )
+
         if "public_key" in data:
             config.public_key = data["public_key"]
             config.is_verified = False  # requires re-verification
@@ -303,10 +366,15 @@ class ChapaCheckoutView(APIView):
         plan_id = serializer.validated_data["plan_id"]
 
         config = GymPaymentConfig.objects.filter(gym=gym).first()
-        if not config or not config.is_configured or not config.is_verified:
+        if (
+            not config
+            or not config.is_configured
+            or not config.is_verified
+            or not config.is_enabled
+        ):
             return Response(
                 {
-                    "detail": "Online payment is not enabled for this gym. Please pay at the front desk."
+                    "detail": "Online payment is not available at this gym. Please pay at the front desk."
                 },
                 status=status.HTTP_400_BAD_REQUEST,
             )
@@ -632,8 +700,47 @@ class SuperAdminGymPaymentStatusView(APIView):
             "is_configured": bool(config and config.is_configured),
             "is_test_mode": config.is_test_mode if config else True,
             "is_verified": config.is_verified if config else False,
+            "is_enabled": config.is_enabled if config else False,
         }
         return Response(data, status=status.HTTP_200_OK)
+
+    def patch(self, request, gym_id):
+        gym = GymTenant.objects.filter(id=gym_id).first()
+        if not gym:
+            return Response(
+                {"detail": "Gym tenant not found."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+        config, _ = GymPaymentConfig.all_objects.get_or_create(gym=gym)
+        if "is_enabled" in request.data:
+            new_is_enabled = bool(request.data["is_enabled"])
+            if new_is_enabled and not config.is_verified:
+                return Response(
+                    {"detail": "Verify your Chapa connection first."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            if config.is_enabled != new_is_enabled:
+                old_is_enabled = config.is_enabled
+                config.is_enabled = new_is_enabled
+                config.save(update_fields=["is_enabled", "updated_at"])
+                unfinished_count = Payment.objects.filter(
+                    gym=gym,
+                    method=Payment.METHOD_CHAPA,
+                    status=Payment.STATUS_PENDING,
+                ).count()
+                record_audit_log(
+                    actor=request.user,
+                    gym=gym,
+                    action_type="online_payments_toggled",
+                    affected_record_type="GymPaymentConfig",
+                    affected_record_id=str(config.id),
+                    metadata={
+                        "from": old_is_enabled,
+                        "to": new_is_enabled,
+                        "unfinished_online_payments": unfinished_count,
+                    },
+                )
+        return self.get(request, gym_id)
 
 
 class CanRecordCashPayment(BasePermission):
@@ -1354,8 +1461,13 @@ class GymPaymentPublicStatusView(APIView):
                 status=status.HTTP_200_OK,
             )
         config = GymPaymentConfig.all_objects.filter(gym=tenant).first()
-        is_verified = bool(config and config.is_configured and config.is_verified)
-        payload = {"online_payment_verified": is_verified}
+        is_verified = bool(
+            config and config.is_configured and config.is_verified and config.is_enabled
+        )
+        payload = {
+            "online_payment_verified": is_verified,
+            "is_enabled": config.is_enabled if config else False,
+        }
         if hasattr(request, "user") and request.user.is_authenticated:
             payload["use_mock"] = getattr(settings, "CHAPA_USE_MOCK", False)
         return Response(

@@ -11,7 +11,9 @@ export const MemberPaymentHistoryCard: React.FC = () => {
   const [history, setHistory] = useState<MemberPaymentHistoryItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [viewingReceipt, setViewingReceipt] = useState<DigitalReceipt | null>(null);
+  const [viewingReceipt, setViewingReceipt] = useState<DigitalReceipt | null>(
+    null
+  );
   const [receiptLoading, setReceiptLoading] = useState(false);
 
   const handleOpenReceipt = async (receiptRef: string) => {
@@ -103,7 +105,9 @@ export const MemberPaymentHistoryCard: React.FC = () => {
               >
                 {new Date(item.created_at).toLocaleDateString()} • Method:{" "}
                 <span style={{ textTransform: "uppercase", fontWeight: 600 }}>
-                  {item.method === "bank_transfer" ? "Bank Transfer" : item.method}
+                  {item.method === "bank_transfer"
+                    ? "Bank Transfer"
+                    : item.method}
                 </span>
                 {item.bank_reference && (
                   <span
@@ -119,7 +123,9 @@ export const MemberPaymentHistoryCard: React.FC = () => {
                 {item.receipt_number && (
                   <button
                     type="button"
-                    onClick={() => handleOpenReceipt(item.receipt_number || item.id)}
+                    onClick={() =>
+                      handleOpenReceipt(item.receipt_number || item.id)
+                    }
                     disabled={receiptLoading}
                     style={{
                       marginLeft: "8px",

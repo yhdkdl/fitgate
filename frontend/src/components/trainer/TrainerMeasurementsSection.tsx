@@ -112,27 +112,30 @@ export const TrainerMeasurementsSection: React.FC = () => {
     setCorrectingMetricId(null);
   }, []);
 
-  const handleSelectMember = useCallback(async (member: Member) => {
-    setSelectedMember(member);
-    setMetricsLoading(true);
-    setMetricsError(null);
-    setFormSuccess(null);
-    setFormError(null);
-    clearForm();
+  const handleSelectMember = useCallback(
+    async (member: Member) => {
+      setSelectedMember(member);
+      setMetricsLoading(true);
+      setMetricsError(null);
+      setFormSuccess(null);
+      setFormError(null);
+      clearForm();
 
-    try {
-      const metrics = await getMemberMetrics(member.id);
-      setMetricsHistory(metrics);
-    } catch (err: unknown) {
-      setMetricsError(
-        err instanceof Error
-          ? err.message
-          : "Failed to load member measurement history."
-      );
-    } finally {
-      setMetricsLoading(false);
-    }
-  }, [clearForm]);
+      try {
+        const metrics = await getMemberMetrics(member.id);
+        setMetricsHistory(metrics);
+      } catch (err: unknown) {
+        setMetricsError(
+          err instanceof Error
+            ? err.message
+            : "Failed to load member measurement history."
+        );
+      } finally {
+        setMetricsLoading(false);
+      }
+    },
+    [clearForm]
+  );
 
   useEffect(() => {
     fetchMembers("");
@@ -140,7 +143,11 @@ export const TrainerMeasurementsSection: React.FC = () => {
     const params = new URLSearchParams(window.location.search);
     const mId = params.get("memberId");
     const tab = params.get("tab");
-    if (tab === "training_plans" || tab === "fitness_profile" || tab === "measurements") {
+    if (
+      tab === "training_plans" ||
+      tab === "fitness_profile" ||
+      tab === "measurements"
+    ) {
       setActiveTab(tab);
     }
     if (mId) {
