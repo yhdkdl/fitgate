@@ -234,11 +234,10 @@ export const ReceiptReviewQueueSection: React.FC = () => {
                             Receipt Shows Amount:
                           </span>
                           <span
-                            className={`font-bold ${
-                              verifierAmount === item.expected_amount_etb
-                                ? "text-success"
-                                : "text-danger"
-                            }`}
+                            className={`font-bold ${verifierAmount === item.expected_amount_etb
+                              ? "text-success"
+                              : "text-danger"
+                              }`}
                           >
                             {verifierAmount
                               ? `${verifierAmount} ETB`
@@ -289,7 +288,7 @@ export const ReceiptReviewQueueSection: React.FC = () => {
                       onClick={() =>
                         setSelectedPhotoUrl(
                           item.screenshot_url ||
-                            `/api/gym/payments/bank-transfers/${item.id}/screenshot/`
+                          `/api/gym/payments/bank-transfers/${item.id}/screenshot/`
                         )
                       }
                     >

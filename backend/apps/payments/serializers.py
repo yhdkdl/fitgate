@@ -304,6 +304,10 @@ class RecordCashPaymentResponseSerializer(serializers.Serializer):
 class GymReceivingAccountSerializer(serializers.ModelSerializer):
     """Serializer for gym receiving bank accounts (max 5 per gym)."""
 
+    account_holder_name = serializers.CharField(
+        source="account_name", required=False, allow_blank=True
+    )
+
     class Meta:
         model = GymReceivingAccount
         fields = [
@@ -311,6 +315,7 @@ class GymReceivingAccountSerializer(serializers.ModelSerializer):
             "bank",
             "account_number",
             "account_name",
+            "account_holder_name",
             "is_active",
             "created_at",
             "updated_at",
@@ -318,6 +323,11 @@ class GymReceivingAccountSerializer(serializers.ModelSerializer):
         read_only_fields = ["id", "created_at", "updated_at"]
 
     def validate(self, attrs):
+        # Support account_holder_name as alias for account_name
+        name = attrs.get("account_name", "") or attrs.get("account_holder_name", "")
+        if name:
+            attrs["account_name"] = name.strip()
+
         instance = GymReceivingAccount(
             gym=self.context.get("gym"),
             bank=attrs.get("bank", getattr(self.instance, "bank", None)),

@@ -172,6 +172,7 @@ export const PaymentGatewaySection: React.FC<PaymentGatewaySectionProps> = ({
       await createGymReceivingAccount({
         bank: newBank,
         account_number: accNum,
+        account_name: newAccountHolderName.trim() || undefined,
         account_holder_name: newAccountHolderName.trim() || undefined,
       });
       setNewAccountNumber("");
@@ -709,7 +710,7 @@ export const PaymentGatewaySection: React.FC<PaymentGatewaySectionProps> = ({
                         {acc.account_number}
                       </td>
                       <td className="py-2.5 px-3 text-text-muted">
-                        {acc.account_holder_name || "—"}
+                        {acc.account_name || acc.account_holder_name || "—"}
                       </td>
                       <td className="py-2.5 px-3 text-right">
                         <Button

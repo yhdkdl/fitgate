@@ -354,7 +354,8 @@ export interface GymReceivingAccount {
   id: string;
   bank: string;
   account_number: string;
-  account_holder_name: string;
+  account_name?: string;
+  account_holder_name?: string;
   is_active: boolean;
   created_at: string;
 }
@@ -368,6 +369,7 @@ export async function getGymReceivingAccounts(): Promise<
 export async function createGymReceivingAccount(data: {
   bank: string;
   account_number: string;
+  account_name?: string;
   account_holder_name?: string;
 }): Promise<GymReceivingAccount> {
   return apiFetch<GymReceivingAccount>("/api/gym/receiving-accounts/", {
