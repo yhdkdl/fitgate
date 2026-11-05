@@ -108,6 +108,10 @@ def get_gym_analytics_overview(tenant: GymTenant) -> Dict[str, Any]:
 
     # 5. Premium analytics (Revenue by plan) - Gated by has_analytics
     config = getattr(tenant, "config", None)
+    if config is None:
+        from apps.tenants.models import GymConfig
+
+        config = GymConfig.objects.filter(gym_id=tenant.id).first()
     has_analytics = bool(config and getattr(config, "has_analytics", False))
 
     revenue_by_plan: Optional[List[Dict[str, Any]]] = None

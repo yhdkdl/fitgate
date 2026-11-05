@@ -16,8 +16,13 @@ from apps.tenants.views import (
     GymNoticeDetailView,
     GymNoticeListCreateView,
     GymPublicEntryView,
+    GymReinstateView,
     GymSettingsView,
+    GymTerminateView,
+    PlatformAnalyticsOverviewView,
     PlatformGymConfigView,
+    PlatformNoticeDetailView,
+    PlatformNoticeListCreateView,
     ProposeSubdomainView,
     PublicDemoRequestView,
     ServeMemberPhotoView,
@@ -42,6 +47,31 @@ urlpatterns = [
         "api/platform/gyms/<uuid:gym_id>/confirm-tls/",
         ConfirmGymTLSView.as_view(),
         name="platform-gym-confirm-tls",
+    ),
+    path(
+        "api/platform/gyms/<uuid:gym_id>/terminate/",
+        GymTerminateView.as_view(),
+        name="platform-gym-terminate",
+    ),
+    path(
+        "api/platform/gyms/<uuid:gym_id>/reinstate/",
+        GymReinstateView.as_view(),
+        name="platform-gym-reinstate",
+    ),
+    path(
+        "api/platform/notices/",
+        PlatformNoticeListCreateView.as_view(),
+        name="platform-notices-list-create",
+    ),
+    path(
+        "api/platform/notices/<uuid:pk>/",
+        PlatformNoticeDetailView.as_view(),
+        name="platform-notices-detail",
+    ),
+    path(
+        "api/platform/analytics/overview/",
+        PlatformAnalyticsOverviewView.as_view(),
+        name="platform-analytics-overview",
     ),
     # Demo Requests (Sprint 4a)
     path(

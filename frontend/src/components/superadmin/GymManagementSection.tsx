@@ -3,11 +3,15 @@ import {
   confirmGymTls,
   createGym,
   getGymSettings,
+  getPlatformAnalyticsOverview,
   listGyms,
   proposeSubdomain,
+  reinstateGym,
+  terminateGym,
   updateGymSettings,
   type CreateGymResponse,
   type GymTenantSummary,
+  type PlatformAnalyticsOverview,
 } from "../../api/gyms";
 import { Alert } from "../ui/Alert";
 import { Badge } from "../ui/Badge";
@@ -78,6 +82,21 @@ export const GymManagementSection: React.FC<GymManagementSectionProps> = ({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [confirmingId, setConfirmingId] = useState<string | null>(null);
 
+  // Overview metrics state
+  const [metrics, setMetrics] = useState<PlatformAnalyticsOverview | null>(null);
+
+  // Terminate & Reinstate modal states
+  const [terminatingGym, setTerminatingGym] =
+    useState<GymTenantSummary | null>(null);
+  const [terminateInput, setTerminateInput] = useState("");
+  const [isTerminating, setIsTerminating] = useState(false);
+  const [terminateError, setTerminateError] = useState<string | null>(null);
+  const [reinstatingGym, setReinstatingGym] =
+    useState<GymTenantSummary | null>(null);
+  const [reinsetInput, setReinsetInput] = useState("");
+  const [isReinstating, setIsReinstating] = useState(false);
+  const [reinstateError, setReinstateError] = useState<string | null>(null);
+
   // Config modal states
   const [selectedGymForConfig, setSelectedGymForConfig] =
     useState<GymTenantSummary | null>(null);
@@ -85,6 +104,7 @@ export const GymManagementSection: React.FC<GymManagementSectionProps> = ({
   const [hasTrainerModule, setHasTrainerModule] = useState(false);
   const [hasAiPlans, setHasAiPlans] = useState(false);
   const [hasAnalytics, setHasAnalytics] = useState(false);
+  const [hasGroupClasses, setHasGroupClasses] = useState(false);
   const [freezeDaysCap, setFreezeDaysCap] = useState<number>(30);
   const [paymentGraceDays, setPaymentGraceDays] = useState<number>(7);
   const [subReminderFirst, setSubReminderFirst] = useState<string>("14");
@@ -105,6 +125,7 @@ export const GymManagementSection: React.FC<GymManagementSectionProps> = ({
       setHasTrainerModule(Boolean(cfg.has_trainer_module));
       setHasAiPlans(Boolean(cfg.has_ai_plans));
       setHasAnalytics(Boolean(cfg.has_analytics));
+      setHasGroupClasses(Boolean(cfg.has_group_classes));
       setFreezeDaysCap(
         cfg.freeze_days_cap !== undefined ? cfg.freeze_days_cap : 30
       );
@@ -120,6 +141,7 @@ export const GymManagementSection: React.FC<GymManagementSectionProps> = ({
       setHasTrainerModule(false);
       setHasAiPlans(false);
       setHasAnalytics(false);
+      setHasGroupClasses(false);
       setFreezeDaysCap(30);
       setPaymentGraceDays(7);
       setSubReminderFirst("14");
@@ -158,6 +180,7 @@ export const GymManagementSection: React.FC<GymManagementSectionProps> = ({
         has_trainer_module: hasTrainerModule,
         has_ai_plans: hasAiPlans,
         has_analytics: hasAnalytics,
+        has_group_classes: hasGroupClasses,
         freeze_days_cap: Number(freezeDaysCap),
         payment_grace_days: Number(paymentGraceDays),
         subscription_reminder_days: reminderParts,
@@ -177,6 +200,62 @@ export const GymManagementSection: React.FC<GymManagementSectionProps> = ({
       );
     } finally {
       setSavingConfig(false);
+    }
+  };
+
+  const handleTerminateGym = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!terminatingGym) return;
+    if (
+      terminateInput.trim().toLowerCase() !==
+      terminatingGym.subdomain.toLowerCase()
+    ) {
+      setTerminateError("Subdomain confirmation does not match.");
+      return;
+    }
+    setIsTerminating(true);
+    setTerminateError(null);
+    try {
+      await terminateGym(
+        terminatingGym.id,
+        terminateInput.trim().toLowerCase()
+      );
+      setTerminatingGym(null);
+      setTerminateInput("");
+      await fetchGyms();
+    } catch (err: unknown) {
+      const errObj = err as { message?: string };
+      setTerminateError(errObj.message || "Failed to terminate gym.");
+    } finally {
+      setIsTerminating(false);
+    }
+  };
+
+  const handleReinstateGym = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!reinstatingGym) return;
+    if (
+      reinsetInput.trim().toLowerCase() !==
+      reinstatingGym.subdomain.toLowerCase()
+    ) {
+      setReinstateError("Subdomain confirmation does not match.");
+      return;
+    }
+    setIsReinstating(true);
+    setReinstateError(null);
+    try {
+      await reinstateGym(
+        reinstatingGym.id,
+        reinsetInput.trim().toLowerCase()
+      );
+      setReinstatingGym(null);
+      setReinsetInput("");
+      await fetchGyms();
+    } catch (err: unknown) {
+      const errObj = err as { message?: string };
+      setReinstateError(errObj.message || "Failed to reinstate gym.");
+    } finally {
+      setIsReinstating(false);
     }
   };
 
@@ -209,8 +288,12 @@ export const GymManagementSection: React.FC<GymManagementSectionProps> = ({
   const fetchGyms = async () => {
     setIsLoading(true);
     try {
-      const data = await listGyms();
+      const [data, stats] = await Promise.all([
+        listGyms(),
+        getPlatformAnalyticsOverview().catch(() => null),
+      ]);
       setGyms(data);
+      if (stats) setMetrics(stats);
     } catch {
       // ignore
     } finally {
@@ -396,6 +479,28 @@ export const GymManagementSection: React.FC<GymManagementSectionProps> = ({
         </Button>
       </div>
 
+      {/* Platform Analytics Metrics */}
+      {metrics && (
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+          <Card className="p-4 text-center">
+            <div className="text-2xl font-bold text-success">{metrics.active_gyms}</div>
+            <div className="text-xs text-text-muted mt-1">Active Gyms</div>
+          </Card>
+          <Card className="p-4 text-center">
+            <div className="text-2xl font-bold text-warning">{metrics.suspended_gyms}</div>
+            <div className="text-xs text-text-muted mt-1">Suspended</div>
+          </Card>
+          <Card className="p-4 text-center">
+            <div className="text-2xl font-bold text-danger">{metrics.terminated_gyms}</div>
+            <div className="text-xs text-text-muted mt-1">Terminated</div>
+          </Card>
+          <Card className="p-4 text-center">
+            <div className="text-2xl font-bold text-primary">ETB {metrics.platform_revenue_etb}</div>
+            <div className="text-xs text-text-muted mt-1">Platform Revenue</div>
+          </Card>
+        </div>
+      )}
+
       {createSuccess && (
         <Alert variant="success" className="space-y-2">
           <div className="font-semibold text-base">
@@ -489,7 +594,11 @@ export const GymManagementSection: React.FC<GymManagementSectionProps> = ({
                     <td className="px-4 py-3">
                       <Badge
                         variant={
-                          gym.status === "active" ? "success" : "warning"
+                          gym.status === "active"
+                            ? "success"
+                            : gym.status === "terminated"
+                            ? "danger"
+                            : "warning"
                         }
                       >
                         {gym.status}
@@ -527,6 +636,34 @@ export const GymManagementSection: React.FC<GymManagementSectionProps> = ({
                             className="text-xs"
                           >
                             Confirm TLS
+                          </Button>
+                        )}
+                        {gym.status === "suspended" && (
+                          <Button
+                            size="sm"
+                            variant="danger"
+                            onClick={() => {
+                              setTerminatingGym(gym);
+                              setTerminateInput("");
+                              setTerminateError(null);
+                            }}
+                            className="text-xs"
+                          >
+                            Terminate
+                          </Button>
+                        )}
+                        {gym.status === "terminated" && (
+                          <Button
+                            size="sm"
+                            variant="secondary"
+                            onClick={() => {
+                              setReinstatingGym(gym);
+                              setReinsetInput("");
+                              setReinstateError(null);
+                            }}
+                            className="text-xs"
+                          >
+                            Reinstate
                           </Button>
                         )}
                       </div>
@@ -1004,6 +1141,15 @@ export const GymManagementSection: React.FC<GymManagementSectionProps> = ({
                   />
                   <span>Analytics & Reports</span>
                 </label>
+                <label className="flex items-center gap-2 cursor-pointer text-sm text-text">
+                  <input
+                    type="checkbox"
+                    checked={hasGroupClasses}
+                    onChange={(e) => setHasGroupClasses(e.target.checked)}
+                    className="rounded border-border text-primary focus:ring-primary w-4 h-4"
+                  />
+                  <span>Group Classes</span>
+                </label>
               </div>
 
               <div className="pt-4 border-t border-border flex items-center justify-end gap-2">
@@ -1016,6 +1162,92 @@ export const GymManagementSection: React.FC<GymManagementSectionProps> = ({
                 </Button>
                 <Button type="submit" variant="primary" disabled={savingConfig}>
                   {savingConfig ? "Saving..." : "Save Changes"}
+                </Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Reinstate Gym Confirmation Modal */}
+      {reinstatingGym && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+          <div className="bg-surface border border-border rounded-card w-full max-w-md p-6 shadow-2xl">
+            <h3 className="text-lg font-bold text-text mb-2">Reinstate Gym</h3>
+            <p className="text-sm text-text-muted mb-4">
+              This will reinstate{" "}
+              <strong>{reinstatingGym.name}</strong> back to suspended status. Type the subdomain{" "}
+              <code className="font-mono text-primary">{reinstatingGym.subdomain}</code>{" "}
+              to confirm.
+            </p>
+            {reinstateError && (
+              <Alert variant="danger" className="mb-3 text-sm">{reinstateError}</Alert>
+            )}
+            <form onSubmit={handleReinstateGym} className="space-y-4">
+              <Input
+                value={reinsetInput}
+                onChange={(e) => setReinsetInput(e.target.value)}
+                placeholder={reinstatingGym.subdomain}
+                autoFocus
+              />
+              <div className="flex justify-end gap-2">
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={() => setReinstatingGym(null)}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="submit"
+                  variant="primary"
+                  isLoading={isReinstating}
+                  disabled={isReinstating}
+                >
+                  Reinstate Gym
+                </Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Terminate Gym Confirmation Modal */}
+      {terminatingGym && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+          <div className="bg-surface border border-border rounded-card w-full max-w-md p-6 shadow-2xl">
+            <h3 className="text-lg font-bold text-danger mb-2">Terminate Gym</h3>
+            <p className="text-sm text-text-muted mb-4">
+              This will permanently close{" "}
+              <strong>{terminatingGym.name}</strong>. Type the subdomain{" "}
+              <code className="font-mono text-primary">{terminatingGym.subdomain}</code>{" "}
+              to confirm.
+            </p>
+            {terminateError && (
+              <Alert variant="danger" className="mb-3 text-sm">{terminateError}</Alert>
+            )}
+            <form onSubmit={handleTerminateGym} className="space-y-4">
+              <Input
+                value={terminateInput}
+                onChange={(e) => setTerminateInput(e.target.value)}
+                placeholder={terminatingGym.subdomain}
+                autoFocus
+              />
+              <div className="flex justify-end gap-2">
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={() => setTerminatingGym(null)}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="submit"
+                  variant="danger"
+                  isLoading={isTerminating}
+                  disabled={isTerminating}
+                >
+                  Permanently Terminate
                 </Button>
               </div>
             </form>

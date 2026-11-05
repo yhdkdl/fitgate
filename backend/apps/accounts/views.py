@@ -181,6 +181,32 @@ class LoginView(APIView):
 
             return generic_auth_error_response()
 
+        # Check tenant status (terminated / suspended)
+        if getattr(user, "gym", None):
+            gym = user.gym
+            from apps.tenants.models import GymTenant
+
+            if gym.status == GymTenant.STATUS_TERMINATED:
+                return Response(
+                    {"detail": "This gym account has been closed."},
+                    status=status.HTTP_403_FORBIDDEN,
+                )
+
+            if gym.status == GymTenant.STATUS_SUSPENDED:
+                if user.role != User.ROLE_OWNER:
+                    return Response(
+                        {"detail": "This gym account is suspended."},
+                        status=status.HTTP_403_FORBIDDEN,
+                    )
+                # Owner can only log in during 7-day export window
+                if gym.suspended_at and now > (gym.suspended_at + timedelta(days=7)):
+                    return Response(
+                        {
+                            "detail": "The 7-day export window for this suspended gym has expired."
+                        },
+                        status=status.HTTP_403_FORBIDDEN,
+                    )
+
         # 5. Success: reset lockout counters and record login
         with transaction.atomic():
             user.failed_login_count = 0

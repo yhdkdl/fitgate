@@ -44,6 +44,7 @@ class GymTenantSummarySerializer(serializers.ModelSerializer):
             "owner_email",
             "subscription_expires_at",
             "tls_confirmed_at",
+            "suspended_at",
             "created_at",
             "updated_at",
         ]
@@ -462,6 +463,7 @@ class GymPublicEntryResponseSerializer(serializers.Serializer):
 
 class GymNoticeSerializer(serializers.ModelSerializer):
     posted_by_name = serializers.SerializerMethodField(read_only=True)
+    is_platform_wide = serializers.SerializerMethodField(read_only=True)
 
     class Meta:
         from apps.tenants.models import GymNotice
@@ -473,6 +475,7 @@ class GymNoticeSerializer(serializers.ModelSerializer):
             "body",
             "posted_by",
             "posted_by_name",
+            "is_platform_wide",
             "created_at",
             "updated_at",
         ]
@@ -480,14 +483,20 @@ class GymNoticeSerializer(serializers.ModelSerializer):
             "id",
             "posted_by",
             "posted_by_name",
+            "is_platform_wide",
             "created_at",
             "updated_at",
         ]
 
     def get_posted_by_name(self, obj) -> str:
-        if obj.posted_by:
-            return getattr(obj.posted_by, "full_name", "") or obj.posted_by.email
-        return "Gym Staff"
+        if not obj.posted_by:
+            return "FitGate Platform" if not obj.gym_id else "Gym Staff"
+        if getattr(obj.posted_by, "role", None) == "super_admin":
+            return "FitGate Platform"
+        return getattr(obj.posted_by, "full_name", "") or obj.posted_by.email
+
+    def get_is_platform_wide(self, obj) -> bool:
+        return obj.gym_id is None
 
     def validate_title(self, value):
         from apps.core.validators import validate_notice_title

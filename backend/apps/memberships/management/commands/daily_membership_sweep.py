@@ -75,6 +75,9 @@ class Command(BaseCommand):
         # 2. Iterate across gym tenants
         gyms = GymTenant.objects.all().select_related("config")
         for gym in gyms:
+            if gym.status == GymTenant.STATUS_TERMINATED:
+                continue
+
             # Check gym suspension
             is_suspended = (
                 gym.status == GymTenant.STATUS_SUSPENDED or gym.suspended_at is not None

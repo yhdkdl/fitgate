@@ -87,7 +87,7 @@ Sprint 38 is NOT to be started at all. The order is:
 
 ## Current
 
-- Increment 7 Staging Refresh Preparation & Documentation.
+- Sprint 35 (Super Admin dashboard, tier enforcement, platform notices, and gym termination) in progress on branch `feature/sprint-35-super-admin-dashboard`.
 
 ## Open manual steps
 

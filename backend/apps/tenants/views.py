@@ -1,9 +1,11 @@
 import os
+from datetime import timedelta
 
 from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import IntegrityError, transaction
 from django.http import FileResponse, Http404
+from django.utils import timezone
 from drf_spectacular.utils import OpenApiResponse, extend_schema, inline_serializer
 from rest_framework import serializers, status
 from rest_framework.exceptions import PermissionDenied
@@ -1158,6 +1160,9 @@ class GymNoticeListCreateView(APIView):
     permission_classes = [IsAuthenticated, RequirePasswordChanged]
 
     def get(self, request, *args, **kwargs):
+        from django.db.models import Q
+
+        from apps.accounts.models import User
         from apps.tenants.models import GymNotice
         from apps.tenants.serializers import GymNoticeSerializer
 
@@ -1165,7 +1170,13 @@ class GymNoticeListCreateView(APIView):
         if not tenant:
             return Response([], status=status.HTTP_200_OK)
 
-        notices = GymNotice.objects.filter(gym=tenant).order_by("-created_at")
+        # Platform-wide notices (gym=None) appear on every Owner's dashboard
+        if getattr(request.user, "role", None) == User.ROLE_OWNER:
+            notices = GymNotice.all_objects.filter(
+                Q(gym=tenant) | Q(gym__isnull=True)
+            ).order_by("-created_at")
+        else:
+            notices = GymNotice.objects.filter(gym=tenant).order_by("-created_at")
         serializer = GymNoticeSerializer(notices, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
@@ -1244,8 +1255,15 @@ class GymNoticeDetailView(APIView):
             raise PermissionDenied("Only Owner and Manager can delete announcements.")
 
         try:
-            notice = GymNotice.objects.get(id=pk, gym=tenant)
+            notice = GymNotice.all_objects.get(id=pk)
         except GymNotice.DoesNotExist:
+            return Response(
+                {"detail": "Notice not found."}, status=status.HTTP_404_NOT_FOUND
+            )
+
+        if notice.gym is None:
+            raise PermissionDenied("Only Super Admin can delete platform notices.")
+        if notice.gym != tenant:
             return Response(
                 {"detail": "Notice not found."}, status=status.HTTP_404_NOT_FOUND
             )
@@ -1294,4 +1312,288 @@ class TelegramTestMessageView(APIView):
         return Response(
             {"success": success, "detail": note},
             status=status.HTTP_200_OK if success else status.HTTP_400_BAD_REQUEST,
+        )
+
+
+class PlatformNoticeListCreateView(APIView):
+    """
+    Super Admin endpoint to list and post platform-wide announcements.
+    Platform notices have gym=None, appear on every Owner's dashboard,
+    and are never sent to Telegram.
+    """
+
+    permission_classes = [IsAuthenticated, RequirePasswordChanged, IsSuperAdmin]
+
+    def get(self, request, *args, **kwargs):
+        if getattr(request, "tenant", None) is not None:
+            raise PermissionDenied(
+                "Super Admin operations must be performed at the apex platform domain."
+            )
+        from apps.tenants.models import GymNotice
+        from apps.tenants.serializers import GymNoticeSerializer
+
+        notices = GymNotice.objects.filter(gym__isnull=True).order_by("-created_at")
+        serializer = GymNoticeSerializer(notices, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+    def post(self, request, *args, **kwargs):
+        if getattr(request, "tenant", None) is not None:
+            raise PermissionDenied(
+                "Super Admin operations must be performed at the apex platform domain."
+            )
+        from apps.accounts.services import record_audit_log
+        from apps.tenants.models import GymNotice
+        from apps.tenants.serializers import GymNoticeSerializer
+
+        serializer = GymNoticeSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        notice = GymNotice.objects.create(
+            gym=None,
+            posted_by=request.user,
+            title=serializer.validated_data["title"],
+            body=serializer.validated_data["body"],
+        )
+
+        record_audit_log(
+            actor=request.user,
+            action_type="notice_posted",
+            affected_record_type="GymNotice",
+            affected_record_id=str(notice.id),
+            gym=None,
+            metadata={
+                "title": notice.title,
+                "is_platform_wide": True,
+            },
+        )
+
+        data = GymNoticeSerializer(notice).data
+        data["telegram_sent"] = False
+        data["telegram_note"] = "Platform-wide notices are never sent to Telegram."
+        return Response(data, status=status.HTTP_201_CREATED)
+
+
+class PlatformNoticeDetailView(APIView):
+    """Super Admin endpoint to delete a platform-wide notice."""
+
+    permission_classes = [IsAuthenticated, RequirePasswordChanged, IsSuperAdmin]
+
+    def delete(self, request, pk, *args, **kwargs):
+        if getattr(request, "tenant", None) is not None:
+            raise PermissionDenied(
+                "Super Admin operations must be performed at the apex platform domain."
+            )
+        from apps.accounts.services import record_audit_log
+        from apps.tenants.models import GymNotice
+
+        try:
+            notice = GymNotice.objects.get(id=pk, gym__isnull=True)
+        except GymNotice.DoesNotExist:
+            return Response(
+                {"detail": "Platform notice not found."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        title = notice.title
+        notice_id = str(notice.id)
+        notice.delete()
+
+        record_audit_log(
+            actor=request.user,
+            action_type="notice_deleted",
+            affected_record_type="GymNotice",
+            affected_record_id=notice_id,
+            gym=None,
+            metadata={"title": title, "is_platform_wide": True},
+        )
+
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class GymTerminateView(APIView):
+    """
+    Super Admin endpoint to terminate a gym tenant (Sprint 35 Block 3).
+    A gym can move from suspended to terminated only by Super Admin action.
+    Cannot move directly from active to terminated.
+    Requires gym to be currently suspended AND suspension must be at least 7 days old.
+    Requires typing the exact gym subdomain to confirm.
+    """
+
+    permission_classes = [IsAuthenticated, RequirePasswordChanged, IsSuperAdmin]
+
+    def post(self, request, gym_id, *args, **kwargs):
+        if getattr(request, "tenant", None) is not None:
+            raise PermissionDenied(
+                "Super Admin operations must be performed at the apex platform domain."
+            )
+        from apps.accounts.services import record_audit_log
+        from apps.tenants.models import GymTenant
+        from apps.tenants.serializers import GymTenantSummarySerializer
+
+        try:
+            gym = GymTenant.objects.get(id=gym_id)
+        except GymTenant.DoesNotExist:
+            return Response(
+                {"detail": "Gym tenant not found."}, status=status.HTTP_404_NOT_FOUND
+            )
+
+        if gym.status == GymTenant.STATUS_ACTIVE:
+            return Response(
+                {
+                    "detail": "An active gym cannot be terminated directly; it must be suspended first."
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if gym.status != GymTenant.STATUS_SUSPENDED:
+            return Response(
+                {
+                    "detail": f"Only suspended gyms can be terminated (current status: {gym.status})."
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        now = timezone.now()
+        if not gym.suspended_at or now < (gym.suspended_at + timedelta(days=7)):
+            return Response(
+                {
+                    "detail": "Gym suspension must be at least 7 days old before termination."
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        confirmation = (
+            str(request.data.get("subdomain_confirmation") or "").strip().lower()
+        )
+        if confirmation != gym.subdomain.lower():
+            return Response(
+                {
+                    "detail": "Subdomain confirmation does not match the gym's exact subdomain."
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        gym.status = GymTenant.STATUS_TERMINATED
+        gym.save(update_fields=["status", "updated_at"])
+
+        record_audit_log(
+            actor=request.user,
+            action_type="gym_terminated",
+            affected_record_type="GymTenant",
+            affected_record_id=str(gym.id),
+            gym=gym,
+            metadata={"subdomain": gym.subdomain, "name": gym.name},
+        )
+
+        return Response(GymTenantSummarySerializer(gym).data, status=status.HTTP_200_OK)
+
+
+class GymReinstateView(APIView):
+    """
+    Super Admin endpoint to reinstate a terminated gym tenant back to suspended (Sprint 35 Block 3).
+    A terminated gym can be reinstated back to 'suspended' only (never directly to active).
+    From suspended, the existing payment and reactivation flow applies.
+    """
+
+    permission_classes = [IsAuthenticated, RequirePasswordChanged, IsSuperAdmin]
+
+    def post(self, request, gym_id, *args, **kwargs):
+        if getattr(request, "tenant", None) is not None:
+            raise PermissionDenied(
+                "Super Admin operations must be performed at the apex platform domain."
+            )
+        from apps.accounts.services import record_audit_log
+        from apps.tenants.models import GymTenant
+        from apps.tenants.serializers import GymTenantSummarySerializer
+
+        try:
+            gym = GymTenant.objects.get(id=gym_id)
+        except GymTenant.DoesNotExist:
+            return Response(
+                {"detail": "Gym tenant not found."}, status=status.HTTP_404_NOT_FOUND
+            )
+
+        if gym.status != GymTenant.STATUS_TERMINATED:
+            return Response(
+                {
+                    "detail": f"Only terminated gyms can be reinstated (current status: {gym.status})."
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        confirmation = (
+            str(request.data.get("subdomain_confirmation") or "").strip().lower()
+        )
+        if confirmation != gym.subdomain.lower():
+            return Response(
+                {
+                    "detail": "Subdomain confirmation does not match the gym's exact subdomain."
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        gym.status = GymTenant.STATUS_SUSPENDED
+        gym.save(update_fields=["status", "updated_at"])
+
+        record_audit_log(
+            actor=request.user,
+            action_type="gym_reinstated",
+            affected_record_type="GymTenant",
+            affected_record_id=str(gym.id),
+            gym=gym,
+            metadata={
+                "subdomain": gym.subdomain,
+                "name": gym.name,
+                "reinstated_to": "suspended",
+            },
+        )
+
+        return Response(GymTenantSummarySerializer(gym).data, status=status.HTTP_200_OK)
+
+
+class PlatformAnalyticsOverviewView(APIView):
+    """
+    Platform revenue and metrics for Super Admin.
+    Counts confirmed gym_subscription payments only and excludes demo gyms.
+    Excludes demo and terminated gyms from active gym counts.
+    """
+
+    permission_classes = [IsAuthenticated, RequirePasswordChanged, IsSuperAdmin]
+
+    def get(self, request, *args, **kwargs):
+        if getattr(request, "tenant", None) is not None:
+            raise PermissionDenied(
+                "Super Admin operations must be performed at the apex platform domain."
+            )
+        from django.db.models import Sum
+
+        from apps.payments.models import Payment
+        from apps.tenants.models import GymTenant
+
+        # Exclude demo gyms
+        non_demo_gyms = GymTenant.objects.filter(is_demo=False)
+        active_gyms = non_demo_gyms.filter(status=GymTenant.STATUS_ACTIVE).count()
+        suspended_gyms = non_demo_gyms.filter(status=GymTenant.STATUS_SUSPENDED).count()
+        terminated_gyms = non_demo_gyms.filter(
+            status=GymTenant.STATUS_TERMINATED
+        ).count()
+
+        # Confirmed gym_subscription payments only, excluding demo gyms
+        revenue_agg = Payment.all_objects.filter(
+            payer_type=Payment.PAYER_TYPE_GYM_SUBSCRIPTION,
+            status=Payment.STATUS_CONFIRMED,
+            gym__is_demo=False,
+        ).aggregate(total=Sum("amount_etb"))["total"]
+
+        platform_revenue = str(revenue_agg) if revenue_agg is not None else "0.00"
+
+        return Response(
+            {
+                "active_gyms": active_gyms,
+                "suspended_gyms": suspended_gyms,
+                "terminated_gyms": terminated_gyms,
+                "platform_revenue_etb": platform_revenue,
+            },
+            status=status.HTTP_200_OK,
         )
