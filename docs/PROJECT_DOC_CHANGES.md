@@ -89,6 +89,31 @@ _Purpose: A dated record of every scope decision, modification, and addition mad
 
 ## 3. Added
 
+- **Bank receipt verification for staff-recorded member bank transfers (Sprint 12d) (November 3, 2026):**
+  - **Overview:** Optional automatic receipt verification for member bank transfers entered by gym staff using the open-source Python package `cheki` (MIT licence, no API key) in direct mode. Direct mode calls public bank verification endpoints (`mb.cbe.com.et` for CBE, `transactioninfo.ethiotelecom.et` for Telebirr) without transmitting receipt references, account numbers, or member information to third-party hosted services.
+  - **Gym Settings & Configuration (Owner only):**
+    - Receiving accounts: List of up to 5 receiving accounts (`GymReceivingAccount`: bank `cbe` or `telebirr`, and account number / phone).
+    - Switch "Verify bank receipts automatically" (`verify_bank_receipts_automatically`, default False), only editable and usable when at least one receiving account is configured.
+    - Failure policy: "If a receipt cannot be checked" (`receipt_verification_failure_policy`): "Activate now and reconcile later" (`activate_and_reconcile_later`, default) or "Hold for Owner or Manager approval" (`hold_for_approval`).
+    - Platform kill switch `RECEIPT_VERIFICATION_ENABLED` in environment (default False). Super Admin remains trusted verifier for gym platform fees; member verification applies only to tenant gyms.
+  - **Check Timing & Pre-lookup Safeguards:**
+    - Runs on payment confirmation BEFORE opening database transactions and without holding locks.
+    - Single lookup with strict 8-second total timeout and no in-request retries.
+    - Reference format validated against bank regex before dispatch.
+    - Platform-wide rate limit of 20 lookups per minute using database counter; exceeding cap counts as "could not check".
+  - **Three Verification Outcomes:**
+    1. **Verified:** Bank confirms receipt exists, amount equals payment amount, receiving account matches gym configuration, and receipt date is within 7 days. Payment activates atomically, is auto-reconciled (`is_reconciled=True`, audit `auto-reconciled by receipt verification`), badged "Verified by bank receipt", and excluded from 7-day unreconciled sweep.
+    2. **Could Not Check:** Timeout, network error, bank down, rate limit, or unlisted bank. If policy is default (`activate_and_reconcile_later`), payment activates immediately as unreconciled with label "Could not verify. The Owner will reconcile against the bank statement." If policy is `hold_for_approval`, payment is held in `pending_review` status.
+    3. **Mismatch:** Genuine receipt found but amount, receiver, or 7-day date rule differs. Nothing activates. Staff sees side-by-side comparison ("Receipt shows X ETB. Plan price is Y ETB. Not accepted."), must upload required receipt photo, and submits item to Owner/Manager review queue. Reception is strictly blocked from activating mismatched payments on the server.
+  - **Owner & Manager Review Queue:**
+    - Shows plan, expected amount, reference, verifier return, and receipt photo (served via authenticated media endpoint with tenant check).
+    - Decisions: "Verified" (statement confirms exact money; atomically activates subscription, issues next sequential receipt, marks verified, audits "statement check") or "Declined" (money missing; does not activate, consumes no receipt number, releases reference for member retry, notifies member in-app, audits approver).
+    - Expected amount locked at submission with Sprint 12c in-flight member state protection on approval.
+    - Member check-in blocked while in queue; Overview card says "Your bank transfer is waiting for review by the gym."
+    - Maximum 2 open review items per member at a time to prevent flood attacks.
+    - Status `pending_review` and `declined` excluded from revenue, dashboards, CSV exports, receipt counter, and 7-day unreconciled sweep.
+    - Concurrency row locking (`select_for_update`) prevents duplicate decisions. Owner and Manager dashboard Overview displays "Receipts waiting for review: N" when N > 0.
+
 - **Trainer profile photo and member "My trainer" card (October 30, 2026):** Trainers can upload and replace an optional profile photo via account settings (JPEG, PNG, WebP up to 2 MB), visible to gym Owner/Manager on the Trainers management screen. Members on trainer-inclusive plans see a "My trainer" card on Home and Membership screens with trainer photo, name, and specialization (showing initials if no photo, "Trainer not assigned yet" if unassigned, and hidden on standard plans). Private photo routes strictly enforce that members can only view their own current assigned trainer's photo.
 - **Extended body measurement fields and automated derived composition metrics (October 30, 2026):** Added optional circumference fields (chest 50–200 cm, bicep L/R 15–80 cm, thigh L/R 30–120 cm, calf L/R 20–80 cm) and vitals (resting heart rate 30–220 bpm integer, trainer-measured body fat % 2–70%) stored within flexible measurements data without schema changes. Automatically derives waist-to-hip ratio (waist / hip) and lean body mass (`weight * (1 - body fat % / 100)`, labeled "measured" when trainer-measured body fat % is present or "estimate" via formula).
 - **Latest measurement entry correction workflow (October 30, 2026):** The assigned trainer can correct errors on only the latest measurement entry for their client. The correction is audit-logged with before-and-after values and flagged as "corrected" in history, while older historical records remain permanently immutable.

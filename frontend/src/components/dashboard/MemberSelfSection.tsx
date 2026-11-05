@@ -80,6 +80,23 @@ export const MemberSelfSection: React.FC<MemberSelfSectionProps> = ({
 
   return (
     <div className="space-y-6">
+      {/* Pending Receipt Review Alert Banner */}
+      {profile.has_pending_receipt_review && (
+        <div className="bg-amber-500/10 border border-amber-500/30 rounded-card p-5 flex items-center gap-3">
+          <span className="text-xl">⏳</span>
+          <div>
+            <h3 className="text-sm font-bold text-text">
+              Your bank transfer is waiting for review by the gym.
+            </h3>
+            <p className="text-xs text-text-muted mt-0.5">
+              The front desk or manager is checking your payment reference
+              against their bank statement. Check-in and activation will unlock
+              once approved.
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* Pending Member Alert Banner */}
       {profile.status === "pending" && (view === "home" || view === "all") && (
         <div className="bg-primary/10 border border-primary/30 rounded-card p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">

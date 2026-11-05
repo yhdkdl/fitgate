@@ -337,6 +337,63 @@ def register_member_staff_assisted(
 
     validated = validate_registration_payload(gym, data, is_self_service=False)
 
+    payment_method = str(data.get("payment_method") or "none").strip().lower()
+    verification_res = None
+    verification_config = None
+
+    if payment_method == "bank_transfer":
+        from django.conf import settings
+
+        from apps.payments.models import GymPaymentConfig
+        from apps.payments.services import (
+            validate_bank_receipt_format,
+            verify_member_bank_receipt,
+        )
+
+        plan_id_check = data.get("plan_id")
+        if not plan_id_check:
+            raise ValidationError(
+                {"plan_id": ["Plan is required when recording payment."]}
+            )
+        reg_plan = MembershipPlan.objects.filter(
+            gym=gym, id=plan_id_check, is_active=True
+        ).first()
+        if not reg_plan:
+            raise ValidationError(
+                {"plan_id": ["Membership plan not found or inactive for this gym."]}
+            )
+
+        bank_ref = str(data.get("bank_reference") or "").strip()
+        if not bank_ref:
+            raise ValidationError(
+                {"bank_reference": ["Bank reference is required for bank transfer."]}
+            )
+
+        channel_check = str(data.get("channel") or "").strip()
+        bank_clean = (
+            "telebirr"
+            if "telebirr" in (data.get("bank") or channel_check).lower()
+            else "cbe"
+        )
+
+        verification_config = GymPaymentConfig.objects.filter(gym=gym).first()
+        is_verification_enabled = bool(
+            getattr(settings, "RECEIPT_VERIFICATION_ENABLED", False)
+            and verification_config
+            and verification_config.verify_bank_receipts_automatically
+        )
+        if is_verification_enabled:
+            fmt_ok, fmt_err = validate_bank_receipt_format(bank_clean, bank_ref)
+            if not fmt_ok:
+                raise ValidationError({"bank_reference": [fmt_err]})
+
+            verification_res = verify_member_bank_receipt(
+                gym=gym,
+                bank=bank_clean,
+                reference=bank_ref,
+                expected_amount=reg_plan.price_etb,
+            )
+
     with transaction.atomic():
         user = User.objects.create(
             email=validated["email"],
@@ -435,18 +492,106 @@ def register_member_staff_assisted(
                 )
                 channel = str(data.get("channel") or "").strip()
 
-                _, receipt, _ = record_bank_transfer_payment(
-                    gym=gym,
-                    member=member,
-                    plan=plan,
-                    recorded_by=acting_user,
-                    bank_reference=bank_reference,
-                    transfer_date=transfer_date,
-                    channel=channel,
-                    notes=notes,
-                    idempotency_key=idempotency_key,
-                    transfer_screenshot=transfer_screenshot,
-                )
+                if verification_res:
+                    from apps.payments.models import GymPaymentConfig, Payment
+                    from apps.payments.verifiers import BankReceiptVerificationResult
+
+                    if (
+                        verification_res.status
+                        == BankReceiptVerificationResult.STATUS_VERIFIED
+                    ):
+                        _, receipt, _ = record_bank_transfer_payment(
+                            gym=gym,
+                            member=member,
+                            plan=plan,
+                            recorded_by=acting_user,
+                            bank_reference=bank_reference,
+                            transfer_date=transfer_date,
+                            channel=channel,
+                            notes=notes,
+                            idempotency_key=idempotency_key,
+                            transfer_screenshot=transfer_screenshot,
+                            is_receipt_verified=True,
+                            receipt_verification_data=verification_res.raw,
+                        )
+                    elif (
+                        verification_res.status
+                        == BankReceiptVerificationResult.STATUS_COULD_NOT_CHECK
+                        and verification_config
+                        and verification_config.receipt_verification_failure_policy
+                        != GymPaymentConfig.POLICY_HOLD_FOR_APPROVAL
+                    ):
+                        _, receipt, _ = record_bank_transfer_payment(
+                            gym=gym,
+                            member=member,
+                            plan=plan,
+                            recorded_by=acting_user,
+                            bank_reference=bank_reference,
+                            transfer_date=transfer_date,
+                            channel=channel,
+                            notes=notes,
+                            idempotency_key=idempotency_key,
+                            transfer_screenshot=transfer_screenshot,
+                            is_receipt_verified=False,
+                        )
+                    else:
+                        # Mismatch or hold for approval policy: lands in review queue
+                        Payment.all_objects.create(
+                            gym=gym,
+                            payer_type=Payment.PAYER_TYPE_MEMBER,
+                            member=member,
+                            plan=plan,
+                            method=Payment.METHOD_BANK_TRANSFER,
+                            amount_etb=plan.price_etb,
+                            expected_amount_etb=plan.price_etb,
+                            currency="ETB",
+                            bank_reference=bank_reference.strip(),
+                            bank_reference_normalized=bank_reference.strip().lower(),
+                            transfer_date=transfer_date,
+                            channel=channel,
+                            transfer_screenshot=transfer_screenshot,
+                            review_photo=transfer_screenshot,
+                            is_reconciled=False,
+                            is_receipt_verified=False,
+                            is_upgrade=False,
+                            receipt_verification_data={
+                                "status": verification_res.status,
+                                "amount": (
+                                    str(verification_res.amount)
+                                    if verification_res.amount is not None
+                                    else None
+                                ),
+                                "receiver_account": verification_res.receiver_account,
+                                "sender_name": verification_res.sender_name,
+                                "transaction_date": (
+                                    verification_res.transaction_date.isoformat()
+                                    if verification_res.transaction_date
+                                    else None
+                                ),
+                                "error_message": verification_res.error_message,
+                                "raw": verification_res.raw,
+                            },
+                            status=Payment.STATUS_PENDING_REVIEW,
+                            metadata={
+                                "notes": notes,
+                                "recorded_by": acting_user.email,
+                                "mismatch_message": verification_res.error_message,
+                            },
+                        )
+                        receipt = None
+                else:
+                    _, receipt, _ = record_bank_transfer_payment(
+                        gym=gym,
+                        member=member,
+                        plan=plan,
+                        recorded_by=acting_user,
+                        bank_reference=bank_reference,
+                        transfer_date=transfer_date,
+                        channel=channel,
+                        notes=notes,
+                        idempotency_key=idempotency_key,
+                        transfer_screenshot=transfer_screenshot,
+                    )
 
         if receipt:
             member._created_receipt = receipt

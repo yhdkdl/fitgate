@@ -21,10 +21,13 @@ describe("Sprint 11 - PaymentGatewaySection", () => {
     detected_mode: "Test",
     is_enabled: true,
     unfinished_online_payments: 0,
+    verify_bank_receipts_automatically: false,
+    receipt_verification_failure_policy: "activate_and_reconcile_later",
   };
 
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.mocked(paymentsApi.getGymReceivingAccounts).mockResolvedValue([]);
   });
 
   it("renders masked configuration and test mode badge", async () => {

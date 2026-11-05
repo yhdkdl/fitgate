@@ -223,6 +223,23 @@ export const App: React.FC = () => {
         />
 
         <Route
+          path="/receipt-reviews"
+          element={
+            <ProtectedRoute allowedRoles={["owner", "manager"]}>
+              <DashboardScreen />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/receipt-reviews/*"
+          element={
+            <ProtectedRoute allowedRoles={["owner", "manager"]}>
+              <DashboardScreen />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
           path="/plans"
           element={
             <ProtectedRoute allowedRoles={["owner", "manager"]}>

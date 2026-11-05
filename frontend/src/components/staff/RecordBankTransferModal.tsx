@@ -60,6 +60,21 @@ export const RecordBankTransferModal: React.FC<Props> = ({
   const [error, setError] = useState<string | null>(null);
   const [confirmedReceipt, setConfirmedReceipt] =
     useState<DigitalReceipt | null>(null);
+  const [bank, setBank] = useState<string>("cbe");
+  const [screenshot, setScreenshot] = useState<File | null>(null);
+  const [verificationOutcome, setVerificationOutcome] = useState<string | null>(
+    null
+  );
+  const [verificationMessage, setVerificationMessage] = useState<string | null>(
+    null
+  );
+  const [isReceiptVerified, setIsReceiptVerified] = useState<boolean>(false);
+  const [isPendingReview, setIsPendingReview] = useState<boolean>(false);
+  const [mismatchData, setMismatchData] = useState<{
+    receipt_shows_amount?: string;
+    expected_amount?: string;
+    detail?: string;
+  } | null>(null);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -120,6 +135,13 @@ export const RecordBankTransferModal: React.FC<Props> = ({
     setTransferDate(new Date().toISOString().split("T")[0]);
     setChannel("");
     setNotes("");
+    setBank("cbe");
+    setScreenshot(null);
+    setVerificationOutcome(null);
+    setVerificationMessage(null);
+    setIsReceiptVerified(false);
+    setIsPendingReview(false);
+    setMismatchData(null);
     setError(null);
     setConfirmedReceipt(null);
   }, [isOpen, plans, members]);
@@ -164,18 +186,50 @@ export const RecordBankTransferModal: React.FC<Props> = ({
         plan_id: selectedPlanId,
         bank_reference: trimmedRef,
         transfer_date: transferDate,
-        channel: channel || undefined,
+        channel: channel || bank.toUpperCase(),
         notes: notes.trim() || undefined,
         idempotency_key: idempotencyKey,
+        screenshot: screenshot || undefined,
       });
 
-      setConfirmedReceipt(resp.receipt);
-      if (onPaymentSuccess) {
-        onPaymentSuccess(resp.receipt);
+      const respAny = resp;
+      if (respAny.status === "pending_review") {
+        setIsPendingReview(true);
+        setVerificationOutcome(respAny.verification_outcome || "mismatch");
+        setVerificationMessage(respAny.detail);
+        return;
+      }
+
+      setIsReceiptVerified(Boolean(respAny.is_receipt_verified));
+      setVerificationOutcome(respAny.verification_outcome || null);
+      setVerificationMessage(respAny.verification_message || null);
+
+      if (resp.receipt) {
+        setConfirmedReceipt(resp.receipt);
+        if (onPaymentSuccess) {
+          onPaymentSuccess(resp.receipt);
+        }
       }
     } catch (err: unknown) {
-      const errorObj = err as { data?: { detail?: unknown } };
-      const detail = errorObj?.data?.detail;
+      const errorObj = err as {
+        data?: {
+          detail?: unknown;
+          verification_outcome?: string;
+          receipt_shows_amount?: string;
+          expected_amount?: string;
+          requires_photo?: boolean;
+        };
+      };
+      const data = errorObj?.data;
+      if (data?.verification_outcome === "mismatch" || data?.requires_photo) {
+        setMismatchData({
+          receipt_shows_amount: data.receipt_shows_amount,
+          expected_amount: data.expected_amount,
+          detail: typeof data.detail === "string" ? data.detail : undefined,
+        });
+      }
+
+      const detail = data?.detail;
       if (typeof detail === "string") {
         setError(detail);
       } else if (Array.isArray(detail)) {
@@ -219,7 +273,78 @@ export const RecordBankTransferModal: React.FC<Props> = ({
           overflowY: "auto",
         }}
       >
-        {confirmedReceipt ? (
+        {isPendingReview ? (
+          <div style={{ textAlign: "center", padding: "12px 0" }}>
+            <div style={{ fontSize: "40px", marginBottom: "8px" }}>⏳</div>
+            <h3 style={{ fontSize: "20px", fontWeight: "bold", margin: 0 }}>
+              Submitted to Owner / Manager Review
+            </h3>
+            <p
+              style={{
+                color: "#94a3b8",
+                fontSize: "13px",
+                marginTop: "8px",
+                marginBottom: "20px",
+                lineHeight: "1.5",
+              }}
+            >
+              This bank receipt mismatched plan details or requires approval.
+              Nothing has been activated. The item was submitted to the
+              Owner/Manager review queue.
+            </p>
+            <div
+              style={{
+                backgroundColor: "#0f172a",
+                borderRadius: "8px",
+                padding: "16px",
+                marginBottom: "20px",
+                textAlign: "left",
+                fontSize: "13px",
+              }}
+            >
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  marginBottom: "6px",
+                }}
+              >
+                <span style={{ color: "#94a3b8" }}>Reference:</span>
+                <span style={{ fontFamily: "monospace", color: "#a78bfa" }}>
+                  {bankReference}
+                </span>
+              </div>
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  marginBottom: "6px",
+                }}
+              >
+                <span style={{ color: "#94a3b8" }}>Status:</span>
+                <span style={{ color: "#f59e0b", fontWeight: "bold" }}>
+                  Pending Review
+                </span>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={onClose}
+              style={{
+                width: "100%",
+                backgroundColor: "#2563eb",
+                color: "#ffffff",
+                border: "none",
+                borderRadius: "6px",
+                padding: "10px",
+                fontWeight: 600,
+                cursor: "pointer",
+              }}
+            >
+              Close
+            </button>
+          </div>
+        ) : confirmedReceipt ? (
           <div>
             <div style={{ textAlign: "center", marginBottom: "20px" }}>
               <div style={{ fontSize: "40px", marginBottom: "8px" }}>✅</div>
@@ -285,6 +410,42 @@ export const RecordBankTransferModal: React.FC<Props> = ({
                   Bank Transfer
                 </span>
               </div>
+              {isReceiptVerified && (
+                <div
+                  style={{
+                    backgroundColor: "rgba(16, 185, 129, 0.15)",
+                    color: "#34d399",
+                    border: "1px solid rgba(16, 185, 129, 0.3)",
+                    padding: "8px 12px",
+                    borderRadius: "6px",
+                    fontSize: "12px",
+                    fontWeight: "bold",
+                    marginBottom: "12px",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "6px",
+                  }}
+                >
+                  <span>✓</span> Verified by bank receipt
+                </div>
+              )}
+              {verificationOutcome === "could_not_check" &&
+                !isReceiptVerified && (
+                  <div
+                    style={{
+                      backgroundColor: "rgba(148, 163, 184, 0.15)",
+                      color: "#94a3b8",
+                      border: "1px solid rgba(148, 163, 184, 0.3)",
+                      padding: "8px 12px",
+                      borderRadius: "6px",
+                      fontSize: "12px",
+                      marginBottom: "12px",
+                    }}
+                  >
+                    {verificationMessage ||
+                      "Could not verify. The Owner will reconcile against the bank statement."}
+                  </div>
+                )}
               {confirmedReceipt.bank_reference && (
                 <div
                   style={{
@@ -437,7 +598,53 @@ export const RecordBankTransferModal: React.FC<Props> = ({
               </button>
             </div>
 
-            {error && (
+            {mismatchData && (
+              <div
+                style={{
+                  backgroundColor: "rgba(239, 68, 68, 0.15)",
+                  border: "1px solid rgba(239, 68, 68, 0.4)",
+                  color: "#fca5a5",
+                  padding: "12px 14px",
+                  borderRadius: "8px",
+                  fontSize: "13px",
+                  marginBottom: "16px",
+                }}
+              >
+                <div
+                  style={{
+                    fontWeight: "bold",
+                    marginBottom: "4px",
+                    color: "#f87171",
+                  }}
+                >
+                  ⚠️ Bank Receipt Mismatch
+                </div>
+                <div>
+                  Receipt shows:{" "}
+                  <strong>
+                    {mismatchData.receipt_shows_amount || "Unknown"} ETB
+                  </strong>
+                  . Plan price is{" "}
+                  <strong>
+                    {mismatchData.expected_amount || selectedPlan?.price_etb}{" "}
+                    ETB
+                  </strong>
+                  . Not accepted.
+                </div>
+                <div
+                  style={{
+                    marginTop: "6px",
+                    fontSize: "12px",
+                    color: "#e2e8f0",
+                  }}
+                >
+                  Please attach a clear photo of the receipt below to submit to
+                  the Owner/Manager review queue.
+                </div>
+              </div>
+            )}
+
+            {error && !mismatchData && (
               <div
                 style={{
                   backgroundColor: "#7f1d1d",
@@ -663,6 +870,35 @@ export const RecordBankTransferModal: React.FC<Props> = ({
               </div>
             </div>
 
+            {/* Receipt Screenshot / Photo (Sprint 12d) */}
+            <div style={{ marginBottom: "14px" }}>
+              <label
+                style={{
+                  display: "block",
+                  fontSize: "13px",
+                  fontWeight: 500,
+                  color: "#cbd5e1",
+                  marginBottom: "4px",
+                }}
+              >
+                Receipt Photo / Screenshot {mismatchData ? "*" : "(Optional)"}
+              </label>
+              <input
+                type="file"
+                accept="image/png,image/jpeg,image/jpg"
+                required={Boolean(mismatchData)}
+                onChange={(e) => setScreenshot(e.target.files?.[0] || null)}
+                style={{
+                  width: "100%",
+                  color: "#cbd5e1",
+                  fontSize: "13px",
+                }}
+              />
+              <span style={{ fontSize: "11px", color: "#94a3b8" }}>
+                Required if receipt details mismatch. Max 5MB (PNG or JPEG).
+              </span>
+            </div>
+
             {/* Optional Notes */}
             <div style={{ marginBottom: "18px" }}>
               <label
@@ -733,8 +969,10 @@ export const RecordBankTransferModal: React.FC<Props> = ({
                 }}
               >
                 {isSubmitting
-                  ? "Recording..."
-                  : "Confirm Bank Transfer & Issue Receipt"}
+                  ? "Verifying & Recording..."
+                  : mismatchData
+                    ? "Submit for Owner/Manager Review"
+                    : "Confirm Bank Transfer & Issue Receipt"}
               </button>
             </div>
           </form>

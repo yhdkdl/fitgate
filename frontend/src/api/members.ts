@@ -99,6 +99,7 @@ export interface Member {
     start_date: string;
     end_date: string;
   } | null;
+  has_pending_receipt_review?: boolean;
 }
 
 export interface PublicMemberRegistrationPayload {

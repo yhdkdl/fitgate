@@ -8,6 +8,7 @@ from decimal import Decimal
 
 from django.conf import settings
 from django.core.exceptions import PermissionDenied, ValidationError
+from django.db import transaction
 from django.db.models import Q, Sum
 from django.http import FileResponse
 from django.utils import timezone
@@ -20,20 +21,33 @@ from rest_framework.throttling import AnonRateThrottle
 from rest_framework.views import APIView
 
 from apps.accounts.models import User
+from apps.accounts.notifications import create_notification
 from apps.accounts.permissions import (
     IsGymOwner,
     IsSuperAdmin,
     RequirePasswordChanged,
 )
 from apps.accounts.services import record_audit_log
-from apps.memberships.models import Member, MembershipPlan
+from apps.memberships.models import Member, MembershipPlan, MemberSubscription
+from apps.memberships.services import (
+    create_or_renew_subscription,
+    update_member_status,
+)
 from apps.payments.chapa_client import ChapaAPIError, ChapaClient
-from apps.payments.models import GymPaymentConfig, Payment, Receipt
+from apps.payments.models import (
+    GymPaymentConfig,
+    GymReceivingAccount,
+    Payment,
+    Receipt,
+)
 from apps.payments.serializers import (
+    BankReceiptReviewDecisionSerializer,
+    BankReceiptReviewItemSerializer,
     ChapaCheckoutRequestSerializer,
     ChapaCheckoutResponseSerializer,
     GymPaymentConfigSerializer,
     GymPaymentConfigUpdateSerializer,
+    GymReceivingAccountSerializer,
     MemberPaymentHistoryItemSerializer,
     MemberPaymentStatusSerializer,
     ReceiptSerializer,
@@ -47,12 +61,17 @@ from apps.payments.serializers import (
     UnreconciledBankTransferItemSerializer,
 )
 from apps.payments.services import (
+    calculate_plan_upgrade_quote,
+    get_next_receipt_sequence_and_number,
     process_chapa_webhook,
     reconcile_bank_transfers,
     record_bank_transfer_payment,
     record_cash_payment,
     reverse_bank_transfer_payment,
+    validate_bank_receipt_format,
+    verify_member_bank_receipt,
 )
+from apps.payments.verifiers import BankReceiptVerificationResult
 from apps.tenants.models import GymTenant
 from apps.tenants.storage import (
     get_bank_transfer_screenshot_stream,
@@ -174,6 +193,45 @@ class GymPaymentConfigView(APIView):
                         "to": new_is_enabled,
                         "unfinished_online_payments": unfinished_count,
                     },
+                )
+
+        if "verify_bank_receipts_automatically" in data:
+            new_val = data["verify_bank_receipts_automatically"]
+            if new_val:
+                has_accounts = GymReceivingAccount.all_objects.filter(
+                    gym=gym, is_active=True
+                ).exists()
+                if not has_accounts:
+                    return Response(
+                        {
+                            "detail": "Configure at least one receiving bank account first."
+                        },
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+            if config.verify_bank_receipts_automatically != new_val:
+                config.verify_bank_receipts_automatically = new_val
+                updated = True
+                record_audit_log(
+                    actor=request.user,
+                    gym=gym,
+                    action_type="bank_receipt_verification_toggled",
+                    affected_record_type="GymPaymentConfig",
+                    affected_record_id=str(config.id),
+                    metadata={"enabled": new_val},
+                )
+
+        if "receipt_verification_failure_policy" in data:
+            new_policy = data["receipt_verification_failure_policy"]
+            if config.receipt_verification_failure_policy != new_policy:
+                config.receipt_verification_failure_policy = new_policy
+                updated = True
+                record_audit_log(
+                    actor=request.user,
+                    gym=gym,
+                    action_type="receipt_verification_policy_updated",
+                    affected_record_type="GymPaymentConfig",
+                    affected_record_id=str(config.id),
+                    metadata={"policy": new_policy},
                 )
 
         if "public_key" in data:
@@ -1226,6 +1284,26 @@ class CanManageBankTransfers(BasePermission):
         return request.user.role == User.ROLE_OWNER and request.user.gym_id == tenant.id
 
 
+class CanManageReceiptReviews(BasePermission):
+    """
+    Review queue access and decisions are restricted strictly to Owner and Manager of that gym.
+    Super Admin, Reception, Trainer, Member are denied (403). Cross-gym denied (403).
+    """
+
+    def has_permission(self, request, view):
+        if not request.user or not request.user.is_authenticated:
+            return False
+        if request.user.role == User.ROLE_SUPER_ADMIN:
+            return False
+        tenant = getattr(request, "tenant", None)
+        if tenant is None:
+            return False
+        return (
+            request.user.role in (User.ROLE_OWNER, User.ROLE_MANAGER)
+            and request.user.gym_id == tenant.id
+        )
+
+
 class RecordBankTransferPaymentView(APIView):
     """
     Record and confirm a bank-transfer payment for a member.
@@ -1302,6 +1380,19 @@ class RecordBankTransferPaymentView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
+        open_reviews_count = Payment.all_objects.filter(
+            gym=tenant,
+            member=member,
+            status=Payment.STATUS_PENDING_REVIEW,
+        ).count()
+        if open_reviews_count >= 2:
+            return Response(
+                {
+                    "detail": "This member already has 2 bank transfers waiting for review. Please resolve pending reviews first."
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
         plan = MembershipPlan.all_objects.filter(id=plan_id).first()
         if not plan or plan.gym_id != tenant.id:
             return Response(
@@ -1313,6 +1404,227 @@ class RecordBankTransferPaymentView(APIView):
                 {"detail": "Cannot record payment for a deactivated plan."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
+
+        config = GymPaymentConfig.objects.filter(gym=tenant).first()
+        is_verification_enabled = bool(
+            getattr(settings, "RECEIPT_VERIFICATION_ENABLED", False)
+            and config
+            and config.verify_bank_receipts_automatically
+        )
+
+        if is_verification_enabled:
+            bank = serializer.validated_data.get("bank") or channel or ""
+            bank_clean = "telebirr" if "telebirr" in bank.lower() else "cbe"
+
+            fmt_ok, fmt_err = validate_bank_receipt_format(bank_clean, bank_reference)
+            if not fmt_ok:
+                return Response(
+                    {"bank_reference": [fmt_err]},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            calc_today = timezone.localdate()
+            current_sub = (
+                MemberSubscription.all_objects.select_related("plan")
+                .filter(
+                    gym=tenant,
+                    member=member,
+                    status=MemberSubscription.STATUS_ACTIVE,
+                    start_date__lte=calc_today,
+                    end_date__gte=calc_today,
+                )
+                .order_by("-end_date", "-created_at")
+                .first()
+            )
+            is_upgrade = bool(
+                current_sub
+                and current_sub.plan_id != plan.id
+                and plan.price_etb > current_sub.plan.price_etb
+            )
+            if is_upgrade:
+                quote = calculate_plan_upgrade_quote(
+                    member=member, new_plan=plan, today=calc_today
+                )
+                expected_amount = Decimal(str(quote["net_amount_etb"]))
+            else:
+                expected_amount = plan.price_etb
+
+            res = verify_member_bank_receipt(
+                gym=tenant,
+                bank=bank_clean,
+                reference=bank_reference,
+                expected_amount=expected_amount,
+            )
+
+            if res.status == BankReceiptVerificationResult.STATUS_VERIFIED:
+                try:
+                    payment, receipt, subscription = record_bank_transfer_payment(
+                        gym=tenant,
+                        member=member,
+                        plan=plan,
+                        recorded_by=request.user,
+                        bank_reference=bank_reference,
+                        transfer_date=transfer_date,
+                        channel=channel,
+                        transfer_screenshot=transfer_screenshot,
+                        notes=notes,
+                        idempotency_key=idempotency_key or None,
+                        is_receipt_verified=True,
+                        receipt_verification_data=res.raw,
+                    )
+                except ValidationError as exc:
+                    detail = (
+                        exc.message_dict
+                        if hasattr(exc, "message_dict")
+                        else exc.messages
+                    )
+                    return Response(
+                        {"detail": detail}, status=status.HTTP_400_BAD_REQUEST
+                    )
+                except PermissionDenied as exc:
+                    return Response(
+                        {"detail": str(exc)}, status=status.HTTP_403_FORBIDDEN
+                    )
+
+                receipt_data = ReceiptSerializer(receipt).data if receipt else None
+                return Response(
+                    {
+                        "detail": "Verified by bank receipt",
+                        "payment_id": str(payment.id),
+                        "amount_etb": payment.amount_etb,
+                        "status": payment.status,
+                        "bank_reference": payment.bank_reference,
+                        "is_reconciled": payment.is_reconciled,
+                        "is_receipt_verified": True,
+                        "receipt": receipt_data,
+                        "subscription_id": (
+                            str(subscription.id) if subscription else None
+                        ),
+                    },
+                    status=status.HTTP_201_CREATED,
+                )
+
+            route_to_queue = False
+            if res.status == BankReceiptVerificationResult.STATUS_COULD_NOT_CHECK:
+                if (
+                    config.receipt_verification_failure_policy
+                    == GymPaymentConfig.POLICY_HOLD_FOR_APPROVAL
+                ):
+                    route_to_queue = True
+                else:
+                    try:
+                        payment, receipt, subscription = record_bank_transfer_payment(
+                            gym=tenant,
+                            member=member,
+                            plan=plan,
+                            recorded_by=request.user,
+                            bank_reference=bank_reference,
+                            transfer_date=transfer_date,
+                            channel=channel,
+                            transfer_screenshot=transfer_screenshot,
+                            notes=notes,
+                            idempotency_key=idempotency_key or None,
+                            is_receipt_verified=False,
+                        )
+                    except ValidationError as exc:
+                        detail = (
+                            exc.message_dict
+                            if hasattr(exc, "message_dict")
+                            else exc.messages
+                        )
+                        return Response(
+                            {"detail": detail}, status=status.HTTP_400_BAD_REQUEST
+                        )
+                    except PermissionDenied as exc:
+                        return Response(
+                            {"detail": str(exc)}, status=status.HTTP_403_FORBIDDEN
+                        )
+
+                    receipt_data = ReceiptSerializer(receipt).data if receipt else None
+                    return Response(
+                        {
+                            "detail": "Could not verify. The Owner will reconcile against the bank statement.",
+                            "payment_id": str(payment.id),
+                            "amount_etb": payment.amount_etb,
+                            "status": payment.status,
+                            "bank_reference": payment.bank_reference,
+                            "is_reconciled": payment.is_reconciled,
+                            "is_receipt_verified": False,
+                            "receipt": receipt_data,
+                            "subscription_id": (
+                                str(subscription.id) if subscription else None
+                            ),
+                        },
+                        status=status.HTTP_201_CREATED,
+                    )
+            else:
+                route_to_queue = True
+
+            if route_to_queue:
+                if not transfer_screenshot:
+                    return Response(
+                        {"detail": "Receipt photo is required for review submission."},
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+
+                payment = Payment.all_objects.create(
+                    gym=tenant,
+                    payer_type=Payment.PAYER_TYPE_MEMBER,
+                    member=member,
+                    plan=plan,
+                    method=Payment.METHOD_BANK_TRANSFER,
+                    amount_etb=expected_amount,
+                    expected_amount_etb=expected_amount,
+                    currency="ETB",
+                    bank_reference=bank_reference.strip(),
+                    bank_reference_normalized=bank_reference.strip().lower(),
+                    transfer_date=transfer_date,
+                    channel=channel,
+                    transfer_screenshot=transfer_screenshot,
+                    review_photo=transfer_screenshot,
+                    is_reconciled=False,
+                    is_receipt_verified=False,
+                    is_upgrade=is_upgrade,
+                    receipt_verification_data={
+                        "status": res.status,
+                        "amount": str(res.amount) if res.amount is not None else None,
+                        "receiver_account": res.receiver_account,
+                        "sender_name": res.sender_name,
+                        "transaction_date": (
+                            res.transaction_date.isoformat()
+                            if res.transaction_date
+                            else None
+                        ),
+                        "error_message": res.error_message,
+                        "raw": res.raw,
+                    },
+                    status=Payment.STATUS_PENDING_REVIEW,
+                    metadata={
+                        "notes": notes,
+                        "recorded_by": request.user.email,
+                        "mismatch_message": res.error_message,
+                    },
+                )
+
+                mismatch_detail = (
+                    res.error_message
+                    or "Receipt mismatch. Payment submitted to Owner and Manager review queue."
+                )
+                return Response(
+                    {
+                        "detail": mismatch_detail,
+                        "mismatch_message": res.error_message,
+                        "payment_id": str(payment.id),
+                        "status": payment.status,
+                        "amount_etb": payment.amount_etb,
+                        "bank_reference": payment.bank_reference,
+                        "is_reconciled": False,
+                        "is_receipt_verified": False,
+                        "receipt": None,
+                        "subscription_id": None,
+                    },
+                    status=status.HTTP_201_CREATED,
+                )
 
         try:
             payment, receipt, subscription = record_bank_transfer_payment(
@@ -1395,25 +1707,33 @@ class BankTransferScreenshotView(APIView):
                 status=status.HTTP_404_NOT_FOUND,
             )
 
-        is_allowed = user.role in (User.ROLE_OWNER, User.ROLE_MANAGER) or (
-            user.role == User.ROLE_RECEPTION and payment.confirmed_by_id == user.id
-        )
-        if not is_allowed:
-            return Response(
-                {"detail": "Permission denied."},
-                status=status.HTTP_403_FORBIDDEN,
+        if payment.status in (Payment.STATUS_PENDING_REVIEW, Payment.STATUS_DECLINED):
+            if user.role not in (User.ROLE_OWNER, User.ROLE_MANAGER):
+                return Response(
+                    {
+                        "detail": "Permission denied. Only Owner and Manager can view receipt review photos."
+                    },
+                    status=status.HTTP_403_FORBIDDEN,
+                )
+        else:
+            is_allowed = user.role in (User.ROLE_OWNER, User.ROLE_MANAGER) or (
+                user.role == User.ROLE_RECEPTION and payment.confirmed_by_id == user.id
             )
+            if not is_allowed:
+                return Response(
+                    {"detail": "Permission denied."},
+                    status=status.HTTP_403_FORBIDDEN,
+                )
 
-        if not payment.transfer_screenshot:
+        photo_path = payment.review_photo or payment.transfer_screenshot
+        if not photo_path:
             return Response(
                 {"detail": "No screenshot recorded for this transfer."},
                 status=status.HTTP_404_NOT_FOUND,
             )
 
         try:
-            stream, content_type = get_bank_transfer_screenshot_stream(
-                payment.transfer_screenshot
-            )
+            stream, content_type = get_bank_transfer_screenshot_stream(photo_path)
         except (FileNotFoundError, ValidationError):
             return Response(
                 {"detail": "Screenshot file not found on disk."},
@@ -1749,3 +2069,367 @@ class StaffUpgradeQuoteView(APIView):
         except ValidationError as exc:
             detail = exc.message_dict if hasattr(exc, "message_dict") else exc.messages
             return Response({"detail": detail}, status=status.HTTP_400_BAD_REQUEST)
+
+
+class GymReceivingAccountListView(APIView):
+    """
+    List and create receiving accounts for automatic bank receipt verification.
+    Restricted strictly to the Gym Owner of the active tenant.
+    """
+
+    permission_classes = [IsAuthenticated, RequirePasswordChanged, IsGymOwner]
+
+    @extend_schema(
+        summary="List gym receiving bank accounts",
+        description="Returns list of receiving accounts configured for this gym.",
+        responses={200: GymReceivingAccountSerializer(many=True)},
+    )
+    def get(self, request):
+        accounts = GymReceivingAccount.all_objects.filter(gym=request.tenant).order_by(
+            "created_at"
+        )
+        serializer = GymReceivingAccountSerializer(accounts, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+    @extend_schema(
+        summary="Add gym receiving bank account",
+        description="Owner adds a receiving account (up to 5 accounts per gym).",
+        request=GymReceivingAccountSerializer,
+        responses={
+            201: GymReceivingAccountSerializer,
+            400: OpenApiResponse(description="Validation error or max limit exceeded"),
+        },
+    )
+    def post(self, request):
+        tenant = request.tenant
+        existing_count = GymReceivingAccount.all_objects.filter(
+            gym=tenant, is_active=True
+        ).count()
+        if existing_count >= 5:
+            return Response(
+                {"detail": "Gym cannot have more than 5 receiving accounts."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        serializer = GymReceivingAccountSerializer(
+            data=request.data, context={"gym": tenant}
+        )
+        serializer.is_valid(raise_exception=True)
+        account = GymReceivingAccount(gym=tenant, **serializer.validated_data)
+        try:
+            account.full_clean()
+        except ValidationError as exc:
+            detail = exc.message_dict if hasattr(exc, "message_dict") else exc.messages
+            return Response({"detail": detail}, status=status.HTTP_400_BAD_REQUEST)
+
+        account.save()
+        record_audit_log(
+            actor=request.user,
+            gym=tenant,
+            action_type="receiving_account_created",
+            affected_record_type="GymReceivingAccount",
+            affected_record_id=str(account.id),
+            metadata={"bank": account.bank, "account_number": account.account_number},
+        )
+        return Response(
+            GymReceivingAccountSerializer(account).data,
+            status=status.HTTP_201_CREATED,
+        )
+
+
+class GymReceivingAccountDetailView(APIView):
+    """
+    Delete a receiving account. Restricted to Gym Owner of the active tenant.
+    """
+
+    permission_classes = [IsAuthenticated, RequirePasswordChanged, IsGymOwner]
+
+    @extend_schema(
+        summary="Delete gym receiving bank account",
+        description="Owner deletes a receiving account.",
+        responses={204: OpenApiResponse(description="Deleted successfully")},
+    )
+    def delete(self, request, pk):
+        tenant = request.tenant
+        account = GymReceivingAccount.all_objects.filter(id=pk, gym=tenant).first()
+        if not account:
+            return Response(
+                {"detail": "Receiving account not found."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        account.delete()
+        record_audit_log(
+            actor=request.user,
+            gym=tenant,
+            action_type="receiving_account_deleted",
+            affected_record_type="GymReceivingAccount",
+            affected_record_id=str(pk),
+            metadata={"bank": account.bank, "account_number": account.account_number},
+        )
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class BankReceiptReviewListView(APIView):
+    """
+    List pending bank transfer receipt review items.
+    Allowed: Gym Owner, Manager of that gym.
+    Denied: Reception, Super Admin, Member, Trainer (403). Cross-gym (403).
+    """
+
+    permission_classes = [
+        IsAuthenticated,
+        RequirePasswordChanged,
+        CanManageReceiptReviews,
+    ]
+
+    @extend_schema(
+        summary="List bank receipt review items",
+        description="Returns pending bank receipt reviews for Owner/Manager approval.",
+        responses={200: BankReceiptReviewItemSerializer(many=True)},
+    )
+    def get(self, request):
+        tenant = request.tenant
+        reviews = (
+            Payment.all_objects.filter(
+                gym=tenant,
+                status=Payment.STATUS_PENDING_REVIEW,
+            )
+            .select_related("member", "plan")
+            .order_by("-created_at")
+        )
+        serializer = BankReceiptReviewItemSerializer(reviews, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+class BankReceiptReviewDecideView(APIView):
+    """
+    Approve or decline a pending bank receipt review item.
+    Allowed: Gym Owner, Manager of that gym.
+    Denied: Reception, Super Admin, Member, Trainer (403). Cross-gym (403).
+    """
+
+    permission_classes = [
+        IsAuthenticated,
+        RequirePasswordChanged,
+        CanManageReceiptReviews,
+    ]
+
+    @extend_schema(
+        summary="Decide bank receipt review item",
+        description="Owner or Manager statement decision (verified vs declined).",
+        request=BankReceiptReviewDecisionSerializer,
+        responses={
+            200: OpenApiResponse(description="Review decision applied"),
+            400: OpenApiResponse(
+                description="Already decided or member situation changed"
+            ),
+            403: OpenApiResponse(description="Permission denied"),
+            404: OpenApiResponse(description="Payment not found"),
+        },
+    )
+    def post(self, request, pk):
+        tenant = request.tenant
+        serializer = BankReceiptReviewDecisionSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        decision = serializer.validated_data["decision"]
+
+        with transaction.atomic():
+            payment = (
+                Payment.all_objects.select_for_update()
+                .filter(id=pk, gym=tenant)
+                .first()
+            )
+            if not payment:
+                return Response(
+                    {"detail": "Receipt review item not found."},
+                    status=status.HTTP_404_NOT_FOUND,
+                )
+
+            if payment.status != Payment.STATUS_PENDING_REVIEW:
+                decided_by_name = (
+                    payment.review_decided_by.full_name
+                    or payment.review_decided_by.email
+                    if payment.review_decided_by
+                    else "another staff member"
+                )
+                return Response(
+                    {"detail": f"Already decided by {decided_by_name}."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            if decision == "declined":
+                payment.status = Payment.STATUS_DECLINED
+                payment.review_decision = "declined"
+                payment.review_decided_by = request.user
+                payment.review_decided_at = timezone.now()
+                payment.save(
+                    update_fields=[
+                        "status",
+                        "review_decision",
+                        "review_decided_by",
+                        "review_decided_at",
+                    ]
+                )
+
+                record_audit_log(
+                    actor=request.user,
+                    gym=tenant,
+                    action_type="bank_receipt_review_declined",
+                    affected_record_type="Payment",
+                    affected_record_id=str(payment.id),
+                    metadata={
+                        "approver": request.user.email,
+                        "decision": "declined",
+                        "bank_reference": payment.bank_reference,
+                    },
+                )
+
+                if payment.member and payment.member.user:
+                    create_notification(
+                        recipient=payment.member.user,
+                        notification_type="payment_declined",
+                        message="Payment could not be confirmed, please contact the front desk.",
+                        gym=tenant,
+                    )
+
+                return Response(
+                    {"detail": "Payment has been declined and reference released."},
+                    status=status.HTTP_200_OK,
+                )
+
+            # Verified decision
+            # 1. Re-check member situation hasn't changed
+            if payment.member.status == Member.STATUS_SUSPENDED or (
+                payment.member.user and not payment.member.user.is_active
+            ):
+                return Response(
+                    {
+                        "detail": "Member has been deactivated. Cannot activate subscription."
+                    },
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            calc_today = timezone.localdate()
+            if payment.is_upgrade:
+                from apps.payments.services import calculate_plan_upgrade_quote
+
+                try:
+                    quote = calculate_plan_upgrade_quote(
+                        member=payment.member,
+                        new_plan=payment.plan,
+                        today=calc_today,
+                    )
+                    net_quote = Decimal(str(quote["net_amount_etb"]))
+                    if net_quote != payment.expected_amount_etb:
+                        return Response(
+                            {
+                                "detail": "Member subscription state has changed since review submission. Cannot activate upgrade."
+                            },
+                            status=status.HTTP_400_BAD_REQUEST,
+                        )
+                except Exception:
+                    return Response(
+                        {
+                            "detail": "Member subscription state has changed since review submission. Cannot activate upgrade."
+                        },
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+
+            # 2. Atomic activation path
+            GymTenant.objects.select_for_update().get(id=tenant.id)
+            locked_member = Member.all_objects.select_for_update().get(
+                id=payment.member_id
+            )
+
+            if payment.is_upgrade:
+                quote = calculate_plan_upgrade_quote(
+                    member=locked_member,
+                    new_plan=payment.plan,
+                    today=calc_today,
+                )
+                current_sub = MemberSubscription.all_objects.select_for_update().get(
+                    id=quote["current_subscription_id"]
+                )
+                current_sub.status = MemberSubscription.STATUS_SUPERSEDED
+                current_sub.save(update_fields=["status"])
+
+                subscription = create_or_renew_subscription(
+                    member=locked_member,
+                    plan=payment.plan,
+                    start_date=calc_today,
+                    actor=request.user,
+                )
+            else:
+                subscription = create_or_renew_subscription(
+                    member=locked_member,
+                    plan=payment.plan,
+                    actor=request.user,
+                )
+
+            sequence, receipt_number = get_next_receipt_sequence_and_number(tenant)
+            Receipt.all_objects.create(
+                gym=tenant,
+                payment=payment,
+                receipt_number=receipt_number,
+                sequence_number=sequence,
+                issued_by=request.user,
+                amount_etb=payment.amount_etb,
+                gross_amount_etb=payment.gross_amount_etb,
+                credit_amount_etb=payment.credit_amount_etb,
+                currency="ETB",
+                payment_method=Payment.METHOD_BANK_TRANSFER,
+                member_name=locked_member.full_name,
+                member_phone=locked_member.phone or "",
+                plan_name=payment.plan.name,
+                plan_duration=f"{payment.plan.duration_value} {payment.plan.duration_unit}",
+                notes=payment.metadata.get("notes", ""),
+            )
+
+            payment.subscription = subscription
+            payment.status = Payment.STATUS_CONFIRMED
+            payment.is_receipt_verified = True
+            payment.is_reconciled = True
+            payment.reconciled_at = timezone.now()
+            payment.reconciled_by = request.user
+            payment.confirmed_by = request.user
+            payment.review_decided_by = request.user
+            payment.review_decided_at = timezone.now()
+            payment.review_decision = "verified"
+            payment.save()
+
+            update_member_status(locked_member)
+
+            record_audit_log(
+                actor=request.user,
+                gym=tenant,
+                action_type="bank_receipt_review_approved",
+                affected_record_type="Payment",
+                affected_record_id=str(payment.id),
+                metadata={
+                    "approver": request.user.email,
+                    "decision": "verified",
+                    "method": "statement check",
+                    "receipt_number": receipt_number,
+                    "bank_reference": payment.bank_reference,
+                },
+            )
+
+            if locked_member.user:
+                create_notification(
+                    recipient=locked_member.user,
+                    notification_type="payment_confirmed",
+                    message=f"Your bank transfer payment of {payment.amount_etb} ETB has been verified against statement and activated.",
+                    gym=tenant,
+                )
+
+            return Response(
+                {
+                    "detail": "Payment verified and subscription activated.",
+                    "payment_id": str(payment.id),
+                    "status": payment.status,
+                    "receipt_number": receipt_number,
+                    "subscription_id": str(subscription.id),
+                },
+                status=status.HTTP_200_OK,
+            )

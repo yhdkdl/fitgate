@@ -147,6 +147,12 @@ class GymDataExportView(APIView):
                     gym=tenant,
                     payer_type=Payment.PAYER_TYPE_MEMBER,
                 )
+                .exclude(
+                    status__in=[
+                        Payment.STATUS_PENDING_REVIEW,
+                        Payment.STATUS_DECLINED,
+                    ]
+                )
                 .select_related("receipt", "plan", "confirmed_by", "member")
                 .order_by("-created_at")
             )

@@ -28,6 +28,7 @@ export interface GymAnalyticsOverview {
   upgrade_prompt?: string | null;
   revenue_by_plan?: PlanRevenue[] | null;
   server_date: string;
+  pending_receipt_reviews_count?: number;
 }
 
 export async function getGymAnalyticsOverview(): Promise<GymAnalyticsOverview> {

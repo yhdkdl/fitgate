@@ -109,3 +109,7 @@ if not QR_JWT_PUBLIC_KEY:
 
 # Tenant payment credentials encryption key (no default secret in code per AGENT.md rule 14)
 TENANT_CREDENTIALS_KEY = env("TENANT_CREDENTIALS_KEY")
+
+BANK_RECEIPT_VERIFIER_USE_MOCK = env.bool(
+    "BANK_RECEIPT_VERIFIER_USE_MOCK", default=True
+)
