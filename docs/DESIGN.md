@@ -118,6 +118,9 @@ One shared validation rule set applies across frontend (`src/utils/validators.ts
 | **Accept Online Payments Switch** (`is_enabled`)               | Boolean toggle (`true`/`false`).                                                                                                                                                                                    | Required boolean. Cannot be turned ON unless connection is verified. | Boolean                                                                                                                              | "Verify your Chapa connection first."                                                                                           |
 | **Accept Online Payments Switch** (`is_enabled`)               | Boolean toggle (`true`/`false`).                                                                                                                                                                                    | Required boolean. Cannot be turned ON unless connection is verified. | Boolean                                                                                                                              | "Verify your Chapa connection first."                                                                                           |
 
+| **First reminder** (`member_reminder_days` / `subscription_reminder_days`) | Whole number. | 1 to 90 days. | Integer | "First reminder must be a whole number from 1 to 90." |
+| **Second reminder** (`member_reminder_days` / `subscription_reminder_days`) | Optional whole number. Must be smaller than first reminder. | 1 to 90 days (< first reminder). | Integer / Nullable | "Second reminder must be smaller than the first reminder." |
+
 ### Form Behavior & Accessibility
 
 - **Required fields**: Marked with a visible asterisk `*` and `required` attribute.

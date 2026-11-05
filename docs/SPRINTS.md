@@ -527,37 +527,60 @@ _Increment 5 = Sprints 25, 26, 27, 28, 29, 29a; Sprint 28a is deferred to a futu
 
 ## Increment 7 — Platform administration, PWA, demo, deployment
 
+**Order of Work:** Sprint 38 is NOT to be started at all. The order is: the two small fixes (`fix/reminder-days-form`, `fix/autossl-trigger`), Sprint 35, Sprint 36, Sprint 37a, Sprint 37, then a full pass of every `docs/INCREMENT_*_TEST.md`. After that the owner will run one staging refresh and send results. Sprint 38 comes last, only when explicitly instructed.
+
 **Preflight (external items):**
 
 - Sprint 38 (cPanel deployment steps, cron, AutoSSL, HTTPS for the PWA)
 
-35. **Super Admin platform dashboard** — tenant management, renewals, lapse handling, platform reports.
+35. **Super Admin platform dashboard** — tenant management, renewals, lapse handling, platform reports, gym termination and platform notices.
     - Super-Admin-only actions are rejected for every other role, including an Owner acting on their own gym.
-    - Tenant list with tier, status, `subscription_expires_at` and lapse flags; Super Admin can change a gym's tier and flags (the flag editor offers only tiers that exist: Starter and Growth; Pro is hidden until Increment 6 ships; `has_group_classes` can be enabled/disabled), enable or disable roles per gym (a disabled role cannot be invited or log in), and every change is audit-logged at platform level.
+    - Tenant list with tier, status, `subscription_expires_at` and lapse flags.
+    - Super Admin can change a gym's tier and feature flags: the flag editor offers only tiers that exist (Starter and Growth; Pro is hidden until Increment 6 ships); shows the group classes flag (`has_group_classes`, ON for Growth and Pro, OFF for Starter).
+    - Editing freeze cap (`freeze_days_cap`), payment grace days (`payment_grace_days`), and reminder days (`subscription_reminder_days`) by Super Admin is ALREADY BUILT on `GymConfig`; marked done and not rebuilt.
+    - Super Admin can enable or disable roles per gym (a disabled role cannot be invited or log in), and every change is audit-logged at platform level.
+    - When Super Admin lowers a tier or turns a flag off, data is kept and access is refused or hidden, nothing is deleted (classes, assignments, AI plans, analytics); tested for each.
     - **Renewal:** Super Admin records a `bank_transfer` payment (amount, reference); `subscription_expires_at` extends by one year from the later of the current expiry or today, the lapse flag clears, and a suspended gym is reactivated.
-    - **Suspension:** Super Admin confirms suspension of a lapse-flagged gym (it is never automatic). A suspended gym's staff and members cannot log in, while its data stays intact and visible to Super Admin — both halves tested. Its Owner can still log in for 7 days to export (Sprint 29), after which login is refused; nothing is deleted.
-    - Platform reports: tenant summary, platform revenue (confirmed `gym_subscription` payments, excluding demo gyms), subscription status overview. Platform-wide notices (an `Announcement` with null gym) appear on every Owner's dashboard.
-    - Super Admin can edit a gym's `payment_grace_days` and `subscription_reminder_days`.
-    - Super Admin can edit a gym's name, location and contact; gyms are never deleted, only suspended.
+    - **Suspension:** Super Admin confirms suspension of a lapse-flagged gym (it is never automatic). A suspended gym's staff and members cannot log in, while its data stays intact and visible to Super Admin — both halves tested.
+    - During the 7-day suspended-Owner window only the Sprint 29 CSV exports work and everything else is refused; after 7 days, Owner login is refused; nothing is deleted.
+    - **Gym Termination (Real End State):**
+      - Super Admin only. Allowed only for a gym that is `suspended` and whose 7-day Owner export window has ended; refused otherwise with a clear message.
+      - Super Admin types the gym's exact subdomain to confirm.
+      - Result: status `terminated`; nobody can log in, including the Owner; the public gym entry page says "This gym is no longer on FitGate"; no automatic emails or Telegram messages are sent for it; platform counts and revenue exclude it but show a "terminated" count; all data stays untouched; platform-level audit entry names the Super Admin.
+      - Reinstatement: Super Admin only, typed subdomain confirmation, status back to `suspended` (not active), platform-level audit entry. The Owner's export window does NOT restart.
+      - cPanel subdomain and media folder are not touched (optional manual cleanup listed in `docs/MANUAL_STEPS.md`).
+      - No Super Admin export of member data (Super Admin stays denied on member payments, receipts, and ledgers).
+      - Scheduled purge is NOT built; recorded in `docs/SPEC.md` §10 and `docs/OPEN_QUESTIONS.md` as future work.
+    - **Platform notices:** Extend the existing `Announcement` model from Sprint 28 to allow a null gym (`gym=null`). They appear on every Owner's dashboard and are never sent to Telegram.
+    - **Platform reports:** Tenant summary, subscription status overview, platform revenue (counting confirmed `gym_subscription` payments only and excluding demo gyms).
+    - Super Admin can edit a gym's name, location and contact; gyms are never deleted, only suspended or terminated.
 
-36. **GymConfig feature-flag enforcement** — backend permission layer + frontend render gating, for every tier-gated feature above.
-    - Full regression pass: every previously-built tier-gated endpoint (trainer module, AI plans, premium analytics [revenue by plan], freeze, group classes, and entitlement edits) is re-verified to reject a gym missing the corresponding flag, and every entitlement edit by an Owner is re-verified to be rejected. A clean pass here is the actual proof the gating is complete. Note: multi-branch is verified at the end of Increment 6 if Increment 6 ships (Sprint 36's multi-branch regression check and Sprint 38's final-release re-check are run again after Sprint 34).
+36. **GymConfig feature-flag enforcement** — backend permission layer + frontend render gating, for every tier-gated feature.
+    - **Entitlement rule:** An Owner may edit `freeze_days_allowed` (up to `freeze_days_cap`), the Chapa switch (`is_enabled`), the equipment-complete setting (`is_equipment_list_complete`), and the receipt verification settings; an Owner may NOT edit tier, feature flags, `freeze_days_cap`, payment grace days, or reminder days.
+    - **Full regression pass:** Every tier-gated feature built so far is re-verified to reject a gym missing the corresponding flag: trainer module (trainers, assignments, My clients, measurements, fitness profile), AI plans (generate, review, member plans), analytics (revenue by plan), freeze, and group classes. Every entitlement edit by an Owner is re-verified to be rejected.
+    - **Contract test:** Every tier-gated view declares its required flag, like the existing "every view declares permissions" contract test, so a future endpoint cannot skip it.
+    - Multi-branch is verified at the end of Increment 6 if Increment 6 ships.
 
 37. **Offline-first PWA** — Workbox service worker, local check-in queue, sync.
-    - The member dashboard offers a "Download App" button that installs the PWA on Android (it appears only when the browser reports the app can be installed, which needs the gym's valid HTTPS certificate); on iPhone the app shows short "Add to Home Screen" instructions; an installed app opens without the browser address bar.
-    - A check-in performed while offline is queued locally and produces exactly one `Attendance` row once connectivity returns — no duplicate on reconnect. Sync completes within 5 seconds of connectivity returning. Note: queued check-ins carry the branch once Increment 6 exists.
-    - Where background sync is unsupported (iOS Safari), the app replays the queue itself when it detects connectivity or regains focus; this path is tested separately.
+    - The member dashboard offers a "Download App" button that installs the PWA on Android (appears only when browser reports app can be installed, requiring valid HTTPS); iPhone shows short "Add to Home Screen" instructions; installed app opens standalone without browser address bar.
+    - **Caching boundary:** The service worker caches ONLY the app shell and the check-in queue; it NEVER caches API responses, receipt or member photos, measurements, plans, payments, or receipts. Logging out clears the offline queue.
+    - **Offline check-in replay:** A queued offline check-in is replayed through the single shared check-in function (`execute_check_in`), which strictly refuses frozen, suspended, pending, superseded, and pending-review members. Exactly one `Attendance` row produced on reconnect within 5 seconds.
+    - Where background sync is unsupported (iOS Safari), the app replays the queue itself when detecting connectivity or regaining focus (tested separately).
     - Offline, a scanned token is checked locally against the public key (signature and expiry); membership status is verified on sync, and a rejected queued check-in is surfaced to staff.
-    - The app shell is served while offline, not a browser error page; all screens work at 320 px width without sideways scrolling. Staff keep a manual fallback register for the case where browser data is cleared offline.
+    - App shell served offline (no browser error page). Every screen added in Increments 3 to 5 (classes, equipment, dashboards, expenses, receipt review queue, plan review, notices, trainer screens) works at 320 px without sideways scrolling. Staff keep manual fallback register if browser data cleared.
 
-37a. **Demo gym** - A management command seeds a gym on the `demo` subdomain (flagged `is_demo`) with sample members, plans, attendance, trainers, equipment, and group classes, Growth flags on, and Chapa test keys read from the environment. Multi-branch sample data is added only if Increment 6 has shipped. Re-running it resets only that gym's data, never any other gym's — tested with a second seeded gym. Demo gyms are excluded from platform revenue.
+37a. **Demo gym** — Realistic demo environment seeded on `demo` subdomain. - **Reset = Archive and Recreate:** Receipts, payments, and audit rows are protected by database triggers and foreign keys, so nothing is deleted. Re-running the demo command renames the old demo gym's subdomain to `demo-archive-N` (database only), renames its users' emails to archived addresses, marks it `is_demo=True` and `terminated`, and creates a new demo gym on subdomain `demo` with a fresh receipt counter starting at `REC-000001`. `tls_confirmed_at` is carried over. A test seeds a second ordinary gym, re-runs the demo command, and asserts the second gym's rows are identical before and after. - **Execution guards:** Refuses to run unless `ALLOW_DEMO_SEED=True` is set in the environment (never set by default). Exactly the name `demo` may bypass the reserved-subdomain check inside this command only. - **No live external calls:** Never calls live email, Telegram, Chapa, bank, or AI services (mock only): direct `set_password`, `must_change_password=False`, emails pre-verified, static JSON for AI plans, no Telegram channel configured. Automatic email sends exclude `is_demo` gyms (the nightly sweep itself still runs for them). - **Dates & seed data:** All dates computed from today in `Africa/Addis_Ababa`: check-ins today, payments spread over several months, several subscriptions expiring within 7 days, members in every status. Growth flags all on (`has_trainer_module`, `has_ai_plans`, `has_analytics`, `has_group_classes`, `freeze_days_allowed > 0`), `subscription_expires_at` far in the future, seeded `gym_subscription` payment so platform revenue demo exclusion is exercised. `is_demo` exclusion is centralised in the queryset or manager, not per view. - **Dataset size & assets:** About 80 to 120 members with 2 or 3 bundled sample avatars (no real people), through the normal private storage path. The 1,000-member dataset for the dashboard timing test stays in that benchmark test. Classes are fully seeded (no longer deferred). - **Seeded content:** Members in every status, plans (standard, trainer-inclusive, 3-month), a member with a queued plan, a member with an upgrade payment (superseded old plan), a frozen member, trainers with assignments, fitness profiles and measurements, approved AI plans made by the mock provider, equipment with prices and an out-of-service item, expenses, notices, class sessions with bookings, a bank transfer with mock verifier and one waiting in the review queue. - **Accounts & discovery:** Owner, manager, reception, two trainers, and members at predictable `@demo.local` addresses with one shared password from `DEMO_PASSWORD` (env variable only; name in `.env.example`, never a value). A "Demo credentials" panel on the demo gym's login page, shown only when `is_demo=True`. Command prints subdomain, role emails, and row counts. No auto-login button. Reachable through "Go to my gym". `docs/MANUAL_STEPS.md` notes demo subdomain is created via normal provisioning and certificate confirmed before seeding.
 
-38. **Production hardening (cPanel-based)** — Note in plain words that the cPanel provisioning, the AutoSSL behavior, the cron run and the DOMAIN change were already proven on the staging deploy, so this sprint is a re-check of the final release, not new work. Deploy Django via cPanel's Python App Manager (Passenger WSGI), wire the cPanel UAPI subdomain-provisioning call from Sprint 4 to the real account (not a stub), confirm PostgreSQL connection settings against cPanel's database, set up the cPanel Cron Job for Sprint 14's command, configure the cache backend (database cache unless Redis is confirmed), DB backups via whatever cPanel/Yegara provides, `DOMAIN` fully parameterized end-to-end. `.env` carries every environment-specific value: `DOMAIN`, database credentials, JWT and QR signing keys, `TENANT_CREDENTIALS_KEY`, Cloudinary credentials, Super Admin bootstrap values, demo Chapa test keys.
-    - A fresh deploy to the actual Yegara Premium account succeeds end-to-end from documented steps, with every environment-specific value sourced from `.env`.
-    - The cPanel UAPI call is confirmed against the real account — a real subdomain is actually provisioned when a gym is created.
-    - The AutoSSL gap behaves as designed under real conditions: a freshly provisioned subdomain is reachable over HTTP, login is blocked until the certificate is confirmed valid, and the app detects the certificate becoming valid without a manual flag flip.
-    - The cPanel Cron Job fires Sprint 14's command on schedule — verified against real execution.
-    - Changing `DOMAIN` in `.env` and redeploying requires no other code or configuration change.
+38. **Production hardening (cPanel-based)** — Final release check and production configuration.
+    - Note in plain words that the cPanel provisioning, AutoSSL behavior, cron run and DOMAIN change were already proven on the staging deploy, so this sprint is a re-check of the final release, not new work.
+    - **Deployment checklist additions:**
+      - Environment variables: `OPENROUTER_API_KEY`, `GEMINI_API_KEY`, `TELEGRAM_BOT_TOKEN` and its mock switch, `RECEIPT_VERIFICATION_ENABLED`, AI model settings.
+      - Consolidated cron table of every scheduled command: `daily_membership_sweep`, `process_unfreezes`, `sweep_unfinished_payments`, 7-day bank transfer flag, `cleanup_unverified_members`, `cleanup_ai_counters`, `flushexpiredtokens`, and `check_pending_tls`.
+      - Host request time limit versus AI generation time: Gemini Flash averaged ~16s, fallback model ~65s.
+      - Install size and memory of new packages (`litellm`, `cheki` with direct mode, `pdfplumber`) on shared hosting.
+      - Outbound HTTPS connectivity from host to AI, Telegram, and bank verification hosts.
+      - Full test suite run against PostgreSQL 13 before release.
+    - Deploy Django via cPanel's Python App Manager (Passenger WSGI), wire cPanel UAPI to real account, confirm PostgreSQL settings, set up cPanel Cron Jobs, configure cache backend, DB backups via cPanel, `DOMAIN` fully parameterized end-to-end.
 
 - [ ] All sprints in this increment complete
 
@@ -565,7 +588,7 @@ _Increment 5 = Sprints 25, 26, 27, 28, 29, 29a; Sprint 28a is deferred to a futu
 
 **Preflight (external items):** None
 
-_Increment 6 runs after Increment 7; go/no-go decision date: to be set by the owner. Note that it adds schema changes to gyms that already hold real data, so its migrations must be tested against a copy of staging data first. Built LAST as an optional stretch if time remains. Keeps sprint numbers 30 to 34._
+_Increment 6 runs after Increment 7; go/no-go decision date: to be set by the owner. Built LAST as an optional stretch if time remains. Keeps sprint numbers 30 to 34. Note: Scope has grown since initial draft — classes, dashboards, expenses, notices, CSV exports, and receipt accounts would also need branch scoping if Increment 6 is implemented._
 
 30. **Branch model + management** — `Branch` CRUD (Owner only), gated by `GymConfig.has_multi_branch`; frontend in-app branch switcher. One subdomain per gym regardless of branch count. Also creates the `MembershipPlan.all_branches_access` field in the database (default `false`), so it exists before Sprint 32 check-in needs it.
     - Branch CRUD endpoints reject requests on a gym without `has_multi_branch` at the API level.
@@ -622,7 +645,7 @@ _Increment 6 runs after Increment 7; go/no-go decision date: to be set by the ow
 9. Brevo: confirm "Authenticated" in the dashboard and DKIM PASS with d=fitgate.tebebtech.com in Gmail's "Show original" — deferred by owner decision.
 10. "Lessons from the first deploy" section in docs/DEPLOY_STAGING.md — deferred by owner decision.
 11. The earlier small follow-ups already in Known follow-ups — deferred by owner decision.
-12. [x] Tier cards on the landing page, the Create Gym tier choices, the default flags set at gym creation, and the Super Admin flag editor must offer only the tiers that exist; Pro appears only after Increment 6 ships; has_group_classes is enabled for Growth and Pro.
+12. [x] Tier cards on the landing page, the Create Gym tier choices, the default flags set at gym creation, and the Super Admin flag editor must offer only the tiers that exist; Pro appears only after Increment 6 ships; has_group_classes is enabled for Growth and Pro (updated for Increment 7).
 
 ## Deferred to a future version
 

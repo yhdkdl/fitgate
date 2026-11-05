@@ -16,6 +16,96 @@ docker compose exec backend python manage.py check
 
 ---
 
+## Refresh the Staging Site (Increment 7 Updates)
+
+Follow these copy-paste steps to refresh the staging site on Yegara cPanel with Increment 7 packages, migrations, management commands, and cron jobs.
+
+### 1. Build the Release Package on Laptop (Windows PowerShell)
+
+Run in local PowerShell repository root:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\deploy\build_release.ps1
+```
+
+This produces a fresh zip archive at `deploy/dist/fitgate_release_*.zip`.
+
+### 2. Upload and Extract Archive in cPanel
+
+1. In cPanel **File Manager**, navigate to your home directory (`/home/<username>/`).
+2. Rename current `fitgate` folder to `fitgate_prev_backup` (or clean outdated files).
+3. Upload `fitgate_release_*.zip` and extract it into `/home/<username>/fitgate`.
+
+### 3. Install New Python Packages (cPanel Web Terminal)
+
+Open cPanel **Web Terminal** and run:
+
+```bash
+source /home/$(whoami)/virtualenv/fitgate/3.11/bin/activate
+pip install -r /home/$(whoami)/fitgate/requirements/prod.txt
+```
+
+_(Estimated install footprint: the new packages `litellm`, `cheki[direct]`, and `pdfplumber` require approximately 65–80 MB of disk space in the virtual environment)._
+
+### 4. Update Host Environment Variables
+
+In cPanel **File Manager** (or terminal), edit `/home/<username>/fitgate_env/.env` and append the new variables:
+
+```ini
+# AI Provider Keys
+OPENROUTER_API_KEY=
+GEMINI_API_KEY=
+
+# Telegram Integration
+TELEGRAM_BOT_TOKEN=
+TELEGRAM_USE_MOCK=False
+
+# Bank Receipt Verification
+RECEIPT_VERIFICATION_ENABLED=True
+```
+
+### 5. Run Database Migrations (cPanel Web Terminal)
+
+```bash
+bash ~/fitgate/fitgate_manage.sh migrate
+```
+
+### 6. Verify Host Network and Environment Variables (cPanel Web Terminal)
+
+Run the verification commands to confirm external connectivity and env configuration:
+
+```bash
+# Test DNS and HTTPS handshakes to AI, Telegram, CBE, Telebirr, Brevo, Cloudinary:
+bash ~/fitgate/fitgate_manage.sh check_external_services
+
+# Audit environment variable names without printing secrets:
+bash ~/fitgate/fitgate_manage.sh check_env --file /home/$(whoami)/fitgate_env/.env
+```
+
+### 7. Configure Consolidated Cron Jobs
+
+In cPanel **Cron Jobs**, configure the scheduled management tasks using the standard runner:
+
+- Command prefix: `/bin/bash /home/<username>/fitgate/fitgate_manage.sh <command> > /dev/null 2>&1`
+
+| Schedule                         | cPanel Cron Expression | Command Line                                                        |
+| -------------------------------- | ---------------------- | ------------------------------------------------------------------- |
+| Every 5 minutes                  | `*/5 * * * *`          | `bash ~/fitgate/fitgate_manage.sh process_unfreezes`                |
+| Every 5 minutes                  | `*/5 * * * *`          | `bash ~/fitgate/fitgate_manage.sh sweep_unfinished_payments`        |
+| Every 5 minutes                  | `*/5 * * * *`          | `bash ~/fitgate/fitgate_manage.sh check_pending_tls`                |
+| Daily at 00:05 Addis (21:05 UTC) | `5 21 * * *`           | `bash ~/fitgate/fitgate_manage.sh daily_membership_sweep`           |
+| Daily at 01:00 Addis (22:00 UTC) | `0 22 * * *`           | `bash ~/fitgate/fitgate_manage.sh flag_unreconciled_bank_transfers` |
+| Daily at 03:00 Addis (00:00 UTC) | `0 0 * * *`            | `bash ~/fitgate/fitgate_manage.sh flushexpiredtokens`               |
+| Weekly Sunday 02:00 Addis        | `0 23 * * 0`           | `bash ~/fitgate/fitgate_manage.sh cleanup_unverified_members`       |
+
+### 8. Restart Application & Measure Host Performance
+
+1. In cPanel **Setup Python App**, click **Restart** on `fitgate.tebebtech.com`.
+2. **Dashboard Timing:** Log in as Owner and load the operational dashboard; observe response time.
+3. **AI Generation Timing:** As Trainer, trigger one real AI workout plan generation and observe completion time (Gemini Flash baseline: ~16 seconds; fallback model: ~65 seconds; host WSGI request timeout: verify it does not hit gateway timeout).
+
+---
+
 ## Later Releases Update Procedure
 
 When deploying future updates after the initial setup, follow this short procedure:

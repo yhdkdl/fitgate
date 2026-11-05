@@ -251,3 +251,39 @@ The table below lists every recurring cron job required by the FitGate productio
    - Before launch with real customer traffic, tighten DMARC from `p=none` to `p=quarantine` or `p=reject` after verifying SPF and DKIM alignment in the Brevo dashboard.
 6. **Verify Click Tracking Stays Off:**
    - Click tracking must stay off for transactional email: the owner must verify this in Brevo (under Transactional Email settings) so invitation tokens and password reset links point directly to `fitgate.tebebtech.com` rather than Brevo tracking redirect URLs.
+
+7. **Fix 2 — cPanel AutoSSL Trigger Token Permissions & Fallback**
+   - **What to do:** In cPanel Web Terminal or API test, confirm whether the API token has permission to execute `uapi SSL start_autossl_check`.
+   - **Note:** It is unconfirmed whether standard cPanel API tokens have permission to invoke AutoSSL checks on-demand. If the UAPI call returns a permission error, FitGate logs the failure and continues seamlessly.
+   - **Fallback in use:** The normal periodic cPanel AutoSSL scan (15 to 30 minute wait) and the background TLS verification command `check_pending_tls` (or manual "Confirm TLS" button by Super Admin).
+   - **Status:** To be verified at staging.
+
+8. **Sprint 35 — Optional Manual Cleanup for Terminated Gyms**
+   - **What to do:** When a gym is terminated in FitGate, its database rows are preserved for audit and legal retention. The application does not automatically delete cPanel subdomains or filesystem media.
+   - **Optional manual cleanup steps in cPanel:**
+     1. In cPanel **Domains** &rarr; **Domains**, locate `<subdomain>.fitgate.tebebtech.com` and remove the subdomain if no longer needed.
+     2. In cPanel **File Manager**, locate `/home/<username>/fitgate_media/<subdomain>` and archive or delete legacy media assets.
+   - **Status:** Documented procedure.
+
+9. **Sprint 37a — Demo Gym Provisioning & Certificate Confirmation**
+   - **What to do:** Before running `python manage.py seed_demo_gym`, the `demo` subdomain (`demo.fitgate.tebebtech.com`) must be provisioned via the normal Super Admin Create Gym interface or cPanel, and its AutoSSL certificate confirmed (`tls_confirmed_at` set).
+   - **Status:** Documented requirement.
+
+10. **Increment 7 — Plain Manual Steps for Refreshing the Staging Site in cPanel**
+    - **Step 1 (Upload Release Archive):** In cPanel **File Manager**, upload the `fitgate_release_*.zip` built on your laptop to your home directory (`/home/<username>/`), backup previous `fitgate` directory, and extract the zip into `/home/<username>/fitgate`.
+    - **Step 2 (Install Dependencies):** In cPanel **Setup Python App**, click **Run Pip Install** next to `requirements/prod.txt` (or in cPanel Web Terminal run `pip install -r ~/fitgate/requirements/prod.txt`). The newly introduced packages (`litellm`, `cheki[direct]`, `pdfplumber`) add ~65–80 MB of virtualenv disk usage.
+    - **Step 3 (Database Backup & Migrations):** Take a quick backup in cPanel **Backup Wizard**, then in Web Terminal run: `bash ~/fitgate/fitgate_manage.sh migrate`.
+    - **Step 4 (Configure New Environment Variables):** In `/home/<username>/fitgate_env/.env`, paste the real keys for `OPENROUTER_API_KEY`, `GEMINI_API_KEY`, `TELEGRAM_BOT_TOKEN` (with `TELEGRAM_USE_MOCK=False`), and set `RECEIPT_VERIFICATION_ENABLED=True`.
+    - **Step 5 (Run Pre-Flight Verification Commands):** In cPanel Web Terminal, execute:
+      - `bash ~/fitgate/fitgate_manage.sh check_external_services` (confirms DNS and HTTPS handshakes to Google AI, OpenRouter, Telegram, CBE, Telebirr, Cloudinary, and Brevo without sending secrets).
+      - `bash ~/fitgate/fitgate_manage.sh check_env --file /home/<username>/fitgate_env/.env` (audits variable names against template).
+    - **Step 6 (Set Up Consolidated Cron Jobs):** In cPanel **Cron Jobs**, configure the commands from the consolidated table:
+      - `*/5 * * * * bash ~/fitgate/fitgate_manage.sh process_unfreezes > /dev/null 2>&1`
+      - `*/5 * * * * bash ~/fitgate/fitgate_manage.sh sweep_unfinished_payments > /dev/null 2>&1`
+      - `*/5 * * * * bash ~/fitgate/fitgate_manage.sh check_pending_tls > /dev/null 2>&1`
+      - `5 21 * * * bash ~/fitgate/fitgate_manage.sh daily_membership_sweep > /dev/null 2>&1`
+      - `0 22 * * * bash ~/fitgate/fitgate_manage.sh flag_unreconciled_bank_transfers > /dev/null 2>&1`
+      - `0 0 * * * bash ~/fitgate/fitgate_manage.sh flushexpiredtokens > /dev/null 2>&1`
+      - `0 23 * * 0 bash ~/fitgate/fitgate_manage.sh cleanup_unverified_members > /dev/null 2>&1`
+    - **Step 7 (Restart Application):** In cPanel **Setup Python App**, click the **Restart** icon on `fitgate.tebebtech.com`.
+    - **Step 8 (Measure Host Timings):** Log in as Owner and measure dashboard load time; log in as Trainer and generate one workout plan using Gemini Flash to measure actual host generation duration against WSGI request timeout limits.
