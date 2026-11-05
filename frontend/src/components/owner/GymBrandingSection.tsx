@@ -15,6 +15,8 @@ import { Spinner } from "../ui/Spinner";
 import {
   focusFirstInvalidField,
   validateHexColor,
+  validateReminderDays,
+  getTwoLargestReminderDays,
 } from "../../utils/validators";
 
 interface GymBrandingSectionProps {
@@ -42,7 +44,8 @@ export const GymBrandingSection: React.FC<GymBrandingSectionProps> = ({
     success: boolean;
     message: string;
   } | null>(null);
-  const [memberReminderDays, setMemberReminderDays] = useState("7, 2");
+  const [memberReminderFirst, setMemberReminderFirst] = useState("7");
+  const [memberReminderSecond, setMemberReminderSecond] = useState("2");
   const [freezeDaysAllowed, setFreezeDaysAllowed] = useState<number>(0);
   const [freezeDaysCap, setFreezeDaysCap] = useState<number>(30);
   const [gymTier, setGymTier] = useState<string>("");
@@ -66,9 +69,9 @@ export const GymBrandingSection: React.FC<GymBrandingSectionProps> = ({
         setTelegramChannel(
           (res as { telegram_channel?: string }).telegram_channel || ""
         );
-        if (Array.isArray(res.member_reminder_days)) {
-          setMemberReminderDays(res.member_reminder_days.join(", "));
-        }
+        const [firstRem, secondRem] = getTwoLargestReminderDays(res.member_reminder_days);
+        setMemberReminderFirst(firstRem || "7");
+        setMemberReminderSecond(secondRem || "2");
         setFreezeDaysAllowed(
           res.freeze_days_allowed !== undefined ? res.freeze_days_allowed : 0
         );
@@ -142,16 +145,15 @@ export const GymBrandingSection: React.FC<GymBrandingSectionProps> = ({
     }
 
     // Parse reminder days
-    const parts = memberReminderDays
-      .split(",")
-      .map((s) => s.trim())
-      .filter(Boolean);
-    const hasInvalidDays = parts.some(
-      (p) => !/^\d+$/.test(p) || parseInt(p, 10) > 365
+    const { firstError, secondError } = validateReminderDays(
+      memberReminderFirst,
+      memberReminderSecond
     );
-    if (hasInvalidDays) {
-      errors.member_reminder_days =
-        "Reminder days must be comma-separated numbers between 0 and 365.";
+    if (firstError) {
+      errors.member_reminder_first = firstError;
+    }
+    if (secondError) {
+      errors.member_reminder_second = secondError;
     }
 
     if (gymTier === "starter") {
@@ -173,7 +175,9 @@ export const GymBrandingSection: React.FC<GymBrandingSectionProps> = ({
       return;
     }
 
-    const reminderDays = parts.map((s) => parseInt(s, 10));
+    const reminderDays = memberReminderSecond.trim() !== ""
+      ? [parseInt(memberReminderFirst, 10), parseInt(memberReminderSecond, 10)]
+      : [parseInt(memberReminderFirst, 10)];
 
     try {
       setSaving(true);
@@ -183,7 +187,7 @@ export const GymBrandingSection: React.FC<GymBrandingSectionProps> = ({
           show_unavailable_equipment: showUnavailableEquipment,
           is_equipment_list_complete: isEquipmentListComplete,
           telegram_channel: trimmedChannel || null,
-          member_reminder_days: reminderDays.length ? reminderDays : undefined,
+          member_reminder_days: reminderDays,
           freeze_days_allowed:
             gymTier === "starter" ? 0 : Number(freezeDaysAllowed),
         },
@@ -370,21 +374,51 @@ export const GymBrandingSection: React.FC<GymBrandingSectionProps> = ({
             )}
           </FormField>
 
-          <FormField
-            id="member_reminder_days"
-            label="Member Renewal Reminder Days"
-            helpText="Comma-separated days before membership expiry to notify members (default: 7, 2)."
-            error={fieldErrors.member_reminder_days}
-          >
-            <Input
-              id="member_reminder_days"
-              value={memberReminderDays}
-              onChange={(e) => setMemberReminderDays(e.target.value)}
-              placeholder="7, 2"
-              maxLength={50}
-              error={fieldErrors.member_reminder_days}
-            />
-          </FormField>
+          <div className="space-y-3">
+            <div className="space-y-1">
+              <label className="text-sm font-medium text-text">
+                Membership renewal reminders: remind each member and Reception this many days before a membership ends
+              </label>
+              <p className="text-xs text-text-muted">
+                First reminder is required (1 to 90 days). Second reminder is optional and must be smaller than the first.
+              </p>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <FormField
+                id="member_reminder_first"
+                label="First reminder"
+                error={fieldErrors.member_reminder_first}
+              >
+                <Input
+                  id="member_reminder_first"
+                  type="number"
+                  min={1}
+                  max={90}
+                  value={memberReminderFirst}
+                  onChange={(e) => setMemberReminderFirst(e.target.value)}
+                  placeholder="7"
+                  error={fieldErrors.member_reminder_first}
+                />
+              </FormField>
+
+              <FormField
+                id="member_reminder_second"
+                label="Second reminder (optional)"
+                error={fieldErrors.member_reminder_second}
+              >
+                <Input
+                  id="member_reminder_second"
+                  type="number"
+                  min={1}
+                  max={90}
+                  value={memberReminderSecond}
+                  onChange={(e) => setMemberReminderSecond(e.target.value)}
+                  placeholder="2"
+                  error={fieldErrors.member_reminder_second}
+                />
+              </FormField>
+            </div>
+          </div>
         </div>
 
         <div className="flex items-center gap-3 pt-2">

@@ -471,7 +471,18 @@ def update_gym_settings(
         config.show_unavailable_equipment = data["show_unavailable_equipment"]
         update_fields.append("show_unavailable_equipment")
     if "member_reminder_days" in data:
-        config.member_reminder_days = data["member_reminder_days"]
+        from django.core.exceptions import ValidationError as DjangoValidationError
+        from rest_framework.exceptions import ValidationError as DRFValidationError
+
+        from apps.core.validators import validate_reminder_days
+
+        try:
+            config.member_reminder_days = validate_reminder_days(
+                data["member_reminder_days"]
+            )
+        except (DjangoValidationError, DRFValidationError) as exc:
+            msg = exc.message if hasattr(exc, "message") else str(exc)
+            raise DRFValidationError({"member_reminder_days": [msg]})
         update_fields.append("member_reminder_days")
     if "is_equipment_list_complete" in data:
         config.is_equipment_list_complete = bool(data["is_equipment_list_complete"])
@@ -571,30 +582,17 @@ def update_gym_settings(
             update_fields.append("payment_grace_days")
 
         if "subscription_reminder_days" in data:
+            from django.core.exceptions import ValidationError as DjangoValidationError
+            from rest_framework.exceptions import ValidationError as DRFValidationError
+
+            from apps.core.validators import validate_reminder_days
+
             rem_val = data["subscription_reminder_days"]
-            if isinstance(rem_val, str):
-                parts = [p.strip() for p in rem_val.split(",") if p.strip()]
-                try:
-                    rem_val = [int(p) for p in parts]
-                except ValueError:
-                    raise ValidationError(
-                        {
-                            "subscription_reminder_days": [
-                                "Subscription reminder days must be whole numbers."
-                            ]
-                        }
-                    )
-            if not isinstance(rem_val, list) or not all(
-                isinstance(x, int) and 0 <= x <= 365 for x in rem_val
-            ):
-                raise ValidationError(
-                    {
-                        "subscription_reminder_days": [
-                            "Subscription reminder days must be a list of whole numbers between 0 and 365."
-                        ]
-                    }
-                )
-            config.subscription_reminder_days = rem_val
+            try:
+                config.subscription_reminder_days = validate_reminder_days(rem_val)
+            except (DjangoValidationError, DRFValidationError) as exc:
+                msg = exc.message if hasattr(exc, "message") else str(exc)
+                raise DRFValidationError({"subscription_reminder_days": [msg]})
             update_fields.append("subscription_reminder_days")
 
         for field in [

@@ -823,3 +823,59 @@ export function validateDietaryChoices(
   }
   return null;
 }
+
+/**
+ * Extract two largest reminder days from existing stored array.
+ * If >2 days stored, returns the two largest numbers.
+ */
+export function getTwoLargestReminderDays(
+  days: unknown
+): [string, string] {
+  if (!Array.isArray(days) || days.length === 0) {
+    return ["", ""];
+  }
+  const nums = days
+    .map((x) => Number(x))
+    .filter((n) => !isNaN(n) && n > 0)
+    .sort((a, b) => b - a); // descending
+  if (nums.length === 0) return ["", ""];
+  if (nums.length === 1) return [String(nums[0]), ""];
+  return [String(nums[0]), String(nums[1])];
+}
+
+/**
+ * Validate first and optional second reminder days.
+ * Allowed 1 to 90. Second reminder must be smaller than the first.
+ */
+export function validateReminderDays(
+  first: string | number,
+  second?: string | number
+): { firstError: string | null; secondError: string | null } {
+  let firstError: string | null = null;
+  let secondError: string | null = null;
+
+  const firstStr = String(first).trim();
+  if (!firstStr) {
+    firstError = "First reminder must be a whole number from 1 to 90.";
+  } else {
+    const firstNum = Number(firstStr);
+    if (!Number.isInteger(firstNum) || firstNum < 1 || firstNum > 90) {
+      firstError = "First reminder must be a whole number from 1 to 90.";
+    }
+  }
+
+  const secondStr = second !== undefined && second !== null ? String(second).trim() : "";
+  if (secondStr) {
+    const secondNum = Number(secondStr);
+    if (!Number.isInteger(secondNum) || secondNum < 1 || secondNum > 90) {
+      secondError = "Second reminder must be a whole number from 1 to 90.";
+    } else if (firstError === null) {
+      const firstNum = Number(firstStr);
+      if (secondNum >= firstNum) {
+        secondError = "Second reminder must be smaller than the first reminder.";
+      }
+    }
+  }
+
+  return { firstError, secondError };
+}

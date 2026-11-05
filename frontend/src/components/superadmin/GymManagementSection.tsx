@@ -24,6 +24,8 @@ import {
   validatePhone,
   validateSubdomain,
   validateTextLength,
+  validateReminderDays,
+  getTwoLargestReminderDays,
 } from "../../utils/validators";
 
 const TIER_PRICES: Record<string, string> = {
@@ -85,8 +87,10 @@ export const GymManagementSection: React.FC<GymManagementSectionProps> = ({
   const [hasAnalytics, setHasAnalytics] = useState(false);
   const [freezeDaysCap, setFreezeDaysCap] = useState<number>(30);
   const [paymentGraceDays, setPaymentGraceDays] = useState<number>(7);
-  const [subscriptionReminderDays, setSubscriptionReminderDays] =
-    useState<string>("14, 7");
+  const [subReminderFirst, setSubReminderFirst] = useState<string>("14");
+  const [subReminderSecond, setSubReminderSecond] = useState<string>("7");
+  const [subReminderFirstError, setSubReminderFirstError] = useState<string | null>(null);
+  const [subReminderSecondError, setSubReminderSecondError] = useState<string | null>(null);
   const [savingConfig, setSavingConfig] = useState(false);
   const [configSuccessMsg, setConfigSuccessMsg] = useState<string | null>(null);
   const [configErrorMsg, setConfigErrorMsg] = useState<string | null>(null);
@@ -107,18 +111,21 @@ export const GymManagementSection: React.FC<GymManagementSectionProps> = ({
       setPaymentGraceDays(
         cfg.payment_grace_days !== undefined ? cfg.payment_grace_days : 7
       );
-      setSubscriptionReminderDays(
-        Array.isArray(cfg.subscription_reminder_days)
-          ? cfg.subscription_reminder_days.join(", ")
-          : "14, 7"
-      );
+      const [firstSub, secondSub] = getTwoLargestReminderDays(cfg.subscription_reminder_days);
+      setSubReminderFirst(firstSub || "14");
+      setSubReminderSecond(secondSub || "7");
+      setSubReminderFirstError(null);
+      setSubReminderSecondError(null);
     } catch {
       setHasTrainerModule(false);
       setHasAiPlans(false);
       setHasAnalytics(false);
       setFreezeDaysCap(30);
       setPaymentGraceDays(7);
-      setSubscriptionReminderDays("14, 7");
+      setSubReminderFirst("14");
+      setSubReminderSecond("7");
+      setSubReminderFirstError(null);
+      setSubReminderSecondError(null);
     }
   };
 
@@ -128,12 +135,24 @@ export const GymManagementSection: React.FC<GymManagementSectionProps> = ({
     setSavingConfig(true);
     setConfigSuccessMsg(null);
     setConfigErrorMsg(null);
+    setSubReminderFirstError(null);
+    setSubReminderSecondError(null);
+
+    const { firstError, secondError } = validateReminderDays(
+      subReminderFirst,
+      subReminderSecond
+    );
+    if (firstError || secondError) {
+      setSubReminderFirstError(firstError);
+      setSubReminderSecondError(secondError);
+      setSavingConfig(false);
+      return;
+    }
+
     try {
-      const reminderParts = subscriptionReminderDays
-        .split(",")
-        .map((s) => s.trim())
-        .filter(Boolean)
-        .map((s) => parseInt(s, 10));
+      const reminderParts = subReminderSecond.trim() !== ""
+        ? [Number(subReminderFirst), Number(subReminderSecond)]
+        : [Number(subReminderFirst)];
 
       const payload: Record<string, unknown> = {
         has_trainer_module: hasTrainerModule,
@@ -141,9 +160,7 @@ export const GymManagementSection: React.FC<GymManagementSectionProps> = ({
         has_analytics: hasAnalytics,
         freeze_days_cap: Number(freezeDaysCap),
         payment_grace_days: Number(paymentGraceDays),
-        subscription_reminder_days: reminderParts.length
-          ? reminderParts
-          : [14, 7],
+        subscription_reminder_days: reminderParts,
       };
       if (selectedGymForConfig.tier !== "pro") {
         payload.tier = configTier;
@@ -902,20 +919,57 @@ export const GymManagementSection: React.FC<GymManagementSectionProps> = ({
                 </div>
               </div>
 
-              <div>
-                <label className="block text-xs font-semibold uppercase tracking-wider text-text-muted mb-1.5">
-                  Subscription Reminder Days
-                </label>
-                <input
-                  type="text"
-                  value={subscriptionReminderDays}
-                  onChange={(e) => setSubscriptionReminderDays(e.target.value)}
-                  placeholder="14, 7"
-                  className="w-full bg-surface-2 border border-border rounded-input px-3 py-2 text-text text-sm focus:outline-none focus:ring-2 focus:ring-primary min-h-[44px]"
-                />
-                <p className="text-[11px] text-text-muted mt-1">
-                  Comma-separated days before expiry for renewal reminders.
-                </p>
+              <div className="space-y-2">
+                <div>
+                  <label className="block text-xs font-semibold uppercase tracking-wider text-text-muted mb-1">
+                    Gym subscription reminders: remind the Owner this many days before the gym's yearly subscription ends
+                  </label>
+                  <p className="text-[11px] text-text-muted">
+                    First reminder is required (1 to 90 days). Second reminder is optional and must be smaller than the first.
+                  </p>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-medium text-text-muted mb-1">
+                      First reminder
+                    </label>
+                    <input
+                      type="number"
+                      min={1}
+                      max={90}
+                      value={subReminderFirst}
+                      onChange={(e) => {
+                        setSubReminderFirst(e.target.value);
+                        setSubReminderFirstError(null);
+                      }}
+                      placeholder="14"
+                      className="w-full bg-surface-2 border border-border rounded-input px-3 py-2 text-text text-sm focus:outline-none focus:ring-2 focus:ring-primary min-h-[44px]"
+                    />
+                    {subReminderFirstError && (
+                      <p className="text-xs text-danger mt-1">{subReminderFirstError}</p>
+                    )}
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-text-muted mb-1">
+                      Second reminder (optional)
+                    </label>
+                    <input
+                      type="number"
+                      min={1}
+                      max={90}
+                      value={subReminderSecond}
+                      onChange={(e) => {
+                        setSubReminderSecond(e.target.value);
+                        setSubReminderSecondError(null);
+                      }}
+                      placeholder="7"
+                      className="w-full bg-surface-2 border border-border rounded-input px-3 py-2 text-text text-sm focus:outline-none focus:ring-2 focus:ring-primary min-h-[44px]"
+                    />
+                    {subReminderSecondError && (
+                      <p className="text-xs text-danger mt-1">{subReminderSecondError}</p>
+                    )}
+                  </div>
+                </div>
               </div>
 
               {/* Feature Entitlements */}
