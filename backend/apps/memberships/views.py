@@ -61,6 +61,7 @@ from apps.memberships.throttling import (
     MemberRegistrationIpRateThrottle,
     MemberRegistrationRateThrottle,
 )
+from apps.trainers.permissions import HasTrainerModule
 
 
 class PublicMemberRegistrationView(APIView):
@@ -364,7 +365,8 @@ class GymMemberRecordMetricsView(APIView):
     - POST: Trainer ONLY of current gym (fail-closed: Owner, Manager, Reception, Member, Super Admin refused).
     """
 
-    permission_classes = [IsAuthenticated, RequirePasswordChanged]
+    required_flag = "has_trainer_module"
+    permission_classes = [IsAuthenticated, RequirePasswordChanged, HasTrainerModule]
 
     def _get_member_or_check_tenant(self, pk, tenant):
         if not tenant:
@@ -683,7 +685,13 @@ class MemberSelfMetricsView(APIView):
     Members cannot enter or edit measurements.
     """
 
-    permission_classes = [IsAuthenticated, RequirePasswordChanged, IsMember]
+    required_flag = "has_trainer_module"
+    permission_classes = [
+        IsAuthenticated,
+        RequirePasswordChanged,
+        HasTrainerModule,
+        IsMember,
+    ]
 
     @extend_schema(
         summary="List own body metrics history",
@@ -1063,6 +1071,7 @@ def _format_validation_error_response(exc: ValidationError) -> Response:
 
 
 class MemberFreezeRequestView(APIView):
+    required_flag = "freeze"
     """
     Submit a membership freeze request for the logged-in member.
     Allowed: Member of that gym only. Denied: All other roles, Super Admin, cross-gym (403).
@@ -1124,6 +1133,7 @@ class MemberFreezeRequestView(APIView):
 
 
 class MemberMyFreezesView(APIView):
+    required_flag = "freeze"
     """
     List freeze requests submitted by the logged-in member.
     Allowed: Member only. Denied: All other roles, Super Admin (403).
@@ -1166,6 +1176,7 @@ class MemberMyFreezesView(APIView):
 
 
 class MemberFreezeAllowanceView(APIView):
+    required_flag = "freeze"
     """
     Check remaining freeze days and allowance for the logged-in member.
     Allowed: Member only. Denied: Super Admin and staff (403).
@@ -1205,6 +1216,7 @@ class MemberFreezeAllowanceView(APIView):
 
 
 class GymFreezeListView(APIView):
+    required_flag = "freeze"
     """
     List gym membership freeze requests for staff review.
     Allowed: Owner and Manager of that gym only. Denied: Super Admin, Reception, Trainer, Member (403).
@@ -1246,6 +1258,7 @@ class GymFreezeListView(APIView):
 
 
 class GymFreezeApproveView(APIView):
+    required_flag = "freeze"
     """
     Approve a pending membership freeze request.
     Allowed: Owner and Manager of that gym only. Denied: Super Admin, Reception, Trainer, Member (403).
@@ -1295,6 +1308,7 @@ class GymFreezeApproveView(APIView):
 
 
 class GymFreezeRejectView(APIView):
+    required_flag = "freeze"
     """
     Reject a pending membership freeze request.
     Allowed: Owner and Manager of that gym only. Denied: Super Admin, Reception, Trainer, Member (403).
@@ -1352,6 +1366,7 @@ class GymFreezeRejectView(APIView):
 
 
 class GymFreezeEndEarlyView(APIView):
+    required_flag = "freeze"
     """
     Staff endpoint to end an approved member freeze early.
     Allowed: Owner, Manager, Reception of that gym.
@@ -1401,6 +1416,7 @@ class GymFreezeEndEarlyView(APIView):
 
 
 class GymMemberEndFreezeEarlyView(APIView):
+    required_flag = "freeze"
     """
     Staff endpoint on a member record to end their current or upcoming approved freeze early.
     Allowed: Owner, Manager, Reception of that gym.

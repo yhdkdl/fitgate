@@ -79,6 +79,106 @@ class TestPermissionsAndProjectContracts:
                             f"must declare IsAuthenticated (or a subclass) in permission_classes."
                         )
 
+    def test_all_tier_gated_views_declare_required_flag(self):
+        """
+        Contract test: every view in a tier-gated app/module (classes, trainers,
+        freeze, analytics, metrics) must declare 'required_flag' explicitly,
+        preventing any future endpoint from skipping feature-flag gating.
+        """
+        resolver = get_resolver()
+
+        def inspect_patterns(patterns):
+            view_classes = set()
+            for pattern in patterns:
+                if hasattr(pattern, "url_patterns"):
+                    view_classes.update(inspect_patterns(pattern.url_patterns))
+                elif hasattr(pattern, "callback"):
+                    callback = pattern.callback
+                    if hasattr(callback, "view_class"):
+                        view_classes.add(callback.view_class)
+                    elif hasattr(callback, "cls"):
+                        view_classes.add(callback.cls)
+            return view_classes
+
+        all_view_classes = inspect_patterns(resolver.url_patterns)
+
+        from apps.classes.permissions import HasGroupClassesEnabled
+        from apps.trainers.permissions import HasAIPlansEnabled, HasTrainerModule
+
+        checked_count = 0
+        for view_cls in all_view_classes:
+            module = getattr(view_cls, "__module__", "")
+            name = getattr(view_cls, "__name__", "")
+
+            # 1. Apps.classes views
+            if module == "apps.classes.views":
+                assert hasattr(
+                    view_cls, "required_flag"
+                ), f"View class '{name}' in '{module}' must declare 'required_flag'."
+                assert (
+                    view_cls.required_flag == "has_group_classes"
+                ), f"View '{name}' must have required_flag='has_group_classes', got '{view_cls.required_flag}'."
+                assert HasGroupClassesEnabled in getattr(
+                    view_cls, "permission_classes", []
+                ), f"View '{name}' must declare HasGroupClassesEnabled in permission_classes."
+                checked_count += 1
+
+            # 2. Apps.trainers views
+            elif module == "apps.trainers.views":
+                assert hasattr(
+                    view_cls, "required_flag"
+                ), f"View class '{name}' in '{module}' must declare 'required_flag'."
+                assert view_cls.required_flag in (
+                    "has_trainer_module",
+                    "has_ai_plans",
+                ), f"View '{name}' must have required_flag in ('has_trainer_module', 'has_ai_plans'), got '{view_cls.required_flag}'."
+                if view_cls.required_flag == "has_trainer_module":
+                    assert HasTrainerModule in getattr(
+                        view_cls, "permission_classes", []
+                    ), f"View '{name}' must declare HasTrainerModule in permission_classes."
+                elif view_cls.required_flag == "has_ai_plans":
+                    assert HasAIPlansEnabled in getattr(
+                        view_cls, "permission_classes", []
+                    ), f"View '{name}' must declare HasAIPlansEnabled in permission_classes."
+                checked_count += 1
+
+            # 3. Metrics views in memberships
+            elif name in ("GymMemberRecordMetricsView", "MemberSelfMetricsView"):
+                assert hasattr(
+                    view_cls, "required_flag"
+                ), f"View class '{name}' must declare 'required_flag'."
+                assert (
+                    view_cls.required_flag == "has_trainer_module"
+                ), f"View '{name}' must have required_flag='has_trainer_module'."
+                assert HasTrainerModule in getattr(
+                    view_cls, "permission_classes", []
+                ), f"View '{name}' must declare HasTrainerModule in permission_classes."
+                checked_count += 1
+
+            # 4. Freeze views in memberships
+            elif "Freeze" in name and module == "apps.memberships.views":
+                assert hasattr(
+                    view_cls, "required_flag"
+                ), f"View class '{name}' must declare 'required_flag'."
+                assert (
+                    view_cls.required_flag == "freeze"
+                ), f"View '{name}' must have required_flag='freeze'."
+                checked_count += 1
+
+            # 5. Analytics views in tenants
+            elif name == "GymAnalyticsOverviewView":
+                assert hasattr(
+                    view_cls, "required_flag"
+                ), f"View class '{name}' must declare 'required_flag'."
+                assert (
+                    view_cls.required_flag == "has_analytics"
+                ), f"View '{name}' must have required_flag='has_analytics'."
+                checked_count += 1
+
+        assert (
+            checked_count == 36
+        ), f"Expected 36 tier-gated views checked, found {checked_count}."
+
     def test_anonymous_access_returns_401_for_all_non_allowany_views(self):
         """
         Walks every URL pattern of the project (apps.* and fitgate.* views only).

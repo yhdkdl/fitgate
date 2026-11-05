@@ -560,6 +560,7 @@ _Increment 5 = Sprints 25, 26, 27, 28, 29, 29a; Sprint 28a is deferred to a futu
     - **Full regression pass:** Every tier-gated feature built so far is re-verified to reject a gym missing the corresponding flag: trainer module (trainers, assignments, My clients, measurements, fitness profile), AI plans (generate, review, member plans), analytics (revenue by plan), freeze, and group classes. Every entitlement edit by an Owner is re-verified to be rejected.
     - **Contract test:** Every tier-gated view declares its required flag, like the existing "every view declares permissions" contract test, so a future endpoint cannot skip it.
     - Multi-branch is verified at the end of Increment 6 if Increment 6 ships.
+    - [~] Status: in progress (branch `feature/sprint-36-flag-enforcement`)
 
 37. **Offline-first PWA** — Workbox service worker, local check-in queue, sync.
     - The member dashboard offers a "Download App" button that installs the PWA on Android (appears only when browser reports app can be installed, requiring valid HTTPS); iPhone shows short "Add to Home Screen" instructions; installed app opens standalone without browser address bar.

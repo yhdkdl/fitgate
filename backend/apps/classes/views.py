@@ -39,6 +39,7 @@ from apps.trainers.models import Trainer
 
 
 class ClassSessionListCreateView(APIView):
+    required_flag = "has_group_classes"
     """
     GET: List sessions for the gym.
          Query params:
@@ -148,6 +149,7 @@ class ClassSessionListCreateView(APIView):
 
 
 class ClassSessionDetailView(APIView):
+    required_flag = "has_group_classes"
     """
     GET: Retrieve session detail.
     PATCH: Update session (Owner and Manager only).
@@ -228,6 +230,7 @@ class ClassSessionDetailView(APIView):
 
 
 class ClassSessionCancelView(APIView):
+    required_flag = "has_group_classes"
     """Cancel a scheduled class session. Owner and Manager only."""
 
     permission_classes = [
@@ -259,6 +262,7 @@ class ClassSessionCancelView(APIView):
 
 
 class ClassSessionRosterView(APIView):
+    required_flag = "has_group_classes"
     """
     Retrieve roster of booked members for a session.
     Allowed: Owner, Manager, Reception, or assigned Trainer.
@@ -316,6 +320,7 @@ class ClassSessionRosterView(APIView):
 
 
 class BookClassSessionView(APIView):
+    required_flag = "has_group_classes"
     """
     POST: Book a slot in a class session.
     - Member books themselves.
@@ -386,6 +391,7 @@ class BookClassSessionView(APIView):
 
 
 class CancelClassBookingView(APIView):
+    required_flag = "has_group_classes"
     """
     POST: Cancel a booking.
     - Member can cancel their own booking (<= 2 hours cutoff).
@@ -447,6 +453,7 @@ class CancelClassBookingView(APIView):
 
 
 class MarkClassAttendanceView(APIView):
+    required_flag = "has_group_classes"
     """
     POST: Mark attendance for a member in a class.
     Allowed roles: Owner, Manager, or the assigned Trainer.
@@ -485,6 +492,7 @@ class MarkClassAttendanceView(APIView):
 
 
 class MemberClassBookingsView(APIView):
+    required_flag = "has_group_classes"
     """
     GET: List current member's upcoming and past class bookings.
     Only accessible by members.
@@ -524,6 +532,7 @@ class MemberClassBookingsView(APIView):
 
 
 class TrainerClassSessionsView(APIView):
+    required_flag = "has_group_classes"
     """
     GET: List sessions assigned to the requesting trainer.
     Upcoming first, then past.

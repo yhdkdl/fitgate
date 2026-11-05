@@ -29,6 +29,7 @@ from apps.trainers.permissions import (
     CanAccessMemberSelfFitnessProfile,
     CanManageMemberTrainingPlans,
     CanManageTrainingPlanDetail,
+    HasAIPlansEnabled,
     HasTrainerModule,
     IsOwnerOrManager,
     IsTrainerRole,
@@ -52,6 +53,7 @@ from apps.trainers.services import reassign_trainer
 
 
 class GymTrainerListView(APIView):
+    required_flag = "has_trainer_module"
     """List all trainers with client counts and capacities for the gym."""
 
     authentication_classes = [FitGateJWTAuthentication]
@@ -85,6 +87,7 @@ class GymTrainerListView(APIView):
 
 
 class GymTrainerDetailView(APIView):
+    required_flag = "has_trainer_module"
     """Retrieve or update a trainer's capacity and details."""
 
     authentication_classes = [FitGateJWTAuthentication]
@@ -182,6 +185,7 @@ class GymTrainerDetailView(APIView):
 
 
 class TrainerMeView(APIView):
+    required_flag = "has_trainer_module"
     """View own trainer profile and client count."""
 
     authentication_classes = [FitGateJWTAuthentication]
@@ -218,6 +222,7 @@ class TrainerMeView(APIView):
 
 
 class GymAssignmentListView(APIView):
+    required_flag = "has_trainer_module"
     """List trainer assignments for the gym (Owner, Manager only)."""
 
     authentication_classes = [FitGateJWTAuthentication]
@@ -250,6 +255,7 @@ class GymAssignmentListView(APIView):
 
 
 class GymUnassignedMembersView(APIView):
+    required_flag = "has_trainer_module"
     """List members on trainer-inclusive active plans without an assigned trainer."""
 
     authentication_classes = [FitGateJWTAuthentication]
@@ -317,6 +323,7 @@ class GymUnassignedMembersView(APIView):
 
 
 class GymReassignTrainerView(APIView):
+    required_flag = "has_trainer_module"
     """Manually assign or reassign a trainer to a member."""
 
     authentication_classes = [FitGateJWTAuthentication]
@@ -396,6 +403,7 @@ class GymReassignTrainerView(APIView):
 
 
 class TrainerMyClientsView(APIView):
+    required_flag = "has_trainer_module"
     """View active clients assigned to the authenticated trainer."""
 
     authentication_classes = [FitGateJWTAuthentication]
@@ -501,9 +509,11 @@ class GymMemberFitnessProfileView(APIView):
     - Unrelated Trainer, Reception, Super Admin, other gyms, Member: 403 Forbidden.
     """
 
+    required_flag = "has_trainer_module"
     permission_classes = [
         IsAuthenticated,
         RequirePasswordChanged,
+        HasTrainerModule,
         CanAccessMemberFitnessProfile,
     ]
 
@@ -587,9 +597,11 @@ class MemberSelfFitnessProfileView(APIView):
     Read-only fitness profile view for the authenticated member.
     """
 
+    required_flag = "has_trainer_module"
     permission_classes = [
         IsAuthenticated,
         RequirePasswordChanged,
+        HasTrainerModule,
         CanAccessMemberSelfFitnessProfile,
     ]
 
@@ -617,6 +629,7 @@ class MemberSelfFitnessProfileView(APIView):
 
 
 class GymMemberPlanStatusView(APIView):
+    required_flag = "has_ai_plans"
     """
     Returns plan generation prerequisites and readiness status for a member.
     """
@@ -626,6 +639,7 @@ class GymMemberPlanStatusView(APIView):
         IsAuthenticated,
         RequirePasswordChanged,
         HasTrainerModule,
+        HasAIPlansEnabled,
         CanManageMemberTrainingPlans,
     ]
 
@@ -665,6 +679,7 @@ class GymMemberPlanStatusView(APIView):
 
 
 class GymMemberTrainingPlanListView(APIView):
+    required_flag = "has_ai_plans"
     """
     List training plans or generate a new draft for a member.
     """
@@ -674,6 +689,7 @@ class GymMemberTrainingPlanListView(APIView):
         IsAuthenticated,
         RequirePasswordChanged,
         HasTrainerModule,
+        HasAIPlansEnabled,
         CanManageMemberTrainingPlans,
     ]
 
@@ -746,6 +762,7 @@ class GymMemberTrainingPlanListView(APIView):
 
 
 class GymTrainingPlanDetailView(APIView):
+    required_flag = "has_ai_plans"
     """
     Retrieve details of a training plan.
     """
@@ -755,6 +772,7 @@ class GymTrainingPlanDetailView(APIView):
         IsAuthenticated,
         RequirePasswordChanged,
         HasTrainerModule,
+        HasAIPlansEnabled,
         CanManageTrainingPlanDetail,
     ]
 
@@ -774,6 +792,7 @@ class GymTrainingPlanDetailView(APIView):
 
 
 class GymTrainingPlanApproveView(APIView):
+    required_flag = "has_ai_plans"
     """
     Approve a pending training plan draft.
     """
@@ -783,6 +802,7 @@ class GymTrainingPlanApproveView(APIView):
         IsAuthenticated,
         RequirePasswordChanged,
         HasTrainerModule,
+        HasAIPlansEnabled,
         CanManageTrainingPlanDetail,
     ]
 
@@ -815,6 +835,7 @@ class GymTrainingPlanApproveView(APIView):
 
 
 class GymTrainingPlanRejectView(APIView):
+    required_flag = "has_ai_plans"
     """
     Reject a pending training plan draft and trigger regeneration.
     """
@@ -824,6 +845,7 @@ class GymTrainingPlanRejectView(APIView):
         IsAuthenticated,
         RequirePasswordChanged,
         HasTrainerModule,
+        HasAIPlansEnabled,
         CanManageTrainingPlanDetail,
     ]
 
@@ -879,6 +901,7 @@ class GymTrainingPlanRejectView(APIView):
 
 
 class GymTrainingPlanEditView(APIView):
+    required_flag = "has_ai_plans"
     """
     Directly edit exercises or nutrition guidance of a pending training plan draft.
     """
@@ -888,6 +911,7 @@ class GymTrainingPlanEditView(APIView):
         IsAuthenticated,
         RequirePasswordChanged,
         HasTrainerModule,
+        HasAIPlansEnabled,
         CanManageTrainingPlanDetail,
     ]
 
@@ -934,10 +958,13 @@ class MemberSelfTrainingPlanListView(APIView):
     Unapproved drafts and rejected plans are never visible to the member.
     """
 
+    required_flag = "has_ai_plans"
     authentication_classes = [FitGateJWTAuthentication]
     permission_classes = [
         IsAuthenticated,
         RequirePasswordChanged,
+        HasTrainerModule,
+        HasAIPlansEnabled,
         CanAccessMemberApprovedPlans,
     ]
 

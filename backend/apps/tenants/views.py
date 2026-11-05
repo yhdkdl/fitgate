@@ -1130,6 +1130,7 @@ class GymAnalyticsOverviewView(APIView):
     memberships expiring in 7 days, and premium revenue by plan (Growth/Pro only).
     """
 
+    required_flag = "has_analytics"
     authentication_classes = [FitGateJWTAuthentication]
     permission_classes = [IsAuthenticated, RequirePasswordChanged, IsOwnerOrManager]
 
