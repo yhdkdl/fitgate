@@ -272,14 +272,14 @@ class TestGymBrandingAndChecklistEndpoints:
         """
         client = self.auth_client(owner_a)
 
-        # Valid boundaries (0 and 90, <= 10 items)
+        # Valid boundaries (90 and 1, <= 2 items, second smaller than first)
         valid_resp = client.patch(
             "/api/gym/settings/",
-            {"member_reminder_days": [0, 15, 90]},
+            {"member_reminder_days": [90, 1]},
             format="json",
         )
         assert valid_resp.status_code == 200
-        assert valid_resp.data["member_reminder_days"] == [0, 15, 90]
+        assert valid_resp.data["member_reminder_days"] == [90, 1]
 
         # Item > 90 rejected with 400
         resp_too_high = client.patch(

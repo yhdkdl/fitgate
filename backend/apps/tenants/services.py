@@ -1,12 +1,15 @@
 """Domain services for gym tenant lifecycle, provisioning, and TLS confirmation."""
 
+import datetime
 import hashlib
 import logging
 import re
 import secrets
+import socket
+import ssl
 from datetime import timedelta
 from decimal import Decimal
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, Tuple
 from uuid import UUID
 
 from django.conf import settings
@@ -59,6 +62,129 @@ def propose_subdomain(name: str) -> str:
         suffix += 1
 
     return candidate
+
+
+AUTOSSL_THROTTLE_CACHE_KEY = "fitgate:autossl:last_triggered_ts"
+AUTOSSL_THROTTLE_SECONDS = 600  # 10 minutes
+
+
+def trigger_autossl_check_throttled(uapi_client=None) -> bool:
+    """
+    Trigger cPanel AutoSSL check for newly created subdomains.
+    Throttled to at most once every 10 minutes across the platform using Django cache/timestamp.
+    Best-effort: catches and logs any errors so gym creation is never blocked or failed by AutoSSL.
+    Returns True if an AutoSSL check was dispatched, False if throttled or failed.
+    """
+    from django.core.cache import cache
+
+    now_ts = timezone.now().timestamp()
+    last_triggered = cache.get(AUTOSSL_THROTTLE_CACHE_KEY)
+    if last_triggered is not None:
+        try:
+            if (now_ts - float(last_triggered)) < AUTOSSL_THROTTLE_SECONDS:
+                logger.info(
+                    "AutoSSL check throttled: last check was %d seconds ago (min interval %d).",
+                    int(now_ts - float(last_triggered)),
+                    AUTOSSL_THROTTLE_SECONDS,
+                )
+                return False
+        except (ValueError, TypeError):
+            pass
+
+    # Best-effort call
+    client = uapi_client or get_uapi_client()
+    try:
+        client.start_autossl_check()
+        cache.set(
+            AUTOSSL_THROTTLE_CACHE_KEY,
+            now_ts,
+            timeout=AUTOSSL_THROTTLE_SECONDS * 2,
+        )
+        return True
+    except Exception as exc:
+        logger.warning(
+            "cPanel AutoSSL check failed (best-effort, continuing): %s",
+            exc,
+            exc_info=True,
+        )
+        cache.set(
+            AUTOSSL_THROTTLE_CACHE_KEY,
+            now_ts,
+            timeout=AUTOSSL_THROTTLE_SECONDS * 2,
+        )
+        return False
+
+
+def verify_subdomain_tls(
+    subdomain: str,
+    domain: Optional[str] = None,
+    port: int = 443,
+    timeout: float = 10.0,
+    ssl_context: Optional[ssl.SSLContext] = None,
+    connection_factory=None,
+) -> Tuple[bool, str]:
+    """
+    Perform full TLS certificate verification for a gym subdomain.
+    Verifies:
+      1. Valid certificate chain signed by a trusted CA.
+      2. Certificate is unexpired (notBefore <= now <= notAfter).
+      3. Exact subdomain matching (hostname matches certificate SAN/CN).
+    Returns (True, "OK") on success, or (False, reason) on any verification failure.
+    """
+    target_domain = domain or getattr(settings, "DOMAIN", "fitgate.tebebtech.com")
+    fqdn = f"{subdomain.strip().lower()}.{target_domain.strip().lower()}"
+
+    ctx = ssl_context or ssl.create_default_context()
+    ctx.check_hostname = True
+    ctx.verify_mode = ssl.CERT_REQUIRED
+
+    create_conn = connection_factory or socket.create_connection
+
+    try:
+        with create_conn((fqdn, port), timeout=timeout) as sock:
+            with ctx.wrap_socket(sock, server_hostname=fqdn) as ssock:
+                cert = ssock.getpeercert()
+                if not cert:
+                    return False, "No peer certificate presented"
+
+                # Check expiration explicitly
+                not_after_str = cert.get("notAfter")
+                if not_after_str:
+                    try:
+                        not_after = datetime.datetime.strptime(
+                            not_after_str, "%b %d %H:%M:%S %Y %Z"
+                        ).replace(tzinfo=datetime.timezone.utc)
+                        if timezone.now() > not_after:
+                            return False, f"Certificate has expired on {not_after_str}"
+                    except (ValueError, TypeError):
+                        pass
+
+                not_before_str = cert.get("notBefore")
+                if not_before_str:
+                    try:
+                        not_before = datetime.datetime.strptime(
+                            not_before_str, "%b %d %H:%M:%S %Y %Z"
+                        ).replace(tzinfo=datetime.timezone.utc)
+                        if timezone.now() < not_before:
+                            return (
+                                False,
+                                f"Certificate is not yet valid (notBefore: {not_before_str})",
+                            )
+                    except (ValueError, TypeError):
+                        pass
+
+                return True, "Valid certificate"
+    except ssl.SSLCertVerificationError as exc:
+        if "doesn't match" in str(exc) or "does not match" in str(exc):
+            return False, f"Hostname mismatch: {exc}"
+        msg = getattr(exc, "verify_message", str(exc))
+        return False, f"Certificate verification failed: {msg}"
+    except ssl.CertificateError as exc:
+        return False, f"Hostname mismatch: {exc}"
+    except ssl.CertificateError as exc:
+        return False, f"Hostname mismatch: {exc}"
+    except (socket.error, ssl.SSLError, TimeoutError, OSError) as exc:
+        return False, f"TLS connection error: {exc}"
 
 
 @transaction.atomic
@@ -214,6 +340,9 @@ def create_gym(
     # Provision subdomain via cPanel UAPI
     client = uapi_client or get_uapi_client()
     client.provision_subdomain(normalized_subdomain)
+
+    # Trigger AutoSSL check best-effort, throttled platform-wide to once per 10 minutes
+    trigger_autossl_check_throttled(uapi_client=client)
 
     # Send welcome email containing set-password link (never a password) via transaction.on_commit
     scheme = settings.PUBLIC_URL_SCHEME

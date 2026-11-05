@@ -96,6 +96,15 @@ class BaseUAPIClient(ABC):
         """
         pass
 
+    @abstractmethod
+    def start_autossl_check(self) -> bool:
+        """
+        Trigger cPanel AutoSSL check for the account.
+
+        Raises CPanelUAPIError if the operation fails.
+        """
+        pass
+
 
 class MockCPanelUAPIClient(BaseUAPIClient):
     """
@@ -108,10 +117,13 @@ class MockCPanelUAPIClient(BaseUAPIClient):
         self,
         should_fail: bool = False,
         fail_subdomains: Optional[Set[str]] = None,
+        fail_autossl: bool = False,
     ):
         self.should_fail = should_fail
         self.fail_subdomains = fail_subdomains or set()
+        self.fail_autossl = fail_autossl
         self.provisioned_subdomains: List[str] = []
+        self.autossl_checks_count: int = 0
 
     def provision_subdomain(self, subdomain: str) -> bool:
         if self.should_fail or subdomain in self.fail_subdomains:
@@ -134,6 +146,18 @@ class MockCPanelUAPIClient(BaseUAPIClient):
 
     def list_subdomains(self) -> List[Dict[str, Any]]:
         return [{"domain": sub} for sub in self.provisioned_subdomains]
+
+    def start_autossl_check(self) -> bool:
+        if self.should_fail or self.fail_autossl:
+            raise CPanelUAPIError(
+                "Simulated cPanel UAPI error triggering AutoSSL check."
+            )
+        self.autossl_checks_count += 1
+        logger.info(
+            "[Mock UAPI] Successfully triggered AutoSSL check (count=%d).",
+            self.autossl_checks_count,
+        )
+        return True
 
 
 class CPanelUAPIClient(BaseUAPIClient):
@@ -244,6 +268,11 @@ class CPanelUAPIClient(BaseUAPIClient):
         result = self._call_uapi("SubDomain", "listsubdomains")
         data = result.get("data", [])
         return data if isinstance(data, list) else []
+
+    def start_autossl_check(self) -> bool:
+        self._call_uapi("SSL", "start_autossl_check")
+        logger.info("Successfully triggered cPanel AutoSSL check.")
+        return True
 
 
 _global_mock_client = MockCPanelUAPIClient()
