@@ -990,3 +990,54 @@ def validate_notice_body(value: str) -> str:
     if len(cleaned) < 5 or len(cleaned) > 1000:
         raise ValidationError("Notice body must be between 5 and 1,000 characters.")
     return cleaned
+
+
+def validate_reminder_days(value: Any) -> list[int]:
+    """
+    Validate reminder days setting (first and optional second reminder).
+
+    Rules:
+    - At least one reminder (first reminder) required.
+    - First reminder must be a whole number from 1 to 90.
+    - Optional second reminder must be a whole number from 1 to 90.
+    - Second reminder must be strictly smaller than the first reminder.
+    - At most two reminders.
+    """
+    if isinstance(value, str):
+        parts = [p.strip() for p in value.split(",") if p.strip()]
+        try:
+            value = [int(p) for p in parts]
+        except (ValueError, TypeError):
+            raise ValidationError("First reminder must be a whole number from 1 to 90.")
+
+    if not isinstance(value, (list, tuple)):
+        raise ValidationError("First reminder must be a whole number from 1 to 90.")
+
+    if len(value) == 0:
+        raise ValidationError("First reminder must be a whole number from 1 to 90.")
+
+    if len(value) > 2:
+        raise ValidationError("At most two reminders are allowed.")
+
+    first = value[0]
+    if isinstance(first, bool) or not isinstance(first, int) or first < 1 or first > 90:
+        raise ValidationError("First reminder must be a whole number from 1 to 90.")
+
+    if len(value) == 2 and value[1] is not None and value[1] != "":
+        second = value[1]
+        if (
+            isinstance(second, bool)
+            or not isinstance(second, int)
+            or second < 1
+            or second > 90
+        ):
+            raise ValidationError(
+                "Second reminder must be a whole number from 1 to 90."
+            )
+        if second >= first:
+            raise ValidationError(
+                "Second reminder must be smaller than the first reminder."
+            )
+        return [first, second]
+
+    return [first]

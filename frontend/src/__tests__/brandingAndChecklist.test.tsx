@@ -202,7 +202,8 @@ describe("Sprint 4c: Gym branding, entry page, first-run checklist", () => {
       expect(
         screen.getByDisplayValue("https://storage.fitgate.com/logo.webp")
       ).toBeInTheDocument();
-      expect(screen.getByDisplayValue("7, 2")).toBeInTheDocument();
+      expect(screen.getByDisplayValue("7")).toBeInTheDocument();
+      expect(screen.getByDisplayValue("2")).toBeInTheDocument();
     });
 
     it("validates hex color and prevents submission if invalid", async () => {

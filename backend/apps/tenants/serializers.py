@@ -361,11 +361,21 @@ class GymSettingsUpdateSerializer(serializers.Serializer):
         max_length=33, required=False, allow_blank=True, allow_null=True
     )
     member_reminder_days = serializers.ListField(
-        child=serializers.IntegerField(min_value=0, max_value=90),
-        max_length=10,
+        child=serializers.IntegerField(),
         required=False,
     )
     freeze_days_allowed = serializers.IntegerField(min_value=0, required=False)
+
+    def validate_member_reminder_days(self, value):
+        from django.core.exceptions import ValidationError as DjangoValidationError
+
+        from apps.core.validators import validate_reminder_days
+
+        try:
+            return validate_reminder_days(value)
+        except DjangoValidationError as exc:
+            msg = exc.message if hasattr(exc, "message") else str(exc)
+            raise serializers.ValidationError(msg)
 
     def to_internal_value(self, data):
         if not isinstance(data, dict):
