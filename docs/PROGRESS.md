@@ -87,7 +87,7 @@ Sprint 38 is NOT to be started at all. The order is:
 
 ## Current
 
-- Increment 7 Staging Refresh Preparation & Documentation.
+- Sprint 35 (Super Admin platform dashboard: role enable/disable per gym, tenant list with lapse flags, renewal endpoint and modal, suspension endpoint and confirmation modal, gym termination and reinstatement, reminder days inputs, platform notices, and platform metrics) completed on `feature/sprint-35-super-admin-dashboard`.
 
 ## Open manual steps
 

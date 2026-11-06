@@ -115,6 +115,7 @@ const ROLE_NAV_ITEMS: Record<string, NavItem[]> = {
     { label: "Gyms", path: "/dashboard" },
     { label: "Demo requests", path: "/platform/demo-requests" },
     { label: "Audit log", path: "/platform/audit-log" },
+    { label: "Platform Notices", path: "/platform/notices" },
     { label: "Profile", path: "/profile" },
   ],
 };
@@ -500,6 +501,15 @@ export const DashboardScreen: React.FC = () => {
       return (
         <SectionErrorBoundary title="My Classes">
           <ClassScheduleSection userRole={role} />
+        </SectionErrorBoundary>
+      );
+    }
+
+    // 11b. Super Admin: Platform Notices
+    if (currentPath === "/platform/notices" && role === "super_admin") {
+      return (
+        <SectionErrorBoundary title="Platform Notices">
+          <NoticeBoardSection userRole="super_admin" />
         </SectionErrorBoundary>
       );
     }

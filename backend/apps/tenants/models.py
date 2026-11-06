@@ -171,6 +171,7 @@ class GymConfig(models.Model):
     show_unavailable_equipment = models.BooleanField(default=False)
     is_equipment_list_complete = models.BooleanField(default=False)
     telegram_channel = models.CharField(max_length=33, blank=True, default="")
+    disabled_roles = models.JSONField(default=list, blank=True)
     first_run_dismissed_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:
@@ -380,10 +381,11 @@ class DemoRequest(models.Model):
         return f"DemoRequest({self.gym_name} - {self.status})"
 
 
-class GymNotice(TenantAwareModel):
+class GymNotice(PlatformTenantAwareModel):
     """
-    Notice board announcement posted by Owner or Manager.
+    Notice board announcement posted by Owner or Manager (gym-scoped) or Super Admin (platform-wide).
     Visible to all gym members on Home and Notices views without creating per-member notification rows.
+    Platform-wide announcements have gym=None, appear on every Owner's dashboard, and are never sent to Telegram.
     """
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
@@ -405,4 +407,5 @@ class GymNotice(TenantAwareModel):
         verbose_name_plural = "Gym Notices"
 
     def __str__(self):
-        return f"[{self.gym.name}] {self.title}"
+        prefix = f"[{self.gym.name}]" if self.gym else "[Platform]"
+        return f"{prefix} {self.title}"

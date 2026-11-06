@@ -3,11 +3,17 @@ import {
   confirmGymTls,
   createGym,
   getGymSettings,
+  getPlatformAnalyticsOverview,
   listGyms,
   proposeSubdomain,
+  reinstateGym,
+  renewGym,
+  suspendGym,
+  terminateGym,
   updateGymSettings,
   type CreateGymResponse,
   type GymTenantSummary,
+  type PlatformAnalyticsOverview,
 } from "../../api/gyms";
 import { Alert } from "../ui/Alert";
 import { Badge } from "../ui/Badge";
@@ -78,6 +84,34 @@ export const GymManagementSection: React.FC<GymManagementSectionProps> = ({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [confirmingId, setConfirmingId] = useState<string | null>(null);
 
+  // Overview metrics state
+  const [metrics, setMetrics] = useState<PlatformAnalyticsOverview | null>(null);
+
+  // Terminate & Reinstate modal states
+  const [terminatingGym, setTerminatingGym] =
+    useState<GymTenantSummary | null>(null);
+  const [terminateInput, setTerminateInput] = useState("");
+  const [isTerminating, setIsTerminating] = useState(false);
+  const [terminateError, setTerminateError] = useState<string | null>(null);
+  const [reinstatingGym, setReinstatingGym] =
+    useState<GymTenantSummary | null>(null);
+  const [reinsetInput, setReinsetInput] = useState("");
+  const [isReinstating, setIsReinstating] = useState(false);
+  const [reinstateError, setReinstateError] = useState<string | null>(null);
+
+  // Suspend & Renew modal states
+  const [suspendingGym, setSuspendingGym] =
+    useState<GymTenantSummary | null>(null);
+  const [isSuspending, setIsSuspending] = useState(false);
+  const [suspendError, setSuspendError] = useState<string | null>(null);
+
+  const [renewingGym, setRenewingGym] =
+    useState<GymTenantSummary | null>(null);
+  const [renewAmount, setRenewAmount] = useState("12000.00");
+  const [renewReference, setRenewReference] = useState("");
+  const [isRenewing, setIsRenewing] = useState(false);
+  const [renewError, setRenewError] = useState<string | null>(null);
+
   // Config modal states
   const [selectedGymForConfig, setSelectedGymForConfig] =
     useState<GymTenantSummary | null>(null);
@@ -85,12 +119,14 @@ export const GymManagementSection: React.FC<GymManagementSectionProps> = ({
   const [hasTrainerModule, setHasTrainerModule] = useState(false);
   const [hasAiPlans, setHasAiPlans] = useState(false);
   const [hasAnalytics, setHasAnalytics] = useState(false);
+  const [hasGroupClasses, setHasGroupClasses] = useState(false);
   const [freezeDaysCap, setFreezeDaysCap] = useState<number>(30);
   const [paymentGraceDays, setPaymentGraceDays] = useState<number>(7);
   const [subReminderFirst, setSubReminderFirst] = useState<string>("14");
   const [subReminderSecond, setSubReminderSecond] = useState<string>("7");
   const [subReminderFirstError, setSubReminderFirstError] = useState<string | null>(null);
   const [subReminderSecondError, setSubReminderSecondError] = useState<string | null>(null);
+  const [disabledRoles, setDisabledRoles] = useState<string[]>([]);
   const [savingConfig, setSavingConfig] = useState(false);
   const [configSuccessMsg, setConfigSuccessMsg] = useState<string | null>(null);
   const [configErrorMsg, setConfigErrorMsg] = useState<string | null>(null);
@@ -105,12 +141,14 @@ export const GymManagementSection: React.FC<GymManagementSectionProps> = ({
       setHasTrainerModule(Boolean(cfg.has_trainer_module));
       setHasAiPlans(Boolean(cfg.has_ai_plans));
       setHasAnalytics(Boolean(cfg.has_analytics));
+      setHasGroupClasses(Boolean(cfg.has_group_classes));
       setFreezeDaysCap(
         cfg.freeze_days_cap !== undefined ? cfg.freeze_days_cap : 30
       );
       setPaymentGraceDays(
         cfg.payment_grace_days !== undefined ? cfg.payment_grace_days : 7
       );
+      setDisabledRoles((cfg as { disabled_roles?: string[] }).disabled_roles || []);
       const [firstSub, secondSub] = getTwoLargestReminderDays(cfg.subscription_reminder_days);
       setSubReminderFirst(firstSub || "14");
       setSubReminderSecond(secondSub || "7");
@@ -120,8 +158,10 @@ export const GymManagementSection: React.FC<GymManagementSectionProps> = ({
       setHasTrainerModule(false);
       setHasAiPlans(false);
       setHasAnalytics(false);
+      setHasGroupClasses(false);
       setFreezeDaysCap(30);
       setPaymentGraceDays(7);
+      setDisabledRoles([]);
       setSubReminderFirst("14");
       setSubReminderSecond("7");
       setSubReminderFirstError(null);
@@ -158,9 +198,11 @@ export const GymManagementSection: React.FC<GymManagementSectionProps> = ({
         has_trainer_module: hasTrainerModule,
         has_ai_plans: hasAiPlans,
         has_analytics: hasAnalytics,
+        has_group_classes: hasGroupClasses,
         freeze_days_cap: Number(freezeDaysCap),
         payment_grace_days: Number(paymentGraceDays),
         subscription_reminder_days: reminderParts,
+        disabled_roles: disabledRoles,
       };
       if (selectedGymForConfig.tier !== "pro") {
         payload.tier = configTier;
@@ -177,6 +219,103 @@ export const GymManagementSection: React.FC<GymManagementSectionProps> = ({
       );
     } finally {
       setSavingConfig(false);
+    }
+  };
+
+  const handleSuspendGym = async () => {
+    if (!suspendingGym) return;
+    setIsSuspending(true);
+    setSuspendError(null);
+    try {
+      await suspendGym(suspendingGym.id);
+      setSuspendingGym(null);
+      await fetchGyms();
+    } catch (err: unknown) {
+      const errObj = err as { message?: string };
+      setSuspendError(errObj.message || "Failed to suspend gym.");
+    } finally {
+      setIsSuspending(false);
+    }
+  };
+
+  const handleRenewGym = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!renewingGym) return;
+    if (!renewAmount || Number(renewAmount) <= 0) {
+      setRenewError("A valid renewal payment amount is required.");
+      return;
+    }
+    if (!renewReference.trim()) {
+      setRenewError("A payment reference is required.");
+      return;
+    }
+    setIsRenewing(true);
+    setRenewError(null);
+    try {
+      await renewGym(renewingGym.id, renewAmount, renewReference.trim());
+      setRenewingGym(null);
+      await fetchGyms();
+    } catch (err: unknown) {
+      const errObj = err as { message?: string };
+      setRenewError(errObj.message || "Failed to renew gym subscription.");
+    } finally {
+      setIsRenewing(false);
+    }
+  };
+
+  const handleTerminateGym = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!terminatingGym) return;
+    if (
+      terminateInput.trim().toLowerCase() !==
+      terminatingGym.subdomain.toLowerCase()
+    ) {
+      setTerminateError("Subdomain confirmation does not match.");
+      return;
+    }
+    setIsTerminating(true);
+    setTerminateError(null);
+    try {
+      await terminateGym(
+        terminatingGym.id,
+        terminateInput.trim().toLowerCase()
+      );
+      setTerminatingGym(null);
+      setTerminateInput("");
+      await fetchGyms();
+    } catch (err: unknown) {
+      const errObj = err as { message?: string };
+      setTerminateError(errObj.message || "Failed to terminate gym.");
+    } finally {
+      setIsTerminating(false);
+    }
+  };
+
+  const handleReinstateGym = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!reinstatingGym) return;
+    if (
+      reinsetInput.trim().toLowerCase() !==
+      reinstatingGym.subdomain.toLowerCase()
+    ) {
+      setReinstateError("Subdomain confirmation does not match.");
+      return;
+    }
+    setIsReinstating(true);
+    setReinstateError(null);
+    try {
+      await reinstateGym(
+        reinstatingGym.id,
+        reinsetInput.trim().toLowerCase()
+      );
+      setReinstatingGym(null);
+      setReinsetInput("");
+      await fetchGyms();
+    } catch (err: unknown) {
+      const errObj = err as { message?: string };
+      setReinstateError(errObj.message || "Failed to reinstate gym.");
+    } finally {
+      setIsReinstating(false);
     }
   };
 
@@ -209,8 +348,12 @@ export const GymManagementSection: React.FC<GymManagementSectionProps> = ({
   const fetchGyms = async () => {
     setIsLoading(true);
     try {
-      const data = await listGyms();
+      const [data, stats] = await Promise.all([
+        listGyms(),
+        getPlatformAnalyticsOverview().catch(() => null),
+      ]);
       setGyms(data);
+      if (stats) setMetrics(stats);
     } catch {
       // ignore
     } finally {
@@ -396,6 +539,28 @@ export const GymManagementSection: React.FC<GymManagementSectionProps> = ({
         </Button>
       </div>
 
+      {/* Platform Analytics Metrics */}
+      {metrics && (
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+          <Card className="p-4 text-center">
+            <div className="text-2xl font-bold text-success">{metrics.active_gyms}</div>
+            <div className="text-xs text-text-muted mt-1">Active Gyms</div>
+          </Card>
+          <Card className="p-4 text-center">
+            <div className="text-2xl font-bold text-warning">{metrics.suspended_gyms}</div>
+            <div className="text-xs text-text-muted mt-1">Suspended</div>
+          </Card>
+          <Card className="p-4 text-center">
+            <div className="text-2xl font-bold text-danger">{metrics.terminated_gyms}</div>
+            <div className="text-xs text-text-muted mt-1">Terminated</div>
+          </Card>
+          <Card className="p-4 text-center">
+            <div className="text-2xl font-bold text-primary">ETB {metrics.platform_revenue_etb}</div>
+            <div className="text-xs text-text-muted mt-1">Platform Revenue</div>
+          </Card>
+        </div>
+      )}
+
       {createSuccess && (
         <Alert variant="success" className="space-y-2">
           <div className="font-semibold text-base">
@@ -487,13 +652,24 @@ export const GymManagementSection: React.FC<GymManagementSectionProps> = ({
                       <Badge variant="primary">{gym.tier.toUpperCase()}</Badge>
                     </td>
                     <td className="px-4 py-3">
-                      <Badge
-                        variant={
-                          gym.status === "active" ? "success" : "warning"
-                        }
-                      >
-                        {gym.status}
-                      </Badge>
+                      <div className="flex flex-col gap-1 items-start">
+                        <Badge
+                          variant={
+                            gym.status === "active"
+                              ? "success"
+                              : gym.status === "terminated"
+                              ? "danger"
+                              : "warning"
+                          }
+                        >
+                          {gym.status}
+                        </Badge>
+                        {gym.lapse_flagged_at && (
+                          <Badge variant="warning">
+                            Lapsed
+                          </Badge>
+                        )}
+                      </div>
                     </td>
                     <td className="px-4 py-3">
                       {gym.tls_confirmed_at ? (
@@ -527,6 +703,64 @@ export const GymManagementSection: React.FC<GymManagementSectionProps> = ({
                             className="text-xs"
                           >
                             Confirm TLS
+                          </Button>
+                        )}
+                        {gym.status === "active" && (
+                          <Button
+                            size="sm"
+                            variant="danger"
+                            onClick={() => {
+                              setSuspendingGym(gym);
+                              setSuspendError(null);
+                            }}
+                            className="text-xs"
+                          >
+                            Suspend
+                          </Button>
+                        )}
+                        {gym.status !== "terminated" && (
+                          <Button
+                            size="sm"
+                            variant="secondary"
+                            onClick={() => {
+                              setRenewingGym(gym);
+                              setRenewAmount(
+                                TIER_PRICES[gym.tier] || "12000.00"
+                              );
+                              setRenewReference("");
+                              setRenewError(null);
+                            }}
+                            className="text-xs"
+                          >
+                            Renew
+                          </Button>
+                        )}
+                        {gym.status === "suspended" && (
+                          <Button
+                            size="sm"
+                            variant="danger"
+                            onClick={() => {
+                              setTerminatingGym(gym);
+                              setTerminateInput("");
+                              setTerminateError(null);
+                            }}
+                            className="text-xs"
+                          >
+                            Terminate
+                          </Button>
+                        )}
+                        {gym.status === "terminated" && (
+                          <Button
+                            size="sm"
+                            variant="secondary"
+                            onClick={() => {
+                              setReinstatingGym(gym);
+                              setReinsetInput("");
+                              setReinstateError(null);
+                            }}
+                            className="text-xs"
+                          >
+                            Reinstate
                           </Button>
                         )}
                       </div>
@@ -972,6 +1206,63 @@ export const GymManagementSection: React.FC<GymManagementSectionProps> = ({
                 </div>
               </div>
 
+              {/* Role Entitlements */}
+              <div className="space-y-3 pt-2">
+                <span className="block text-xs font-semibold uppercase tracking-wider text-text-muted">
+                  Role Entitlements
+                </span>
+                <p className="text-[11px] text-text-muted">
+                  Super Admin can disable roles for this gym. Disabled roles cannot log in or be invited.
+                </p>
+                <div className="space-y-2">
+                  <label className="flex items-center gap-2 cursor-pointer text-sm text-text">
+                    <input
+                      type="checkbox"
+                      checked={!disabledRoles.includes("manager")}
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          setDisabledRoles(disabledRoles.filter((r) => r !== "manager"));
+                        } else {
+                          setDisabledRoles([...disabledRoles, "manager"]);
+                        }
+                      }}
+                      className="rounded border-border text-primary focus:ring-primary w-4 h-4"
+                    />
+                    <span>Enable Manager Role</span>
+                  </label>
+                  <label className="flex items-center gap-2 cursor-pointer text-sm text-text">
+                    <input
+                      type="checkbox"
+                      checked={!disabledRoles.includes("reception")}
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          setDisabledRoles(disabledRoles.filter((r) => r !== "reception"));
+                        } else {
+                          setDisabledRoles([...disabledRoles, "reception"]);
+                        }
+                      }}
+                      className="rounded border-border text-primary focus:ring-primary w-4 h-4"
+                    />
+                    <span>Enable Reception Role</span>
+                  </label>
+                  <label className="flex items-center gap-2 cursor-pointer text-sm text-text">
+                    <input
+                      type="checkbox"
+                      checked={!disabledRoles.includes("trainer")}
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          setDisabledRoles(disabledRoles.filter((r) => r !== "trainer"));
+                        } else {
+                          setDisabledRoles([...disabledRoles, "trainer"]);
+                        }
+                      }}
+                      className="rounded border-border text-primary focus:ring-primary w-4 h-4"
+                    />
+                    <span>Enable Trainer Role</span>
+                  </label>
+                </div>
+              </div>
+
               {/* Feature Entitlements */}
               <div className="space-y-3 pt-2">
                 <span className="block text-xs font-semibold uppercase tracking-wider text-text-muted">
@@ -1004,6 +1295,15 @@ export const GymManagementSection: React.FC<GymManagementSectionProps> = ({
                   />
                   <span>Analytics & Reports</span>
                 </label>
+                <label className="flex items-center gap-2 cursor-pointer text-sm text-text">
+                  <input
+                    type="checkbox"
+                    checked={hasGroupClasses}
+                    onChange={(e) => setHasGroupClasses(e.target.checked)}
+                    className="rounded border-border text-primary focus:ring-primary w-4 h-4"
+                  />
+                  <span>Group Classes</span>
+                </label>
               </div>
 
               <div className="pt-4 border-t border-border flex items-center justify-end gap-2">
@@ -1016,6 +1316,191 @@ export const GymManagementSection: React.FC<GymManagementSectionProps> = ({
                 </Button>
                 <Button type="submit" variant="primary" disabled={savingConfig}>
                   {savingConfig ? "Saving..." : "Save Changes"}
+                </Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Suspend Gym Confirmation Modal */}
+      {suspendingGym && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+          <div className="bg-surface border border-border rounded-card w-full max-w-md p-6 shadow-2xl">
+            <h3 className="text-lg font-bold text-text mb-2">
+              Suspend Gym: {suspendingGym.name}
+            </h3>
+            <p className="text-sm text-text-muted mb-4">
+              Are you sure you want to suspend{" "}
+              <strong>{suspendingGym.name}</strong> ({suspendingGym.subdomain})?
+              Staff and members will not be able to log in. The Gym Owner will
+              have a 7-day export window to download data backups.
+            </p>
+            {suspendError && (
+              <Alert variant="danger" className="mb-3 text-sm">
+                {suspendError}
+              </Alert>
+            )}
+            <div className="flex items-center justify-end gap-3 pt-2">
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={() => setSuspendingGym(null)}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="button"
+                variant="danger"
+                onClick={handleSuspendGym}
+                isLoading={isSuspending}
+              >
+                Confirm Suspension
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Renew Gym Subscription Modal */}
+      {renewingGym && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+          <div className="bg-surface border border-border rounded-card w-full max-w-md p-6 shadow-2xl">
+            <h3 className="text-lg font-bold text-text mb-2">
+              Renew Subscription: {renewingGym.name}
+            </h3>
+            <p className="text-xs text-text-muted mb-4 font-mono">
+              Subdomain: {renewingGym.subdomain}
+            </p>
+            {renewError && (
+              <Alert variant="danger" className="mb-3 text-sm">
+                {renewError}
+              </Alert>
+            )}
+            <form onSubmit={handleRenewGym} className="space-y-4">
+              <FormField label="Renewal Payment Amount (ETB)">
+                <Input
+                  type="number"
+                  step="0.01"
+                  min="1"
+                  value={renewAmount}
+                  onChange={(e) => setRenewAmount(e.target.value)}
+                  required
+                />
+              </FormField>
+              <FormField label="Bank Transfer Reference">
+                <Input
+                  type="text"
+                  value={renewReference}
+                  onChange={(e) => setRenewReference(e.target.value)}
+                  placeholder="e.g. FT261106ABC"
+                  required
+                />
+              </FormField>
+              <p className="text-xs text-text-muted">
+                Extends subscription by 1 year from the later of current expiry
+                or today, clears lapse flags, and reactivates suspended gyms.
+              </p>
+              <div className="flex items-center justify-end gap-3 pt-2">
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={() => setRenewingGym(null)}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="submit"
+                  variant="primary"
+                  isLoading={isRenewing}
+                >
+                  Confirm Renewal
+                </Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Reinstate Gym Confirmation Modal */}
+      {reinstatingGym && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+          <div className="bg-surface border border-border rounded-card w-full max-w-md p-6 shadow-2xl">
+            <h3 className="text-lg font-bold text-text mb-2">Reinstate Gym</h3>
+            <p className="text-sm text-text-muted mb-4">
+              This will reinstate{" "}
+              <strong>{reinstatingGym.name}</strong> back to suspended status. Type the subdomain{" "}
+              <code className="font-mono text-primary">{reinstatingGym.subdomain}</code>{" "}
+              to confirm.
+            </p>
+            {reinstateError && (
+              <Alert variant="danger" className="mb-3 text-sm">{reinstateError}</Alert>
+            )}
+            <form onSubmit={handleReinstateGym} className="space-y-4">
+              <Input
+                value={reinsetInput}
+                onChange={(e) => setReinsetInput(e.target.value)}
+                placeholder={reinstatingGym.subdomain}
+                autoFocus
+              />
+              <div className="flex justify-end gap-2">
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={() => setReinstatingGym(null)}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="submit"
+                  variant="primary"
+                  isLoading={isReinstating}
+                  disabled={isReinstating}
+                >
+                  Reinstate Gym
+                </Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Terminate Gym Confirmation Modal */}
+      {terminatingGym && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+          <div className="bg-surface border border-border rounded-card w-full max-w-md p-6 shadow-2xl">
+            <h3 className="text-lg font-bold text-danger mb-2">Terminate Gym</h3>
+            <p className="text-sm text-text-muted mb-4">
+              This will permanently close{" "}
+              <strong>{terminatingGym.name}</strong>. Type the subdomain{" "}
+              <code className="font-mono text-primary">{terminatingGym.subdomain}</code>{" "}
+              to confirm.
+            </p>
+            {terminateError && (
+              <Alert variant="danger" className="mb-3 text-sm">{terminateError}</Alert>
+            )}
+            <form onSubmit={handleTerminateGym} className="space-y-4">
+              <Input
+                value={terminateInput}
+                onChange={(e) => setTerminateInput(e.target.value)}
+                placeholder={terminatingGym.subdomain}
+                autoFocus
+              />
+              <div className="flex justify-end gap-2">
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={() => setTerminatingGym(null)}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="submit"
+                  variant="danger"
+                  isLoading={isTerminating}
+                  disabled={isTerminating}
+                >
+                  Permanently Terminate
                 </Button>
               </div>
             </form>

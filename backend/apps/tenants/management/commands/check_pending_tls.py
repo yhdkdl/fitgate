@@ -33,7 +33,9 @@ class Command(BaseCommand):
     def handle(self, *args, **options):
         timeout = options["timeout"]
         port = options["port"]
-        pending_gyms = GymTenant.objects.filter(tls_confirmed_at__isnull=True)
+        pending_gyms = GymTenant.objects.filter(tls_confirmed_at__isnull=True).exclude(
+            status=GymTenant.STATUS_TERMINATED
+        )
         count = pending_gyms.count()
         self.stdout.write(f"Checking TLS for {count} pending gym(s)...")
 

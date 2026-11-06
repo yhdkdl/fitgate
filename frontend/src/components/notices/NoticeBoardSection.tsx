@@ -1,10 +1,16 @@
 import React, { useEffect, useState } from "react";
 import { Alert } from "../ui/Alert";
+import { Badge } from "../ui/Badge";
 import { Button } from "../ui/Button";
 import { Card } from "../ui/Card";
 import { Input } from "../ui/Input";
 import { Modal } from "../ui/Modal";
 import { Spinner } from "../ui/Spinner";
+import {
+  createPlatformNotice,
+  deletePlatformNotice,
+  getPlatformNotices,
+} from "../../api/gyms";
 import { createNotice, deleteNotice, listNotices } from "../../api/notices";
 import type { GymNotice } from "../../types/notice";
 
@@ -30,13 +36,17 @@ export const NoticeBoardSection: React.FC<NoticeBoardSectionProps> = ({
     variant: "success" | "warning";
   } | null>(null);
 
-  const canPost = userRole === "owner" || userRole === "manager";
+  const canPost =
+    userRole === "owner" || userRole === "manager" || userRole === "super_admin";
 
   const fetchNotices = async () => {
     try {
       setLoading(true);
       setError(null);
-      const data = await listNotices();
+      const data =
+        userRole === "super_admin"
+          ? ((await getPlatformNotices()) as unknown as GymNotice[])
+          : await listNotices();
       setNotices(data);
     } catch (err: unknown) {
       const msg =
@@ -79,24 +89,34 @@ export const NoticeBoardSection: React.FC<NoticeBoardSectionProps> = ({
 
     try {
       setSubmitting(true);
-      const result = await createNotice({
-        title: trimmedTitle,
-        body: trimmedBody,
-      });
-
-      setIsPostOpen(false);
-      await fetchNotices();
-
-      if (result.telegram_sent) {
+      if (userRole === "super_admin") {
+        await createPlatformNotice(trimmedTitle, trimmedBody);
+        setIsPostOpen(false);
+        await fetchNotices();
         setPostSuccessNotice({
-          text: "Notice published in-app and broadcast to Telegram channel.",
+          text: "Platform-wide announcement posted to every gym Owner.",
           variant: "success",
         });
       } else {
-        setPostSuccessNotice({
-          text: `Notice published in-app (not sent to Telegram: ${result.telegram_note || "not configured"}).`,
-          variant: "warning",
+        const result = await createNotice({
+          title: trimmedTitle,
+          body: trimmedBody,
         });
+
+        setIsPostOpen(false);
+        await fetchNotices();
+
+        if (result.telegram_sent) {
+          setPostSuccessNotice({
+            text: "Notice published in-app and broadcast to Telegram channel.",
+            variant: "success",
+          });
+        } else {
+          setPostSuccessNotice({
+            text: `Notice published in-app (not sent to Telegram: ${result.telegram_note || "not configured"}).`,
+            variant: "warning",
+          });
+        }
       }
     } catch (err: unknown) {
       const msg =
@@ -118,7 +138,11 @@ export const NoticeBoardSection: React.FC<NoticeBoardSectionProps> = ({
     }
 
     try {
-      await deleteNotice(id);
+      if (userRole === "super_admin") {
+        await deletePlatformNotice(id);
+      } else {
+        await deleteNotice(id);
+      }
       await fetchNotices();
     } catch (err: unknown) {
       const msg =
@@ -185,7 +209,13 @@ export const NoticeBoardSection: React.FC<NoticeBoardSectionProps> = ({
             <Card key={n.id} className="p-5 space-y-3">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-border pb-3">
                 <div className="space-y-1">
-                  <h2 className="text-lg font-bold text-text">{n.title}</h2>
+                  <div className="flex items-center gap-2">
+                    <h2 className="text-lg font-bold text-text">{n.title}</h2>
+                    {Boolean(
+                      (n as unknown as { is_platform_wide?: boolean })
+                        .is_platform_wide
+                    ) && <Badge variant="primary">Platform Announcement</Badge>}
+                  </div>
                   <div className="flex items-center gap-2 text-xs text-text-muted">
                     <span>Posted by {n.posted_by_name || "Gym Staff"}</span>
                     <span>•</span>
@@ -200,16 +230,19 @@ export const NoticeBoardSection: React.FC<NoticeBoardSectionProps> = ({
                     </span>
                   </div>
                 </div>
-                {canPost && (
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    onClick={() => handleDelete(n.id, n.title)}
-                    className="text-danger hover:text-danger hover:bg-danger/10 self-start sm:self-auto"
-                  >
-                    Delete
-                  </Button>
-                )}
+                {canPost &&
+                  (!(n as unknown as { is_platform_wide?: boolean })
+                    .is_platform_wide ||
+                    userRole === "super_admin") && (
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => handleDelete(n.id, n.title)}
+                      className="text-danger hover:text-danger hover:bg-danger/10 self-start sm:self-auto"
+                    >
+                      Delete
+                    </Button>
+                  )}
               </div>
               <div className="text-sm text-text whitespace-pre-wrap leading-relaxed">
                 {n.body}
