@@ -257,3 +257,7 @@ RECEIPT_VERIFICATION_ENABLED = env.bool("RECEIPT_VERIFICATION_ENABLED", default=
 BANK_RECEIPT_VERIFIER_USE_MOCK = env.bool(
     "BANK_RECEIPT_VERIFIER_USE_MOCK", default=False
 )
+
+# Demo Gym Seeding (Sprint 37a)
+ALLOW_DEMO_SEED = env.bool("ALLOW_DEMO_SEED", default=False)
+DEMO_PASSWORD = env.str("DEMO_PASSWORD", default="FitGateDemo2026!")

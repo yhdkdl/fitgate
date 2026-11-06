@@ -1158,6 +1158,7 @@ class GymPublicEntryView(APIView):
             "name": gym.name,
             "subdomain": gym.subdomain,
             "tier": gym.tier,
+            "is_demo": gym.is_demo,
             "capabilities": caps,
             "brand_color": getattr(config, "brand_color", None) if config else None,
             "logo": getattr(config, "logo", None) if config else None,

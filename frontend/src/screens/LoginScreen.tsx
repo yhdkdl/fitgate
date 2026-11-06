@@ -1,5 +1,6 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
+import { getPublicGymEntry } from "../api/gyms";
 import { Alert } from "../components/ui/Alert";
 import { Button } from "../components/ui/Button";
 import { Card } from "../components/ui/Card";
@@ -8,6 +9,14 @@ import { Input } from "../components/ui/Input";
 import { useAuth } from "../context/AuthContext";
 import { getTenantFromHostname } from "../utils/tenant";
 import { focusFirstInvalidField, validateEmail } from "../utils/validators";
+
+const DEMO_ACCOUNTS = [
+  { role: "Owner", email: "owner@demo.local" },
+  { role: "Manager", email: "manager@demo.local" },
+  { role: "Reception", email: "reception@demo.local" },
+  { role: "Trainer", email: "trainer1@demo.local" },
+  { role: "Member", email: "member1@demo.local" },
+];
 
 export const LoginScreen: React.FC = () => {
   const [email, setEmail] = useState("");
@@ -23,6 +32,23 @@ export const LoginScreen: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const tenant = getTenantFromHostname();
+  const [isDemoGym, setIsDemoGym] = useState(tenant === "demo");
+
+  useEffect(() => {
+    if (tenant) {
+      if (tenant === "demo") {
+        setIsDemoGym(true);
+      } else {
+        getPublicGymEntry(tenant)
+          .then((entry) => {
+            if (entry.is_demo) {
+              setIsDemoGym(true);
+            }
+          })
+          .catch(() => {});
+      }
+    }
+  }, [tenant]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -186,6 +212,51 @@ export const LoginScreen: React.FC = () => {
               Sign In
             </Button>
           </form>
+
+          {isDemoGym && (
+            <div
+              className="mt-4 pt-4 border-t border-border"
+              data-testid="demo-credentials-panel"
+            >
+              <details className="group">
+                <summary className="font-semibold text-text text-sm cursor-pointer flex items-center justify-between select-none">
+                  <span>Demo credentials</span>
+                  <span className="text-xs text-primary font-normal group-open:hidden">
+                    Show
+                  </span>
+                </summary>
+                <div className="mt-3 space-y-2 pt-2 text-xs">
+                  <p className="text-text-muted">
+                    Click Fill to populate credentials:
+                  </p>
+                  {DEMO_ACCOUNTS.map((acc) => (
+                    <div
+                      key={acc.email}
+                      className="flex items-center justify-between p-2 rounded bg-surface-2 border border-border"
+                    >
+                      <div>
+                        <span className="font-medium text-text">{acc.role}: </span>
+                        <span className="text-text-muted font-mono">{acc.email}</span>
+                      </div>
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        size="sm"
+                        onClick={() => {
+                          setEmail(acc.email);
+                          setPassword("FitGateDemo2026!");
+                          setFieldErrors({});
+                          setErrorMessage(null);
+                        }}
+                      >
+                        Fill
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              </details>
+            </div>
+          )}
         </Card>
 
         {!tenant && (

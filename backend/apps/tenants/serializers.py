@@ -466,6 +466,7 @@ class GymPublicEntryResponseSerializer(serializers.Serializer):
     online_payment_verified = serializers.BooleanField(default=False)
     has_group_classes = serializers.BooleanField(default=False)
     tier = serializers.CharField(required=False)
+    is_demo = serializers.BooleanField(required=False, default=False)
     capabilities = serializers.DictField(required=False)
 
 

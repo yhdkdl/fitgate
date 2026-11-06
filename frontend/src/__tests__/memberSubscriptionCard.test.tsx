@@ -1,7 +1,13 @@
 import { render, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import type { Member } from "../api/members";
 import { MemberSubscriptionCard } from "../components/member/MemberSubscriptionCard";
+
+vi.mock("../context/AuthContext", () => ({
+  useAuth: () => ({
+    capabilities: { has_trainer_module: true },
+  }),
+}));
 
 describe("MemberSubscriptionCard", () => {
   const baseMember: Member = {

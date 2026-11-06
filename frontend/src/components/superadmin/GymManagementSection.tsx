@@ -1335,15 +1335,6 @@ export const GymManagementSection: React.FC<GymManagementSectionProps> = ({
                   />
                   <span>Expenses & Reports</span>
                 </label>
-                <label className="flex items-center gap-2 cursor-pointer text-sm text-text">
-                  <input
-                    type="checkbox"
-                    checked={hasGroupClasses}
-                    onChange={(e) => setHasGroupClasses(e.target.checked)}
-                    className="rounded border-border text-primary focus:ring-primary w-4 h-4"
-                  />
-                  <span>Group Classes</span>
-                </label>
               </div>
 
               <div className="pt-4 border-t border-border flex items-center justify-end gap-2">
