@@ -957,6 +957,38 @@ class MembershipPlanSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("Price must be 0 or greater.")
         return value
 
+    def validate(self, attrs):
+        attrs = super().validate(attrs)
+        name = attrs.get("name")
+        if name:
+            request = self.context.get("request")
+            tenant = self.context.get("tenant") or (
+                getattr(request, "tenant", None) if request else None
+            )
+            if not tenant and self.instance:
+                tenant = getattr(self.instance, "gym", None)
+
+            if tenant:
+                qs = MembershipPlan.all_objects.filter(
+                    gym=tenant, name__iexact=name.strip()
+                )
+                if self.instance and self.instance.pk:
+                    qs = qs.exclude(pk=self.instance.pk)
+                conflict = qs.first()
+                if conflict:
+                    if not conflict.is_active:
+                        raise serializers.ValidationError(
+                            {
+                                "name": "A membership plan with this name already exists for your gym (it is currently deactivated). Please choose another name or reactivate the existing plan."
+                            }
+                        )
+                    raise serializers.ValidationError(
+                        {
+                            "name": "A membership plan with this name already exists for your gym."
+                        }
+                    )
+        return attrs
+
 
 class PublicPlanSerializer(serializers.ModelSerializer):
     """Public read-only serializer for active membership plans."""

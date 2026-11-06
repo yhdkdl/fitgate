@@ -224,7 +224,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         if (dash?.capabilities) {
           setCapabilities(dash.capabilities);
         } else if ((incomingUser as { capabilities?: GymCapabilities })?.capabilities) {
-          setCapabilities((incomingUser as { capabilities?: GymCapabilities }).capabilities);
+          setCapabilities((incomingUser as { capabilities?: GymCapabilities }).capabilities || null);
         }
         if (dash) {
           try {
@@ -290,7 +290,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
           const profile = await getProfile();
           setUser(profile);
           if ((profile as { capabilities?: GymCapabilities })?.capabilities) {
-            setCapabilities((profile as { capabilities?: GymCapabilities }).capabilities);
+            setCapabilities((profile as { capabilities?: GymCapabilities }).capabilities || null);
           }
           const name = profile.full_name || profile.email;
           setNotice(
@@ -330,7 +330,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
           const profile = await getProfile();
           setUser(profile);
           if ((profile as { capabilities?: GymCapabilities })?.capabilities) {
-            setCapabilities((profile as { capabilities?: GymCapabilities }).capabilities);
+            setCapabilities((profile as { capabilities?: GymCapabilities }).capabilities || null);
           }
         } else {
           setUser(null);
@@ -427,7 +427,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       if (dash?.capabilities) {
         setCapabilities(dash.capabilities);
       } else if ((res.user as { capabilities?: GymCapabilities })?.capabilities) {
-        setCapabilities((res.user as { capabilities?: GymCapabilities }).capabilities);
+        setCapabilities((res.user as { capabilities?: GymCapabilities }).capabilities || null);
       }
       if (dash) {
         try {
@@ -494,7 +494,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       const profile = await getProfile();
       setUser(profile);
       if ((profile as { capabilities?: GymCapabilities })?.capabilities) {
-        setCapabilities((profile as { capabilities?: GymCapabilities }).capabilities);
+        setCapabilities((profile as { capabilities?: GymCapabilities }).capabilities || null);
       }
     } catch {
       // Ignore in background re-sync

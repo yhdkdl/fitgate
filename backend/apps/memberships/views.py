@@ -1,7 +1,7 @@
 """Views for member registration, email verification, member profile management, and body metrics."""
 
 from django.core.exceptions import PermissionDenied, ValidationError
-from django.db import transaction
+from django.db import IntegrityError, transaction
 from django.db.models import Q
 from django.http import Http404
 from django.utils import timezone
@@ -782,7 +782,9 @@ class MembershipPlanListCreateView(APIView):
                 "Only gym owners and managers can create membership plans."
             )
 
-        serializer = MembershipPlanSerializer(data=request.data)
+        serializer = MembershipPlanSerializer(
+            data=request.data, context={"request": request, "tenant": tenant}
+        )
         if not serializer.is_valid():
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
@@ -803,23 +805,35 @@ class MembershipPlanListCreateView(APIView):
                     "but trainer assignment will not be possible until trainers are added."
                 )
 
-        with transaction.atomic():
-            plan = serializer.save(gym=tenant)
-            record_audit_log(
-                action_type="membership_plan_created",
-                affected_record_type="MembershipPlan",
-                affected_record_id=str(plan.id),
-                actor=request.user,
-                gym=tenant,
-                metadata={
-                    "name": plan.name,
-                    "duration": f"{plan.duration_value} {plan.duration_unit}",
-                    "price_etb": str(plan.price_etb),
-                    "trainer_inclusive": plan.trainer_inclusive,
+        try:
+            with transaction.atomic():
+                plan = serializer.save(gym=tenant)
+                record_audit_log(
+                    action_type="membership_plan_created",
+                    affected_record_type="MembershipPlan",
+                    affected_record_id=str(plan.id),
+                    actor=request.user,
+                    gym=tenant,
+                    metadata={
+                        "name": plan.name,
+                        "duration": f"{plan.duration_value} {plan.duration_unit}",
+                        "price_etb": str(plan.price_etb),
+                        "trainer_inclusive": plan.trainer_inclusive,
+                    },
+                )
+        except IntegrityError:
+            return Response(
+                {
+                    "name": [
+                        "A membership plan with this name already exists for your gym."
+                    ]
                 },
+                status=status.HTTP_400_BAD_REQUEST,
             )
 
-        resp_data = MembershipPlanSerializer(plan).data
+        resp_data = MembershipPlanSerializer(
+            plan, context={"request": request, "tenant": tenant}
+        ).data
         resp_data["has_no_trainers_warning"] = bool(warning)
         if warning:
             resp_data["warning"] = warning
@@ -873,7 +887,12 @@ class MembershipPlanDetailView(APIView):
             )
 
         plan = self._get_plan(pk, tenant)
-        serializer = MembershipPlanSerializer(plan, data=request.data, partial=True)
+        serializer = MembershipPlanSerializer(
+            plan,
+            data=request.data,
+            partial=True,
+            context={"request": request, "tenant": tenant},
+        )
         if not serializer.is_valid():
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
@@ -896,24 +915,36 @@ class MembershipPlanDetailView(APIView):
                     "but trainer assignment will not be possible until trainers are added."
                 )
 
-        with transaction.atomic():
-            old_price_etb = str(plan.price_etb)
-            updated_plan = serializer.save()
-            record_audit_log(
-                action_type="membership_plan_updated",
-                affected_record_type="MembershipPlan",
-                affected_record_id=str(updated_plan.id),
-                actor=request.user,
-                gym=tenant,
-                metadata={
-                    "name": updated_plan.name,
-                    "old_price_etb": old_price_etb,
-                    "price_etb": str(updated_plan.price_etb),
-                    "is_active": updated_plan.is_active,
+        try:
+            with transaction.atomic():
+                old_price_etb = str(plan.price_etb)
+                updated_plan = serializer.save()
+                record_audit_log(
+                    action_type="membership_plan_updated",
+                    affected_record_type="MembershipPlan",
+                    affected_record_id=str(updated_plan.id),
+                    actor=request.user,
+                    gym=tenant,
+                    metadata={
+                        "name": updated_plan.name,
+                        "old_price_etb": old_price_etb,
+                        "price_etb": str(updated_plan.price_etb),
+                        "is_active": updated_plan.is_active,
+                    },
+                )
+        except IntegrityError:
+            return Response(
+                {
+                    "name": [
+                        "A membership plan with this name already exists for your gym."
+                    ]
                 },
+                status=status.HTTP_400_BAD_REQUEST,
             )
 
-        resp_data = MembershipPlanSerializer(updated_plan).data
+        resp_data = MembershipPlanSerializer(
+            updated_plan, context={"request": request, "tenant": tenant}
+        ).data
         resp_data["has_no_trainers_warning"] = bool(warning)
         if warning:
             resp_data["warning"] = warning

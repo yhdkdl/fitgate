@@ -9,6 +9,7 @@ import {
   type UpdatePlanInput,
 } from "../../api/plans";
 import { useAuth } from "../../context/AuthContext";
+import { ApiError } from "../../api/client";
 import { Alert } from "../ui/Alert";
 import { Badge } from "../ui/Badge";
 import { Button } from "../ui/Button";
@@ -43,6 +44,7 @@ export const MembershipPlansSection: React.FC<MembershipPlansSectionProps> = ({
   const [modalSubmitting, setModalSubmitting] = useState(false);
   const [modalError, setModalError] = useState<string | null>(null);
   const [modalWarning, setModalWarning] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 
   // Form State
   const [formData, setFormData] = useState<{
@@ -52,6 +54,7 @@ export const MembershipPlansSection: React.FC<MembershipPlansSectionProps> = ({
     duration_unit: "days" | "months";
     price_etb: string;
     trainer_inclusive: boolean;
+    is_active: boolean;
   }>({
     name: "",
     description: "",
@@ -59,6 +62,7 @@ export const MembershipPlansSection: React.FC<MembershipPlansSectionProps> = ({
     duration_unit: "months",
     price_etb: "",
     trainer_inclusive: false,
+    is_active: true,
   });
 
   // Deactivate confirmation
@@ -95,9 +99,11 @@ export const MembershipPlansSection: React.FC<MembershipPlansSectionProps> = ({
       duration_unit: "months",
       price_etb: "",
       trainer_inclusive: false,
+      is_active: true,
     });
     setModalError(null);
     setModalWarning(null);
+    setFieldErrors({});
     setIsModalOpen(true);
   };
 
@@ -110,9 +116,11 @@ export const MembershipPlansSection: React.FC<MembershipPlansSectionProps> = ({
       duration_unit: plan.duration_unit,
       price_etb: plan.price_etb,
       trainer_inclusive: plan.trainer_inclusive,
+      is_active: plan.is_active,
     });
     setModalError(null);
     setModalWarning(null);
+    setFieldErrors({});
     setIsModalOpen(true);
   };
 
@@ -120,16 +128,25 @@ export const MembershipPlansSection: React.FC<MembershipPlansSectionProps> = ({
     e.preventDefault();
     setModalError(null);
     setModalWarning(null);
+    setFieldErrors({});
 
     const val = parseInt(formData.duration_value, 10);
     if (isNaN(val) || val <= 0) {
       setModalError("Duration value must be a positive number greater than 0.");
+      setFieldErrors((prev) => ({
+        ...prev,
+        duration_value: "Duration value must be greater than 0.",
+      }));
       return;
     }
 
     const price = parseFloat(formData.price_etb);
     if (isNaN(price) || price < 0) {
       setModalError("Price must be 0 or greater.");
+      setFieldErrors((prev) => ({
+        ...prev,
+        price_etb: "Price must be 0 or greater.",
+      }));
       return;
     }
 
@@ -143,6 +160,7 @@ export const MembershipPlansSection: React.FC<MembershipPlansSectionProps> = ({
           duration_unit: formData.duration_unit,
           price_etb: formData.price_etb.trim(),
           trainer_inclusive: formData.trainer_inclusive,
+          is_active: formData.is_active,
         };
         const updated = await updateMembershipPlan(editingPlan.id, payload);
         if (updated.has_no_trainers_warning && updated.warning) {
@@ -175,10 +193,35 @@ export const MembershipPlansSection: React.FC<MembershipPlansSectionProps> = ({
       await fetchPlans();
       if (onPlansUpdated) onPlansUpdated();
     } catch (err: unknown) {
+      if (err instanceof ApiError && err.data && typeof err.data === "object") {
+        const dataObj = err.data as Record<string, unknown>;
+        const fErrors: Record<string, string> = {};
+        for (const [k, v] of Object.entries(dataObj)) {
+          if (Array.isArray(v)) {
+            fErrors[k] = v.map(String).join(" ");
+          } else if (typeof v === "string") {
+            fErrors[k] = v;
+          }
+        }
+        setFieldErrors(fErrors);
+      }
       const e = err as { detail?: string; message?: string };
       setModalError(e.detail || e.message || "Failed to save membership plan.");
     } finally {
       setModalSubmitting(false);
+    }
+  };
+
+  const handleReactivatePlan = async (plan: MembershipPlan) => {
+    try {
+      setErrorMsg(null);
+      await updateMembershipPlan(plan.id, { is_active: true });
+      setSuccessMsg(`Membership plan '${plan.name}' reactivated successfully.`);
+      await fetchPlans();
+      if (onPlansUpdated) onPlansUpdated();
+    } catch (err: unknown) {
+      const e = err as { detail?: string; message?: string };
+      setErrorMsg(e.detail || e.message || "Failed to reactivate plan.");
     }
   };
 
@@ -362,7 +405,7 @@ export const MembershipPlansSection: React.FC<MembershipPlansSectionProps> = ({
                 >
                   Edit
                 </Button>
-                {plan.is_active && (
+                {plan.is_active ? (
                   <Button
                     onClick={() => setDeactivatingPlan(plan)}
                     variant="danger"
@@ -370,6 +413,15 @@ export const MembershipPlansSection: React.FC<MembershipPlansSectionProps> = ({
                     className="min-h-[36px]"
                   >
                     Deactivate
+                  </Button>
+                ) : (
+                  <Button
+                    onClick={() => handleReactivatePlan(plan)}
+                    variant="secondary"
+                    size="sm"
+                    className="min-h-[36px]"
+                  >
+                    Reactivate
                   </Button>
                 )}
               </div>
@@ -411,13 +463,25 @@ export const MembershipPlansSection: React.FC<MembershipPlansSectionProps> = ({
             )}
 
             <form onSubmit={handleModalSubmit} className="space-y-4">
-              <FormField label="Plan Name" htmlFor="plan_name" required>
+              <FormField
+                label="Plan Name"
+                htmlFor="plan_name"
+                required
+                error={fieldErrors.name}
+              >
                 <Input
                   id="plan_name"
                   value={formData.name}
-                  onChange={(e) =>
-                    setFormData({ ...formData, name: e.target.value })
-                  }
+                  onChange={(e) => {
+                    setFormData({ ...formData, name: e.target.value });
+                    if (fieldErrors.name) {
+                      setFieldErrors((prev) => {
+                        const next = { ...prev };
+                        delete next.name;
+                        return next;
+                      });
+                    }
+                  }}
                   placeholder="e.g. Monthly Standard, 3-Month Premium"
                   required
                   maxLength={100}
@@ -429,18 +493,26 @@ export const MembershipPlansSection: React.FC<MembershipPlansSectionProps> = ({
                   label="Duration Value"
                   htmlFor="duration_value"
                   required
+                  error={fieldErrors.duration_value}
                 >
                   <Input
                     id="duration_value"
                     type="number"
                     min="1"
                     value={formData.duration_value}
-                    onChange={(e) =>
+                    onChange={(e) => {
                       setFormData({
                         ...formData,
                         duration_value: e.target.value,
-                      })
-                    }
+                      });
+                      if (fieldErrors.duration_value) {
+                        setFieldErrors((prev) => {
+                          const next = { ...prev };
+                          delete next.duration_value;
+                          return next;
+                        });
+                      }
+                    }}
                     required
                   />
                 </FormField>
@@ -449,6 +521,7 @@ export const MembershipPlansSection: React.FC<MembershipPlansSectionProps> = ({
                   label="Duration Unit"
                   htmlFor="duration_unit"
                   required
+                  error={fieldErrors.duration_unit}
                 >
                   <select
                     id="duration_unit"
@@ -467,16 +540,28 @@ export const MembershipPlansSection: React.FC<MembershipPlansSectionProps> = ({
                 </FormField>
               </div>
 
-              <FormField label="Price in ETB" htmlFor="price_etb" required>
+              <FormField
+                label="Price in ETB"
+                htmlFor="price_etb"
+                required
+                error={fieldErrors.price_etb}
+              >
                 <Input
                   id="price_etb"
                   type="number"
                   step="0.01"
                   min="0"
                   value={formData.price_etb}
-                  onChange={(e) =>
-                    setFormData({ ...formData, price_etb: e.target.value })
-                  }
+                  onChange={(e) => {
+                    setFormData({ ...formData, price_etb: e.target.value });
+                    if (fieldErrors.price_etb) {
+                      setFieldErrors((prev) => {
+                        const next = { ...prev };
+                        delete next.price_etb;
+                        return next;
+                      });
+                    }
+                  }}
                   placeholder="e.g. 1500.00"
                   required
                 />
@@ -520,6 +605,36 @@ export const MembershipPlansSection: React.FC<MembershipPlansSectionProps> = ({
                   </span>
                 </label>
               </div>
+
+              {editingPlan && (
+                <div className="p-3 bg-bg border border-border rounded-lg flex items-start gap-3">
+                  <input
+                    type="checkbox"
+                    id="plan_is_active"
+                    checked={formData.is_active}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        is_active: e.target.checked,
+                      })
+                    }
+                    className="mt-1 h-4 w-4 rounded border-border text-primary focus:ring-primary"
+                  />
+                  <label
+                    htmlFor="plan_is_active"
+                    className="text-sm cursor-pointer"
+                  >
+                    <span className="font-semibold text-text block">
+                      Active Plan
+                    </span>
+                    <span className="text-xs text-text-muted">
+                      {formData.is_active
+                        ? "This plan is active and selectable for new memberships."
+                        : "This plan is deactivated and hidden from new memberships."}
+                    </span>
+                  </label>
+                </div>
+              )}
 
               <div className="flex items-center justify-end gap-3 pt-3 border-t border-border">
                 <Button
