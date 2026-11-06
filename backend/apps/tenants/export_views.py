@@ -38,6 +38,8 @@ class GymDataExportView(APIView):
     - attendance: Date and Time, Member Name, Check-in Method
     """
 
+    required_flag = None  # Tier-exempt (available on Starter)
+
     permission_classes = [IsAuthenticated, RequirePasswordChanged, IsOwnerOrManager]
 
     VALID_EXPORT_TYPES = ("members", "payments", "attendance")

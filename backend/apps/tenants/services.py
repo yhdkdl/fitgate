@@ -620,6 +620,10 @@ def update_gym_settings(
     if "telegram_channel" in data:
         raw_chan = (data["telegram_channel"] or "").strip()
         if raw_chan:
+            if not getattr(config, "has_notices", False):
+                raise PermissionDenied(
+                    "Telegram integration is not available on this gym's current tier."
+                )
             existing = (
                 GymConfig.objects.filter(telegram_channel__iexact=raw_chan)
                 .exclude(gym=gym)
@@ -749,6 +753,8 @@ def update_gym_settings(
             "has_ai_plans",
             "has_analytics",
             "has_group_classes",
+            "has_notices",
+            "has_expenses",
             "has_multi_branch",
         ]:
             if field in data:

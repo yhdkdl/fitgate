@@ -120,6 +120,8 @@ export const GymManagementSection: React.FC<GymManagementSectionProps> = ({
   const [hasAiPlans, setHasAiPlans] = useState(false);
   const [hasAnalytics, setHasAnalytics] = useState(false);
   const [hasGroupClasses, setHasGroupClasses] = useState(false);
+  const [hasNotices, setHasNotices] = useState(false);
+  const [hasExpenses, setHasExpenses] = useState(false);
   const [freezeDaysCap, setFreezeDaysCap] = useState<number>(30);
   const [paymentGraceDays, setPaymentGraceDays] = useState<number>(7);
   const [subReminderFirst, setSubReminderFirst] = useState<string>("14");
@@ -142,6 +144,8 @@ export const GymManagementSection: React.FC<GymManagementSectionProps> = ({
       setHasAiPlans(Boolean(cfg.has_ai_plans));
       setHasAnalytics(Boolean(cfg.has_analytics));
       setHasGroupClasses(Boolean(cfg.has_group_classes));
+      setHasNotices(Boolean(cfg.has_notices));
+      setHasExpenses(Boolean(cfg.has_expenses));
       setFreezeDaysCap(
         cfg.freeze_days_cap !== undefined ? cfg.freeze_days_cap : 30
       );
@@ -159,6 +163,8 @@ export const GymManagementSection: React.FC<GymManagementSectionProps> = ({
       setHasAiPlans(false);
       setHasAnalytics(false);
       setHasGroupClasses(false);
+      setHasNotices(false);
+      setHasExpenses(false);
       setFreezeDaysCap(30);
       setPaymentGraceDays(7);
       setDisabledRoles([]);
@@ -199,6 +205,8 @@ export const GymManagementSection: React.FC<GymManagementSectionProps> = ({
         has_ai_plans: hasAiPlans,
         has_analytics: hasAnalytics,
         has_group_classes: hasGroupClasses,
+        has_notices: hasNotices,
+        has_expenses: hasExpenses,
         freeze_days_cap: Number(freezeDaysCap),
         payment_grace_days: Number(paymentGraceDays),
         subscription_reminder_days: reminderParts,
@@ -866,6 +874,11 @@ export const GymManagementSection: React.FC<GymManagementSectionProps> = ({
                     <option value="starter">Starter (12,000 ETB / yr)</option>
                     <option value="growth">Growth (30,000 ETB / yr)</option>
                   </select>
+                  <p className="text-[11px] text-text-muted mt-1">
+                    {tier === "starter"
+                      ? "Starter: Registration, plans, payments (cash, bank, Chapa), QR check-in, basic dashboard, equipment & prices, CSV exports, receipt verification, platform notices."
+                      : "Growth adds: Trainer module, AI plans, membership freeze, revenue by plan, group classes, gym notice board, Telegram bridge, expenses & reports."}
+                  </p>
                 </FormField>
 
                 <FormField
@@ -1293,7 +1306,34 @@ export const GymManagementSection: React.FC<GymManagementSectionProps> = ({
                     onChange={(e) => setHasAnalytics(e.target.checked)}
                     className="rounded border-border text-primary focus:ring-primary w-4 h-4"
                   />
-                  <span>Analytics & Reports</span>
+                  <span>Revenue by Plan</span>
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer text-sm text-text">
+                  <input
+                    type="checkbox"
+                    checked={hasGroupClasses}
+                    onChange={(e) => setHasGroupClasses(e.target.checked)}
+                    className="rounded border-border text-primary focus:ring-primary w-4 h-4"
+                  />
+                  <span>Group Classes</span>
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer text-sm text-text">
+                  <input
+                    type="checkbox"
+                    checked={hasNotices}
+                    onChange={(e) => setHasNotices(e.target.checked)}
+                    className="rounded border-border text-primary focus:ring-primary w-4 h-4"
+                  />
+                  <span>Gym Notice Board & Telegram</span>
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer text-sm text-text">
+                  <input
+                    type="checkbox"
+                    checked={hasExpenses}
+                    onChange={(e) => setHasExpenses(e.target.checked)}
+                    className="rounded border-border text-primary focus:ring-primary w-4 h-4"
+                  />
+                  <span>Expenses & Reports</span>
                 </label>
                 <label className="flex items-center gap-2 cursor-pointer text-sm text-text">
                   <input

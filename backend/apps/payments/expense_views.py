@@ -25,6 +25,7 @@ from apps.accounts.permissions import IsOwnerOrManager, RequirePasswordChanged
 from apps.attendance.models import Attendance
 from apps.core.validators import validate_export_date_range
 from apps.payments.models import Expense, Payment
+from apps.payments.permissions import HasExpensesEnabled
 from apps.payments.serializers import (
     ExpenseCreateSerializer,
     ExpenseSerializer,
@@ -38,7 +39,8 @@ class ExpenseListCreateView(APIView):
     Restricted to Owner and Manager.
     """
 
-    permission_classes = [RequirePasswordChanged, IsOwnerOrManager]
+    required_flag = "has_expenses"
+    permission_classes = [RequirePasswordChanged, IsOwnerOrManager, HasExpensesEnabled]
 
     def get(self, request):
         tenant = request.tenant
@@ -126,7 +128,8 @@ class ExpenseVoidView(APIView):
     Restricted to Owner and Manager.
     """
 
-    permission_classes = [RequirePasswordChanged, IsOwnerOrManager]
+    required_flag = "has_expenses"
+    permission_classes = [RequirePasswordChanged, IsOwnerOrManager, HasExpensesEnabled]
 
     def post(self, request, pk):
         tenant = request.tenant
@@ -177,7 +180,8 @@ class GymFinancialReportView(APIView):
     Restricted to Owner and Manager.
     """
 
-    permission_classes = [RequirePasswordChanged, IsOwnerOrManager]
+    required_flag = "has_expenses"
+    permission_classes = [RequirePasswordChanged, IsOwnerOrManager, HasExpensesEnabled]
 
     def get(self, request):
         tenant = request.tenant
@@ -282,7 +286,8 @@ class GymAttendanceReportView(APIView):
     Restricted to Owner and Manager.
     """
 
-    permission_classes = [RequirePasswordChanged, IsOwnerOrManager]
+    required_flag = "has_expenses"
+    permission_classes = [RequirePasswordChanged, IsOwnerOrManager, HasExpensesEnabled]
 
     def get(self, request):
         tenant = request.tenant

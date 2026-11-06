@@ -342,8 +342,6 @@ def register_member_staff_assisted(
     verification_config = None
 
     if payment_method == "bank_transfer":
-        from django.conf import settings
-
         from apps.payments.models import GymPaymentConfig
         from apps.payments.services import (
             validate_bank_receipt_format,

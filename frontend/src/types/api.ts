@@ -3247,6 +3247,8 @@ export interface components {
       readonly has_ai_plans: boolean;
       readonly has_analytics: boolean;
       readonly has_group_classes: boolean;
+      readonly has_notices?: boolean;
+      readonly has_expenses?: boolean;
       readonly has_multi_branch: boolean;
       readonly freeze_days_allowed: number;
       readonly freeze_days_cap: number;
@@ -4327,6 +4329,7 @@ export interface components {
       readonly full_name: string;
       readonly phone: string;
       readonly must_change_password: boolean;
+      readonly capabilities?: Record<string, any> | null;
     };
     /**
      * @description * `super_admin` - Super Admin

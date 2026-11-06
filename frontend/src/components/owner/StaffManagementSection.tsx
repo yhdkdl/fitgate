@@ -31,7 +31,7 @@ interface StaffManagementSectionProps {
 export const StaffManagementSection: React.FC<StaffManagementSectionProps> = ({
   onStaffUpdated,
 }) => {
-  const { user } = useAuth();
+  const { user, capabilities } = useAuth();
   const [staffList, setStaffList] = useState<StaffMember[]>([]);
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -44,9 +44,13 @@ export const StaffManagementSection: React.FC<StaffManagementSectionProps> = ({
   // Invite modal state
   const [isInviteOpen, setIsInviteOpen] = useState(false);
   const [inviteSubmitting, setInviteSubmitting] = useState(false);
+  const hasTrainerModule = capabilities ? capabilities.has_trainer_module : true;
+  const defaultInviteRole: StaffRole = user?.role === "manager"
+    ? (hasTrainerModule ? "trainer" : "reception")
+    : "manager";
   const [inviteForm, setInviteForm] = useState<InviteStaffPayload>({
     email: "",
-    role: user?.role === "manager" ? "trainer" : "manager",
+    role: defaultInviteRole,
     full_name: "",
     phone: "",
   });
@@ -119,7 +123,7 @@ export const StaffManagementSection: React.FC<StaffManagementSectionProps> = ({
       setIsInviteOpen(false);
       setInviteForm({
         email: "",
-        role: user?.role === "manager" ? "trainer" : "trainer",
+        role: defaultInviteRole,
         full_name: "",
         phone: "",
       });
@@ -313,7 +317,7 @@ export const StaffManagementSection: React.FC<StaffManagementSectionProps> = ({
             <option value="all">All Roles</option>
             <option value="owner">Owner</option>
             <option value="manager">Manager</option>
-            <option value="trainer">Trainer</option>
+            {hasTrainerModule && <option value="trainer">Trainer</option>}
             <option value="reception">Reception</option>
           </select>
         </div>
@@ -552,7 +556,7 @@ export const StaffManagementSection: React.FC<StaffManagementSectionProps> = ({
                   className="w-full bg-surface border border-border rounded-input px-3 py-2 text-sm text-text focus:outline-none focus:border-primary min-h-[44px]"
                 >
                   {isOwner && <option value="manager">Manager</option>}
-                  <option value="trainer">Trainer</option>
+                  {hasTrainerModule && <option value="trainer">Trainer</option>}
                   <option value="reception">Reception</option>
                 </select>
               </FormField>

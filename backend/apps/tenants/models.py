@@ -155,6 +155,8 @@ class GymConfig(models.Model):
     has_ai_plans = models.BooleanField(default=False)
     has_analytics = models.BooleanField(default=False)
     has_group_classes = models.BooleanField(default=False)
+    has_notices = models.BooleanField(default=False)
+    has_expenses = models.BooleanField(default=False)
     has_multi_branch = models.BooleanField(default=False)
     chapa_merchant_id = models.CharField(max_length=100, null=True, blank=True)
     freeze_days_allowed = models.PositiveIntegerField(default=0)
@@ -196,6 +198,8 @@ def get_tier_defaults(tier: str) -> dict:
                 "has_ai_plans": False,
                 "has_analytics": False,
                 "has_group_classes": False,
+                "has_notices": False,
+                "has_expenses": False,
                 "has_multi_branch": False,
                 "freeze_days_allowed": 0,
                 "freeze_days_cap": 0,
@@ -208,6 +212,8 @@ def get_tier_defaults(tier: str) -> dict:
                 "has_ai_plans": True,
                 "has_analytics": True,
                 "has_group_classes": True,
+                "has_notices": True,
+                "has_expenses": True,
                 "has_multi_branch": False,
                 "freeze_days_allowed": 30,
                 "freeze_days_cap": 30,
@@ -226,6 +232,39 @@ def get_tier_defaults(tier: str) -> dict:
             }
         )
     return defaults
+
+
+def get_gym_capabilities(gym) -> dict:
+    """Return dictionary of feature capabilities for the given gym tenant."""
+    if gym is None:
+        return {}
+    config = getattr(gym, "config", None)
+    if not config:
+        config = GymConfig.objects.filter(gym=gym).first()
+
+    tier = getattr(gym, "tier", GymTenant.TIER_STARTER)
+    has_trainer = getattr(config, "has_trainer_module", False) if config else False
+    has_ai = getattr(config, "has_ai_plans", False) if config else False
+    has_analytics = getattr(config, "has_analytics", False) if config else False
+    has_classes = getattr(config, "has_group_classes", False) if config else False
+    has_notices = getattr(config, "has_notices", False) if config else False
+    has_expenses = getattr(config, "has_expenses", False) if config else False
+    freeze_cap = getattr(config, "freeze_days_cap", 0) if config else 0
+    freeze_allowed = getattr(config, "freeze_days_allowed", 0) if config else 0
+    has_freeze = bool(freeze_allowed > 0 and tier != GymTenant.TIER_STARTER)
+
+    return {
+        "tier": tier,
+        "has_trainer_module": has_trainer,
+        "has_ai_plans": has_ai,
+        "has_analytics": has_analytics,
+        "has_group_classes": has_classes,
+        "has_notices": has_notices,
+        "has_expenses": has_expenses,
+        "has_freeze": has_freeze,
+        "freeze_days_allowed": freeze_allowed,
+        "freeze_days_cap": freeze_cap,
+    }
 
 
 class TenantAwareModel(models.Model):

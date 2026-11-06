@@ -68,6 +68,8 @@ class AttendancePublicKeyView(APIView):
     Allows offline scanners (PWA, mobile, hardware) to verify tokens offline.
     """
 
+    required_flag = None  # Tier-exempt (available on Starter)
+
     permission_classes = [AllowAny]
     authentication_classes = []
 
@@ -100,6 +102,8 @@ class MemberQrTokenView(APIView):
 
     Valid for 90 seconds. Refreshes token on valid scan or periodic fetch.
     """
+
+    required_flag = None  # Tier-exempt (available on Starter)
 
     permission_classes = [IsAuthenticated, RequirePasswordChanged, IsMember]
 
@@ -173,6 +177,8 @@ class AttendanceScanView(APIView):
     and single daily check-in per member.
     """
 
+    required_flag = None  # Tier-exempt (available on Starter)
+
     permission_classes = [IsAuthenticated, RequirePasswordChanged, CanManageAttendance]
 
     @extend_schema(
@@ -238,6 +244,8 @@ class AttendanceManualOverrideView(APIView):
     Requires an active subscription and non-empty reason. Refused for expired,
     frozen, or suspended members. Produces an Attendance row and an AuditLog entry.
     """
+
+    required_flag = None  # Tier-exempt (available on Starter)
 
     permission_classes = [IsAuthenticated, RequirePasswordChanged, CanManageAttendance]
 
@@ -325,6 +333,8 @@ class GymMemberAttendanceLogView(APIView):
     Returns ✓/✗ per day for date range, derived from check-ins and subscription period.
     """
 
+    required_flag = None  # Tier-exempt (available on Starter)
+
     permission_classes = [IsAuthenticated, RequirePasswordChanged, CanManageAttendance]
 
     @extend_schema(
@@ -368,6 +378,8 @@ class MemberSelfAttendanceLogView(APIView):
 
     Returns ✓/✗ per day for date range, derived from check-ins and subscription period.
     """
+
+    required_flag = None  # Tier-exempt (available on Starter)
 
     permission_classes = [IsAuthenticated, RequirePasswordChanged, IsMember]
 
@@ -416,6 +428,8 @@ class AttendanceTodayListView(APIView):
     Supports optional ?since=<iso-datetime> query parameter.
     Available strictly to Owner, Manager, and Reception on the active tenant.
     """
+
+    required_flag = None  # Tier-exempt (available on Starter)
 
     permission_classes = [IsAuthenticated, RequirePasswordChanged, CanManageAttendance]
 

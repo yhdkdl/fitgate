@@ -904,6 +904,17 @@ def calculate_plan_upgrade_quote(
     if not new_plan.is_active:
         raise ValidationError("Cannot upgrade to a deactivated plan.")
 
+    if new_plan.trainer_inclusive:
+        config = getattr(member.gym, "config", None)
+        if not config or not config.has_trainer_module:
+            raise ValidationError(
+                {
+                    "new_plan_id": [
+                        "This plan includes a trainer, which is not available on your gym's current tier."
+                    ]
+                }
+            )
+
     # Rule 4: Refused while member is frozen, suspended, or pending
     if member.status == Member.STATUS_FROZEN:
         raise ValidationError(
@@ -1508,8 +1519,22 @@ def record_cash_payment(
     if plan.gym_id != gym.id:
         raise ValidationError("Plan does not belong to this gym.")
 
+    if plan.trainer_inclusive:
+        config = getattr(gym, "config", None)
+        if not config or not config.has_trainer_module:
+            raise PermissionDenied(
+                "This plan includes a trainer, which is not available on your gym's current tier."
+            )
+
     if not plan.is_active:
         raise ValidationError("Cannot record payment for a deactivated plan.")
+
+    if plan.trainer_inclusive:
+        config = getattr(gym, "config", None)
+        if not config or not config.has_trainer_module:
+            raise PermissionDenied(
+                "This plan includes a trainer, which is not available on your gym's current tier."
+            )
 
     # Client request key double-submit pre-check (fast path)
     if idempotency_key:
@@ -1713,8 +1738,22 @@ def record_bank_transfer_payment(
     if plan.gym_id != gym.id:
         raise ValidationError("Plan does not belong to this gym.")
 
+    if plan.trainer_inclusive:
+        config = getattr(gym, "config", None)
+        if not config or not config.has_trainer_module:
+            raise PermissionDenied(
+                "This plan includes a trainer, which is not available on your gym's current tier."
+            )
+
     if not plan.is_active:
         raise ValidationError("Cannot record payment for a deactivated plan.")
+
+    if plan.trainer_inclusive:
+        config = getattr(gym, "config", None)
+        if not config or not config.has_trainer_module:
+            raise PermissionDenied(
+                "This plan includes a trainer, which is not available on your gym's current tier."
+            )
 
     if not bank_reference:
         raise ValidationError({"bank_reference": ["Bank reference is required."]})

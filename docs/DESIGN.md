@@ -120,6 +120,8 @@ One shared validation rule set applies across frontend (`src/utils/validators.ts
 
 | **First reminder** (`member_reminder_days` / `subscription_reminder_days`) | Whole number. | 1 to 90 days. | Integer | "First reminder must be a whole number from 1 to 90." |
 | **Second reminder** (`member_reminder_days` / `subscription_reminder_days`) | Optional whole number. Must be smaller than first reminder. | 1 to 90 days (< first reminder). | Integer / Nullable | "Second reminder must be smaller than the first reminder." |
+| **Freeze Days Allowed** (`freeze_days_allowed`) | Whole number (integer). | 0 to `freeze_days_cap` (default 30). | Integer | "Cannot exceed maximum freeze allowance cap of {cap} days." / "Starter gyms cannot use membership freeze." / "Freeze days allowed cannot be negative." |
+| **Gym Entitlements** (`tier`, `has_*`, `freeze_days_cap`, `payment_grace_days`, `subscription_reminder_days`) | Restricted fields. | Modifiable by Super Admin only. | Permission-gated | "Only Super Admin can modify gym entitlements." (403 Forbidden) |
 
 ### Form Behavior & Accessibility
 

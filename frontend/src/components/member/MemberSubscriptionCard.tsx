@@ -1,6 +1,7 @@
 import React from "react";
 import type { Member } from "../../api/members";
 import { Badge } from "../ui/Badge";
+import { useAuth } from "../../context/AuthContext";
 import { Card } from "../ui/Card";
 
 interface MemberSubscriptionCardProps {
@@ -12,6 +13,7 @@ export const MemberSubscriptionCard: React.FC<MemberSubscriptionCardProps> = ({
   member,
   onlinePaymentAvailable = true,
 }) => {
+  const { capabilities } = useAuth();
   const activeSub = member.active_subscription;
   const queuedSub = member.queued_subscription;
   const activeFreeze = member.active_freeze;
@@ -129,12 +131,14 @@ export const MemberSubscriptionCard: React.FC<MemberSubscriptionCardProps> = ({
 
       {/* Details Grid */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
-        <div className="space-y-0.5">
-          <span className="text-text-muted block">Trainer Included</span>
-          <span className="font-semibold text-text">
-            Trainer included: {activeSub.trainer_inclusive ? "yes" : "no"}
-          </span>
-        </div>
+        {capabilities?.has_trainer_module && (
+          <div className="space-y-0.5">
+            <span className="text-text-muted block">Trainer Included</span>
+            <span className="font-semibold text-text">
+              Trainer included: {activeSub.trainer_inclusive ? "yes" : "no"}
+            </span>
+          </div>
+        )}
         <div className="space-y-0.5">
           <span className="text-text-muted block">Plan Duration</span>
           <span className="font-semibold text-text">{durationDisplay}</span>

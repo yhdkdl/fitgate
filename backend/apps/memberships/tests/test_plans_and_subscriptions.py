@@ -380,6 +380,79 @@ class TestMemberStatusAndCalculation:
 class TestMembershipPlanCRUDAndSecurity:
     """Tests for plan management endpoints, permissions, warnings, and immutability."""
 
+    def test_cannot_create_or_rename_plan_with_duplicate_name_for_same_gym(
+        self, api_client, gym_tenant, other_gym_tenant, owner_user
+    ):
+        """Duplicate plan names within the same gym return 400 Bad Request, even if deactivated."""
+        client = auth_client(api_client, owner_user, gym_tenant.subdomain)
+
+        # 1. Create initial plan
+        r1 = client.post(
+            "/api/gym/membership-plans/",
+            {
+                "name": "Gold Package",
+                "duration_value": 1,
+                "duration_unit": "months",
+                "price_etb": "2000.00",
+            },
+            format="json",
+        )
+        assert r1.status_code == 201
+        plan1_id = r1.data["id"]
+
+        # 2. Attempt duplicate create (case-insensitive) -> 400 Bad Request
+        r2 = client.post(
+            "/api/gym/membership-plans/",
+            {
+                "name": "gold package",
+                "duration_value": 3,
+                "duration_unit": "months",
+                "price_etb": "5500.00",
+            },
+            format="json",
+        )
+        assert r2.status_code == 400
+        assert "name" in r2.data
+        assert "already exists for your gym" in str(r2.data["name"])
+
+        # 3. Deactivate plan1 and attempt duplicate create -> 400 Bad Request with deactivated note
+        client.delete(f"/api/gym/membership-plans/{plan1_id}/")
+        r3 = client.post(
+            "/api/gym/membership-plans/",
+            {
+                "name": "Gold Package",
+                "duration_value": 1,
+                "duration_unit": "months",
+                "price_etb": "2000.00",
+            },
+            format="json",
+        )
+        assert r3.status_code == 400
+        assert "name" in r3.data
+        assert "deactivated" in str(r3.data["name"])
+
+        # 4. Other gym CAN use the same plan name
+        other_owner = User.objects.create_user(
+            email="owner@apex.com",
+            password="Password123!",
+            role=User.ROLE_OWNER,
+            gym=other_gym_tenant,
+            email_verified_at=timezone.now(),
+            is_active=True,
+        )
+        other_client = auth_client(api_client, other_owner, other_gym_tenant.subdomain)
+        r_other = other_client.post(
+            "/api/gym/membership-plans/",
+            {
+                "name": "Gold Package",
+                "duration_value": 1,
+                "duration_unit": "months",
+                "price_etb": "2500.00",
+            },
+            format="json",
+        )
+        assert r_other.status_code == 201
+
     def test_owner_and_manager_can_create_and_manage_plans(
         self, api_client, gym_tenant, owner_user, manager_user
     ):
@@ -418,6 +491,8 @@ class TestMembershipPlanCRUDAndSecurity:
     ):
         """Creating a trainer-inclusive plan warns if the gym has no active trainers."""
         assert User.objects.filter(gym=gym_tenant, role=User.ROLE_TRAINER).count() == 0
+        gym_tenant.config.has_trainer_module = True
+        gym_tenant.config.save(update_fields=["has_trainer_module"])
 
         client = auth_client(api_client, owner_user, gym_tenant.subdomain)
         resp = client.post(

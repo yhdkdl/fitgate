@@ -26,11 +26,25 @@ export type PasswordResetConfirmRequest =
 export type PasswordResetConfirmResponse =
   components["schemas"]["PasswordResetConfirmResponse"];
 
+export interface GymCapabilities {
+  tier?: string;
+  has_trainer_module?: boolean;
+  has_ai_plans?: boolean;
+  has_analytics?: boolean;
+  has_group_classes?: boolean;
+  has_notices?: boolean;
+  has_expenses?: boolean;
+  has_freeze?: boolean;
+  freeze_days_allowed?: number;
+  freeze_days_cap?: number;
+}
+
 export interface DashboardConfig {
   role: string;
   title: string;
   widgets: Array<{ id: string; title: string }>;
   navigation: Array<{ label: string; path: string }>;
+  capabilities?: GymCapabilities;
 }
 
 export async function login(payload: LoginRequest): Promise<LoginResponse> {

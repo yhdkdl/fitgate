@@ -40,6 +40,41 @@ class HasTrainerModule(BasePermission):
         return True
 
 
+class HasAIPlansEnabled(BasePermission):
+    """
+    Ensures that the gym has AI plans enabled (GymConfig.has_ai_plans=True).
+    Super Admin is denied on gym operational data.
+    """
+
+    message = "AI training plans are not enabled for this gym."
+
+    def has_permission(self, request, view):
+        if not request.user or not request.user.is_authenticated:
+            return False
+
+        if request.user.role == User.ROLE_SUPER_ADMIN:
+            raise PermissionDenied("Super Admin cannot access gym training plans.")
+
+        tenant = getattr(request, "tenant", None)
+        if not tenant:
+            return False
+
+        if getattr(request.user, "gym_id", None) != tenant.id:
+            return False
+
+        config = getattr(tenant, "config", None)
+        if not config or not getattr(config, "has_ai_plans", False):
+            from apps.tenants.models import GymConfig
+
+            config = GymConfig.objects.filter(gym_id=tenant.id).first()
+            if not config or not getattr(config, "has_ai_plans", False):
+                raise PermissionDenied(
+                    "AI training plans are not enabled for this gym."
+                )
+
+        return True
+
+
 class IsOwnerOrManager(BasePermission):
     """Allows access only to Owner or Manager of the tenant."""
 

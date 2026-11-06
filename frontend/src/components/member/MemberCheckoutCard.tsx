@@ -12,6 +12,7 @@ import { Badge } from "../ui/Badge";
 import { Button } from "../ui/Button";
 import { Card } from "../ui/Card";
 import { Spinner } from "../ui/Spinner";
+import { useAuth } from "../../context/AuthContext";
 import { getTenantFromHostname } from "../../utils/tenant";
 import { ApiError } from "../../api/client";
 
@@ -43,6 +44,7 @@ export const MemberCheckoutCard: React.FC<MemberCheckoutCardProps> = ({
   memberStatus,
   activeSubscription,
 }) => {
+  const { capabilities } = useAuth();
   const [selectedUpgradePlan, setSelectedUpgradePlan] =
     useState<DisplayPlan | null>(null);
   const [upgradeQuote, setUpgradeQuote] = useState<PlanUpgradeQuote | null>(
@@ -324,7 +326,7 @@ export const MemberCheckoutCard: React.FC<MemberCheckoutCardProps> = ({
               </p>
               <p className="text-xs text-text-muted">
                 {plan.duration_value} {plan.duration_unit}
-                {plan.trainer_inclusive ? " · Includes Trainer" : ""}
+                {(capabilities?.has_trainer_module && plan.trainer_inclusive) ? " · Includes Trainer" : ""}
               </p>
               {plan.description && (
                 <p className="text-xs text-text-muted mt-1">
@@ -415,7 +417,7 @@ export const MemberCheckoutCard: React.FC<MemberCheckoutCardProps> = ({
 
                 return (
                   <div className="mt-5 pt-3 border-t border-border/50 space-y-2">
-                    {hadTrainerPlan && isNonTrainerPlan && (
+                    {capabilities?.has_trainer_module && hadTrainerPlan && isNonTrainerPlan && (
                       <p className="text-xs text-amber-500 bg-amber-500/10 p-2 rounded border border-amber-500/20">
                         This plan has no trainer. The member will lose their
                         trainer's AI plans.

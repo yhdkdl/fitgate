@@ -79,6 +79,158 @@ class TestPermissionsAndProjectContracts:
                             f"must declare IsAuthenticated (or a subclass) in permission_classes."
                         )
 
+    def test_all_tier_gated_views_declare_required_flag(self):
+        """
+        Contract test: every view registered in URL routing must declare either a
+        tier flag string (e.g. 'has_group_classes', 'has_trainer_module', 'has_ai_plans',
+        'freeze', 'has_analytics', 'has_notices', 'has_expenses') or an explicit
+        'required_flag = None' marker indicating that the view is tier-exempt (Starter / platform).
+        Fails if any view declares neither.
+        """
+        resolver = get_resolver()
+
+        view_to_urls = {}
+
+        def map_view_urls(patterns, prefix=""):
+            for p in patterns:
+                if hasattr(p, "url_patterns"):
+                    map_view_urls(p.url_patterns, prefix + str(p.pattern))
+                elif hasattr(p, "callback") and p.callback:
+                    cb = p.callback
+                    vc = getattr(cb, "view_class", None) or getattr(cb, "cls", None)
+                    if vc:
+                        view_to_urls.setdefault(vc, []).append(prefix + str(p.pattern))
+
+        map_view_urls(resolver.url_patterns)
+
+        def inspect_patterns(patterns):
+            view_classes = set()
+            for pattern in patterns:
+                if hasattr(pattern, "url_patterns"):
+                    view_classes.update(inspect_patterns(pattern.url_patterns))
+                elif hasattr(pattern, "callback"):
+                    callback = pattern.callback
+                    if hasattr(callback, "view_class"):
+                        view_classes.add(callback.view_class)
+                    elif hasattr(callback, "cls"):
+                        view_classes.add(callback.cls)
+            return view_classes
+
+        all_view_classes = inspect_patterns(resolver.url_patterns)
+        app_views = [
+            v
+            for v in all_view_classes
+            if getattr(v, "__module__", "").startswith("apps.")
+            and ".tests." not in getattr(v, "__module__", "")
+        ]
+
+        from apps.classes.permissions import HasGroupClassesEnabled
+        from apps.payments.permissions import HasExpensesEnabled
+        from apps.trainers.permissions import HasAIPlansEnabled, HasTrainerModule
+
+        valid_tier_flags = {
+            "has_group_classes",
+            "has_trainer_module",
+            "has_ai_plans",
+            "freeze",
+            "has_analytics",
+            "has_notices",
+            "has_expenses",
+        }
+
+        tier_gated_count = 0
+        tier_exempt_count = 0
+
+        for view_cls in app_views:
+            module = getattr(view_cls, "__module__", "")
+            name = getattr(view_cls, "__name__", "")
+
+            assert hasattr(
+                view_cls, "required_flag"
+            ), f"View '{name}' in '{module}' must declare 'required_flag' (either a tier flag string or None for tier-exempt views)."
+
+            # Tier-gated domain check: trainers, AI plans, classes, freeze, analytics, notices, expenses
+            # must declare a real tier flag and can NEVER declare None.
+            module_lower = module.lower()
+            url_list = view_to_urls.get(view_cls, [])
+            urls_str = " ".join(url_list).lower()
+
+            is_tier_gated_domain = False
+            if (
+                "apps.classes" in module_lower
+                or "/classes" in urls_str
+                or "/my-classes" in urls_str
+            ):
+                is_tier_gated_domain = True
+            elif (
+                "apps.trainers" in module_lower
+                or "/trainers" in urls_str
+                or "ai_plans" in urls_str
+                or "/my-clients" in urls_str
+                or "/measurements" in urls_str
+            ):
+                is_tier_gated_domain = True
+            elif (
+                "freeze" in module_lower
+                or "/freeze" in urls_str
+                or "/freezes" in urls_str
+            ):
+                is_tier_gated_domain = True
+            elif (
+                "analytics" in module_lower or "/analytics" in urls_str
+            ) and not name.startswith("Platform"):
+                is_tier_gated_domain = True
+            elif "/gym/notices" in urls_str or "/telegram/test" in urls_str:
+                is_tier_gated_domain = True
+            elif (
+                "/expenses" in urls_str
+                or "financial-report" in urls_str
+                or "attendance-report" in urls_str
+            ):
+                is_tier_gated_domain = True
+
+            if is_tier_gated_domain:
+                assert (
+                    view_cls.required_flag is not None
+                ), f"View '{name}' in '{module}' (urls: {url_list}) belongs to tier-gated feature and must declare a tier flag, never None."
+
+            flag = view_cls.required_flag
+            if flag is not None:
+                assert (
+                    flag in valid_tier_flags
+                ), f"View '{name}' declared unknown required_flag '{flag}'."
+                tier_gated_count += 1
+
+                # Verify corresponding permissions
+                if flag == "has_group_classes":
+                    assert HasGroupClassesEnabled in getattr(
+                        view_cls, "permission_classes", []
+                    ), f"View '{name}' must declare HasGroupClassesEnabled in permission_classes."
+                elif flag == "has_trainer_module":
+                    assert HasTrainerModule in getattr(
+                        view_cls, "permission_classes", []
+                    ), f"View '{name}' must declare HasTrainerModule in permission_classes."
+                elif flag == "has_ai_plans":
+                    assert HasAIPlansEnabled in getattr(
+                        view_cls, "permission_classes", []
+                    ), f"View '{name}' must declare HasAIPlansEnabled in permission_classes."
+                elif flag == "has_expenses":
+                    assert HasExpensesEnabled in getattr(
+                        view_cls, "permission_classes", []
+                    ), f"View '{name}' must declare HasExpensesEnabled in permission_classes."
+            else:
+                tier_exempt_count += 1
+
+        assert (
+            tier_gated_count == 43
+        ), f"Expected 43 tier-gated views, found {tier_gated_count}."
+        assert (
+            tier_exempt_count == 79
+        ), f"Expected 79 tier-exempt views, found {tier_exempt_count}."
+        assert (
+            len(app_views) == 122
+        ), f"Expected 122 total views, found {len(app_views)}."
+
     def test_anonymous_access_returns_401_for_all_non_allowany_views(self):
         """
         Walks every URL pattern of the project (apps.* and fitgate.* views only).

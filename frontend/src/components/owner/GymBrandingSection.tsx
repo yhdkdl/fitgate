@@ -28,7 +28,7 @@ export const GymBrandingSection: React.FC<GymBrandingSectionProps> = ({
   gymId,
   onUpdated,
 }) => {
-  const { user } = useAuth();
+  const { user, capabilities } = useAuth();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [uploadingLogo, setUploadingLogo] = useState(false);
@@ -339,21 +339,13 @@ export const GymBrandingSection: React.FC<GymBrandingSectionProps> = ({
 
         {/* Freeze Days Allowed & Member Reminder Days */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-2 border-t border-border">
-          <FormField
-            id="freeze_days_allowed"
-            label="Freeze days allowed"
-            helpText={
-              gymTier === "starter"
-                ? "Starter gyms cannot use membership freeze."
-                : `Annual freeze days allowed per member (0 up to the gym cap of ${freezeDaysCap} days).`
-            }
-            error={fieldErrors.freeze_days_allowed}
-          >
-            {gymTier === "starter" ? (
-              <div className="p-3 bg-surface-2/60 border border-border rounded-lg text-xs text-text-muted">
-                Membership freeze is not available on the Starter plan.
-              </div>
-            ) : (
+          {(capabilities?.has_freeze || (gymTier && gymTier !== "starter")) && (
+            <FormField
+              id="freeze_days_allowed"
+              label="Freeze days allowed"
+              helpText={`Annual freeze days allowed per member (0 up to the gym cap of ${freezeDaysCap} days).`}
+              error={fieldErrors.freeze_days_allowed}
+            >
               <div className="space-y-1">
                 <Input
                   id="freeze_days_allowed"
@@ -371,8 +363,8 @@ export const GymBrandingSection: React.FC<GymBrandingSectionProps> = ({
                   Platform Cap: {freezeDaysCap} days (set by Super Admin)
                 </span>
               </div>
-            )}
-          </FormField>
+            </FormField>
+          )}
 
           <div className="space-y-3">
             <div className="space-y-1">

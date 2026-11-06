@@ -70,6 +70,8 @@ class CreateGymView(APIView):
     owner account, and provision the subdomain via cPanel UAPI.
     """
 
+    required_flag = None  # Tier-exempt (available on Starter)
+
     permission_classes = [IsAuthenticated, RequirePasswordChanged, IsSuperAdmin]
 
     @extend_schema(
@@ -163,6 +165,8 @@ class CreateGymView(APIView):
 class ProposeSubdomainView(APIView):
     """Suggest an available, DNS-compliant subdomain candidate from a gym name."""
 
+    required_flag = None  # Tier-exempt (available on Starter)
+
     permission_classes = [IsAuthenticated, RequirePasswordChanged, IsSuperAdmin]
 
     @extend_schema(
@@ -182,6 +186,8 @@ class ConfirmGymTLSView(APIView):
 
     Unlocks login and registration on the gym's subdomain and sets the initial 1-year subscription window.
     """
+
+    required_flag = None  # Tier-exempt (available on Starter)
 
     permission_classes = [IsAuthenticated, RequirePasswordChanged, IsSuperAdmin]
 
@@ -234,6 +240,8 @@ class ListGymsView(APIView):
 class GymDetailView(APIView):
     """Super Admin endpoint to retrieve gym tenant details and config."""
 
+    required_flag = None  # Tier-exempt (available on Starter)
+
     permission_classes = [IsAuthenticated, RequirePasswordChanged, IsSuperAdmin]
 
     @extend_schema(
@@ -275,6 +283,8 @@ class PublicDemoRequestView(APIView):
 
     Rejected on gym subdomains. Rate-limited and includes honeypot protection.
     """
+
+    required_flag = None  # Tier-exempt (available on Starter)
 
     permission_classes = (AllowAny,)
     authentication_classes = ()
@@ -339,6 +349,8 @@ class PublicDemoRequestView(APIView):
 class DemoRequestListView(APIView):
     """Super Admin endpoint to list all prospective gym demo requests."""
 
+    required_flag = None  # Tier-exempt (available on Starter)
+
     permission_classes = [IsAuthenticated, RequirePasswordChanged, IsSuperAdmin]
 
     @extend_schema(
@@ -358,6 +370,8 @@ class DemoRequestListView(APIView):
 
 class DemoRequestDetailView(APIView):
     """Super Admin endpoint to retrieve and update demo request status/notes."""
+
+    required_flag = None  # Tier-exempt (available on Starter)
 
     permission_classes = [IsAuthenticated, RequirePasswordChanged, IsSuperAdmin]
 
@@ -428,6 +442,8 @@ class DemoRequestDetailView(APIView):
 class DemoRequestConvertView(APIView):
     """Super Admin endpoint returning pre-filled data to convert a lead to a gym."""
 
+    required_flag = None  # Tier-exempt (available on Starter)
+
     permission_classes = [IsAuthenticated, RequirePasswordChanged, IsSuperAdmin]
 
     @extend_schema(
@@ -463,6 +479,8 @@ class ServeMemberPhotoView(APIView):
     Browser never receives direct Cloudinary URL.
     Returns 404 on tenant mismatch (cross-gym IDOR protection) or when file does not exist.
     """
+
+    required_flag = None  # Tier-exempt (available on Starter)
 
     permission_classes = [IsAuthenticated, RequirePasswordChanged]
 
@@ -610,6 +628,8 @@ class UploadMemberPhotoView(APIView):
     Upload and process a member photo into gym-scoped authenticated storage.
     Also handles member photo listing for gym staff.
     """
+
+    required_flag = None  # Tier-exempt (available on Starter)
 
     parser_classes = [MultiPartParser, FormParser]
     permission_classes = [IsAuthenticated, RequirePasswordChanged]
@@ -773,6 +793,8 @@ class UploadGymLogoView(APIView):
     Only Owner of the gym on the active tenant can upload.
     """
 
+    required_flag = None  # Tier-exempt (available on Starter)
+
     parser_classes = [MultiPartParser, FormParser]
     permission_classes = [IsAuthenticated, RequirePasswordChanged, IsGymOwner]
 
@@ -844,6 +866,8 @@ class GymSettingsView(APIView):
     - Super Admin receives 403 Forbidden on gym subdomain (SPEC §2 indicates '-' for Super Admin).
     """
 
+    required_flag = None  # Tier-exempt (available on Starter)
+
     permission_classes = [IsAuthenticated, RequirePasswordChanged, CanEditGymSettings]
 
     @extend_schema(
@@ -902,6 +926,8 @@ class PlatformGymConfigView(APIView):
     """
     Super Admin endpoint on apex domain to inspect and update gym entitlements.
     """
+
+    required_flag = None  # Tier-exempt (available on Starter)
 
     permission_classes = [
         IsAuthenticated,
@@ -971,6 +997,8 @@ class FirstRunChecklistView(APIView):
     Derived automatically from database rows (branding, plan, staff, member).
     """
 
+    required_flag = None  # Tier-exempt (available on Starter)
+
     permission_classes = [IsAuthenticated, RequirePasswordChanged, IsGymOwner]
 
     @extend_schema(
@@ -992,6 +1020,8 @@ class DismissFirstRunChecklistView(APIView):
     Dismiss the first-run onboarding checklist for the gym Owner.
     Dismissal persists in GymConfig.first_run_dismissed_at.
     """
+
+    required_flag = None  # Tier-exempt (available on Starter)
 
     permission_classes = [IsAuthenticated, RequirePasswordChanged, IsGymOwner]
 
@@ -1028,6 +1058,8 @@ class GymPublicEntryView(APIView):
     Returns gym name, brand color, logo, phone, location, currency.
     If certificate is not confirmed, returns 503 'still being secured'.
     """
+
+    required_flag = None  # Tier-exempt (available on Starter)
 
     permission_classes = [AllowAny]
     authentication_classes = []
@@ -1066,12 +1098,20 @@ class GymPublicEntryView(APIView):
                 gym=gym, is_active=True
             ).order_by("-created_at")
 
+            from apps.tenants.models import get_gym_capabilities
+
+            caps = get_gym_capabilities(gym)
+            if not caps.get("has_trainer_module", False):
+                active_plans = active_plans.exclude(trainer_inclusive=True)
+
             return Response(
                 {
                     "still_securing": True,
                     "gym_id": gym.id,
                     "name": gym.name,
                     "subdomain": gym.subdomain,
+                    "tier": gym.tier,
+                    "capabilities": caps,
                     "brand_color": (
                         getattr(config, "brand_color", None) if config else None
                     ),
@@ -1106,11 +1146,19 @@ class GymPublicEntryView(APIView):
             and payment_cfg.is_enabled
         )
 
+        from apps.tenants.models import get_gym_capabilities
+
+        caps = get_gym_capabilities(gym)
+        if not caps.get("has_trainer_module", False):
+            active_plans = active_plans.exclude(trainer_inclusive=True)
+
         data = {
             "still_securing": False,
             "gym_id": gym.id,
             "name": gym.name,
             "subdomain": gym.subdomain,
+            "tier": gym.tier,
+            "capabilities": caps,
             "brand_color": getattr(config, "brand_color", None) if config else None,
             "logo": getattr(config, "logo", None) if config else None,
             "phone": gym.contact_phone,
@@ -1132,6 +1180,7 @@ class GymAnalyticsOverviewView(APIView):
     memberships expiring in 7 days, and premium revenue by plan (Growth/Pro only).
     """
 
+    required_flag = "has_analytics"
     authentication_classes = [FitGateJWTAuthentication]
     permission_classes = [IsAuthenticated, RequirePasswordChanged, IsOwnerOrManager]
 
@@ -1155,22 +1204,37 @@ class GymNoticeListCreateView(APIView):
     """
     List notices for all authenticated gym users (members and staff).
     Post notice for Owner and Manager only, with optional Telegram channel broadcast.
+    Gated by GymConfig.has_notices (Growth/Pro only).
     """
 
+    required_flag = "has_notices"
     permission_classes = [IsAuthenticated, RequirePasswordChanged]
 
     def get(self, request, *args, **kwargs):
-        from django.db.models import Q
-
         from apps.accounts.models import User
-        from apps.tenants.models import GymNotice
+        from apps.tenants.models import GymConfig, GymNotice
         from apps.tenants.serializers import GymNoticeSerializer
 
         tenant = getattr(request, "tenant", None)
         if not tenant:
             return Response([], status=status.HTTP_200_OK)
 
-        # Platform-wide notices (gym=None) appear on every Owner's dashboard
+        config = GymConfig.objects.filter(gym=tenant).first()
+        has_notices = getattr(config, "has_notices", False) if config else False
+
+        if not has_notices:
+            if getattr(request.user, "role", None) == User.ROLE_OWNER:
+                platform_notices = GymNotice.all_objects.filter(
+                    gym__isnull=True
+                ).order_by("-created_at")
+                serializer = GymNoticeSerializer(platform_notices, many=True)
+                return Response(serializer.data, status=status.HTTP_200_OK)
+            raise PermissionDenied(
+                "Notice board is not available on this gym's current tier."
+            )
+
+        from django.db.models import Q
+
         if getattr(request.user, "role", None) == User.ROLE_OWNER:
             notices = GymNotice.all_objects.filter(
                 Q(gym=tenant) | Q(gym__isnull=True)
@@ -1191,6 +1255,12 @@ class GymNoticeListCreateView(APIView):
         if not tenant:
             return Response(
                 {"detail": "Tenant required."}, status=status.HTTP_400_BAD_REQUEST
+            )
+
+        config = GymConfig.objects.filter(gym=tenant).first()
+        if not config or not config.has_notices:
+            raise PermissionDenied(
+                "Notice board is not available on this gym's current tier."
             )
 
         role = getattr(request.user, "role", None)
@@ -1242,14 +1312,21 @@ class GymNoticeListCreateView(APIView):
 class GymNoticeDetailView(APIView):
     """Delete a notice board announcement (Owner and Manager only)."""
 
+    required_flag = "has_notices"
     permission_classes = [IsAuthenticated, RequirePasswordChanged]
 
     def delete(self, request, pk, *args, **kwargs):
         from apps.accounts.models import User
         from apps.accounts.services import record_audit_log
-        from apps.tenants.models import GymNotice
+        from apps.tenants.models import GymConfig, GymNotice
 
         tenant = getattr(request, "tenant", None)
+        config = GymConfig.objects.filter(gym=tenant).first()
+        if not config or not config.has_notices:
+            raise PermissionDenied(
+                "Notice board is not available on this gym's current tier."
+            )
+
         role = getattr(request.user, "role", None)
         if role not in (User.ROLE_OWNER, User.ROLE_MANAGER):
             raise PermissionDenied("Only Owner and Manager can delete announcements.")
@@ -1287,6 +1364,7 @@ class GymNoticeDetailView(APIView):
 class TelegramTestMessageView(APIView):
     """Send a test message to the configured gym Telegram channel (Owner only)."""
 
+    required_flag = "has_notices"
     permission_classes = [IsAuthenticated, RequirePasswordChanged, CanEditGymSettings]
 
     def post(self, request, *args, **kwargs):
@@ -1295,6 +1373,10 @@ class TelegramTestMessageView(APIView):
 
         tenant = getattr(request, "tenant", None)
         config = GymConfig.objects.filter(gym=tenant).first()
+        if not config or not config.has_notices:
+            raise PermissionDenied(
+                "Telegram integration is not available on this gym's current tier."
+            )
         channel = getattr(config, "telegram_channel", "") if config else ""
 
         if not channel:

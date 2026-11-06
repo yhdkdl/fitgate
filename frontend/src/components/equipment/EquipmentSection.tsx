@@ -5,6 +5,7 @@ import { Button } from "../ui/Button";
 import { Card } from "../ui/Card";
 import { Input } from "../ui/Input";
 import { Modal } from "../ui/Modal";
+import { useAuth } from "../../context/AuthContext";
 import { Spinner } from "../ui/Spinner";
 import {
   listEquipment,
@@ -37,6 +38,7 @@ function getErrorMessage(err: unknown, fallback: string): string {
 export const EquipmentSection: React.FC<EquipmentSectionProps> = ({
   userRole,
 }) => {
+  const { capabilities } = useAuth();
   const [equipmentList, setEquipmentList] = useState<EquipmentItem[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
@@ -657,7 +659,7 @@ export const EquipmentSection: React.FC<EquipmentSectionProps> = ({
                   onChange={(e) => setFormUnitPrice(e.target.value)}
                 />
               </div>
-              {formUnitPrice && parseFloat(formUnitPrice) > 0 && (
+              {capabilities?.has_expenses && formUnitPrice && parseFloat(formUnitPrice) > 0 && (
                 <label className="flex items-center gap-2 pt-1 cursor-pointer">
                   <input
                     type="checkbox"
@@ -805,7 +807,7 @@ export const EquipmentSection: React.FC<EquipmentSectionProps> = ({
                   onChange={(e) => setFormUnitPrice(e.target.value)}
                 />
               </div>
-              {formUnitPrice && parseFloat(formUnitPrice) > 0 && (
+              {capabilities?.has_expenses && formUnitPrice && parseFloat(formUnitPrice) > 0 && (
                 <label className="flex items-center gap-2 pt-1 cursor-pointer">
                   <input
                     type="checkbox"

@@ -1,7 +1,7 @@
 """Views for member registration, email verification, member profile management, and body metrics."""
 
 from django.core.exceptions import PermissionDenied, ValidationError
-from django.db import transaction
+from django.db import IntegrityError, transaction
 from django.db.models import Q
 from django.http import Http404
 from django.utils import timezone
@@ -61,6 +61,7 @@ from apps.memberships.throttling import (
     MemberRegistrationIpRateThrottle,
     MemberRegistrationRateThrottle,
 )
+from apps.trainers.permissions import HasTrainerModule
 
 
 class PublicMemberRegistrationView(APIView):
@@ -68,6 +69,8 @@ class PublicMemberRegistrationView(APIView):
     Public endpoint for self-service member registration on a gym subdomain.
     Requires health waiver acceptance and rate-limited.
     """
+
+    required_flag = None  # Tier-exempt (available on Starter)
 
     permission_classes = [AllowAny]
     authentication_classes = []
@@ -121,6 +124,8 @@ class VerifyEmailView(APIView):
     Public endpoint to verify member email address with a single-use token.
     """
 
+    required_flag = None  # Tier-exempt (available on Starter)
+
     permission_classes = [AllowAny]
     authentication_classes = []
     is_auth_endpoint = True
@@ -160,6 +165,8 @@ class GymMemberListCreateView(APIView):
     List: Owner, Manager, Trainer, Reception.
     Create: Owner, Manager, Reception (Trainer gets 403).
     """
+
+    required_flag = None  # Tier-exempt (available on Starter)
 
     parser_classes = [MultiPartParser, FormParser, JSONParser]
     permission_classes = [IsAuthenticated, RequirePasswordChanged, IsGymStaff]
@@ -268,6 +275,8 @@ class GymMemberDetailView(APIView):
     Staff endpoint for viewing and updating member details.
     """
 
+    required_flag = None  # Tier-exempt (available on Starter)
+
     permission_classes = [IsAuthenticated, RequirePasswordChanged, IsGymStaff]
 
     def get_object(self, pk, gym):
@@ -364,7 +373,8 @@ class GymMemberRecordMetricsView(APIView):
     - POST: Trainer ONLY of current gym (fail-closed: Owner, Manager, Reception, Member, Super Admin refused).
     """
 
-    permission_classes = [IsAuthenticated, RequirePasswordChanged]
+    required_flag = "has_trainer_module"
+    permission_classes = [IsAuthenticated, RequirePasswordChanged, HasTrainerModule]
 
     def _get_member_or_check_tenant(self, pk, tenant):
         if not tenant:
@@ -646,6 +656,8 @@ class MemberSelfProfileView(APIView):
     Member self-service endpoint to view and update own profile.
     """
 
+    required_flag = None  # Tier-exempt (available on Starter)
+
     permission_classes = [IsAuthenticated, RequirePasswordChanged, IsMember]
 
     @extend_schema(
@@ -683,7 +695,13 @@ class MemberSelfMetricsView(APIView):
     Members cannot enter or edit measurements.
     """
 
-    permission_classes = [IsAuthenticated, RequirePasswordChanged, IsMember]
+    required_flag = "has_trainer_module"
+    permission_classes = [
+        IsAuthenticated,
+        RequirePasswordChanged,
+        HasTrainerModule,
+        IsMember,
+    ]
 
     @extend_schema(
         summary="List own body metrics history",
@@ -721,6 +739,8 @@ class MembershipPlanListCreateView(APIView):
     Write: Owner and Manager only.
     """
 
+    required_flag = None  # Tier-exempt (available on Starter)
+
     permission_classes = [IsAuthenticated, RequirePasswordChanged]
 
     @extend_schema(
@@ -733,14 +753,25 @@ class MembershipPlanListCreateView(APIView):
         if tenant is None:
             raise Http404("Gym tenant context required.")
 
+        config = getattr(tenant, "config", None)
+        has_trainer_module = (
+            getattr(config, "has_trainer_module", False) if config else False
+        )
+
         plans = MembershipPlan.objects.filter(gym=tenant).order_by("-created_at")
         if request.user.role == User.ROLE_MEMBER:
             plans = plans.filter(is_active=True)
+            if not has_trainer_module:
+                plans = plans.exclude(trainer_inclusive=True)
 
-        return Response(
-            MembershipPlanSerializer(plans, many=True).data,
-            status=status.HTTP_200_OK,
-        )
+        data = MembershipPlanSerializer(plans, many=True).data
+        if not has_trainer_module:
+            for item in data:
+                if item.get("trainer_inclusive"):
+                    item["tier_unavailable"] = True
+                    item["tier_message"] = "Not available on your tier"
+
+        return Response(data, status=status.HTTP_200_OK)
 
     @extend_schema(
         summary="Create gym membership plan",
@@ -763,11 +794,18 @@ class MembershipPlanListCreateView(APIView):
                 "Only gym owners and managers can create membership plans."
             )
 
-        serializer = MembershipPlanSerializer(data=request.data)
+        serializer = MembershipPlanSerializer(
+            data=request.data, context={"request": request, "tenant": tenant}
+        )
         if not serializer.is_valid():
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
         trainer_inclusive = serializer.validated_data.get("trainer_inclusive", False)
+        config = getattr(tenant, "config", None)
+        if trainer_inclusive and (not config or not config.has_trainer_module):
+            raise PermissionDenied(
+                "Trainer-inclusive plans are not available on this tier."
+            )
         warning = None
         if trainer_inclusive:
             has_trainers = User.objects.filter(
@@ -779,23 +817,35 @@ class MembershipPlanListCreateView(APIView):
                     "but trainer assignment will not be possible until trainers are added."
                 )
 
-        with transaction.atomic():
-            plan = serializer.save(gym=tenant)
-            record_audit_log(
-                action_type="membership_plan_created",
-                affected_record_type="MembershipPlan",
-                affected_record_id=str(plan.id),
-                actor=request.user,
-                gym=tenant,
-                metadata={
-                    "name": plan.name,
-                    "duration": f"{plan.duration_value} {plan.duration_unit}",
-                    "price_etb": str(plan.price_etb),
-                    "trainer_inclusive": plan.trainer_inclusive,
+        try:
+            with transaction.atomic():
+                plan = serializer.save(gym=tenant)
+                record_audit_log(
+                    action_type="membership_plan_created",
+                    affected_record_type="MembershipPlan",
+                    affected_record_id=str(plan.id),
+                    actor=request.user,
+                    gym=tenant,
+                    metadata={
+                        "name": plan.name,
+                        "duration": f"{plan.duration_value} {plan.duration_unit}",
+                        "price_etb": str(plan.price_etb),
+                        "trainer_inclusive": plan.trainer_inclusive,
+                    },
+                )
+        except IntegrityError:
+            return Response(
+                {
+                    "name": [
+                        "A membership plan with this name already exists for your gym."
+                    ]
                 },
+                status=status.HTTP_400_BAD_REQUEST,
             )
 
-        resp_data = MembershipPlanSerializer(plan).data
+        resp_data = MembershipPlanSerializer(
+            plan, context={"request": request, "tenant": tenant}
+        ).data
         resp_data["has_no_trainers_warning"] = bool(warning)
         if warning:
             resp_data["warning"] = warning
@@ -809,6 +859,8 @@ class MembershipPlanDetailView(APIView):
     Read: Gym Staff.
     Write/Deactivate: Owner and Manager only.
     """
+
+    required_flag = None  # Tier-exempt (available on Starter)
 
     permission_classes = [IsAuthenticated, RequirePasswordChanged, IsGymStaff]
 
@@ -849,13 +901,23 @@ class MembershipPlanDetailView(APIView):
             )
 
         plan = self._get_plan(pk, tenant)
-        serializer = MembershipPlanSerializer(plan, data=request.data, partial=True)
+        serializer = MembershipPlanSerializer(
+            plan,
+            data=request.data,
+            partial=True,
+            context={"request": request, "tenant": tenant},
+        )
         if not serializer.is_valid():
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
         trainer_inclusive = serializer.validated_data.get(
             "trainer_inclusive", plan.trainer_inclusive
         )
+        config = getattr(tenant, "config", None)
+        if trainer_inclusive and (not config or not config.has_trainer_module):
+            raise PermissionDenied(
+                "Trainer-inclusive plans are not available on this tier."
+            )
         warning = None
         if trainer_inclusive:
             has_trainers = User.objects.filter(
@@ -867,24 +929,36 @@ class MembershipPlanDetailView(APIView):
                     "but trainer assignment will not be possible until trainers are added."
                 )
 
-        with transaction.atomic():
-            old_price_etb = str(plan.price_etb)
-            updated_plan = serializer.save()
-            record_audit_log(
-                action_type="membership_plan_updated",
-                affected_record_type="MembershipPlan",
-                affected_record_id=str(updated_plan.id),
-                actor=request.user,
-                gym=tenant,
-                metadata={
-                    "name": updated_plan.name,
-                    "old_price_etb": old_price_etb,
-                    "price_etb": str(updated_plan.price_etb),
-                    "is_active": updated_plan.is_active,
+        try:
+            with transaction.atomic():
+                old_price_etb = str(plan.price_etb)
+                updated_plan = serializer.save()
+                record_audit_log(
+                    action_type="membership_plan_updated",
+                    affected_record_type="MembershipPlan",
+                    affected_record_id=str(updated_plan.id),
+                    actor=request.user,
+                    gym=tenant,
+                    metadata={
+                        "name": updated_plan.name,
+                        "old_price_etb": old_price_etb,
+                        "price_etb": str(updated_plan.price_etb),
+                        "is_active": updated_plan.is_active,
+                    },
+                )
+        except IntegrityError:
+            return Response(
+                {
+                    "name": [
+                        "A membership plan with this name already exists for your gym."
+                    ]
                 },
+                status=status.HTTP_400_BAD_REQUEST,
             )
 
-        resp_data = MembershipPlanSerializer(updated_plan).data
+        resp_data = MembershipPlanSerializer(
+            updated_plan, context={"request": request, "tenant": tenant}
+        ).data
         resp_data["has_no_trainers_warning"] = bool(warning)
         if warning:
             resp_data["warning"] = warning
@@ -933,6 +1007,8 @@ class PublicPlanListView(APIView):
     Public endpoint on gym subdomain returning all active membership plans.
     """
 
+    required_flag = None  # Tier-exempt (available on Starter)
+
     permission_classes = [AllowAny]
     authentication_classes = []
 
@@ -958,9 +1034,15 @@ class PublicPlanListView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
+        config = getattr(tenant, "config", None)
+        has_trainer_module = (
+            getattr(config, "has_trainer_module", False) if config else False
+        )
         plans = MembershipPlan.all_objects.filter(gym=tenant, is_active=True).order_by(
             "-created_at"
         )
+        if not has_trainer_module:
+            plans = plans.exclude(trainer_inclusive=True)
         return Response(
             PublicPlanSerializer(plans, many=True).data,
             status=status.HTTP_200_OK,
@@ -972,6 +1054,8 @@ class MemberSuspendView(APIView):
     Suspend a gym member.
     Allowed: Owner and Manager only.
     """
+
+    required_flag = None  # Tier-exempt (available on Starter)
 
     permission_classes = [IsAuthenticated, RequirePasswordChanged, IsOwnerOrManager]
 
@@ -1012,6 +1096,8 @@ class MemberReactivateView(APIView):
     Reactivate a suspended gym member.
     Allowed: Owner and Manager only.
     """
+
+    required_flag = None  # Tier-exempt (available on Starter)
 
     permission_classes = [IsAuthenticated, RequirePasswordChanged, IsOwnerOrManager]
 
@@ -1063,6 +1149,7 @@ def _format_validation_error_response(exc: ValidationError) -> Response:
 
 
 class MemberFreezeRequestView(APIView):
+    required_flag = "freeze"
     """
     Submit a membership freeze request for the logged-in member.
     Allowed: Member of that gym only. Denied: All other roles, Super Admin, cross-gym (403).
@@ -1124,6 +1211,7 @@ class MemberFreezeRequestView(APIView):
 
 
 class MemberMyFreezesView(APIView):
+    required_flag = "freeze"
     """
     List freeze requests submitted by the logged-in member.
     Allowed: Member only. Denied: All other roles, Super Admin (403).
@@ -1166,6 +1254,7 @@ class MemberMyFreezesView(APIView):
 
 
 class MemberFreezeAllowanceView(APIView):
+    required_flag = "freeze"
     """
     Check remaining freeze days and allowance for the logged-in member.
     Allowed: Member only. Denied: Super Admin and staff (403).
@@ -1205,6 +1294,7 @@ class MemberFreezeAllowanceView(APIView):
 
 
 class GymFreezeListView(APIView):
+    required_flag = "freeze"
     """
     List gym membership freeze requests for staff review.
     Allowed: Owner and Manager of that gym only. Denied: Super Admin, Reception, Trainer, Member (403).
@@ -1246,6 +1336,7 @@ class GymFreezeListView(APIView):
 
 
 class GymFreezeApproveView(APIView):
+    required_flag = "freeze"
     """
     Approve a pending membership freeze request.
     Allowed: Owner and Manager of that gym only. Denied: Super Admin, Reception, Trainer, Member (403).
@@ -1295,6 +1386,7 @@ class GymFreezeApproveView(APIView):
 
 
 class GymFreezeRejectView(APIView):
+    required_flag = "freeze"
     """
     Reject a pending membership freeze request.
     Allowed: Owner and Manager of that gym only. Denied: Super Admin, Reception, Trainer, Member (403).
@@ -1352,6 +1444,7 @@ class GymFreezeRejectView(APIView):
 
 
 class GymFreezeEndEarlyView(APIView):
+    required_flag = "freeze"
     """
     Staff endpoint to end an approved member freeze early.
     Allowed: Owner, Manager, Reception of that gym.
@@ -1401,6 +1494,7 @@ class GymFreezeEndEarlyView(APIView):
 
 
 class GymMemberEndFreezeEarlyView(APIView):
+    required_flag = "freeze"
     """
     Staff endpoint on a member record to end their current or upcoming approved freeze early.
     Allowed: Owner, Manager, Reception of that gym.

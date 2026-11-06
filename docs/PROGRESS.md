@@ -78,7 +78,7 @@ Sprint 38 is NOT to be started at all. The order is:
 1. Fix 1: `fix/reminder-days-form` (two-number inputs for reminder days on Owner and Super Admin screens)
 2. Fix 2: `fix/autossl-trigger` (cPanel AutoSSL trigger and `check_pending_tls` management command)
 3. Sprint 35: `feature/sprint-35-super-admin-dashboard` (Super Admin dashboard, notices, gym termination)
-4. Sprint 36: `feature/sprint-36-flag-enforcement` (contract test and tier-gate regression)
+4. Sprint 36: `feature/sprint-36-flag-enforcement` (contract test, tier-gate regression, notices/expenses realignment, capabilities single source of truth, and frontend render gating)
 5. Sprint 37a: Demo gym (archive-and-recreate, rich seed data)
 6. Sprint 37: Offline-first PWA (service worker caching boundaries, check-in queue, 320px responsive)
 7. Full pass of every `docs/INCREMENT_*_TEST.md`
@@ -87,7 +87,8 @@ Sprint 38 is NOT to be started at all. The order is:
 
 ## Current
 
-- Sprint 35 (Super Admin platform dashboard: role enable/disable per gym, tenant list with lapse flags, renewal endpoint and modal, suspension endpoint and confirmation modal, gym termination and reinstatement, reminder days inputs, platform notices, and platform metrics) completed on `feature/sprint-35-super-admin-dashboard`.
+- Sprint 35: Super Admin platform dashboard (role enable/disable per gym, tenant list with lapse flags, renewal endpoint/modal, suspension endpoint/modal, gym termination/reinstatement, reminder days inputs, platform notices, platform metrics) completed (tag `sprint-35-done`).
+- Sprint 36: Tier feature-flag enforcement (contract test, tier-gate regression, notices/expenses realignment, capabilities single source of truth, and frontend render gating) completed (tag `sprint-36-done`).
 
 ## Open manual steps
 
@@ -141,3 +142,7 @@ From Sprint 10, check-in directly reads MemberSubscription and verifies valid pl
   - Unit purchase price field with `Total investment` summary restricted to Owner/Manager, price audit logging.
   - Member equipment card privacy (no serial, notes, or prices; unavailable filtered when setting off).
 - **Status:** In progress.
+
+## Roadmap & Deferred Work
+
+- **Increment 6 (Multi-branch management, Sprints 30–34):** Deferred to a future version (November 5, 2026). The single-gym core platform expanded in scope (classes, role enablement, receipt reviews, equipment investment, expenses, notices, CSV exports, demo gym archive-and-recreate, offline PWA) to the point where multi-branch scoping would bloat the surface; Pro tier remains unselectable and hidden.
