@@ -30,6 +30,7 @@ import {
   setRefreshToken,
 } from "../api/client";
 import { clearAppQueryCache } from "../queryClient";
+import { clearOfflineQueue } from "../utils/offlineQueue";
 import {
   AUTH_BROADCAST_CHANNEL,
   AUTH_SYNC_STORAGE_KEY,
@@ -177,6 +178,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
           // Ignore
         }
         clearAppQueryCache();
+        clearOfflineQueue().catch(() => {});
         setNotice("You were signed out from another tab.");
         safeNavigate("/login");
         return;
@@ -314,6 +316,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         // Ignore
       }
       clearAppQueryCache();
+      clearOfflineQueue().catch(() => {});
       broadcastAuthSync({ type: "LOGOUT" });
     });
 
@@ -460,6 +463,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         // Ignore
       }
       clearAppQueryCache();
+      clearOfflineQueue().catch(() => {});
       broadcastAuthSync({
         type: "LOGOUT",
       });

@@ -477,7 +477,21 @@ def invite_staff_member(
 
     if target_role == User.ROLE_TRAINER:
         config = getattr(gym, "config", None)
-        if not config or not config.has_trainer_module:
+        if not config:
+            from apps.tenants.models import GymConfig
+
+            config = GymConfig.objects.filter(gym_id=gym.id).first()
+        from apps.tenants.models import GymTenant
+
+        has_trainer = (
+            config.has_trainer_module
+            if config
+            else (
+                getattr(gym, "tier", None)
+                in [GymTenant.TIER_GROWTH, GymTenant.TIER_PRO]
+            )
+        )
+        if not has_trainer:
             raise PermissionDenied(
                 "Trainer accounts are not available on this gym's current tier."
             )

@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" fill="none">
+  <rect width="512" height="512" rx="128" fill="#0F172A"/>
+  <rect x="40" y="40" width="432" height="432" rx="96" fill="#2563EB"/>
+  <rect x="60" y="60" width="392" height="392" rx="76" stroke="#60A5FA" stroke-width="8"/>
+  <!-- Monogram FG -->
+  <path d="M144 160h112v48H200v48h48v48h-48v96h-56V160z" fill="#FFFFFF"/>
+  <path d="M280 160h112v48H336v144h-56V160zm56 96h56v144h-80v-48h80v-96z" fill="#FFFFFF"/>
+</svg>

@@ -55,6 +55,7 @@ def gym(db):
     return GymTenant.objects.create(
         name="FitGate Bole",
         subdomain="bole",
+        tier=GymTenant.TIER_GROWTH,
         tls_confirmed_at=timezone.now(),
     )
 
@@ -64,6 +65,7 @@ def other_gym(db):
     return GymTenant.objects.create(
         name="FitGate Arat Kilo",
         subdomain="aratkilo",
+        tier=GymTenant.TIER_GROWTH,
         tls_confirmed_at=timezone.now(),
     )
 

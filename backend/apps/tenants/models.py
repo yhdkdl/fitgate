@@ -125,6 +125,11 @@ class GymTenant(models.Model):
         if self.subdomain is not None:
             validate_subdomain(self.subdomain)
         super().save(*args, **kwargs)
+        from apps.tenants.models import GymConfig, get_tier_defaults
+
+        if not GymConfig.objects.filter(gym_id=self.id).exists():
+            tier_defaults = get_tier_defaults(self.tier or GymTenant.TIER_STARTER)
+            GymConfig.objects.create(gym=self, **tier_defaults)
 
     def __str__(self):
         return f"{self.name} ({self.subdomain})"

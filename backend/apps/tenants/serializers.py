@@ -357,6 +357,7 @@ class GymSettingsUpdateSerializer(serializers.Serializer):
         "payment_grace_days",
         "subscription_reminder_days",
         "freeze_days_cap",
+        "disabled_roles",
     }
 
     brand_color = serializers.CharField(

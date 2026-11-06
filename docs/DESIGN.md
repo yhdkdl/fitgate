@@ -132,3 +132,33 @@ One shared validation rule set applies across frontend (`src/utils/validators.ts
 - **Submit button disabled**: Submit buttons show a loading state and are disabled while sending.
 - **Server field errors**: Backend validation error payloads are mapped to display directly under the matching form field.
 - **Input modes and types**: Use `type="email"`, `inputMode="tel"`, `inputMode="decimal"`, `autoComplete`, and `maxLength`.
+
+---
+
+## Sprint 37 — Offline-First PWA & Check-in Sync Queue Architecture
+
+### Service Worker Caching Boundary
+
+- **App Shell Only**: The service worker caches static assets required to render the application frame (HTML, JS, CSS, SVG icons, fonts) using Cache API.
+- **Strict NetworkOnly Boundary**: All requests matching `/api/*` and `/media/*` bypass the service worker cache entirely (`NetworkOnly` strategy). API responses, user tokens, member photos, receipts, measurements, and training plans are NEVER persisted to the Cache API.
+- **Offline Navigation Fallback**: Navigations when offline return the cached `index.html` app shell, preventing browser offline error pages.
+
+### IndexedDB Storage (`fitgate_offline_db`)
+
+- **Store**: `checkin_queue`
+- **Record Schema**: `{ id: string, qr_token: string, scanned_at: string, client_timestamp: number }`
+- **Queue Limits**: Maximum 500 queued scans. Scans older than 24 hours discarded.
+- **Logout Hygiene**: Calling `logout()` explicitly purges all queued check-in entries in `checkin_queue` to prevent cross-account queue leaks.
+
+### Offline QR Validation & Sync Replay Engine
+
+- **Local Validation**: Offline scans decode and verify asymmetric Ed25519 signature against gym public key and verify 90-second timestamp window.
+- **Sync Trigger**: Automatic replay upon `online` network event, window `visibilitychange` (focus regain), and periodic 5-second retry sweep while items remain queued.
+- **Backend Execution**: Scans replay against the unified `execute_check_in` backend engine.
+- **Refusal Handling**: Rejections for frozen, suspended, pending, superseded, or pending-review statuses surface immediate non-blocking UI alert to staff; duplicate scans within the same calendar day resolve idempotently to the existing `Attendance` record without duplicate row creation.
+
+### PWA Installation & Viewport Compliance
+
+- **Install Triggers**: Android/Chromium captures `beforeinstallprompt` and displays "Download App" button on member dashboard. iOS Safari renders clear "Add to Home Screen" instructions.
+- **Standalone Display**: Configured via `manifest.webmanifest` (`display: standalone`, `theme_color: #2563EB`, `background_color: #0F172A`).
+- **320px Viewport Compliance**: All UI views from Increments 3–5 tested down to 320px viewport without horizontal scrollbars.

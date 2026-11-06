@@ -198,8 +198,8 @@ export const MemberQrCard: React.FC<MemberQrCardProps> = ({ memberStatus }) => {
         </div>
       ) : (
         <div className="flex flex-col items-center w-full">
-          {/* QR Code Container: at least 280px wide up to 420px, sharp SVG, black on plain white */}
-          <div className="w-[280px] sm:w-[340px] md:w-[380px] max-w-[420px] aspect-square p-2 bg-white rounded-2xl shadow-inner border border-slate-200 flex items-center justify-center mb-4 transition-transform hover:scale-[1.01]">
+          {/* QR Code Container: responsive up to 380px, sharp SVG, black on plain white */}
+          <div className="w-full max-w-[280px] sm:max-w-[340px] md:max-w-[380px] aspect-square p-2 bg-white rounded-2xl shadow-inner border border-slate-200 flex items-center justify-center mb-4 transition-transform hover:scale-[1.01]">
             {qrDataUrl && (
               <img
                 src={qrDataUrl}

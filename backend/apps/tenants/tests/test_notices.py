@@ -20,6 +20,7 @@ def gym_tenant_a(db):
     gym = GymTenant.objects.create(
         name="FitGate Bole",
         subdomain="fitgate-bole",
+        tier=GymTenant.TIER_GROWTH,
         status=GymTenant.STATUS_ACTIVE,
         tls_confirmed_at=timezone.now(),
     )
@@ -32,6 +33,7 @@ def gym_tenant_b(db):
     gym = GymTenant.objects.create(
         name="FitGate Kazanchis",
         subdomain="fitgate-kazanchis",
+        tier=GymTenant.TIER_GROWTH,
         status=GymTenant.STATUS_ACTIVE,
         tls_confirmed_at=timezone.now(),
     )

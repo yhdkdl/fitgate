@@ -45,7 +45,7 @@ def gym_tenant(db):
     gym = GymTenant.objects.create(
         name="FitGate Bole Hub",
         subdomain="bole-hub",
-        tier=GymTenant.TIER_STARTER,
+        tier=GymTenant.TIER_GROWTH,
         status=GymTenant.STATUS_ACTIVE,
         contact_phone="+251911223344",
         location="Bole, Addis Ababa",
@@ -429,7 +429,7 @@ class TestEntitlementsVsSettingsEnforcement:
             "has_multi_branch": True,
             "freeze_days_allowed": 45,
             "payment_grace_days": 10,
-            "subscription_reminder_days": [21, 14, 7],
+            "subscription_reminder_days": [21, 14],
         }
         resp = client.patch(url, payload, format="json")
         assert resp.status_code == 200
@@ -440,7 +440,7 @@ class TestEntitlementsVsSettingsEnforcement:
         assert resp.data["has_multi_branch"] is True
         assert resp.data["freeze_days_allowed"] == 45
         assert resp.data["payment_grace_days"] == 10
-        assert resp.data["subscription_reminder_days"] == [21, 14, 7]
+        assert resp.data["subscription_reminder_days"] == [21, 14]
 
 
 @pytest.mark.django_db

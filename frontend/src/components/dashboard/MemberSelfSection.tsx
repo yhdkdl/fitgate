@@ -17,6 +17,7 @@ import { MemberApprovedPlanCard } from "../member/MemberApprovedPlanCard";
 import { MemberPaymentHistoryCard } from "../member/MemberPaymentHistoryCard";
 import { MemberSubscriptionCard } from "../member/MemberSubscriptionCard";
 import { MemberNoticesCard } from "../member/MemberNoticesCard";
+import { PwaInstallPrompt } from "../pwa/PwaInstallPrompt";
 
 interface MemberSelfSectionProps {
   view?: "home" | "membership" | "payments" | "all";
@@ -85,6 +86,7 @@ export const MemberSelfSection: React.FC<MemberSelfSectionProps> = ({
 
   return (
     <div className="space-y-6">
+      {(view === "home" || view === "all") && <PwaInstallPrompt />}
       {/* Pending Receipt Review Alert Banner */}
       {profile.has_pending_receipt_review && (
         <div className="bg-amber-500/10 border border-amber-500/30 rounded-card p-5 flex items-center gap-3">

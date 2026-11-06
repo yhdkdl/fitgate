@@ -20,6 +20,7 @@ export type GymTenantSummary = components["schemas"]["GymTenantSummary"] & {
 export type ConfirmTLSResponse = components["schemas"]["ConfirmTLSResponse"];
 export type GymPublicEntryResponse =
   components["schemas"]["GymPublicEntryResponse"] & {
+    is_demo?: boolean;
     plans?: Array<{
       id: string;
       name: string;

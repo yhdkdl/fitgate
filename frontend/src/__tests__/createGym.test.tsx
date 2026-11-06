@@ -9,6 +9,7 @@ vi.mock("../api/gyms", () => ({
   createGym: vi.fn(),
   proposeSubdomain: vi.fn(),
   confirmGymTls: vi.fn(),
+  getPlatformAnalyticsOverview: vi.fn().mockResolvedValue(null),
 }));
 
 describe("GymManagementSection", () => {

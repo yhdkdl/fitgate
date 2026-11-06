@@ -1215,12 +1215,21 @@ class GymNoticeListCreateView(APIView):
         from apps.tenants.models import GymConfig, GymNotice
         from apps.tenants.serializers import GymNoticeSerializer
 
-        tenant = getattr(request, "tenant", None)
+        tenant = getattr(request, "tenant", None) or getattr(request.user, "gym", None)
         if not tenant:
             return Response([], status=status.HTTP_200_OK)
 
         config = GymConfig.objects.filter(gym=tenant).first()
-        has_notices = getattr(config, "has_notices", False) if config else False
+        from apps.tenants.models import GymTenant
+
+        has_notices = (
+            getattr(config, "has_notices", False)
+            if config
+            else (
+                getattr(tenant, "tier", None)
+                in [GymTenant.TIER_GROWTH, GymTenant.TIER_PRO]
+            )
+        )
 
         if not has_notices:
             if getattr(request.user, "role", None) == User.ROLE_OWNER:
@@ -1251,14 +1260,24 @@ class GymNoticeListCreateView(APIView):
         from apps.tenants.serializers import GymNoticeSerializer
         from apps.tenants.telegram import send_telegram_channel_message
 
-        tenant = getattr(request, "tenant", None)
+        tenant = getattr(request, "tenant", None) or getattr(request.user, "gym", None)
         if not tenant:
             return Response(
                 {"detail": "Tenant required."}, status=status.HTTP_400_BAD_REQUEST
             )
 
         config = GymConfig.objects.filter(gym=tenant).first()
-        if not config or not config.has_notices:
+        from apps.tenants.models import GymTenant
+
+        has_notices = (
+            getattr(config, "has_notices", False)
+            if config
+            else (
+                getattr(tenant, "tier", None)
+                in [GymTenant.TIER_GROWTH, GymTenant.TIER_PRO]
+            )
+        )
+        if not has_notices:
             raise PermissionDenied(
                 "Notice board is not available on this gym's current tier."
             )
@@ -1398,6 +1417,7 @@ class TelegramTestMessageView(APIView):
 
 
 class PlatformNoticeListCreateView(APIView):
+    required_flag = None
     """
     Super Admin endpoint to list and post platform-wide announcements.
     Platform notices have gym=None, appear on every Owner's dashboard,
@@ -1457,6 +1477,7 @@ class PlatformNoticeListCreateView(APIView):
 
 
 class PlatformNoticeDetailView(APIView):
+    required_flag = None
     """Super Admin endpoint to delete a platform-wide notice."""
 
     permission_classes = [IsAuthenticated, RequirePasswordChanged, IsSuperAdmin]
@@ -1494,6 +1515,7 @@ class PlatformNoticeDetailView(APIView):
 
 
 class GymTerminateView(APIView):
+    required_flag = None
     """
     Super Admin endpoint to terminate a gym tenant (Sprint 35 Block 3).
     A gym can move from suspended to terminated only by Super Admin action.
@@ -1572,6 +1594,7 @@ class GymTerminateView(APIView):
 
 
 class GymReinstateView(APIView):
+    required_flag = None
     """
     Super Admin endpoint to reinstate a terminated gym tenant back to suspended (Sprint 35 Block 3).
     A terminated gym can be reinstated back to 'suspended' only (never directly to active).
@@ -1635,6 +1658,7 @@ class GymReinstateView(APIView):
 
 
 class PlatformAnalyticsOverviewView(APIView):
+    required_flag = None
     """
     Platform revenue and metrics for Super Admin.
     Counts confirmed gym_subscription payments only and excludes demo gyms.

@@ -23,6 +23,13 @@ _Purpose: A dated record of every scope decision, modification, and addition mad
 
 ## 2. Changed
 
+- **Offline-First PWA & Check-in Sync Queue (Sprint 37) (November 6, 2026):**
+  - **Service Worker Caching Boundary:** The Workbox service worker caches ONLY the app shell (HTML, CSS, JS, fonts, static assets) using Cache API. It explicitly NEVER caches API responses (`/api/*`), receipt/member photos (`/media/*`), body measurements, training plans, payments, or receipts.
+  - **Offline Check-in Queue (IndexedDB):** Implements `fitgate_offline_db` with `checkin_queue` store. Offline QR scans are validated locally by token expiration and cryptographic signature, and queued locally. When connectivity returns or on browser focus, the queue replays through the single shared `execute_check_in` backend engine within 5 seconds.
+  - **Replay Refusal Rules:** Replay strictly refuses frozen, suspended, pending, superseded, expired, and pending-review members, surfacing clear staff alerts. Duplicate scans on the same day produce exactly one `Attendance` row.
+  - **Logout Queue Clearing:** Logging out of any session clears the offline IndexedDB check-in queue to prevent cross-account leakage.
+  - **Install UI & 320px Responsiveness:** Android/Chromium surfaces a "Download App" button triggered by `beforeinstallprompt` (requiring valid HTTPS and standalone mode). iOS Safari presents "Add to Home Screen" instructions. All screens built in Increments 3–5 audited to ensure complete usability down to 320px viewport without horizontal scrolling.
+
 - **Tier Allocation Realignment — Notice Board, Telegram Bridge, and Expenses & Reports Move to Growth (November 3, 2026):**
   - **Reversal of Scope Entry:** Reverses earlier scope designation that placed gym notices and expense tracking on Starter. The gym notice board, Telegram channel bridge, and Expenses and Reports screens (expense ledger, voiding, financial report, attendance report) and the equipment "Also record as an expense" option are realigned exclusively to Growth and Pro tiers.
   - **New GymConfig Entitlement Flags:** Introduced `has_notices` (controls gym notice board and Telegram broadcasting) and `has_expenses` (controls expense ledger, financial and attendance reports, and equipment purchase expense recording). Both default to False on Starter and True on Growth and Pro.

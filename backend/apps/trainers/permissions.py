@@ -21,7 +21,7 @@ class HasTrainerModule(BasePermission):
                 "Super Admin cannot access gym trainer operational data."
             )
 
-        tenant = getattr(request, "tenant", None)
+        tenant = getattr(request, "tenant", None) or getattr(request.user, "gym", None)
         if not tenant:
             return False
 
@@ -30,12 +30,23 @@ class HasTrainerModule(BasePermission):
             return False
 
         config = getattr(tenant, "config", None)
-        if not config or not config.has_trainer_module:
+        if not config:
             from apps.tenants.models import GymConfig
 
             config = GymConfig.objects.filter(gym_id=tenant.id).first()
-            if not config or not config.has_trainer_module:
-                raise PermissionDenied("Trainer module is not enabled for this gym.")
+
+        from apps.tenants.models import GymTenant
+
+        has_trainer = (
+            config.has_trainer_module
+            if config
+            else (
+                getattr(tenant, "tier", None)
+                in [GymTenant.TIER_GROWTH, GymTenant.TIER_PRO]
+            )
+        )
+        if not has_trainer:
+            raise PermissionDenied("Trainer module is not enabled for this gym.")
 
         return True
 

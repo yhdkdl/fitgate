@@ -21,6 +21,13 @@ import {
 import { getPublicGymEntry } from "../api/gyms";
 import { onAuthFailure, ApiError } from "../api/client";
 import { getTenantFromHostname } from "../utils/tenant";
+import {
+  enqueueCheckIn,
+  getQueuedCheckIns,
+  replayOfflineQueue,
+  setupOfflineSyncListener,
+  validateOfflineToken,
+} from "../utils/offlineQueue";
 import { CameraQrScanner } from "../components/attendance/CameraQrScanner";
 import { AuthenticatedImage } from "../components/ui/AuthenticatedImage";
 import { Button } from "../components/ui/Button";
@@ -57,6 +64,18 @@ export const EntranceScannerScreen: React.FC = () => {
   const [manualCode, setManualCode] = useState("");
   const [manualError, setManualError] = useState<string | null>(null);
 
+  // Offline PWA check-in states
+  const [isOffline, setIsOffline] = useState(
+    typeof navigator !== "undefined" ? !navigator.onLine : false
+  );
+  const [queuedCount, setQueuedCount] = useState(0);
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [syncNotice, setSyncNotice] = useState<{
+    title: string;
+    message: string;
+    type: "info" | "error";
+  } | null>(null);
+
   const autoDismissTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   // Load gym branding (name & logo)
@@ -82,6 +101,54 @@ export const EntranceScannerScreen: React.FC = () => {
     };
   }, [tenant]);
 
+  // Monitor network status, queued items, and background sync
+  useEffect(() => {
+    getQueuedCheckIns().then((items) => setQueuedCount(items.length));
+
+    const handleOnline = () => {
+      setIsOffline(false);
+      replayOfflineQueue((event) => {
+        if (event.status === "refused") {
+          setSyncNotice({
+            title: "Queued Check-in Refused",
+            message: `${event.detail || event.reason}${
+              event.member?.full_name ? ` (${event.member.full_name})` : ""
+            }`,
+            type: "error",
+          });
+        }
+      }).then(() => {
+        getQueuedCheckIns().then((items) => setQueuedCount(items.length));
+      });
+    };
+
+    const handleOffline = () => {
+      setIsOffline(true);
+    };
+
+    window.addEventListener("online", handleOnline);
+    window.addEventListener("offline", handleOffline);
+
+    const cleanupSync = setupOfflineSyncListener((event) => {
+      getQueuedCheckIns().then((items) => setQueuedCount(items.length));
+      if (event.status === "refused") {
+        setSyncNotice({
+          title: "Queued Check-in Refused",
+          message: `${event.detail || event.reason}${
+            event.member?.full_name ? ` (${event.member.full_name})` : ""
+          }`,
+          type: "error",
+        });
+      }
+    });
+
+    return () => {
+      window.removeEventListener("online", handleOnline);
+      window.removeEventListener("offline", handleOffline);
+      cleanupSync();
+    };
+  }, []);
+
   // Criterion 9: Monitor staff session expiration
   useEffect(() => {
     const unsubscribe = onAuthFailure(() => {
@@ -105,11 +172,84 @@ export const EntranceScannerScreen: React.FC = () => {
     setRefusalData(null);
   };
 
+  const handleManualSync = async () => {
+    if (isSyncing) return;
+    setIsSyncing(true);
+    try {
+      await replayOfflineQueue((event) => {
+        if (event.status === "refused") {
+          setSyncNotice({
+            title: "Queued Check-in Refused",
+            message: `${event.detail || event.reason}${
+              event.member?.full_name ? ` (${event.member.full_name})` : ""
+            }`,
+            type: "error",
+          });
+        }
+      });
+      const items = await getQueuedCheckIns();
+      setQueuedCount(items.length);
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
   const handleScanCode = async (tokenCode: string) => {
     if (!tokenCode || isProcessing || sessionExpired) return;
 
     setIsProcessing(true);
     setManualError(null);
+
+    // If currently offline, queue check-in locally
+    if (typeof navigator !== "undefined" && !navigator.onLine) {
+      const validation = validateOfflineToken(tokenCode);
+      if (!validation.valid && validation.reason === "token_expired") {
+        if (autoDismissTimerRef.current) {
+          clearTimeout(autoDismissTimerRef.current);
+        }
+        setRefusalData({
+          reason: "token_expired",
+          detail:
+            "Your 90-second QR pass has expired. Please refresh your pass on your phone and scan again.",
+        });
+        setOverlayState("refused");
+        setShowManualModal(false);
+        setManualCode("");
+        autoDismissTimerRef.current = setTimeout(() => {
+          clearOverlay();
+        }, 4500);
+        setIsProcessing(false);
+        return;
+      }
+
+      await enqueueCheckIn(tokenCode);
+      const items = await getQueuedCheckIns();
+      setQueuedCount(items.length);
+
+      if (autoDismissTimerRef.current) {
+        clearTimeout(autoDismissTimerRef.current);
+      }
+
+      setSuccessData({
+        member: {
+          id: validation.memberId || "offline-member",
+          full_name: "Offline Scan (Queued)",
+          photo_url: null,
+          status: "active",
+          phone: "",
+        },
+        checkedInAt: new Date().toISOString(),
+      });
+      setOverlayState("success");
+      setShowManualModal(false);
+      setManualCode("");
+
+      autoDismissTimerRef.current = setTimeout(() => {
+        clearOverlay();
+      }, 3000);
+      setIsProcessing(false);
+      return;
+    }
 
     try {
       const response: ScanResultResponse = await scanQrToken({
@@ -134,6 +274,41 @@ export const EntranceScannerScreen: React.FC = () => {
         clearOverlay();
       }, 3000);
     } catch (err: unknown) {
+      // Check if network failed mid-request
+      const isNetworkDrop =
+        (typeof navigator !== "undefined" && !navigator.onLine) ||
+        (err instanceof TypeError && /failed to fetch|network/i.test(err.message));
+
+      if (isNetworkDrop) {
+        await enqueueCheckIn(tokenCode);
+        const items = await getQueuedCheckIns();
+        setQueuedCount(items.length);
+
+        const validation = validateOfflineToken(tokenCode);
+        if (autoDismissTimerRef.current) {
+          clearTimeout(autoDismissTimerRef.current);
+        }
+        setSuccessData({
+          member: {
+            id: validation.memberId || "offline-member",
+            full_name: "Offline Scan (Queued)",
+            photo_url: null,
+            status: "active",
+            phone: "",
+          },
+          checkedInAt: new Date().toISOString(),
+        });
+        setOverlayState("success");
+        setShowManualModal(false);
+        setManualCode("");
+
+        autoDismissTimerRef.current = setTimeout(() => {
+          clearOverlay();
+        }, 3000);
+        setIsProcessing(false);
+        return;
+      }
+
       if (err instanceof ApiError && err.status === 401) {
         // Staff session expired
         setSessionExpired(true);
@@ -291,6 +466,30 @@ export const EntranceScannerScreen: React.FC = () => {
         </div>
 
         <div className="flex items-center gap-2">
+          {isOffline && (
+            <span
+              className="px-2.5 py-1 rounded bg-amber-500/20 text-amber-300 text-xs border border-amber-500/40 font-medium"
+              role="status"
+            >
+              Offline Mode
+            </span>
+          )}
+
+          {queuedCount > 0 && (
+            <button
+              type="button"
+              onClick={handleManualSync}
+              disabled={isSyncing || isOffline}
+              className="px-2.5 py-1 rounded bg-blue-600/30 text-blue-300 text-xs border border-blue-500/40 hover:bg-blue-600/50 disabled:opacity-50 flex items-center gap-1.5 transition-colors"
+              title="Click to replay queued scans"
+            >
+              <span>Queued: {queuedCount}</span>
+              <span className="text-[10px] text-blue-200">
+                {isSyncing ? "Syncing..." : "Sync Now"}
+              </span>
+            </button>
+          )}
+
           <Button
             type="button"
             variant="secondary"
@@ -304,6 +503,33 @@ export const EntranceScannerScreen: React.FC = () => {
           </Button>
         </div>
       </header>
+
+      {/* Background sync alert notice */}
+      {syncNotice && (
+        <div
+          className={`w-full px-4 py-2 text-xs flex items-center justify-between z-30 ${
+            syncNotice.type === "error"
+              ? "bg-rose-900/90 text-rose-100 border-b border-rose-700"
+              : "bg-blue-900/90 text-blue-100 border-b border-blue-700"
+          }`}
+          role="alert"
+        >
+          <div className="flex items-center gap-2">
+            <AlertCircle className="w-4 h-4 shrink-0" />
+            <span>
+              <strong>{syncNotice.title}:</strong> {syncNotice.message}
+            </span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setSyncNotice(null)}
+            className="p-1 text-white hover:text-slate-300"
+            aria-label="Dismiss alert"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
 
       {/* Main View Area: Camera view taking the whole screen */}
       <main className="relative flex-1 w-full h-full overflow-hidden bg-black flex items-center justify-center">

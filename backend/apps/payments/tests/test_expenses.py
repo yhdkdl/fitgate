@@ -46,6 +46,7 @@ def test_setup(db):
     gym_a = GymTenant.objects.create(
         name="Apex Gym Addis",
         subdomain="apex",
+        tier=GymTenant.TIER_GROWTH,
         status=GymTenant.STATUS_ACTIVE,
         tls_confirmed_at=timezone.now(),
     )
@@ -54,6 +55,7 @@ def test_setup(db):
     gym_b = GymTenant.objects.create(
         name="FitGym Adama",
         subdomain="adama",
+        tier=GymTenant.TIER_GROWTH,
         status=GymTenant.STATUS_ACTIVE,
         tls_confirmed_at=timezone.now(),
     )

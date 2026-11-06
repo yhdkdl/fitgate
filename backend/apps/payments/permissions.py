@@ -21,7 +21,7 @@ class HasExpensesEnabled(BasePermission):
         if request.user.role == User.ROLE_SUPER_ADMIN:
             raise PermissionDenied("Super Admin cannot access gym operational data.")
 
-        tenant = getattr(request, "tenant", None)
+        tenant = getattr(request, "tenant", None) or getattr(request.user, "gym", None)
         if not tenant:
             return False
 
@@ -29,11 +29,20 @@ class HasExpensesEnabled(BasePermission):
             return False
 
         config = getattr(tenant, "config", None)
-        if not config or not config.has_expenses:
+        if not config:
             config = GymConfig.objects.filter(gym_id=tenant.id).first()
-            if not config or not config.has_expenses:
-                raise PermissionDenied(
-                    "Expenses and reports are not enabled for this gym."
-                )
+
+        from apps.tenants.models import GymTenant
+
+        has_expenses = (
+            config.has_expenses
+            if config
+            else (
+                getattr(tenant, "tier", None)
+                in [GymTenant.TIER_GROWTH, GymTenant.TIER_PRO]
+            )
+        )
+        if not has_expenses:
+            raise PermissionDenied("Expenses and reports are not enabled for this gym.")
 
         return True

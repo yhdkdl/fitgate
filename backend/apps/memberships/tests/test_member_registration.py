@@ -49,7 +49,7 @@ def gym_tenant(db):
     gym = GymTenant.objects.create(
         name="FitGate Bole Hub",
         subdomain="bolehub",
-        tier=GymTenant.TIER_STARTER,
+        tier=GymTenant.TIER_GROWTH,
         status=GymTenant.STATUS_ACTIVE,
         contact_phone="+251911223344",
         location="Bole, Addis Ababa",
