@@ -216,7 +216,7 @@ describe("Tier Navigation & Route Gating", () => {
 
     // 3. Member Growth
     const memberGrowth = makeAuthContext({ role: "member" }, GROWTH_CAPABILITIES);
-    render(
+    const { unmount: unmountGrowth } = render(
       <MemoryRouter initialEntries={["/dashboard"]}>
         <AuthContext.Provider value={memberGrowth}>
           <Routes>
@@ -228,6 +228,42 @@ describe("Tier Navigation & Route Gating", () => {
 
     expect(screen.getAllByText("Classes")[0]).toBeInTheDocument();
     expect(screen.getAllByText("Freeze request")[0]).toBeInTheDocument();
+    expect(screen.getAllByText("Notices")[0]).toBeInTheDocument();
+
+    unmountGrowth();
+
+    // 4. Trainer Starter
+    const trainerStarter = makeAuthContext({ role: "trainer" }, STARTER_CAPABILITIES);
+    const { unmount: unmount3 } = render(
+      <MemoryRouter initialEntries={["/dashboard"]}>
+        <AuthContext.Provider value={trainerStarter}>
+          <Routes>
+            <Route path="/*" element={<DashboardScreen />} />
+          </Routes>
+        </AuthContext.Provider>
+      </MemoryRouter>
+    );
+    expect(screen.queryByText("My clients")).not.toBeInTheDocument();
+    expect(screen.queryByText("Member measurements")).not.toBeInTheDocument();
+    expect(screen.queryByText("My classes")).not.toBeInTheDocument();
+    expect(screen.queryByText("Notices")).not.toBeInTheDocument();
+
+    unmount3();
+
+    // 5. Trainer Growth
+    const trainerGrowth = makeAuthContext({ role: "trainer" }, GROWTH_CAPABILITIES);
+    render(
+      <MemoryRouter initialEntries={["/dashboard"]}>
+        <AuthContext.Provider value={trainerGrowth}>
+          <Routes>
+            <Route path="/*" element={<DashboardScreen />} />
+          </Routes>
+        </AuthContext.Provider>
+      </MemoryRouter>
+    );
+    expect(screen.getAllByText("My clients")[0]).toBeInTheDocument();
+    expect(screen.getAllByText("Member measurements")[0]).toBeInTheDocument();
+    expect(screen.getAllByText("My classes")[0]).toBeInTheDocument();
     expect(screen.getAllByText("Notices")[0]).toBeInTheDocument();
   });
 
