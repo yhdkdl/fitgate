@@ -531,3 +531,95 @@ class TestTierLoweringPreservesDataAndRefusesAccess:
 
         # Underlying data is intact
         assert Payment.all_objects.filter(gym=active_gym).count() == 1
+
+    def test_super_admin_can_suspend_active_gym(
+        self, api_client, super_admin, active_gym
+    ):
+        auth_client(api_client, super_admin, None)
+        res = api_client.post(f"/api/platform/gyms/{active_gym.id}/suspend/")
+        assert res.status_code == 200
+        active_gym.refresh_from_db()
+        assert active_gym.status == GymTenant.STATUS_SUSPENDED
+        assert active_gym.suspended_at is not None
+
+    def test_super_admin_can_renew_subscription_and_reactivate(
+        self, api_client, super_admin, suspended_gym
+    ):
+        auth_client(api_client, super_admin, None)
+        suspended_gym.lapse_flagged_at = timezone.now()
+        suspended_gym.save()
+
+        res = api_client.post(
+            f"/api/platform/gyms/{suspended_gym.id}/renew/",
+            {"amount_etb": "12000.00", "reference": "REF-RENEW-123"},
+            format="json",
+        )
+        assert res.status_code == 200
+        suspended_gym.refresh_from_db()
+        assert suspended_gym.status == GymTenant.STATUS_ACTIVE
+        assert suspended_gym.suspended_at is None
+        assert suspended_gym.lapse_flagged_at is None
+        assert suspended_gym.subscription_expires_at > timezone.now()
+
+    def test_tenant_list_includes_lapse_flag(self, api_client, super_admin, active_gym):
+        active_gym.lapse_flagged_at = timezone.now()
+        active_gym.save()
+
+        auth_client(api_client, super_admin, None)
+        res = api_client.get("/api/platform/gyms/")
+        assert res.status_code == 200
+        data = res.json()
+        item = next(g for g in data if g["id"] == str(active_gym.id))
+        assert item["lapse_flagged_at"] is not None
+
+    def test_super_admin_can_enable_disable_roles(
+        self, api_client, super_admin, active_gym
+    ):
+        auth_client(api_client, super_admin, None)
+        res = api_client.patch(
+            f"/api/platform/gyms/{active_gym.id}/config/",
+            {"disabled_roles": ["manager", "reception"]},
+            format="json",
+        )
+        assert res.status_code == 200
+        active_gym.config.refresh_from_db()
+        assert set(active_gym.config.disabled_roles) == {"manager", "reception"}
+
+    def test_disabled_role_refuses_login_and_staff_invitation(
+        self, api_client, active_gym
+    ):
+        owner = create_user(active_gym, User.ROLE_OWNER, "owner_dis@gym.com")
+        active_gym.config.disabled_roles = ["manager"]
+        active_gym.config.save()
+
+        User.objects.create_user(
+            email="disabled_mgr@gym.com",
+            password="ManagerPassword123!",
+            role=User.ROLE_MANAGER,
+            gym=active_gym,
+            email_verified_at=timezone.now(),
+        )
+
+        # Login refused
+        res_login = api_client.post(
+            "/api/auth/login/",
+            {"email": "disabled_mgr@gym.com", "password": "ManagerPassword123!"},
+            HTTP_HOST=f"{active_gym.subdomain}.localhost",
+        )
+        assert res_login.status_code == 403
+        assert "disabled" in res_login.json()["detail"].lower()
+
+        # Staff invite refused
+        auth_client(api_client, owner, active_gym)
+        res_invite = api_client.post(
+            "/api/gym/staff/",
+            {
+                "full_name": "New Manager",
+                "email": "newmgr@gym.com",
+                "role": "manager",
+                "phone": "+251911223344",
+            },
+            format="json",
+        )
+        assert res_invite.status_code == 400
+        assert "disabled" in str(res_invite.json()).lower()

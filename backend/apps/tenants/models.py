@@ -171,6 +171,7 @@ class GymConfig(models.Model):
     show_unavailable_equipment = models.BooleanField(default=False)
     is_equipment_list_complete = models.BooleanField(default=False)
     telegram_channel = models.CharField(max_length=33, blank=True, default="")
+    disabled_roles = models.JSONField(default=list, blank=True)
     first_run_dismissed_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:

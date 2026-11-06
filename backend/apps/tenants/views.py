@@ -1597,3 +1597,166 @@ class PlatformAnalyticsOverviewView(APIView):
             },
             status=status.HTTP_200_OK,
         )
+
+
+class GymSuspendView(APIView):
+    """
+    Super Admin endpoint to suspend an active gym tenant (Sprint 35).
+    """
+
+    permission_classes = [IsAuthenticated, RequirePasswordChanged, IsSuperAdmin]
+    required_flag = None
+
+    def post(self, request, gym_id, *args, **kwargs):
+        if getattr(request, "tenant", None) is not None:
+            raise PermissionDenied(
+                "Super Admin operations must be performed at the apex platform domain."
+            )
+        from apps.accounts.services import record_audit_log
+        from apps.tenants.models import GymTenant
+        from apps.tenants.serializers import GymTenantSummarySerializer
+
+        try:
+            gym = GymTenant.objects.get(id=gym_id)
+        except GymTenant.DoesNotExist:
+            return Response(
+                {"detail": "Gym tenant not found."}, status=status.HTTP_404_NOT_FOUND
+            )
+
+        if gym.status != GymTenant.STATUS_ACTIVE:
+            return Response(
+                {
+                    "detail": f"Only active gyms can be suspended (current status: {gym.status})."
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        now = timezone.now()
+        gym.status = GymTenant.STATUS_SUSPENDED
+        gym.suspended_at = now
+        gym.save(update_fields=["status", "suspended_at", "updated_at"])
+
+        record_audit_log(
+            actor=request.user,
+            action_type="gym_suspended",
+            affected_record_type="GymTenant",
+            affected_record_id=str(gym.id),
+            gym=gym,
+            metadata={"subdomain": gym.subdomain, "name": gym.name},
+        )
+
+        return Response(GymTenantSummarySerializer(gym).data, status=status.HTTP_200_OK)
+
+
+class GymRenewView(APIView):
+    """
+    Super Admin endpoint to record a renewal payment and extend gym subscription (Sprint 35).
+    Renewal: Super Admin records a bank_transfer payment (amount, reference);
+    subscription_expires_at extends by one year from the later of the current expiry or today,
+    the lapse flag clears, and a suspended gym is reactivated.
+    """
+
+    permission_classes = [IsAuthenticated, RequirePasswordChanged, IsSuperAdmin]
+    required_flag = None
+
+    def post(self, request, gym_id, *args, **kwargs):
+        if getattr(request, "tenant", None) is not None:
+            raise PermissionDenied(
+                "Super Admin operations must be performed at the apex platform domain."
+            )
+        from decimal import Decimal
+
+        from apps.accounts.services import record_audit_log
+        from apps.payments.models import Payment
+        from apps.tenants.models import GymTenant
+        from apps.tenants.serializers import GymTenantSummarySerializer
+
+        try:
+            gym = GymTenant.objects.get(id=gym_id)
+        except GymTenant.DoesNotExist:
+            return Response(
+                {"detail": "Gym tenant not found."}, status=status.HTTP_404_NOT_FOUND
+            )
+
+        if gym.status == GymTenant.STATUS_TERMINATED:
+            return Response(
+                {"detail": "Terminated gyms cannot be renewed. Reinstate first."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        amount_raw = request.data.get("amount_etb") or request.data.get("amount")
+        reference = str(request.data.get("reference") or "").strip()
+
+        if not amount_raw:
+            return Response(
+                {"detail": "Amount in ETB is required."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        try:
+            amount_val = Decimal(str(amount_raw))
+            if amount_val <= 0:
+                raise ValueError()
+        except Exception:
+            return Response(
+                {"detail": "Amount must be a positive number."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if not reference:
+            return Response(
+                {"detail": "Payment reference is required."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        now = timezone.now()
+        base_date = (
+            gym.subscription_expires_at
+            if (gym.subscription_expires_at and gym.subscription_expires_at > now)
+            else now
+        )
+        gym.subscription_expires_at = base_date + timedelta(days=365)
+        gym.lapse_flagged_at = None
+
+        was_suspended = gym.status == GymTenant.STATUS_SUSPENDED
+        if was_suspended:
+            gym.status = GymTenant.STATUS_ACTIVE
+            gym.suspended_at = None
+
+        gym.save(
+            update_fields=[
+                "subscription_expires_at",
+                "lapse_flagged_at",
+                "status",
+                "suspended_at",
+                "updated_at",
+            ]
+        )
+
+        Payment.objects.create(
+            gym=gym,
+            payer_type=Payment.PAYER_TYPE_GYM_SUBSCRIPTION,
+            method=Payment.METHOD_BANK_TRANSFER,
+            amount_etb=amount_val,
+            bank_reference=reference,
+            bank_reference_normalized=reference.strip().upper(),
+            status=Payment.STATUS_CONFIRMED,
+            confirmed_by=request.user,
+        )
+
+        record_audit_log(
+            actor=request.user,
+            action_type="gym_renewed",
+            affected_record_type="GymTenant",
+            affected_record_id=str(gym.id),
+            gym=gym,
+            metadata={
+                "subdomain": gym.subdomain,
+                "name": gym.name,
+                "amount_etb": str(amount_val),
+                "reference": reference,
+                "new_subscription_expires_at": gym.subscription_expires_at.isoformat(),
+                "reactivated": was_suspended,
+            },
+        )
+
+        return Response(GymTenantSummarySerializer(gym).data, status=status.HTTP_200_OK)

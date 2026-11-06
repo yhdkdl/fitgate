@@ -17,7 +17,9 @@ from apps.tenants.views import (
     GymNoticeListCreateView,
     GymPublicEntryView,
     GymReinstateView,
+    GymRenewView,
     GymSettingsView,
+    GymSuspendView,
     GymTerminateView,
     PlatformAnalyticsOverviewView,
     PlatformGymConfigView,
@@ -57,6 +59,16 @@ urlpatterns = [
         "api/platform/gyms/<uuid:gym_id>/reinstate/",
         GymReinstateView.as_view(),
         name="platform-gym-reinstate",
+    ),
+    path(
+        "api/platform/gyms/<uuid:gym_id>/suspend/",
+        GymSuspendView.as_view(),
+        name="platform-gym-suspend",
+    ),
+    path(
+        "api/platform/gyms/<uuid:gym_id>/renew/",
+        GymRenewView.as_view(),
+        name="platform-gym-renew",
     ),
     path(
         "api/platform/notices/",

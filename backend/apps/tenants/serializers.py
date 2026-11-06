@@ -45,6 +45,7 @@ class GymTenantSummarySerializer(serializers.ModelSerializer):
             "subscription_expires_at",
             "tls_confirmed_at",
             "suspended_at",
+            "lapse_flagged_at",
             "created_at",
             "updated_at",
         ]
@@ -86,6 +87,7 @@ class GymConfigSerializer(serializers.ModelSerializer):
             "show_unavailable_equipment",
             "is_equipment_list_complete",
             "telegram_channel",
+            "disabled_roles",
             "first_run_dismissed_at",
         ]
         read_only_fields = fields

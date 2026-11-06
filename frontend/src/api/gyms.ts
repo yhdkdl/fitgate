@@ -15,6 +15,7 @@ export type CreateGymResponse = components["schemas"]["CreateGymResponse"] & {
 };
 export type GymTenantSummary = components["schemas"]["GymTenantSummary"] & {
   url?: string;
+  lapse_flagged_at?: string | null;
 };
 export type ConfirmTLSResponse = components["schemas"]["ConfirmTLSResponse"];
 export type GymPublicEntryResponse =
@@ -32,7 +33,9 @@ export type GymPublicEntryResponse =
   };
 export type FirstRunChecklistResponse =
   components["schemas"]["FirstRunChecklistResponse"];
-export type GymConfig = components["schemas"]["GymConfig"];
+export type GymConfig = components["schemas"]["GymConfig"] & {
+  disabled_roles?: string[];
+};
 export type PatchedGymSettingsUpdateRequest =
   components["schemas"]["PatchedGymSettingsUpdateRequest"];
 export type DismissChecklistResponse =
@@ -144,8 +147,8 @@ export async function uploadGymLogo(
 export async function terminateGym(
   gymId: string,
   subdomainConfirmation: string
-): Promise<GymSummary> {
-  return await apiFetch<GymSummary>(`/api/platform/gyms/${gymId}/terminate/`, {
+): Promise<GymTenantSummary> {
+  return await apiFetch<GymTenantSummary>(`/api/platform/gyms/${gymId}/terminate/`, {
     method: "POST",
     body: JSON.stringify({ subdomain_confirmation: subdomainConfirmation }),
   });
@@ -154,10 +157,27 @@ export async function terminateGym(
 export async function reinstateGym(
   gymId: string,
   subdomainConfirmation: string
-): Promise<GymSummary> {
-  return await apiFetch<GymSummary>(`/api/platform/gyms/${gymId}/reinstate/`, {
+): Promise<GymTenantSummary> {
+  return await apiFetch<GymTenantSummary>(`/api/platform/gyms/${gymId}/reinstate/`, {
     method: "POST",
     body: JSON.stringify({ subdomain_confirmation: subdomainConfirmation }),
+  });
+}
+
+export async function suspendGym(gymId: string): Promise<GymTenantSummary> {
+  return await apiFetch<GymTenantSummary>(`/api/platform/gyms/${gymId}/suspend/`, {
+    method: "POST",
+  });
+}
+
+export async function renewGym(
+  gymId: string,
+  amountEtb: string,
+  reference: string
+): Promise<GymTenantSummary> {
+  return await apiFetch<GymTenantSummary>(`/api/platform/gyms/${gymId}/renew/`, {
+    method: "POST",
+    body: JSON.stringify({ amount_etb: amountEtb, reference }),
   });
 }
 

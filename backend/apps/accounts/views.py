@@ -207,6 +207,14 @@ class LoginView(APIView):
                         status=status.HTTP_403_FORBIDDEN,
                     )
 
+            if hasattr(gym, "config") and user.role in (
+                getattr(gym.config, "disabled_roles", None) or []
+            ):
+                return Response(
+                    {"detail": f"The {user.role} role is disabled for this gym."},
+                    status=status.HTTP_403_FORBIDDEN,
+                )
+
         # 5. Success: reset lockout counters and record login
         with transaction.atomic():
             user.failed_login_count = 0

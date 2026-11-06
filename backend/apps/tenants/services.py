@@ -453,6 +453,7 @@ def confirm_gym_tls(gym_id: UUID | str, acting_super_admin: User) -> GymTenant:
 ENTITLEMENT_FIELDS = frozenset(
     {
         "tier",
+        "disabled_roles",
         "has_trainer_module",
         "has_ai_plans",
         "has_analytics",
@@ -723,6 +724,25 @@ def update_gym_settings(
                 msg = exc.message if hasattr(exc, "message") else str(exc)
                 raise DRFValidationError({"subscription_reminder_days": [msg]})
             update_fields.append("subscription_reminder_days")
+
+        if "disabled_roles" in data:
+            roles_val = data["disabled_roles"]
+            if not isinstance(roles_val, list):
+                raise ValidationError(
+                    {"disabled_roles": ["Disabled roles must be a list."]}
+                )
+            valid_disablable_roles = {
+                User.ROLE_MANAGER,
+                User.ROLE_TRAINER,
+                User.ROLE_RECEPTION,
+            }
+            for r in roles_val:
+                if r not in valid_disablable_roles:
+                    raise ValidationError(
+                        {"disabled_roles": [f"Cannot disable role '{r}'."]}
+                    )
+            config.disabled_roles = sorted(list(set(roles_val)))
+            update_fields.append("disabled_roles")
 
         for field in [
             "has_trainer_module",

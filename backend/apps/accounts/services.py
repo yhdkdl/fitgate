@@ -478,6 +478,13 @@ def invite_staff_member(
     if acting_role == User.ROLE_MANAGER and target_role == User.ROLE_MANAGER:
         raise PermissionDenied("Managers cannot invite or manage Manager accounts.")
 
+    if hasattr(gym, "config") and target_role in (
+        getattr(gym.config, "disabled_roles", None) or []
+    ):
+        raise ValidationError(
+            {"role": [f"The '{target_role}' role is disabled for this gym."]}
+        )
+
     raw_email = data.get("email", "")
     if not raw_email or not isinstance(raw_email, str):
         raise ValidationError({"email": ["This field may not be blank."]})

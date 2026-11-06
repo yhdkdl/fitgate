@@ -34,7 +34,7 @@ vi.mock("../context/AuthContext", () => ({
   }),
 }));
 
-const mockGyms: gymsApi.GymTenantSummary[] = [
+const mockGyms = [
   {
     id: "gym-1",
     name: "Active Fitness",
@@ -78,7 +78,7 @@ const mockMetrics: gymsApi.PlatformAnalyticsOverview = {
 describe("Sprint 35: Super Admin Dashboard, Analytics, Termination, Notices", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.mocked(gymsApi.listGyms).mockResolvedValue(mockGyms);
+    vi.mocked(gymsApi.listGyms).mockResolvedValue(mockGyms as unknown as gymsApi.GymTenantSummary[]);
     vi.mocked(gymsApi.getPlatformAnalyticsOverview).mockResolvedValue(mockMetrics);
     vi.mocked(gymsApi.getGymSettings).mockResolvedValue({
       has_trainer_module: true,
@@ -88,7 +88,7 @@ describe("Sprint 35: Super Admin Dashboard, Analytics, Termination, Notices", ()
       freeze_days_cap: 30,
       payment_grace_days: 7,
       subscription_reminder_days: [14, 7],
-    });
+    } as unknown as gymsApi.GymConfig);
   });
 
   it("renders platform analytics metrics cards", async () => {
@@ -220,7 +220,8 @@ describe("Sprint 35: Super Admin Dashboard, Analytics, Termination, Notices", ()
         posted_by_name: "FitGate Platform",
         is_platform_wide: true,
         created_at: "2026-01-01T00:00:00Z",
-      },
+        updated_at: "2026-01-01T00:00:00Z",
+      } as unknown as PlatformNotice,
     ]);
 
     render(<NoticeBoardSection userRole="super_admin" />);
@@ -228,6 +229,56 @@ describe("Sprint 35: Super Admin Dashboard, Analytics, Termination, Notices", ()
       expect(screen.getByText("Platform Maintenance")).toBeInTheDocument();
       expect(screen.getByText("Post Notice")).toBeInTheDocument();
       expect(screen.getByText("Platform Announcement")).toBeInTheDocument();
+    });
+  });
+  it("renders lapse badge when gym has lapse_flagged_at", async () => {
+    const lapsedGyms = [
+      {
+        ...mockGyms[0],
+        lapse_flagged_at: "2026-02-01T00:00:00Z",
+      },
+    ];
+    vi.mocked(gymsApi.listGyms).mockResolvedValue(lapsedGyms as unknown as gymsApi.GymTenantSummary[]);
+    render(<GymManagementSection />);
+    await waitFor(() => {
+      expect(screen.getByText("Lapsed")).toBeInTheDocument();
+    });
+  });
+
+  it("allows suspending an active gym and renewing gym subscription", async () => {
+    const user = userEvent.setup();
+    render(<GymManagementSection />);
+    await waitFor(() => {
+      expect(screen.getByText("Active Fitness")).toBeInTheDocument();
+    });
+
+    const suspendBtns = screen.getAllByRole("button", { name: "Suspend" });
+    await user.click(suspendBtns[0]);
+    expect(screen.getByText(/Are you sure you want to suspend/)).toBeInTheDocument();
+
+    const cancelBtn = screen.getByRole("button", { name: "Cancel" });
+    await user.click(cancelBtn);
+
+    const renewBtns = screen.getAllByRole("button", { name: "Renew" });
+    await user.click(renewBtns[0]);
+    expect(screen.getByText(/Renew Subscription:/)).toBeInTheDocument();
+  });
+
+  it("renders role entitlement checkboxes in config modal", async () => {
+    const user = userEvent.setup();
+    render(<GymManagementSection />);
+    await waitFor(() => {
+      expect(screen.getByText("Active Fitness")).toBeInTheDocument();
+    });
+
+    const configBtns = screen.getAllByRole("button", { name: "Config" });
+    await user.click(configBtns[0]);
+
+    await waitFor(() => {
+      expect(screen.getByText("Role Entitlements")).toBeInTheDocument();
+      expect(screen.getByText("Enable Manager Role")).toBeInTheDocument();
+      expect(screen.getByText("Enable Reception Role")).toBeInTheDocument();
+      expect(screen.getByText("Enable Trainer Role")).toBeInTheDocument();
     });
   });
 });
