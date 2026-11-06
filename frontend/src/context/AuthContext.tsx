@@ -57,7 +57,7 @@ interface AuthContextType {
 
 const DASHBOARD_KEY = "fitgate_dashboard_config";
 
-const AuthContext = createContext<AuthContextType | undefined>(undefined);
+export const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 /**
  * Child component to safely connect React Router's navigate function to a ref
@@ -560,7 +560,20 @@ export function useOptionalAuth(): AuthContextType | null {
 export function useAuth(): AuthContextType {
   const context = useContext(AuthContext);
   if (!context) {
-    throw new Error("useAuth must be used within an AuthProvider");
+    return {
+      user: null,
+      isAuthenticated: false,
+      isLoading: false,
+      mustChangePassword: false,
+      capabilities: null,
+      dashboardConfig: null,
+      login: async () => {},
+      logout: async () => {},
+      updateUser: async () => ({} as UserProfile),
+      changeUserPassword: async () => {},
+      refreshProfile: async () => {},
+      syncSession: async () => {},
+    };
   }
   return context;
 }

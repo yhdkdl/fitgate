@@ -81,9 +81,11 @@ class TestPermissionsAndProjectContracts:
 
     def test_all_tier_gated_views_declare_required_flag(self):
         """
-        Contract test: every view in a tier-gated app/module (classes, trainers,
-        freeze, analytics, metrics) must declare 'required_flag' explicitly,
-        preventing any future endpoint from skipping feature-flag gating.
+        Contract test: every view registered in URL routing must declare either a
+        tier flag string (e.g. 'has_group_classes', 'has_trainer_module', 'has_ai_plans',
+        'freeze', 'has_analytics', 'has_notices', 'has_expenses') or an explicit
+        'required_flag = None' marker indicating that the view is tier-exempt (Starter / platform).
+        Fails if any view declares neither.
         """
         resolver = get_resolver()
 
@@ -101,116 +103,74 @@ class TestPermissionsAndProjectContracts:
             return view_classes
 
         all_view_classes = inspect_patterns(resolver.url_patterns)
+        app_views = [
+            v
+            for v in all_view_classes
+            if getattr(v, "__module__", "").startswith("apps.")
+            and ".tests." not in getattr(v, "__module__", "")
+        ]
 
         from apps.classes.permissions import HasGroupClassesEnabled
         from apps.payments.permissions import HasExpensesEnabled
         from apps.trainers.permissions import HasAIPlansEnabled, HasTrainerModule
 
-        checked_count = 0
-        for view_cls in all_view_classes:
+        valid_tier_flags = {
+            "has_group_classes",
+            "has_trainer_module",
+            "has_ai_plans",
+            "freeze",
+            "has_analytics",
+            "has_notices",
+            "has_expenses",
+        }
+
+        tier_gated_count = 0
+        tier_exempt_count = 0
+
+        for view_cls in app_views:
             module = getattr(view_cls, "__module__", "")
             name = getattr(view_cls, "__name__", "")
 
-            # 1. Apps.classes views
-            if module == "apps.classes.views":
-                assert hasattr(
-                    view_cls, "required_flag"
-                ), f"View class '{name}' in '{module}' must declare 'required_flag'."
-                assert (
-                    view_cls.required_flag == "has_group_classes"
-                ), f"View '{name}' must have required_flag='has_group_classes', got '{view_cls.required_flag}'."
-                assert HasGroupClassesEnabled in getattr(
-                    view_cls, "permission_classes", []
-                ), f"View '{name}' must declare HasGroupClassesEnabled in permission_classes."
-                checked_count += 1
+            assert hasattr(
+                view_cls, "required_flag"
+            ), f"View '{name}' in '{module}' must declare 'required_flag' (either a tier flag string or None for tier-exempt views)."
 
-            # 2. Apps.trainers views
-            elif module == "apps.trainers.views":
-                assert hasattr(
-                    view_cls, "required_flag"
-                ), f"View class '{name}' in '{module}' must declare 'required_flag'."
-                assert view_cls.required_flag in (
-                    "has_trainer_module",
-                    "has_ai_plans",
-                ), f"View '{name}' must have required_flag in ('has_trainer_module', 'has_ai_plans'), got '{view_cls.required_flag}'."
-                if view_cls.required_flag == "has_trainer_module":
+            flag = view_cls.required_flag
+            if flag is not None:
+                assert (
+                    flag in valid_tier_flags
+                ), f"View '{name}' declared unknown required_flag '{flag}'."
+                tier_gated_count += 1
+
+                # Verify corresponding permissions
+                if flag == "has_group_classes":
+                    assert HasGroupClassesEnabled in getattr(
+                        view_cls, "permission_classes", []
+                    ), f"View '{name}' must declare HasGroupClassesEnabled in permission_classes."
+                elif flag == "has_trainer_module":
                     assert HasTrainerModule in getattr(
                         view_cls, "permission_classes", []
                     ), f"View '{name}' must declare HasTrainerModule in permission_classes."
-                elif view_cls.required_flag == "has_ai_plans":
+                elif flag == "has_ai_plans":
                     assert HasAIPlansEnabled in getattr(
                         view_cls, "permission_classes", []
                     ), f"View '{name}' must declare HasAIPlansEnabled in permission_classes."
-                checked_count += 1
-
-            # 3. Metrics views in memberships
-            elif name in ("GymMemberRecordMetricsView", "MemberSelfMetricsView"):
-                assert hasattr(
-                    view_cls, "required_flag"
-                ), f"View class '{name}' must declare 'required_flag'."
-                assert (
-                    view_cls.required_flag == "has_trainer_module"
-                ), f"View '{name}' must have required_flag='has_trainer_module'."
-                assert HasTrainerModule in getattr(
-                    view_cls, "permission_classes", []
-                ), f"View '{name}' must declare HasTrainerModule in permission_classes."
-                checked_count += 1
-
-            # 4. Freeze views in memberships
-            elif "Freeze" in name and module == "apps.memberships.views":
-                assert hasattr(
-                    view_cls, "required_flag"
-                ), f"View class '{name}' must declare 'required_flag'."
-                assert (
-                    view_cls.required_flag == "freeze"
-                ), f"View '{name}' must have required_flag='freeze'."
-                checked_count += 1
-
-            # 5. Analytics views in tenants
-            elif name == "GymAnalyticsOverviewView":
-                assert hasattr(
-                    view_cls, "required_flag"
-                ), f"View class '{name}' must declare 'required_flag'."
-                assert (
-                    view_cls.required_flag == "has_analytics"
-                ), f"View '{name}' must have required_flag='has_analytics'."
-                checked_count += 1
-
-            # 6. Notice and Telegram views in tenants
-            elif name in (
-                "GymNoticeListCreateView",
-                "GymNoticeDetailView",
-                "TelegramTestMessageView",
-            ):
-                assert hasattr(
-                    view_cls, "required_flag"
-                ), f"View class '{name}' must declare 'required_flag'."
-                assert (
-                    view_cls.required_flag == "has_notices"
-                ), f"View '{name}' must have required_flag='has_notices'."
-                checked_count += 1
-
-            # 7. Expense and financial report views in payments
-            elif name in (
-                "ExpenseListCreateView",
-                "ExpenseVoidView",
-                "GymFinancialReportView",
-                "GymAttendanceReportView",
-            ):
-                assert hasattr(
-                    view_cls, "required_flag"
-                ), f"View class '{name}' must declare 'required_flag'."
-                assert (
-                    view_cls.required_flag == "has_expenses"
-                ), f"View '{name}' must have required_flag='has_expenses'."
-                assert HasExpensesEnabled in getattr(
-                    view_cls, "permission_classes", []
-                ), f"View '{name}' must declare HasExpensesEnabled in permission_classes."
-                checked_count += 1
+                elif flag == "has_expenses":
+                    assert HasExpensesEnabled in getattr(
+                        view_cls, "permission_classes", []
+                    ), f"View '{name}' must declare HasExpensesEnabled in permission_classes."
+            else:
+                tier_exempt_count += 1
 
         assert (
-            checked_count == 43
-        ), f"Expected 43 tier-gated views checked, found {checked_count}."
+            tier_gated_count == 43
+        ), f"Expected 43 tier-gated views, found {tier_gated_count}."
+        assert (
+            tier_exempt_count == 79
+        ), f"Expected 79 tier-exempt views, found {tier_exempt_count}."
+        assert (
+            len(app_views) == 122
+        ), f"Expected 122 total views, found {len(app_views)}."
 
     def test_anonymous_access_returns_401_for_all_non_allowany_views(self):
         """

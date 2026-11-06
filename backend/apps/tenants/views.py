@@ -68,6 +68,8 @@ class CreateGymView(APIView):
     owner account, and provision the subdomain via cPanel UAPI.
     """
 
+    required_flag = None  # Tier-exempt (available on Starter)
+
     permission_classes = [IsAuthenticated, RequirePasswordChanged, IsSuperAdmin]
 
     @extend_schema(
@@ -161,6 +163,8 @@ class CreateGymView(APIView):
 class ProposeSubdomainView(APIView):
     """Suggest an available, DNS-compliant subdomain candidate from a gym name."""
 
+    required_flag = None  # Tier-exempt (available on Starter)
+
     permission_classes = [IsAuthenticated, RequirePasswordChanged, IsSuperAdmin]
 
     @extend_schema(
@@ -180,6 +184,8 @@ class ConfirmGymTLSView(APIView):
 
     Unlocks login and registration on the gym's subdomain and sets the initial 1-year subscription window.
     """
+
+    required_flag = None  # Tier-exempt (available on Starter)
 
     permission_classes = [IsAuthenticated, RequirePasswordChanged, IsSuperAdmin]
 
@@ -232,6 +238,8 @@ class ListGymsView(APIView):
 class GymDetailView(APIView):
     """Super Admin endpoint to retrieve gym tenant details and config."""
 
+    required_flag = None  # Tier-exempt (available on Starter)
+
     permission_classes = [IsAuthenticated, RequirePasswordChanged, IsSuperAdmin]
 
     @extend_schema(
@@ -273,6 +281,8 @@ class PublicDemoRequestView(APIView):
 
     Rejected on gym subdomains. Rate-limited and includes honeypot protection.
     """
+
+    required_flag = None  # Tier-exempt (available on Starter)
 
     permission_classes = (AllowAny,)
     authentication_classes = ()
@@ -337,6 +347,8 @@ class PublicDemoRequestView(APIView):
 class DemoRequestListView(APIView):
     """Super Admin endpoint to list all prospective gym demo requests."""
 
+    required_flag = None  # Tier-exempt (available on Starter)
+
     permission_classes = [IsAuthenticated, RequirePasswordChanged, IsSuperAdmin]
 
     @extend_schema(
@@ -356,6 +368,8 @@ class DemoRequestListView(APIView):
 
 class DemoRequestDetailView(APIView):
     """Super Admin endpoint to retrieve and update demo request status/notes."""
+
+    required_flag = None  # Tier-exempt (available on Starter)
 
     permission_classes = [IsAuthenticated, RequirePasswordChanged, IsSuperAdmin]
 
@@ -426,6 +440,8 @@ class DemoRequestDetailView(APIView):
 class DemoRequestConvertView(APIView):
     """Super Admin endpoint returning pre-filled data to convert a lead to a gym."""
 
+    required_flag = None  # Tier-exempt (available on Starter)
+
     permission_classes = [IsAuthenticated, RequirePasswordChanged, IsSuperAdmin]
 
     @extend_schema(
@@ -461,6 +477,8 @@ class ServeMemberPhotoView(APIView):
     Browser never receives direct Cloudinary URL.
     Returns 404 on tenant mismatch (cross-gym IDOR protection) or when file does not exist.
     """
+
+    required_flag = None  # Tier-exempt (available on Starter)
 
     permission_classes = [IsAuthenticated, RequirePasswordChanged]
 
@@ -608,6 +626,8 @@ class UploadMemberPhotoView(APIView):
     Upload and process a member photo into gym-scoped authenticated storage.
     Also handles member photo listing for gym staff.
     """
+
+    required_flag = None  # Tier-exempt (available on Starter)
 
     parser_classes = [MultiPartParser, FormParser]
     permission_classes = [IsAuthenticated, RequirePasswordChanged]
@@ -771,6 +791,8 @@ class UploadGymLogoView(APIView):
     Only Owner of the gym on the active tenant can upload.
     """
 
+    required_flag = None  # Tier-exempt (available on Starter)
+
     parser_classes = [MultiPartParser, FormParser]
     permission_classes = [IsAuthenticated, RequirePasswordChanged, IsGymOwner]
 
@@ -842,6 +864,8 @@ class GymSettingsView(APIView):
     - Super Admin receives 403 Forbidden on gym subdomain (SPEC §2 indicates '-' for Super Admin).
     """
 
+    required_flag = None  # Tier-exempt (available on Starter)
+
     permission_classes = [IsAuthenticated, RequirePasswordChanged, CanEditGymSettings]
 
     @extend_schema(
@@ -900,6 +924,8 @@ class PlatformGymConfigView(APIView):
     """
     Super Admin endpoint on apex domain to inspect and update gym entitlements.
     """
+
+    required_flag = None  # Tier-exempt (available on Starter)
 
     permission_classes = [
         IsAuthenticated,
@@ -969,6 +995,8 @@ class FirstRunChecklistView(APIView):
     Derived automatically from database rows (branding, plan, staff, member).
     """
 
+    required_flag = None  # Tier-exempt (available on Starter)
+
     permission_classes = [IsAuthenticated, RequirePasswordChanged, IsGymOwner]
 
     @extend_schema(
@@ -990,6 +1018,8 @@ class DismissFirstRunChecklistView(APIView):
     Dismiss the first-run onboarding checklist for the gym Owner.
     Dismissal persists in GymConfig.first_run_dismissed_at.
     """
+
+    required_flag = None  # Tier-exempt (available on Starter)
 
     permission_classes = [IsAuthenticated, RequirePasswordChanged, IsGymOwner]
 
@@ -1026,6 +1056,8 @@ class GymPublicEntryView(APIView):
     Returns gym name, brand color, logo, phone, location, currency.
     If certificate is not confirmed, returns 503 'still being secured'.
     """
+
+    required_flag = None  # Tier-exempt (available on Starter)
 
     permission_classes = [AllowAny]
     authentication_classes = []

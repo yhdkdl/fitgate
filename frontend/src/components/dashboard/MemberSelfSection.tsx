@@ -26,6 +26,9 @@ export const MemberSelfSection: React.FC<MemberSelfSectionProps> = ({
   view = "all",
 }) => {
   const { capabilities } = useAuth();
+  const hasTrainerModule = capabilities ? capabilities.has_trainer_module : true;
+  const hasNotices = capabilities ? capabilities.has_notices : true;
+  const hasAiPlans = capabilities ? capabilities.has_ai_plans : true;
   const [profile, setProfile] = useState<Member | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -159,7 +162,7 @@ export const MemberSelfSection: React.FC<MemberSelfSectionProps> = ({
       )}
 
       {/* Latest Announcement (Shown on Home) */}
-      {(view === "home" || view === "all") && capabilities?.has_notices && <MemberNoticesCard />}
+      {(view === "home" || view === "all") && hasNotices && <MemberNoticesCard />}
 
       {/* Dynamic QR Pass & Attendance Calendar */}
       {(view === "home" || view === "all") && (
@@ -175,7 +178,7 @@ export const MemberSelfSection: React.FC<MemberSelfSectionProps> = ({
 
       {/* My Trainer Card (Shown on Home and My membership if on a trainer-inclusive plan) */}
       {(view === "home" || view === "membership" || view === "all") &&
-        capabilities?.has_trainer_module &&
+        hasTrainerModule &&
         profile.is_on_trainer_plan && (
           <Card className="bg-surface border-border p-5">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -227,7 +230,7 @@ export const MemberSelfSection: React.FC<MemberSelfSectionProps> = ({
         )}
 
       {/* Workout Routine & Nutrition Guidance (Approved Only) */}
-      {capabilities?.has_trainer_module && capabilities?.has_ai_plans && profile.is_on_trainer_plan && (view === "home" || view === "all") && (
+      {hasTrainerModule && hasAiPlans && profile.is_on_trainer_plan && (view === "home" || view === "all") && (
         <MemberApprovedPlanCard
           hasAssignedTrainer={Boolean(profile.assigned_trainer)}
           isActiveTrainerPlan={Boolean(
@@ -237,7 +240,7 @@ export const MemberSelfSection: React.FC<MemberSelfSectionProps> = ({
       )}
 
       {/* Fitness Profile (Read-Only) */}
-      {capabilities?.has_trainer_module && profile.is_on_trainer_plan && (view === "home" || view === "all") && (
+      {hasTrainerModule && profile.is_on_trainer_plan && (view === "home" || view === "all") && (
         <MemberFitnessProfileCard />
       )}
 
@@ -252,7 +255,7 @@ export const MemberSelfSection: React.FC<MemberSelfSectionProps> = ({
 
       {/* Body Composition Summary / Estimates */}
       {(view === "home" || view === "all") &&
-        capabilities?.has_trainer_module &&
+        hasTrainerModule &&
         (hasMetrics ? (
           <div className="space-y-4">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">

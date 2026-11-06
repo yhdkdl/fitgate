@@ -108,6 +108,8 @@ class LoginView(APIView):
     - Lockout after 5 consecutive failed attempts.
     """
 
+    required_flag = None  # Tier-exempt (available on Starter)
+
     permission_classes = [AllowAny]
     authentication_classes = []
     is_auth_endpoint = True
@@ -220,6 +222,8 @@ class TokenRefreshView(APIView):
     - Token gym_id matches current request tenant context.
     """
 
+    required_flag = None  # Tier-exempt (available on Starter)
+
     permission_classes = [AllowAny]
     authentication_classes = []
     is_auth_endpoint = True
@@ -300,6 +304,8 @@ class LogoutView(APIView):
     Log out user by blacklisting their refresh token.
     """
 
+    required_flag = None  # Tier-exempt (available on Starter)
+
     permission_classes = [AllowAny]
     authentication_classes = []
     is_auth_endpoint = True
@@ -356,6 +362,8 @@ class CreateSuperAdminView(APIView):
 
     Requires re-authenticating the actor's current password.
     """
+
+    required_flag = None  # Tier-exempt (available on Starter)
 
     permission_classes = [IsAuthenticated, RequirePasswordChanged, IsSuperAdmin]
 
@@ -417,6 +425,8 @@ class UserProfileView(APIView):
     GET: Returns caller's profile details.
     PATCH: Updates full_name and phone only. Rejects privileged fields.
     """
+
+    required_flag = None  # Tier-exempt (available on Starter)
 
     permission_classes = [IsAuthenticated, RequirePasswordChanged]
     http_method_names = ["get", "patch", "head", "options"]
@@ -484,6 +494,8 @@ class ChangePasswordView(APIView):
     Exempt from RequirePasswordChanged (is_auth_endpoint = True) so it can clear must_change_password.
     """
 
+    required_flag = None  # Tier-exempt (available on Starter)
+
     permission_classes = [IsAuthenticated]
     is_auth_endpoint = True
 
@@ -533,6 +545,8 @@ class PasswordResetRequestView(APIView):
     Prevents account enumeration.
     """
 
+    required_flag = None  # Tier-exempt (available on Starter)
+
     permission_classes = [AllowAny]
     authentication_classes = []
     is_auth_endpoint = True
@@ -572,6 +586,8 @@ class PasswordResetConfirmView(APIView):
     3. Validate password strength before consuming token.
     4. Atomically consume token, set new password, clear lockout / must_change_password.
     """
+
+    required_flag = None  # Tier-exempt (available on Starter)
 
     permission_classes = [AllowAny]
     authentication_classes = []
@@ -633,6 +649,8 @@ class SetPasswordFromInviteView(APIView):
     Accessible without active session; strictly host-scoped to matching tenant subdomain.
     """
 
+    required_flag = None  # Tier-exempt (available on Starter)
+
     permission_classes = [AllowAny]
     authentication_classes = []
     is_auth_endpoint = True
@@ -691,6 +709,8 @@ class StaffListCreateView(APIView):
     Accessible to Gym Owner and Gym Manager.
     Fails closed on apex domain or cross-tenant contexts.
     """
+
+    required_flag = None  # Tier-exempt (available on Starter)
 
     permission_classes = [IsAuthenticated, RequirePasswordChanged, IsOwnerOrManager]
 
@@ -775,6 +795,8 @@ class StaffDeactivateView(APIView):
     Accessible to Gym Owner and Gym Manager.
     """
 
+    required_flag = None  # Tier-exempt (available on Starter)
+
     permission_classes = [IsAuthenticated, RequirePasswordChanged, IsOwnerOrManager]
 
     @extend_schema(
@@ -836,6 +858,8 @@ class StaffReactivateView(APIView):
     Reactivate a previously deactivated staff member.
     Accessible to Gym Owner and Gym Manager.
     """
+
+    required_flag = None  # Tier-exempt (available on Starter)
 
     permission_classes = [IsAuthenticated, RequirePasswordChanged, IsOwnerOrManager]
 
@@ -962,6 +986,8 @@ class GymAuditLogListView(APIView):
     Returns paginated audit trail rows for the active gym tenant.
     """
 
+    required_flag = None  # Tier-exempt (available on Starter)
+
     permission_classes = [IsAuthenticated, RequirePasswordChanged, IsOwnerOrManager]
     pagination_class = AuditLogPagination
     http_method_names = ["get", "head", "options"]
@@ -1047,6 +1073,8 @@ class PlatformAuditLogListView(APIView):
     Restricted to Super Admin at the apex platform domain.
     Returns paginated audit trail rows across all gyms and platform operations.
     """
+
+    required_flag = None  # Tier-exempt (available on Starter)
 
     permission_classes = [IsAuthenticated, RequirePasswordChanged, IsSuperAdmin]
     pagination_class = AuditLogPagination
@@ -1134,6 +1162,8 @@ class StaffResendInviteView(APIView):
     - Rate capped to at most 3 invitation resends per recipient per day.
     - Refused if the recipient address has bounced or is suppressed.
     """
+
+    required_flag = None  # Tier-exempt (available on Starter)
 
     permission_classes = [IsAuthenticated, RequirePasswordChanged, IsOwnerOrManager]
 
@@ -1282,6 +1312,8 @@ class BrevoWebhookView(APIView):
     Returns {"status": "processed"} with HTTP 200 OK.
     """
 
+    required_flag = None  # Tier-exempt (available on Starter)
+
     permission_classes = [AllowAny]
     authentication_classes = []
 
@@ -1365,6 +1397,8 @@ class NotificationListView(APIView):
     - Ordered unread first, then newest first.
     """
 
+    required_flag = None  # Tier-exempt (available on Starter)
+
     permission_classes = [IsAuthenticated, RequirePasswordChanged]
 
     @extend_schema(
@@ -1401,6 +1435,8 @@ class NotificationMarkReadView(APIView):
     Mark a single notification as read.
     User can only mark their own notification.
     """
+
+    required_flag = None  # Tier-exempt (available on Starter)
 
     permission_classes = [IsAuthenticated, RequirePasswordChanged]
 
@@ -1446,6 +1482,8 @@ class NotificationMarkAllReadView(APIView):
     """
     Mark all unread notifications for the user as read.
     """
+
+    required_flag = None  # Tier-exempt (available on Starter)
 
     permission_classes = [IsAuthenticated, RequirePasswordChanged]
 

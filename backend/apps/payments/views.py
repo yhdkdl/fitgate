@@ -134,6 +134,8 @@ class GymPaymentConfigView(APIView):
     Super Admins, Managers, Receptionists, and Members are blocked.
     """
 
+    required_flag = None  # Tier-exempt (available on Starter)
+
     permission_classes = [IsAuthenticated, RequirePasswordChanged, IsGymOwner]
     serializer_class = GymPaymentConfigSerializer
 
@@ -274,6 +276,8 @@ class GymPaymentConfigTestView(APIView):
     Restricted strictly to the Gym Owner.
     """
 
+    required_flag = None  # Tier-exempt (available on Starter)
+
     permission_classes = [IsAuthenticated, RequirePasswordChanged, IsGymOwner]
 
     @extend_schema(
@@ -394,6 +398,8 @@ class ChapaCheckoutView(APIView):
     Initiate an online Chapa checkout session for a membership plan.
     Requires verified gym credentials; otherwise refuses and prompts front-desk cash payment.
     """
+
+    required_flag = None  # Tier-exempt (available on Starter)
 
     permission_classes = [
         IsAuthenticated,
@@ -700,6 +706,8 @@ class ChapaWebhookView(APIView):
     and server-side transaction confirmation against Chapa API.
     """
 
+    required_flag = None  # Tier-exempt (available on Starter)
+
     permission_classes = [AllowAny]
     authentication_classes = []
     throttle_classes = [ChapaWebhookThrottle]
@@ -739,6 +747,8 @@ class SuperAdminGymPaymentStatusView(APIView):
     Super Admin can view whether a gym is running in test or live mode.
     Super Admin cannot view keys, set keys, or access credentials.
     """
+
+    required_flag = None  # Tier-exempt (available on Starter)
 
     permission_classes = [IsAuthenticated, RequirePasswordChanged, IsSuperAdmin]
 
@@ -831,6 +841,8 @@ class RecordCashPaymentView(APIView):
     Staff-confirmed manual cash payment recording.
     Creates Payment (confirmed), Receipt, and Subscription in ONE atomic transaction.
     """
+
+    required_flag = None  # Tier-exempt (available on Starter)
 
     permission_classes = [
         IsAuthenticated,
@@ -950,6 +962,8 @@ class GymPaymentListView(APIView):
     Includes total confirmed revenue summary.
     """
 
+    required_flag = None  # Tier-exempt (available on Starter)
+
     permission_classes = [
         IsAuthenticated,
         RequirePasswordChanged,
@@ -1063,6 +1077,8 @@ class MemberPaymentStatusView(APIView):
     Returns strictly status, receipt_id, and plan_name.
     """
 
+    required_flag = None  # Tier-exempt (available on Starter)
+
     permission_classes = [IsAuthenticated, RequirePasswordChanged]
 
     @extend_schema(
@@ -1127,6 +1143,8 @@ class MemberPaymentHistoryView(APIView):
     Self-service payment history for the logged-in member.
     Owner, Manager, Reception, Trainer, Super Admin get 403.
     """
+
+    required_flag = None  # Tier-exempt (available on Starter)
 
     permission_classes = [IsAuthenticated, RequirePasswordChanged]
 
@@ -1197,6 +1215,8 @@ class ReceiptDetailView(APIView):
     Accessible to staff (Owner, Manager, Reception of same gym)
     and the member who owns the receipt.
     """
+
+    required_flag = None  # Tier-exempt (available on Starter)
 
     permission_classes = [IsAuthenticated, RequirePasswordChanged]
 
@@ -1316,6 +1336,8 @@ class RecordBankTransferPaymentView(APIView):
     Allowed: Owner, Manager, Reception of that gym.
     Denied: Member, Trainer, Super Admin (403). Other gyms (403).
     """
+
+    required_flag = None  # Tier-exempt (available on Starter)
 
     parser_classes = [MultiPartParser, FormParser, JSONParser]
     permission_classes = [
@@ -1674,6 +1696,8 @@ class BankTransferScreenshotView(APIView):
     Denied: Super Admin (403), Member (403), cross-gym (403), other staff (403).
     """
 
+    required_flag = None  # Tier-exempt (available on Starter)
+
     permission_classes = [IsAuthenticated, RequirePasswordChanged]
 
     @extend_schema(
@@ -1755,6 +1779,8 @@ class GymPaymentPublicStatusView(APIView):
     Unauthenticated callers only see online payment availability.
     """
 
+    required_flag = None  # Tier-exempt (available on Starter)
+
     permission_classes = [AllowAny]
     authentication_classes = []
 
@@ -1807,6 +1833,8 @@ class UnreconciledBankTransfersView(APIView):
     List unreconciled bank transfers for owner review.
     Owner ONLY of that gym.
     """
+
+    required_flag = None  # Tier-exempt (available on Starter)
 
     permission_classes = [
         IsAuthenticated,
@@ -1880,6 +1908,8 @@ class ReconcileBankTransfersView(APIView):
     Owner ONLY of that gym.
     """
 
+    required_flag = None  # Tier-exempt (available on Starter)
+
     permission_classes = [
         IsAuthenticated,
         RequirePasswordChanged,
@@ -1930,6 +1960,8 @@ class ReverseBankTransferView(APIView):
     Reverse an unreconciled bank transfer payment.
     Owner ONLY of that gym.
     """
+
+    required_flag = None  # Tier-exempt (available on Starter)
 
     permission_classes = [
         IsAuthenticated,
@@ -1983,6 +2015,8 @@ class ReverseBankTransferView(APIView):
 class MemberUpgradeQuoteView(APIView):
     """Member self-service quote endpoint to calculate plan upgrade prorated credit."""
 
+    required_flag = None  # Tier-exempt (available on Starter)
+
     permission_classes = [IsAuthenticated, RequirePasswordChanged]
 
     def get(self, request):
@@ -2031,6 +2065,8 @@ class MemberUpgradeQuoteView(APIView):
 
 class StaffUpgradeQuoteView(APIView):
     """Staff quote endpoint for calculating member plan upgrade prorated credit before confirmation."""
+
+    required_flag = None  # Tier-exempt (available on Starter)
 
     permission_classes = [
         IsAuthenticated,
@@ -2082,6 +2118,8 @@ class GymReceivingAccountListView(APIView):
     List and create receiving accounts for automatic bank receipt verification.
     Restricted strictly to the Gym Owner of the active tenant.
     """
+
+    required_flag = None  # Tier-exempt (available on Starter)
 
     permission_classes = [IsAuthenticated, RequirePasswordChanged, IsGymOwner]
 
@@ -2148,6 +2186,8 @@ class GymReceivingAccountDetailView(APIView):
     Delete a receiving account. Restricted to Gym Owner of the active tenant.
     """
 
+    required_flag = None  # Tier-exempt (available on Starter)
+
     permission_classes = [IsAuthenticated, RequirePasswordChanged, IsGymOwner]
 
     @extend_schema(
@@ -2183,6 +2223,8 @@ class BankReceiptReviewListView(APIView):
     Denied: Reception, Super Admin, Member, Trainer (403). Cross-gym (403).
     """
 
+    required_flag = None  # Tier-exempt (available on Starter)
+
     permission_classes = [
         IsAuthenticated,
         RequirePasswordChanged,
@@ -2214,6 +2256,8 @@ class BankReceiptReviewDecideView(APIView):
     Allowed: Gym Owner, Manager of that gym.
     Denied: Reception, Super Admin, Member, Trainer (403). Cross-gym (403).
     """
+
+    required_flag = None  # Tier-exempt (available on Starter)
 
     permission_classes = [
         IsAuthenticated,

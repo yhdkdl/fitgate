@@ -70,6 +70,8 @@ class PublicMemberRegistrationView(APIView):
     Requires health waiver acceptance and rate-limited.
     """
 
+    required_flag = None  # Tier-exempt (available on Starter)
+
     permission_classes = [AllowAny]
     authentication_classes = []
     throttle_classes = [
@@ -122,6 +124,8 @@ class VerifyEmailView(APIView):
     Public endpoint to verify member email address with a single-use token.
     """
 
+    required_flag = None  # Tier-exempt (available on Starter)
+
     permission_classes = [AllowAny]
     authentication_classes = []
     is_auth_endpoint = True
@@ -161,6 +165,8 @@ class GymMemberListCreateView(APIView):
     List: Owner, Manager, Trainer, Reception.
     Create: Owner, Manager, Reception (Trainer gets 403).
     """
+
+    required_flag = None  # Tier-exempt (available on Starter)
 
     parser_classes = [MultiPartParser, FormParser, JSONParser]
     permission_classes = [IsAuthenticated, RequirePasswordChanged, IsGymStaff]
@@ -268,6 +274,8 @@ class GymMemberDetailView(APIView):
     """
     Staff endpoint for viewing and updating member details.
     """
+
+    required_flag = None  # Tier-exempt (available on Starter)
 
     permission_classes = [IsAuthenticated, RequirePasswordChanged, IsGymStaff]
 
@@ -648,6 +656,8 @@ class MemberSelfProfileView(APIView):
     Member self-service endpoint to view and update own profile.
     """
 
+    required_flag = None  # Tier-exempt (available on Starter)
+
     permission_classes = [IsAuthenticated, RequirePasswordChanged, IsMember]
 
     @extend_schema(
@@ -728,6 +738,8 @@ class MembershipPlanListCreateView(APIView):
     Read: Gym Staff (all plans) and Members (active plans only).
     Write: Owner and Manager only.
     """
+
+    required_flag = None  # Tier-exempt (available on Starter)
 
     permission_classes = [IsAuthenticated, RequirePasswordChanged]
 
@@ -847,6 +859,8 @@ class MembershipPlanDetailView(APIView):
     Read: Gym Staff.
     Write/Deactivate: Owner and Manager only.
     """
+
+    required_flag = None  # Tier-exempt (available on Starter)
 
     permission_classes = [IsAuthenticated, RequirePasswordChanged, IsGymStaff]
 
@@ -993,6 +1007,8 @@ class PublicPlanListView(APIView):
     Public endpoint on gym subdomain returning all active membership plans.
     """
 
+    required_flag = None  # Tier-exempt (available on Starter)
+
     permission_classes = [AllowAny]
     authentication_classes = []
 
@@ -1039,6 +1055,8 @@ class MemberSuspendView(APIView):
     Allowed: Owner and Manager only.
     """
 
+    required_flag = None  # Tier-exempt (available on Starter)
+
     permission_classes = [IsAuthenticated, RequirePasswordChanged, IsOwnerOrManager]
 
     @extend_schema(
@@ -1078,6 +1096,8 @@ class MemberReactivateView(APIView):
     Reactivate a suspended gym member.
     Allowed: Owner and Manager only.
     """
+
+    required_flag = None  # Tier-exempt (available on Starter)
 
     permission_classes = [IsAuthenticated, RequirePasswordChanged, IsOwnerOrManager]
 

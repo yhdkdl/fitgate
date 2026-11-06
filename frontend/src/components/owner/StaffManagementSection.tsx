@@ -44,7 +44,7 @@ export const StaffManagementSection: React.FC<StaffManagementSectionProps> = ({
   // Invite modal state
   const [isInviteOpen, setIsInviteOpen] = useState(false);
   const [inviteSubmitting, setInviteSubmitting] = useState(false);
-  const hasTrainerModule = capabilities?.has_trainer_module ?? false;
+  const hasTrainerModule = capabilities ? capabilities.has_trainer_module : true;
   const defaultInviteRole: StaffRole = user?.role === "manager"
     ? (hasTrainerModule ? "trainer" : "reception")
     : "manager";

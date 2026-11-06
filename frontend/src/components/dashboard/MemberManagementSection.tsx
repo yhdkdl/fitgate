@@ -49,6 +49,7 @@ export const MemberManagementSection: React.FC<Props> = ({
   const auth = useOptionalAuth();
   const user = auth?.user;
   const capabilities = auth?.capabilities;
+  const hasTrainerModule = capabilities ? capabilities.has_trainer_module : true;
   const activeGymId = gymId || user?.gym_id;
   const [members, setMembers] = useState<Member[]>([]);
   const [loading, setLoading] = useState(true);
@@ -1379,7 +1380,7 @@ export const MemberManagementSection: React.FC<Props> = ({
             </div>
 
             {/* Latest Calculated Estimates (Owner & Manager view-only; hidden for Reception) */}
-            {capabilities?.has_trainer_module && userRole !== "reception" &&
+            {hasTrainerModule && userRole !== "reception" &&
               (selectedMember.latest_metrics &&
               (selectedMember.latest_metrics.weight_kg ||
                 selectedMember.latest_metrics.height_cm) ? (

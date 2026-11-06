@@ -31,6 +31,7 @@ from apps.equipment.services import report_equipment_issue, update_equipment_con
 
 
 class EquipmentListCreateView(APIView):
+    required_flag = None  # Tier-exempt (available on Starter)
     authentication_classes = [FitGateJWTAuthentication]
     permission_classes = [IsAuthenticated, RequirePasswordChanged]
 
@@ -136,6 +137,7 @@ class EquipmentListCreateView(APIView):
 
 
 class EquipmentDetailView(APIView):
+    required_flag = None  # Tier-exempt (available on Starter)
     authentication_classes = [FitGateJWTAuthentication]
     permission_classes = [IsAuthenticated, RequirePasswordChanged]
 
@@ -290,6 +292,7 @@ class EquipmentDetailView(APIView):
 
 
 class EquipmentReportIssueView(APIView):
+    required_flag = None  # Tier-exempt (available on Starter)
     authentication_classes = [FitGateJWTAuthentication]
     permission_classes = [IsAuthenticated, RequirePasswordChanged]
     permission_classes = [
@@ -343,6 +346,7 @@ class EquipmentReportIssueView(APIView):
 
 
 class EquipmentUpdateConditionView(APIView):
+    required_flag = None  # Tier-exempt (available on Starter)
     authentication_classes = [FitGateJWTAuthentication]
     permission_classes = [IsAuthenticated, RequirePasswordChanged]
     permission_classes = [IsAuthenticated, RequirePasswordChanged, CanManageEquipment]
