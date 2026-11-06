@@ -592,11 +592,11 @@ _Increment 5 = Sprints 25, 26, 27, 28, 29, 29a; Sprint 28a is deferred to a futu
 
 - [ ] All sprints in this increment complete
 
-## Increment 6 — Multi-branch management (Pro tier)
+## Increment 6 — Multi-branch management (Pro tier) (Deferred to a future version)
 
 **Preflight (external items):** None
 
-_Increment 6 runs after Increment 7; go/no-go decision date: to be set by the owner. Built LAST as an optional stretch if time remains. Keeps sprint numbers 30 to 34. Note: Scope has grown since initial draft — classes, dashboards, expenses, notices, CSV exports, and receipt accounts would also need branch scoping if Increment 6 is implemented._
+_Increment 6 is deferred to a future version by owner decision (November 5, 2026). The single-gym core grew so large that branch-scoping would bloat the surface. Keeps sprint numbers 30 to 34 reserved for the future roadmap._
 
 30. **Branch model + management** — `Branch` CRUD (Owner only), gated by `GymConfig.has_multi_branch`; frontend in-app branch switcher. One subdomain per gym regardless of branch count. Also creates the `MembershipPlan.all_branches_access` field in the database (default `false`), so it exists before Sprint 32 check-in needs it.
     - Branch CRUD endpoints reject requests on a gym without `has_multi_branch` at the API level.
@@ -657,6 +657,7 @@ _Increment 6 runs after Increment 7; go/no-go decision date: to be set by the ow
 
 ## Deferred to a future version
 
+- Increment 6 (Multi-branch management, Sprints 30–34; deferred because the single-gym core grew so large that branches would bloat the surface; Pro tier remains hidden and unselectable)
 - Public self-serve gym registration and approval (the source's FG-UC-00-GYM) and its rejection handling
 - Inactivity flags, escalation and the inactive-member report (attendance data is already kept, so these can be added later)
 - Chapa subaccount mode; Chapa-paid platform fees

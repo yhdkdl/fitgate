@@ -89,6 +89,20 @@ class TestPermissionsAndProjectContracts:
         """
         resolver = get_resolver()
 
+        view_to_urls = {}
+
+        def map_view_urls(patterns, prefix=""):
+            for p in patterns:
+                if hasattr(p, "url_patterns"):
+                    map_view_urls(p.url_patterns, prefix + str(p.pattern))
+                elif hasattr(p, "callback") and p.callback:
+                    cb = p.callback
+                    vc = getattr(cb, "view_class", None) or getattr(cb, "cls", None)
+                    if vc:
+                        view_to_urls.setdefault(vc, []).append(prefix + str(p.pattern))
+
+        map_view_urls(resolver.url_patterns)
+
         def inspect_patterns(patterns):
             view_classes = set()
             for pattern in patterns:
@@ -134,6 +148,51 @@ class TestPermissionsAndProjectContracts:
             assert hasattr(
                 view_cls, "required_flag"
             ), f"View '{name}' in '{module}' must declare 'required_flag' (either a tier flag string or None for tier-exempt views)."
+
+            # Tier-gated domain check: trainers, AI plans, classes, freeze, analytics, notices, expenses
+            # must declare a real tier flag and can NEVER declare None.
+            module_lower = module.lower()
+            url_list = view_to_urls.get(view_cls, [])
+            urls_str = " ".join(url_list).lower()
+
+            is_tier_gated_domain = False
+            if (
+                "apps.classes" in module_lower
+                or "/classes" in urls_str
+                or "/my-classes" in urls_str
+            ):
+                is_tier_gated_domain = True
+            elif (
+                "apps.trainers" in module_lower
+                or "/trainers" in urls_str
+                or "ai_plans" in urls_str
+                or "/my-clients" in urls_str
+                or "/measurements" in urls_str
+            ):
+                is_tier_gated_domain = True
+            elif (
+                "freeze" in module_lower
+                or "/freeze" in urls_str
+                or "/freezes" in urls_str
+            ):
+                is_tier_gated_domain = True
+            elif (
+                "analytics" in module_lower or "/analytics" in urls_str
+            ) and not name.startswith("Platform"):
+                is_tier_gated_domain = True
+            elif "/gym/notices" in urls_str or "/telegram/test" in urls_str:
+                is_tier_gated_domain = True
+            elif (
+                "/expenses" in urls_str
+                or "financial-report" in urls_str
+                or "attendance-report" in urls_str
+            ):
+                is_tier_gated_domain = True
+
+            if is_tier_gated_domain:
+                assert (
+                    view_cls.required_flag is not None
+                ), f"View '{name}' in '{module}' (urls: {url_list}) belongs to tier-gated feature and must declare a tier flag, never None."
 
             flag = view_cls.required_flag
             if flag is not None:

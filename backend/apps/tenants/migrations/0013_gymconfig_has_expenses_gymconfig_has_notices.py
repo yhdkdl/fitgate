@@ -21,7 +21,7 @@ def reverse_noop(apps, schema_editor):
 class Migration(migrations.Migration):
 
     dependencies = [
-        ("tenants", "0010_populate_group_classes_entitlement"),
+        ("tenants", "0012_gymconfig_disabled_roles"),
     ]
 
     operations = [

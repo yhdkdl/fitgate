@@ -141,3 +141,7 @@ From Sprint 10, check-in directly reads MemberSubscription and verifies valid pl
   - Unit purchase price field with `Total investment` summary restricted to Owner/Manager, price audit logging.
   - Member equipment card privacy (no serial, notes, or prices; unavailable filtered when setting off).
 - **Status:** In progress.
+
+## Roadmap & Deferred Work
+
+- **Increment 6 (Multi-branch management, Sprints 30–34):** Deferred to a future version (November 5, 2026). The single-gym core platform expanded in scope (classes, role enablement, receipt reviews, equipment investment, expenses, notices, CSV exports, demo gym archive-and-recreate, offline PWA) to the point where multi-branch scoping would bloat the surface; Pro tier remains unselectable and hidden.

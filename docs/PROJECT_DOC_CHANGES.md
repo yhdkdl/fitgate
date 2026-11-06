@@ -7,6 +7,10 @@ _Purpose: A dated record of every scope decision, modification, and addition mad
 
 ## 1. Deferred to Future Work
 
+- **Increment 6 (Multi-Branch Management) Deferred to Future Version (November 5, 2026):**
+  - **Scope Deferral:** Increment 6 (multi-branch management, Sprints 30 through 34) is moved to "Deferred to a future version". The single-gym core grew so large (including classes, role enablement, receipt review queues, equipment pricing and investment tracking, expenses, notices, CSV exports, demo gym archive-and-recreate, and offline PWA) that branch scoping across all modules would bloat the surface.
+  - **Tier Availability:** The Pro tier remains hidden and unselectable from landing pages and the Create Gym form until a future version. Pro tier defaults in the database remain identical to Growth with `has_multi_branch=False`.
+
 - **Weekly member check-in, trainer check-in notification, and Monday reminder (November 1, 2026):** Deferred to a future release; the weekly member check-in form (energy, recovery, motivation ratings 1–5), the trainer notification upon check-in submission, the scheduled Monday reminder, and dynamic check-in intensity adjustments are deferred. Intensity is determined deterministically by phase and fitness level, and trainers adjust intensity directly by editing the draft before approval. The rules engine's adaptive intensity strategy code is preserved ready for future check-in integration.
 - **Blood pressure, heart-rate zones, and posture screening checklist (October 30, 2026):** Deferred to a future release; standard physical circumferences, body composition metrics, and resting heart rate cover baseline trainer assessment needs without requiring specialized clinical diagnostics or complex postural assessment tools.
 - **Trainer availability schedule (Sprint 18):** Deferred to a future release; gym trainers coordinate availability directly with gym management in v1, reducing scheduling interface complexity.

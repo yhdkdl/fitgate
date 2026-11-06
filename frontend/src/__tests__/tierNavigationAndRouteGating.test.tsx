@@ -146,6 +146,7 @@ describe("Tier Navigation & Route Gating", () => {
       </MemoryRouter>
     );
 
+    expect(screen.getAllByText("Receipt reviews")[0]).toBeInTheDocument();
     expect(screen.queryByText("Classes")).not.toBeInTheDocument();
     expect(screen.queryByText("Expenses & Reports")).not.toBeInTheDocument();
     expect(screen.queryByText("Trainers")).not.toBeInTheDocument();
@@ -166,6 +167,7 @@ describe("Tier Navigation & Route Gating", () => {
       </MemoryRouter>
     );
 
+    expect(screen.getAllByText("Receipt reviews")[0]).toBeInTheDocument();
     expect(screen.getAllByText("Classes")[0]).toBeInTheDocument();
     expect(screen.getAllByText("Expenses & Reports")[0]).toBeInTheDocument();
     expect(screen.getAllByText("Trainers")[0]).toBeInTheDocument();
