@@ -15,6 +15,7 @@ import {
   updateProfile as apiUpdateProfile,
   type ChangePasswordRequest,
   type DashboardConfig,
+  type GymCapabilities,
   type LoginRequest,
   type ProfileUpdateRequest,
   type UserProfile,
@@ -40,6 +41,7 @@ import {
 interface AuthContextType {
   user: UserSummary | UserProfile | null;
   dashboardConfig: DashboardConfig | null;
+  capabilities: GymCapabilities | null;
   isLoading: boolean;
   isAuthenticated: boolean;
   mustChangePassword: boolean;
@@ -105,6 +107,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       }
     });
 
+  const [capabilities, setCapabilities] = useState<GymCapabilities | null>(() => {
+    try {
+      const stored = sessionStorage.getItem(DASHBOARD_KEY);
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        return parsed?.capabilities || null;
+      }
+      return null;
+    } catch {
+      return null;
+    }
+  });
+
   const [isLoading, setIsLoading] = useState(true);
   const isLoadingRef = useRef(isLoading);
   useEffect(() => {
@@ -155,6 +170,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         clearTokens();
         setUser(null);
         setDashboardConfig(null);
+        setCapabilities(null);
         try {
           sessionStorage.removeItem(DASHBOARD_KEY);
         } catch {
@@ -205,6 +221,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 
         const dash = msg.dashboard || null;
         setDashboardConfig(dash);
+        if (dash?.capabilities) {
+          setCapabilities(dash.capabilities);
+        } else if ((incomingUser as { capabilities?: GymCapabilities })?.capabilities) {
+          setCapabilities((incomingUser as { capabilities?: GymCapabilities }).capabilities);
+        }
         if (dash) {
           try {
             sessionStorage.setItem(DASHBOARD_KEY, JSON.stringify(dash));
@@ -268,6 +289,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         if (newAccess) {
           const profile = await getProfile();
           setUser(profile);
+          if ((profile as { capabilities?: GymCapabilities })?.capabilities) {
+            setCapabilities((profile as { capabilities?: GymCapabilities }).capabilities);
+          }
           const name = profile.full_name || profile.email;
           setNotice(
             `You signed in as ${name} in another tab; this tab now shows that account.`
@@ -305,6 +329,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         if (newAccess) {
           const profile = await getProfile();
           setUser(profile);
+          if ((profile as { capabilities?: GymCapabilities })?.capabilities) {
+            setCapabilities((profile as { capabilities?: GymCapabilities }).capabilities);
+          }
         } else {
           setUser(null);
           setDashboardConfig(null);
@@ -358,6 +385,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     const handleVisibility = () => {
       if (document.visibilityState === "visible") {
         void syncSession();
+        void refreshProfile();
       }
     };
 
@@ -396,6 +424,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       setUser(res.user);
       const dash = (res.dashboard as unknown as DashboardConfig) || null;
       setDashboardConfig(dash);
+      if (dash?.capabilities) {
+        setCapabilities(dash.capabilities);
+      } else if ((res.user as { capabilities?: GymCapabilities })?.capabilities) {
+        setCapabilities((res.user as { capabilities?: GymCapabilities }).capabilities);
+      }
       if (dash) {
         try {
           sessionStorage.setItem(DASHBOARD_KEY, JSON.stringify(dash));
@@ -457,8 +490,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   };
 
   const refreshProfile = async () => {
-    const profile = await getProfile();
-    setUser(profile);
+    try {
+      const profile = await getProfile();
+      setUser(profile);
+      if ((profile as { capabilities?: GymCapabilities })?.capabilities) {
+        setCapabilities((profile as { capabilities?: GymCapabilities }).capabilities);
+      }
+    } catch {
+      // Ignore in background re-sync
+    }
   };
 
   const mustChangePassword = Boolean(user?.must_change_password);
@@ -469,6 +509,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       value={{
         user,
         dashboardConfig,
+        capabilities,
         isLoading,
         isAuthenticated,
         mustChangePassword,

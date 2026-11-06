@@ -557,7 +557,14 @@ _Increment 5 = Sprints 25, 26, 27, 28, 29, 29a; Sprint 28a is deferred to a futu
 
 36. **GymConfig feature-flag enforcement** — backend permission layer + frontend render gating, for every tier-gated feature.
     - **Entitlement rule:** An Owner may edit `freeze_days_allowed` (up to `freeze_days_cap`), the Chapa switch (`is_enabled`), the equipment-complete setting (`is_equipment_list_complete`), and the receipt verification settings; an Owner may NOT edit tier, feature flags, `freeze_days_cap`, payment grace days, or reminder days.
-    - **Full regression pass:** Every tier-gated feature built so far is re-verified to reject a gym missing the corresponding flag: trainer module (trainers, assignments, My clients, measurements, fitness profile), AI plans (generate, review, member plans), analytics (revenue by plan), freeze, and group classes. Every entitlement edit by an Owner is re-verified to be rejected.
+    - **Tier Alignment & New Flags:** Notice Board & Telegram bridge (`has_notices`) and Expenses & Reports (`has_expenses`) moved from Starter to Growth tier. Both flags default False on Starter and True on Growth/Pro. Super Admin flag editor manages them.
+    - **Capabilities as Single Source of Truth:** Server transmits gym capabilities (`has_trainer_module`, `has_ai_plans`, `has_freeze`, `has_group_classes`, `has_analytics`, `has_notices`, `has_expenses`) with session and tenant configuration, reloaded at login and upon browser tab visibility (`visibilitychange`). Navigation, role pickers, form fields, cards, buttons, and route guards read only from capabilities.
+    - **Route Guards & Clean Redirect:** Direct navigation to hidden routes (e.g. `/trainers`, `/classes`, `/notices`, `/expenses`, `/assignments`, `/freezes`) on a gym without the feature redirects to Home with zero error screens.
+    - **Staff and Member UI Gating:**
+      - Staff side: hides Trainers, Assignments, My clients, Member measurements, AI plan screens, Freeze requests, Classes, Notice Board, Expenses & Reports; hides Trainer staff role invite option; hides "Trainer included" plan checkbox; hides freeze days setting, Telegram settings/test button, trainer capacity, assigned trainer column, and equipment "Also record as an expense" checkbox. Single upgrade prompt on Owner dashboard is "Upgrade to unlock revenue by plan".
+      - Member side: hides Request freeze button, "My trainer" card, fitness profile card, "Waiting for your trainer", approved plans section, measurements section, Classes menu, Notices screen and Home card, and "Trainer included" labels/filters in plan lists, checkout, and upgrade modals.
+      - Trainer-inclusive plans on gym without module are not listed or sold on server; Owner sees "Not available on your tier" badge; members with active plans retain them until expiry. Existing trainer accounts see clean empty state on dashboard and hidden feature navigation.
+    - **Full regression pass:** Every tier-gated feature built so far is re-verified to reject a gym missing the corresponding flag: trainer module, AI plans, analytics (revenue by plan), freeze, group classes, notices/Telegram, and expenses/reports. Every entitlement edit by an Owner is re-verified to be rejected.
     - **Contract test:** Every tier-gated view declares its required flag, like the existing "every view declares permissions" contract test, so a future endpoint cannot skip it.
     - Multi-branch is verified at the end of Increment 6 if Increment 6 ships.
     - [~] Status: in progress (branch `feature/sprint-36-flag-enforcement`)
@@ -693,6 +700,8 @@ _Increment 6 runs after Increment 7; go/no-go decision date: to be set by the ow
 
 ### Sprint 28: Notice Board & Telegram Channel Bridge (November 2, 2026)
 
+_Note: Notice Board and Telegram Channel Bridge are realigned to Growth and Pro tiers only (gated by GymConfig.has_notices; disabled on Starter)._
+
 - [x] Gym notice board (Owner and Manager can create and delete notices, visible to all gym roles: Owner, Manager, Trainer, Reception, Member).
 - [x] Dedicated Notice Board route and navigation pill for all roles; Member Home card shows latest active gym notices.
 - [x] Optional Telegram channel bridge: posts published notices to configured public channel (`@channel_name`); failure to broadcast does not block notice creation.
@@ -709,6 +718,8 @@ _Increment 6 runs after Increment 7; go/no-go decision date: to be set by the ow
 - [x] Audit log entry created on every export recording actor, export type, and exported row count.
 
 ### Sprint 29a: Expenses & Reports (November 2, 2026)
+
+_Note: Expenses & Reports are realigned to Growth and Pro tiers only (gated by GymConfig.has_expenses; disabled on Starter)._
 
 - [x] Expense tracking for Owner and Manager roles only.
 - [x] Expense fields: amount (> 0 up to 10,000,000 ETB), category (`rent`, `salaries`, `utilities`, `equipment`, `maintenance`, `marketing`, `supplies`, `other`), optional note (up to 500 characters), incurred date not in future.

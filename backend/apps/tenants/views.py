@@ -1064,12 +1064,20 @@ class GymPublicEntryView(APIView):
                 gym=gym, is_active=True
             ).order_by("-created_at")
 
+            from apps.tenants.models import get_gym_capabilities
+
+            caps = get_gym_capabilities(gym)
+            if not caps.get("has_trainer_module", False):
+                active_plans = active_plans.exclude(trainer_inclusive=True)
+
             return Response(
                 {
                     "still_securing": True,
                     "gym_id": gym.id,
                     "name": gym.name,
                     "subdomain": gym.subdomain,
+                    "tier": gym.tier,
+                    "capabilities": caps,
                     "brand_color": (
                         getattr(config, "brand_color", None) if config else None
                     ),
@@ -1104,11 +1112,19 @@ class GymPublicEntryView(APIView):
             and payment_cfg.is_enabled
         )
 
+        from apps.tenants.models import get_gym_capabilities
+
+        caps = get_gym_capabilities(gym)
+        if not caps.get("has_trainer_module", False):
+            active_plans = active_plans.exclude(trainer_inclusive=True)
+
         data = {
             "still_securing": False,
             "gym_id": gym.id,
             "name": gym.name,
             "subdomain": gym.subdomain,
+            "tier": gym.tier,
+            "capabilities": caps,
             "brand_color": getattr(config, "brand_color", None) if config else None,
             "logo": getattr(config, "logo", None) if config else None,
             "phone": gym.contact_phone,
@@ -1154,19 +1170,43 @@ class GymNoticeListCreateView(APIView):
     """
     List notices for all authenticated gym users (members and staff).
     Post notice for Owner and Manager only, with optional Telegram channel broadcast.
+    Gated by GymConfig.has_notices (Growth/Pro only).
     """
 
+    required_flag = "has_notices"
     permission_classes = [IsAuthenticated, RequirePasswordChanged]
 
     def get(self, request, *args, **kwargs):
-        from apps.tenants.models import GymNotice
+        from apps.accounts.models import User
+        from apps.tenants.models import GymConfig, GymNotice
         from apps.tenants.serializers import GymNoticeSerializer
 
         tenant = getattr(request, "tenant", None)
         if not tenant:
             return Response([], status=status.HTTP_200_OK)
 
-        notices = GymNotice.objects.filter(gym=tenant).order_by("-created_at")
+        config = GymConfig.objects.filter(gym=tenant).first()
+        has_notices = getattr(config, "has_notices", False) if config else False
+
+        if not has_notices:
+            if getattr(request.user, "role", None) == User.ROLE_OWNER:
+                platform_notices = GymNotice.all_objects.filter(
+                    gym__isnull=True
+                ).order_by("-created_at")
+                serializer = GymNoticeSerializer(platform_notices, many=True)
+                return Response(serializer.data, status=status.HTTP_200_OK)
+            raise PermissionDenied(
+                "Notice board is not available on this gym's current tier."
+            )
+
+        from django.db.models import Q
+
+        if getattr(request.user, "role", None) == User.ROLE_OWNER:
+            notices = GymNotice.all_objects.filter(
+                Q(gym=tenant) | Q(gym__isnull=True)
+            ).order_by("-created_at")
+        else:
+            notices = GymNotice.objects.filter(gym=tenant).order_by("-created_at")
         serializer = GymNoticeSerializer(notices, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
@@ -1181,6 +1221,12 @@ class GymNoticeListCreateView(APIView):
         if not tenant:
             return Response(
                 {"detail": "Tenant required."}, status=status.HTTP_400_BAD_REQUEST
+            )
+
+        config = GymConfig.objects.filter(gym=tenant).first()
+        if not config or not config.has_notices:
+            raise PermissionDenied(
+                "Notice board is not available on this gym's current tier."
             )
 
         role = getattr(request.user, "role", None)
@@ -1232,14 +1278,21 @@ class GymNoticeListCreateView(APIView):
 class GymNoticeDetailView(APIView):
     """Delete a notice board announcement (Owner and Manager only)."""
 
+    required_flag = "has_notices"
     permission_classes = [IsAuthenticated, RequirePasswordChanged]
 
     def delete(self, request, pk, *args, **kwargs):
         from apps.accounts.models import User
         from apps.accounts.services import record_audit_log
-        from apps.tenants.models import GymNotice
+        from apps.tenants.models import GymConfig, GymNotice
 
         tenant = getattr(request, "tenant", None)
+        config = GymConfig.objects.filter(gym=tenant).first()
+        if not config or not config.has_notices:
+            raise PermissionDenied(
+                "Notice board is not available on this gym's current tier."
+            )
+
         role = getattr(request.user, "role", None)
         if role not in (User.ROLE_OWNER, User.ROLE_MANAGER):
             raise PermissionDenied("Only Owner and Manager can delete announcements.")
@@ -1270,6 +1323,7 @@ class GymNoticeDetailView(APIView):
 class TelegramTestMessageView(APIView):
     """Send a test message to the configured gym Telegram channel (Owner only)."""
 
+    required_flag = "has_notices"
     permission_classes = [IsAuthenticated, RequirePasswordChanged, CanEditGymSettings]
 
     def post(self, request, *args, **kwargs):
@@ -1278,6 +1332,10 @@ class TelegramTestMessageView(APIView):
 
         tenant = getattr(request, "tenant", None)
         config = GymConfig.objects.filter(gym=tenant).first()
+        if not config or not config.has_notices:
+            raise PermissionDenied(
+                "Telegram integration is not available on this gym's current tier."
+            )
         channel = getattr(config, "telegram_channel", "") if config else ""
 
         if not channel:

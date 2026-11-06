@@ -475,6 +475,13 @@ def invite_staff_member(
     if target_role not in valid_roles:
         raise ValidationError({"role": [f"Invalid staff role '{target_role}'."]})
 
+    if target_role == User.ROLE_TRAINER:
+        config = getattr(gym, "config", None)
+        if not config or not config.has_trainer_module:
+            raise PermissionDenied(
+                "Trainer accounts are not available on this gym's current tier."
+            )
+
     if acting_role == User.ROLE_MANAGER and target_role == User.ROLE_MANAGER:
         raise PermissionDenied("Managers cannot invite or manage Manager accounts.")
 

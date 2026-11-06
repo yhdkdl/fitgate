@@ -85,6 +85,12 @@ class EquipmentListCreateView(APIView):
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
         record_as_expense = serializer.validated_data.pop("record_as_expense", False)
+        if record_as_expense:
+            config = getattr(tenant, "config", None)
+            if not config or not config.has_expenses:
+                raise PermissionDenied(
+                    "Expense tracking is not available on your gym's current tier."
+                )
         equipment = Equipment(gym=tenant, **serializer.validated_data)
         equipment.save()
 
@@ -193,6 +199,12 @@ class EquipmentDetailView(APIView):
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
         record_as_expense = serializer.validated_data.pop("record_as_expense", False)
+        if record_as_expense:
+            config = getattr(request.tenant, "config", None)
+            if not config or not config.has_expenses:
+                raise PermissionDenied(
+                    "Expense tracking is not available on your gym's current tier."
+                )
         serializer.save()
 
         if (

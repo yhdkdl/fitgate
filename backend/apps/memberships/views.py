@@ -741,14 +741,25 @@ class MembershipPlanListCreateView(APIView):
         if tenant is None:
             raise Http404("Gym tenant context required.")
 
+        config = getattr(tenant, "config", None)
+        has_trainer_module = (
+            getattr(config, "has_trainer_module", False) if config else False
+        )
+
         plans = MembershipPlan.objects.filter(gym=tenant).order_by("-created_at")
         if request.user.role == User.ROLE_MEMBER:
             plans = plans.filter(is_active=True)
+            if not has_trainer_module:
+                plans = plans.exclude(trainer_inclusive=True)
 
-        return Response(
-            MembershipPlanSerializer(plans, many=True).data,
-            status=status.HTTP_200_OK,
-        )
+        data = MembershipPlanSerializer(plans, many=True).data
+        if not has_trainer_module:
+            for item in data:
+                if item.get("trainer_inclusive"):
+                    item["tier_unavailable"] = True
+                    item["tier_message"] = "Not available on your tier"
+
+        return Response(data, status=status.HTTP_200_OK)
 
     @extend_schema(
         summary="Create gym membership plan",
@@ -776,6 +787,11 @@ class MembershipPlanListCreateView(APIView):
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
         trainer_inclusive = serializer.validated_data.get("trainer_inclusive", False)
+        config = getattr(tenant, "config", None)
+        if trainer_inclusive and (not config or not config.has_trainer_module):
+            raise PermissionDenied(
+                "Trainer-inclusive plans are not available on this tier."
+            )
         warning = None
         if trainer_inclusive:
             has_trainers = User.objects.filter(
@@ -864,6 +880,11 @@ class MembershipPlanDetailView(APIView):
         trainer_inclusive = serializer.validated_data.get(
             "trainer_inclusive", plan.trainer_inclusive
         )
+        config = getattr(tenant, "config", None)
+        if trainer_inclusive and (not config or not config.has_trainer_module):
+            raise PermissionDenied(
+                "Trainer-inclusive plans are not available on this tier."
+            )
         warning = None
         if trainer_inclusive:
             has_trainers = User.objects.filter(
@@ -966,9 +987,15 @@ class PublicPlanListView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
+        config = getattr(tenant, "config", None)
+        has_trainer_module = (
+            getattr(config, "has_trainer_module", False) if config else False
+        )
         plans = MembershipPlan.all_objects.filter(gym=tenant, is_active=True).order_by(
             "-created_at"
         )
+        if not has_trainer_module:
+            plans = plans.exclude(trainer_inclusive=True)
         return Response(
             PublicPlanSerializer(plans, many=True).data,
             status=status.HTTP_200_OK,

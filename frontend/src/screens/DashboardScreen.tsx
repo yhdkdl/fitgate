@@ -147,7 +147,7 @@ function getSafeBrandColor(hex?: string | null): string {
 }
 
 export const DashboardScreen: React.FC = () => {
-  const { user, dashboardConfig, logout } = useAuth();
+  const { user, dashboardConfig, capabilities, logout } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const tenant = getTenantFromHostname();
@@ -179,13 +179,44 @@ export const DashboardScreen: React.FC = () => {
         { label: "Overview", path: "/dashboard" },
         { label: "Profile", path: "/profile" },
       ];
-    if (gymBranding && gymBranding.has_group_classes === false) {
-      return baseNav.filter(
-        (item) => item.path !== "/classes" && item.path !== "/my-classes"
-      );
-    }
-    return baseNav;
-  }, [role, dashboardConfig?.navigation, gymBranding]);
+    if (role === "super_admin") return baseNav;
+
+    const caps = capabilities || dashboardConfig?.capabilities;
+    return baseNav.filter((item) => {
+      if (caps) {
+        if (!caps.has_trainer_module && (
+          item.path === "/trainers" ||
+          item.path === "/assignments" ||
+          item.path === "/my-clients" ||
+          item.path === "/measurements"
+        )) {
+          return false;
+        }
+        if (!caps.has_group_classes && (
+          item.path === "/classes" ||
+          item.path === "/my-classes"
+        )) {
+          return false;
+        }
+        if (!caps.has_freeze && (
+          item.path === "/freezes" ||
+          item.path === "/freeze-request" ||
+          item.path === "/freeze"
+        )) {
+          return false;
+        }
+        if (!caps.has_notices && item.path === "/notices") {
+          return false;
+        }
+        if (!caps.has_expenses && item.path === "/expenses") {
+          return false;
+        }
+      } else if (gymBranding && gymBranding.has_group_classes === false) {
+        if (item.path === "/classes" || item.path === "/my-classes") return false;
+      }
+      return true;
+    });
+  }, [role, dashboardConfig?.navigation, dashboardConfig?.capabilities, capabilities, gymBranding]);
 
   const currentPath = location.pathname.replace(/\/+$/, "") || "/dashboard";
 
@@ -213,7 +244,7 @@ export const DashboardScreen: React.FC = () => {
   }, [currentPath, role, user, userRoleNav, navigate]);
 
   useEffect(() => {
-    if (role === "trainer") {
+    if (role === "trainer" && capabilities?.has_trainer_module !== false) {
       getTrainerProfileMe()
         .then((t) => setTrainerWorkload(t))
         .catch(() => {});
@@ -221,7 +252,7 @@ export const DashboardScreen: React.FC = () => {
         .then((c) => setTrainerClients(c))
         .catch(() => {});
     }
-  }, [role]);
+  }, [role, capabilities?.has_trainer_module]);
 
   useEffect(() => {
     if (!tenant) return;
@@ -551,6 +582,14 @@ export const DashboardScreen: React.FC = () => {
         )}
 
         {role === "trainer" ? (
+          capabilities && !capabilities.has_trainer_module ? (
+            <Card className="bg-surface border-border p-8 text-center space-y-3">
+              <h2 className="text-xl font-bold text-text">Trainer Module Not Enabled</h2>
+              <p className="text-sm text-text-muted max-w-md mx-auto">
+                The trainer module is not enabled for your gym. Please contact your gym administrator or owner for more information.
+              </p>
+            </Card>
+          ) : (
           <div className="space-y-6">
             <div className="border-b border-border pb-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
               <div>
@@ -829,6 +868,7 @@ export const DashboardScreen: React.FC = () => {
               )}
             </Card>
           </div>
+          )
         ) : role === "owner" || role === "manager" ? (
           <SectionErrorBoundary title="Operational Analytics">
             <AnalyticsOverviewSection

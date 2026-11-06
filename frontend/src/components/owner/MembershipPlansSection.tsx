@@ -24,7 +24,7 @@ interface MembershipPlansSectionProps {
 export const MembershipPlansSection: React.FC<MembershipPlansSectionProps> = ({
   onPlansUpdated,
 }) => {
-  const { user } = useAuth();
+  const { user, capabilities } = useAuth();
   const isAuthorized = user?.role === "owner" || user?.role === "manager";
 
   const [plans, setPlans] = useState<MembershipPlan[]>([]);
@@ -330,9 +330,15 @@ export const MembershipPlansSection: React.FC<MembershipPlansSectionProps> = ({
 
                 {plan.trainer_inclusive && (
                   <div>
-                    <Badge variant="primary" className="text-xs">
-                      🏋️ Personal Trainer Included
-                    </Badge>
+                    {(!capabilities?.has_trainer_module || plan.tier_unavailable) ? (
+                      <Badge variant="warning" className="text-xs">
+                        ⚠️ Not available on your tier
+                      </Badge>
+                    ) : (
+                      <Badge variant="primary" className="text-xs">
+                        🏋️ Personal Trainer Included
+                      </Badge>
+                    )}
                   </div>
                 )}
 

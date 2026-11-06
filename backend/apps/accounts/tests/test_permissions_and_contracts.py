@@ -103,6 +103,7 @@ class TestPermissionsAndProjectContracts:
         all_view_classes = inspect_patterns(resolver.url_patterns)
 
         from apps.classes.permissions import HasGroupClassesEnabled
+        from apps.payments.permissions import HasExpensesEnabled
         from apps.trainers.permissions import HasAIPlansEnabled, HasTrainerModule
 
         checked_count = 0
@@ -175,9 +176,41 @@ class TestPermissionsAndProjectContracts:
                 ), f"View '{name}' must have required_flag='has_analytics'."
                 checked_count += 1
 
+            # 6. Notice and Telegram views in tenants
+            elif name in (
+                "GymNoticeListCreateView",
+                "GymNoticeDetailView",
+                "TelegramTestMessageView",
+            ):
+                assert hasattr(
+                    view_cls, "required_flag"
+                ), f"View class '{name}' must declare 'required_flag'."
+                assert (
+                    view_cls.required_flag == "has_notices"
+                ), f"View '{name}' must have required_flag='has_notices'."
+                checked_count += 1
+
+            # 7. Expense and financial report views in payments
+            elif name in (
+                "ExpenseListCreateView",
+                "ExpenseVoidView",
+                "GymFinancialReportView",
+                "GymAttendanceReportView",
+            ):
+                assert hasattr(
+                    view_cls, "required_flag"
+                ), f"View class '{name}' must declare 'required_flag'."
+                assert (
+                    view_cls.required_flag == "has_expenses"
+                ), f"View '{name}' must have required_flag='has_expenses'."
+                assert HasExpensesEnabled in getattr(
+                    view_cls, "permission_classes", []
+                ), f"View '{name}' must declare HasExpensesEnabled in permission_classes."
+                checked_count += 1
+
         assert (
-            checked_count == 36
-        ), f"Expected 36 tier-gated views checked, found {checked_count}."
+            checked_count == 43
+        ), f"Expected 43 tier-gated views checked, found {checked_count}."
 
     def test_anonymous_access_returns_401_for_all_non_allowany_views(self):
         """

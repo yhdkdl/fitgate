@@ -74,6 +74,8 @@ class GymConfigSerializer(serializers.ModelSerializer):
             "has_ai_plans",
             "has_analytics",
             "has_group_classes",
+            "has_notices",
+            "has_expenses",
             "has_multi_branch",
             "freeze_days_allowed",
             "freeze_days_cap",
@@ -346,6 +348,8 @@ class GymSettingsUpdateSerializer(serializers.Serializer):
         "has_ai_plans",
         "has_analytics",
         "has_group_classes",
+        "has_notices",
+        "has_expenses",
         "has_multi_branch",
         "payment_grace_days",
         "subscription_reminder_days",
@@ -458,6 +462,8 @@ class GymPublicEntryResponseSerializer(serializers.Serializer):
     message = serializers.CharField(required=False)
     online_payment_verified = serializers.BooleanField(default=False)
     has_group_classes = serializers.BooleanField(default=False)
+    tier = serializers.CharField(required=False)
+    capabilities = serializers.DictField(required=False)
 
 
 class GymNoticeSerializer(serializers.ModelSerializer):

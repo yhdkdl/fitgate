@@ -452,6 +452,12 @@ class ChapaCheckoutView(APIView):
                 {"detail": "Membership plan not found."},
                 status=status.HTTP_404_NOT_FOUND,
             )
+        if plan.trainer_inclusive:
+            gym_cfg = getattr(gym, "config", None)
+            if not gym_cfg or not gym_cfg.has_trainer_module:
+                raise PermissionDenied(
+                    "This plan includes a trainer, which is not available on your gym's current tier."
+                )
         if not plan.is_active:
             return Response(
                 {"detail": "Cannot checkout a deactivated membership plan."},

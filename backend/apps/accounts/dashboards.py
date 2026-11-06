@@ -119,4 +119,10 @@ def dashboard_config_for(user: User) -> dict:
     if role not in configs:
         raise ValueError(f"Unknown user role: {role}")
 
-    return configs[role]
+    config = dict(configs[role])
+    gym = getattr(user, "gym", None)
+    if gym:
+        from apps.tenants.models import get_gym_capabilities
+
+        config["capabilities"] = get_gym_capabilities(gym)
+    return config

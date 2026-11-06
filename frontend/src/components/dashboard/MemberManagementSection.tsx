@@ -40,6 +40,7 @@ interface Props {
   onMemberRegistered?: () => void;
 }
 
+// MemberManagement
 export const MemberManagementSection: React.FC<Props> = ({
   userRole,
   gymId,
@@ -47,6 +48,7 @@ export const MemberManagementSection: React.FC<Props> = ({
 }) => {
   const auth = useOptionalAuth();
   const user = auth?.user;
+  const capabilities = auth?.capabilities;
   const activeGymId = gymId || user?.gym_id;
   const [members, setMembers] = useState<Member[]>([]);
   const [loading, setLoading] = useState(true);
@@ -1377,7 +1379,7 @@ export const MemberManagementSection: React.FC<Props> = ({
             </div>
 
             {/* Latest Calculated Estimates (Owner & Manager view-only; hidden for Reception) */}
-            {userRole !== "reception" &&
+            {capabilities?.has_trainer_module && userRole !== "reception" &&
               (selectedMember.latest_metrics &&
               (selectedMember.latest_metrics.weight_kg ||
                 selectedMember.latest_metrics.height_cm) ? (

@@ -11,6 +11,8 @@ export interface MembershipPlan {
   is_active: boolean;
   warning?: string;
   has_no_trainers_warning?: boolean;
+  tier_unavailable?: boolean;
+  tier_message?: string;
   created_at: string;
   updated_at: string;
 }

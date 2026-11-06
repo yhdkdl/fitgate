@@ -78,7 +78,7 @@ Sprint 38 is NOT to be started at all. The order is:
 1. Fix 1: `fix/reminder-days-form` (two-number inputs for reminder days on Owner and Super Admin screens)
 2. Fix 2: `fix/autossl-trigger` (cPanel AutoSSL trigger and `check_pending_tls` management command)
 3. Sprint 35: `feature/sprint-35-super-admin-dashboard` (Super Admin dashboard, notices, gym termination)
-4. Sprint 36: `eature/sprint-36-flag-enforcement` (contract test and tier-gate regression)
+4. Sprint 36: `feature/sprint-36-flag-enforcement` (contract test, tier-gate regression, notices/expenses realignment, capabilities single source of truth, and frontend render gating)
 5. Sprint 37a: Demo gym (archive-and-recreate, rich seed data)
 6. Sprint 37: Offline-first PWA (service worker caching boundaries, check-in queue, 320px responsive)
 7. Full pass of every `docs/INCREMENT_*_TEST.md`
@@ -87,7 +87,7 @@ Sprint 38 is NOT to be started at all. The order is:
 
 ## Current
 
-- Sprint 36: eature/sprint-36-flag-enforcement (contract test and tier-gate regression).
+- Sprint 36: `feature/sprint-36-flag-enforcement` (contract test, tier-gate regression, notices/expenses realignment, capabilities single source of truth, and frontend render gating).
 
 ## Open manual steps
 

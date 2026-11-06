@@ -30,6 +30,7 @@ class UserSummarySerializer(serializers.ModelSerializer):
     """Minimal representation of authenticated user."""
 
     gym_id = serializers.UUIDField(allow_null=True, source="gym.id", read_only=True)
+    capabilities = serializers.SerializerMethodField(read_only=True)
 
     class Meta:
         model = User
@@ -41,14 +42,23 @@ class UserSummarySerializer(serializers.ModelSerializer):
             "full_name",
             "phone",
             "must_change_password",
+            "capabilities",
         ]
         read_only_fields = fields
+
+    def get_capabilities(self, obj):
+        if getattr(obj, "gym", None):
+            from apps.tenants.models import get_gym_capabilities
+
+            return get_gym_capabilities(obj.gym)
+        return None
 
 
 class UserProfileSerializer(serializers.ModelSerializer):
     """Profile representation of authenticated user."""
 
     gym_id = serializers.UUIDField(allow_null=True, source="gym.id", read_only=True)
+    capabilities = serializers.SerializerMethodField(read_only=True)
 
     class Meta:
         model = User
@@ -60,8 +70,16 @@ class UserProfileSerializer(serializers.ModelSerializer):
             "full_name",
             "phone",
             "must_change_password",
+            "capabilities",
         ]
         read_only_fields = fields
+
+    def get_capabilities(self, obj):
+        if getattr(obj, "gym", None):
+            from apps.tenants.models import get_gym_capabilities
+
+            return get_gym_capabilities(obj.gym)
+        return None
 
 
 class UserProfileUpdateSerializer(serializers.ModelSerializer):

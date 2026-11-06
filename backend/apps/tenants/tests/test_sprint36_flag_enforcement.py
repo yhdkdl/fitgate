@@ -26,8 +26,8 @@ from rest_framework.test import APIClient
 from apps.accounts.models import User
 from apps.accounts.tokens import get_tokens_for_user
 from apps.memberships.models import Member, MembershipPlan, MemberSubscription
-from apps.payments.models import GymPaymentConfig
-from apps.tenants.models import GymConfig, GymTenant
+from apps.payments.models import Expense, GymPaymentConfig
+from apps.tenants.models import GymConfig, GymNotice, GymTenant
 
 
 @pytest.fixture
@@ -53,6 +53,8 @@ def growth_gym(db):
             "has_ai_plans": True,
             "has_analytics": True,
             "has_group_classes": True,
+            "has_notices": True,
+            "has_expenses": True,
             "freeze_days_cap": 30,
             "freeze_days_allowed": 14,
             "is_equipment_list_complete": False,
@@ -79,6 +81,8 @@ def starter_gym(db):
             "has_ai_plans": False,
             "has_analytics": False,
             "has_group_classes": False,
+            "has_notices": False,
+            "has_expenses": False,
             "freeze_days_cap": 30,
             "freeze_days_allowed": 0,
             "is_equipment_list_complete": False,
@@ -398,3 +402,245 @@ class TestTierGatedFeatureRegression:
         )
         assert r_freeze.status_code == 400
         assert "Starter gyms cannot use membership freeze" in str(r_freeze.data)
+
+    def test_notices_and_telegram_regression(self, api_client, starter_gym, growth_gym):
+        """When has_notices=False, gym notices and telegram are refused, but platform notices reach starter owner."""
+        starter_owner = create_user(
+            starter_gym, User.ROLE_OWNER, "owner@startergym.com"
+        )
+        starter_client = auth_client(api_client, starter_owner, starter_gym)
+
+        # 1. Creating gym notice on Starter returns 403
+        r_create = starter_client.post(
+            "/api/gym/notices/",
+            {"title": "Closed Sunday", "body": "Water maintenance"},
+            format="json",
+        )
+        assert r_create.status_code == 403
+        assert "Notice board is not available" in str(r_create.data)
+
+        # 2. Telegram test message returns 403
+        r_tg = starter_client.post("/api/gym/settings/telegram/test/")
+        assert r_tg.status_code == 403
+        assert "Telegram integration is not available" in str(r_tg.data)
+
+        # 3. Super Admin creates a platform-wide notice (gym=None)
+        _ = GymNotice.all_objects.create(
+            gym=None,
+            title="Scheduled Platform Maintenance",
+            body="FitGate will perform maintenance on Sunday night.",
+            posted_by=starter_owner,
+        )
+
+        # 4. Starter owner DOES receive the platform notice on /api/gym/notices/
+        r_list = starter_client.get("/api/gym/notices/")
+        assert r_list.status_code == 200
+        titles = [n["title"] for n in r_list.data]
+        assert "Scheduled Platform Maintenance" in titles
+
+        # 5. Growth gym with has_notices=True can create gym notices
+        growth_owner = create_user(growth_gym, User.ROLE_OWNER, "owner@growthgym.com")
+        growth_client = auth_client(APIClient(), growth_owner, growth_gym)
+        r_growth_create = growth_client.post(
+            "/api/gym/notices/",
+            {"title": "Growth Class Notice", "body": "Zumba tonight"},
+            format="json",
+        )
+        assert r_growth_create.status_code == 201
+
+    def test_expenses_and_reports_regression(self, api_client, starter_gym, growth_gym):
+        """When has_expenses=False, expense endpoints and reports return 403."""
+        starter_owner = create_user(
+            starter_gym, User.ROLE_OWNER, "owner@startergym.com"
+        )
+        client = auth_client(api_client, starter_owner, starter_gym)
+
+        # 1. Expenses list & create -> 403
+        r1 = client.get("/api/gym/expenses/")
+        assert r1.status_code == 403
+
+        r2 = client.post(
+            "/api/gym/expenses/",
+            {
+                "amount_etb": "500.00",
+                "category": "utilities",
+                "incurred_on": timezone.localdate().isoformat(),
+            },
+            format="json",
+        )
+        assert r2.status_code == 403
+
+        # 2. Financial report -> 403
+        r3 = client.get("/api/gym/reports/financial/")
+        assert r3.status_code == 403
+
+        # 3. Attendance report -> 403
+        r4 = client.get("/api/gym/reports/attendance/")
+        assert r4.status_code == 403
+
+        # 4. Equipment record_as_expense -> 403
+        r5 = client.post(
+            "/api/gym/equipment/",
+            {
+                "name": "Treadmill Pro",
+                "category": "cardio_machines",
+                "quantity": 1,
+                "min_qty_threshold": 1,
+                "condition": "good",
+                "unit_purchase_price_etb": "50000.00",
+                "record_as_expense": True,
+            },
+            format="json",
+        )
+        assert r5.status_code == 403
+        assert "Expense tracking is not available" in str(r5.data)
+
+    def test_trainer_staff_invite_refused_on_starter(self, api_client, starter_gym):
+        """Inviting role=trainer on Starter gym returns 403."""
+        owner = create_user(starter_gym, User.ROLE_OWNER, "owner@startergym.com")
+        client = auth_client(api_client, owner, starter_gym)
+
+        resp = client.post(
+            "/api/gym/staff/",
+            {
+                "email": "trainer_new@starter.local",
+                "role": "trainer",
+                "full_name": "Test Candidate",
+                "phone": "+251911998877",
+            },
+            format="json",
+        )
+        assert resp.status_code == 403
+        assert "Trainer accounts are not available" in str(resp.data)
+
+    def test_trainer_inclusive_plans_restricted_on_starter(
+        self, api_client, starter_gym
+    ):
+        """Starter gym cannot create or sell trainer-inclusive plans; existing ones are flagged tier_unavailable."""
+        owner = create_user(starter_gym, User.ROLE_OWNER, "owner@startergym.com")
+        client = auth_client(api_client, owner, starter_gym)
+
+        # 1. Creating trainer-inclusive plan returns 403
+        r_create = client.post(
+            "/api/gym/plans/",
+            {
+                "name": "Trainer Plan Attempt",
+                "duration_value": 1,
+                "duration_unit": "months",
+                "price_etb": "2000.00",
+                "trainer_inclusive": True,
+            },
+            format="json",
+        )
+        assert r_create.status_code == 403
+        assert "Trainer-inclusive plans are not available" in str(r_create.data)
+
+        # 2. Existing trainer-inclusive plan (e.g. from prior downgrade) is flagged for staff
+        existing_plan = MembershipPlan.all_objects.create(
+            gym=starter_gym,
+            name="Grandfathered Trainer Plan",
+            duration_value=1,
+            duration_unit="months",
+            price_etb=Decimal("2500.00"),
+            trainer_inclusive=True,
+            is_active=True,
+        )
+        r_list = client.get("/api/gym/plans/")
+        assert r_list.status_code == 200
+        found = [p for p in r_list.data if p["id"] == str(existing_plan.id)]
+        assert len(found) == 1
+        assert found[0]["tier_unavailable"] is True
+        assert found[0]["tier_message"] == "Not available on your tier"
+
+        # 3. Public plan listing excludes trainer-inclusive plan
+        anon_client = APIClient()
+        anon_client.defaults["HTTP_HOST"] = f"{starter_gym.subdomain}.localhost"
+        r_public = anon_client.get(
+            f"/api/public/gym-entry/?subdomain={starter_gym.subdomain}"
+        )
+        assert r_public.status_code == 200
+        public_plan_ids = [p["id"] for p in r_public.data["plans"]]
+        assert str(existing_plan.id) not in public_plan_ids
+
+        # 4. Selling trainer-inclusive plan is refused on server (400 or 403)
+        member, _ = make_member(
+            starter_gym, "Test Member", "tm@starter.local", "+251911333333"
+        )
+        r_cash = client.post(
+            "/api/gym/payments/cash/",
+            {
+                "member_id": str(member.id),
+                "plan_id": str(existing_plan.id),
+                "amount_etb": "2500.00",
+            },
+            format="json",
+        )
+        assert r_cash.status_code in (400, 403)
+        assert "not available on your gym's current tier" in str(r_cash.data)
+
+    def test_downgrade_preserves_data_and_upgrade_restores(
+        self, api_client, growth_gym
+    ):
+        """Downgrading a Growth gym to Starter does NOT delete data, and upgrading restores full access."""
+        growth_owner = create_user(growth_gym, User.ROLE_OWNER, "owner@growthgym.com")
+        client = auth_client(api_client, growth_owner, growth_gym)
+
+        # Create notice and expense while on Growth
+        notice = GymNotice.all_objects.create(
+            gym=growth_gym,
+            title="Notice To Preserve",
+            body="Keep safe",
+            posted_by=growth_owner,
+        )
+        expense = Expense.all_objects.create(
+            gym=growth_gym,
+            amount_etb=Decimal("1200.00"),
+            category="maintenance",
+            incurred_on=timezone.localdate(),
+            logged_by=growth_owner,
+        )
+
+        # Downgrade to Starter
+        growth_gym.tier = GymTenant.TIER_STARTER
+        growth_gym.config.has_trainer_module = False
+        growth_gym.config.has_ai_plans = False
+        growth_gym.config.has_analytics = False
+        growth_gym.config.has_group_classes = False
+        growth_gym.config.has_notices = False
+        growth_gym.config.has_expenses = False
+        growth_gym.save()
+        growth_gym.config.save()
+
+        # Data is NOT deleted
+        assert GymNotice.all_objects.filter(id=notice.id).exists()
+        assert Expense.all_objects.filter(id=expense.id).exists()
+
+        # Access refused while on Starter
+        r_notice = client.get("/api/gym/notices/")
+        assert r_notice.status_code == 200
+        # Platform notices only, gym notices excluded
+        notice_ids = [n["id"] for n in r_notice.data]
+        assert str(notice.id) not in notice_ids
+
+        r_exp = client.get("/api/gym/expenses/")
+        assert r_exp.status_code == 403
+
+        # Upgrade back to Growth
+        growth_gym.tier = GymTenant.TIER_GROWTH
+        growth_gym.config.has_trainer_module = True
+        growth_gym.config.has_ai_plans = True
+        growth_gym.config.has_analytics = True
+        growth_gym.config.has_group_classes = True
+        growth_gym.config.has_notices = True
+        growth_gym.config.has_expenses = True
+        growth_gym.save()
+        growth_gym.config.save()
+
+        # Access restored!
+        r_notice_restored = client.get("/api/gym/notices/")
+        assert r_notice_restored.status_code == 200
+        restored_ids = [n["id"] for n in r_notice_restored.data]
+        assert str(notice.id) in restored_ids
+
+        r_exp_restored = client.get("/api/gym/expenses/")
+        assert r_exp_restored.status_code == 200
