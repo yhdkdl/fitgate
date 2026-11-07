@@ -879,3 +879,19 @@ export function validateReminderDays(
 
   return { firstError, secondError };
 }
+
+
+export function validateAddress(
+  value: string,
+  isRequired: boolean = false
+): string | null {
+  const trimmed = value.trim();
+  if (!trimmed) {
+    if (isRequired) return "Address is required.";
+    return null;
+  }
+  if (trimmed.length < 3 || trimmed.length > 200) {
+    return "Address must be between 3 and 200 characters.";
+  }
+  return null;
+}

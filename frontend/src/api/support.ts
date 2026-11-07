@@ -11,9 +11,12 @@ export type SupportStatus = "open" | "in_progress" | "resolved";
 
 export interface SupportMessage {
   id: string;
-  sender_type: "gym" | "platform";
-  sender_name: string;
-  body: string;
+  sender_type?: "gym" | "platform";
+  sender_role?: string;
+  sender_name?: string;
+  sender_label?: string;
+  message?: string;
+  body?: string;
   created_at: string;
 }
 

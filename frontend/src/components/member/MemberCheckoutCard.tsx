@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { getPublicPlans, getMembershipPlans } from "../../api/plans";
 import { getPublicGymEntry } from "../../api/gyms";
+import { formatGymContactLine } from "../../utils/contactLine";
 import {
   getGymPaymentPublicStatus,
   initiateChapaCheckout,
@@ -112,7 +113,7 @@ export const MemberCheckoutCard: React.FC<MemberCheckoutCardProps> = ({
           if (Array.isArray(entry.plans) && entry.plans.length > 0) {
             activePlans = entry.plans;
           }
-          phone = entry.phone || "";
+          phone = entry.public_contact_phone || entry.phone || "";
           location = entry.location || "";
           if (typeof entry.online_payment_verified === "boolean") {
             verified = entry.online_payment_verified;
@@ -259,15 +260,7 @@ export const MemberCheckoutCard: React.FC<MemberCheckoutCardProps> = ({
   const isRenewal = memberStatus === "active";
   const cardTitle = isRenewal ? "Renew" : "Choose a plan";
 
-  const contactParts: string[] = [];
-  if (contactPhone && contactPhone.trim()) {
-    contactParts.push(`Phone: ${contactPhone.trim()}`);
-  }
-  if (contactLocation && contactLocation.trim()) {
-    contactParts.push(`Address: ${contactLocation.trim()}`);
-  }
-  const contactInfoText =
-    contactParts.length > 0 ? `(${contactParts.join(" · ")})` : "";
+  const contactInfoText = formatGymContactLine(contactPhone, contactLocation);
 
   if (plans.length === 0) {
     return (

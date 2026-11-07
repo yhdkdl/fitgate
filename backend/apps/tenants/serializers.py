@@ -43,6 +43,7 @@ class GymTenantSummarySerializer(serializers.ModelSerializer):
             "is_demo",
             "currency",
             "location",
+            "public_contact_phone",
             "contact_name",
             "contact_phone",
             "contact_email",
@@ -109,6 +110,9 @@ class CreateGymRequestSerializer(serializers.Serializer):
     location = serializers.CharField(
         max_length=255, required=False, allow_blank=True, default=""
     )
+    public_contact_phone = serializers.CharField(
+        max_length=50, required=False, allow_blank=True, default=""
+    )
     contact_name = serializers.CharField(
         max_length=150, required=False, allow_blank=True, default=""
     )
@@ -134,7 +138,32 @@ class CreateGymRequestSerializer(serializers.Serializer):
         max_length=100, required=False, allow_null=True, allow_blank=True, default=None
     )
 
+    def validate_public_contact_phone(self, value):
+        if not value:
+            return ""
+        from apps.core.validators import validate_and_normalize_phone
+
+        return validate_and_normalize_phone(value)
+
+    def validate_contact_phone(self, value):
+        if not value:
+            return ""
+        from apps.core.validators import validate_and_normalize_phone
+
+        return validate_and_normalize_phone(value)
+
+    def validate_location(self, value):
+        from apps.core.validators import validate_address
+
+        return validate_address(value)
+
     def validate(self, attrs):
+        pub_phone = attrs.get("public_contact_phone") or attrs.get("contact_phone")
+        if not pub_phone:
+            raise serializers.ValidationError(
+                {"public_contact_phone": ["Public contact phone is required."]}
+            )
+        attrs["public_contact_phone"] = pub_phone
         owner_email = attrs.get("owner_email")
         owner_email_confirm = attrs.get("owner_email_confirm")
         if owner_email_confirm and owner_email != owner_email_confirm:
@@ -153,11 +182,6 @@ class CreateGymRequestSerializer(serializers.Serializer):
     def validate_contact_name(self, value):
         if value:
             return validate_name(value, "Contact name")
-        return ""
-
-    def validate_contact_phone(self, value):
-        if value:
-            return validate_and_normalize_phone(value)
         return ""
 
     def validate_contact_email(self, value):
@@ -597,6 +621,9 @@ class PlatformNoticeSerializer(serializers.ModelSerializer):
 
 class SupportMessageSerializer(serializers.ModelSerializer):
     sender_name = serializers.SerializerMethodField(read_only=True)
+    sender_type = serializers.SerializerMethodField(read_only=True)
+    sender_label = serializers.SerializerMethodField(read_only=True)
+    body = serializers.CharField(source="message", read_only=True)
 
     class Meta:
         model = SupportMessage
@@ -606,15 +633,28 @@ class SupportMessageSerializer(serializers.ModelSerializer):
             "sender_id",
             "sender_name",
             "sender_role",
+            "sender_type",
+            "sender_label",
             "message",
+            "body",
             "created_at",
         ]
         read_only_fields = fields
+
+    def get_sender_type(self, obj) -> str:
+        return "platform" if obj.sender_role == "super_admin" else "gym"
 
     def get_sender_name(self, obj) -> str:
         if obj.sender_role == "super_admin":
             return "FitGate Support"
         return getattr(obj.sender, "full_name", "") or obj.sender.email
+
+    def get_sender_label(self, obj) -> str:
+        if obj.sender_role == "super_admin":
+            return "FitGate Support"
+        name = getattr(obj.sender, "full_name", "") or obj.sender.email
+        role = (obj.sender_role or "Staff").replace("_", " ").title()
+        return f"{name} ({role})"
 
 
 class SupportRequestSerializer(serializers.ModelSerializer):
@@ -699,3 +739,57 @@ class SupportReplySerializer(serializers.Serializer):
 
         attrs["message"] = validate_support_reply(msg)
         return attrs
+
+
+class OwnerGymDetailsUpdateSerializer(serializers.Serializer):
+    public_contact_phone = serializers.CharField(max_length=50, required=False)
+    location = serializers.CharField(max_length=200, required=False, allow_blank=True)
+
+    def validate_public_contact_phone(self, value):
+        if not value:
+            return ""
+        from apps.core.validators import validate_and_normalize_phone
+
+        return validate_and_normalize_phone(value)
+
+    def validate_location(self, value):
+        from apps.core.validators import validate_address
+
+        return validate_address(value)
+
+
+class PlatformGymDetailsUpdateSerializer(serializers.Serializer):
+    name = serializers.CharField(max_length=150, required=False)
+    location = serializers.CharField(max_length=200, required=False, allow_blank=True)
+    public_contact_phone = serializers.CharField(max_length=50, required=False)
+    contact_name = serializers.CharField(
+        max_length=150, required=False, allow_blank=True
+    )
+    contact_phone = serializers.CharField(
+        max_length=50, required=False, allow_blank=True
+    )
+    contact_email = serializers.EmailField(required=False, allow_blank=True)
+
+    def validate_name(self, value):
+        from apps.core.validators import validate_name
+
+        return validate_name(value, field_name="Gym name")
+
+    def validate_location(self, value):
+        from apps.core.validators import validate_address
+
+        return validate_address(value)
+
+    def validate_public_contact_phone(self, value):
+        if not value:
+            return ""
+        from apps.core.validators import validate_and_normalize_phone
+
+        return validate_and_normalize_phone(value)
+
+    def validate_contact_phone(self, value):
+        if not value:
+            return ""
+        from apps.core.validators import validate_and_normalize_phone
+
+        return validate_and_normalize_phone(value)

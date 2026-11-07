@@ -197,6 +197,7 @@ def create_gym(
     payment_amount: Decimal | float | int | str,
     payment_reference: str,
     acting_super_admin: User,
+    public_contact_phone: str = "",
     location: str = "",
     contact_name: str = "",
     contact_phone: str = "",
@@ -288,6 +289,7 @@ def create_gym(
         tier=tier,
         currency="ETB",
         location=location.strip(),
+        public_contact_phone=(public_contact_phone or contact_phone).strip(),
         contact_name=contact_name.strip(),
         contact_phone=contact_phone.strip(),
         contact_email=(

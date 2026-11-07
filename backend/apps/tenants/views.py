@@ -107,6 +107,7 @@ class CreateGymView(APIView):
                 payment_amount=data["payment_amount"],
                 payment_reference=data["payment_reference"],
                 acting_super_admin=request.user,
+                public_contact_phone=data.get("public_contact_phone", ""),
                 location=data.get("location", ""),
                 contact_name=data.get("contact_name", ""),
                 contact_phone=data.get("contact_phone", ""),
@@ -1262,8 +1263,11 @@ class GymPublicEntryView(APIView):
                         getattr(config, "brand_color", None) if config else None
                     ),
                     "logo": getattr(config, "logo", None) if config else None,
-                    "phone": gym.contact_phone,
+                    "phone": gym.public_contact_phone or gym.contact_phone,
+                    "public_contact_phone": gym.public_contact_phone
+                    or gym.contact_phone,
                     "location": gym.location,
+                    "contact_line": gym.contact_line,
                     "currency": gym.currency,
                     "message": "This gym portal is still being secured. Please check back shortly.",
                     "plans": PublicPlanSerializer(active_plans, many=True).data,
@@ -1307,8 +1311,10 @@ class GymPublicEntryView(APIView):
             "capabilities": caps,
             "brand_color": getattr(config, "brand_color", None) if config else None,
             "logo": getattr(config, "logo", None) if config else None,
-            "phone": gym.contact_phone,
+            "phone": gym.public_contact_phone or gym.contact_phone,
+            "public_contact_phone": gym.public_contact_phone or gym.contact_phone,
             "location": gym.location,
+            "contact_line": gym.contact_line,
             "currency": gym.currency,
             "plans": PublicPlanSerializer(active_plans, many=True).data,
             "online_payment_verified": online_payment_verified,
@@ -1899,11 +1905,13 @@ class GymSupportRequestDetailReplyView(APIView):
         super_admins = User.all_objects.filter(
             role=User.ROLE_SUPER_ADMIN, is_active=True
         )
+        reply_msg = serializer.validated_data["message"]
+        snippet = (reply_msg[:77] + "...") if len(reply_msg) > 80 else reply_msg
         for admin in super_admins:
             create_notification(
                 recipient=admin,
                 notification_type="support_message",
-                message=f"New reply from {tenant.name} on '{req.subject}'",
+                message=f"New reply from {tenant.name} on '{req.subject}': \"{snippet}\"",
                 gym=None,
             )
 
@@ -2053,11 +2061,13 @@ class PlatformSupportRequestDetailReplyView(APIView):
         ):
             recipients.append(req.created_by)
 
+        reply_msg = serializer.validated_data["message"]
+        snippet = (reply_msg[:77] + "...") if len(reply_msg) > 80 else reply_msg
         for user in recipients:
             create_notification(
                 recipient=user,
                 notification_type="support_reply",
-                message=f"FitGate Support replied to '{req.subject}'",
+                message=f"FitGate Support on '{req.subject}': \"{snippet}\"",
                 gym=req.gym,
             )
 
@@ -2515,5 +2525,159 @@ class GymRenewView(APIView):
                 "reactivated": was_suspended,
             },
         )
+
+        return Response(GymTenantSummarySerializer(gym).data, status=status.HTTP_200_OK)
+
+
+class GymDetailsView(APIView):
+    """
+    Gym Owner endpoint to view and update gym public contact details (public contact phone and address).
+    Tier-exempt (available on every tier).
+    Restricted to Owner only. Manager, Reception, Trainer, Member are refused (403).
+    """
+
+    required_flag = None
+    permission_classes = [IsAuthenticated, RequirePasswordChanged]
+
+    def get(self, request, *args, **kwargs):
+        tenant = getattr(request, "tenant", None)
+        if not tenant:
+            raise PermissionDenied("Gym context is required.")
+        if request.user.role != User.ROLE_OWNER:
+            raise PermissionDenied("Only the Gym Owner can view or edit gym details.")
+        return Response(
+            {
+                "public_contact_phone": tenant.public_contact_phone
+                or tenant.contact_phone,
+                "location": tenant.location,
+            },
+            status=status.HTTP_200_OK,
+        )
+
+    def patch(self, request, *args, **kwargs):
+        tenant = getattr(request, "tenant", None)
+        if not tenant:
+            raise PermissionDenied("Gym context is required.")
+        if request.user.role != User.ROLE_OWNER:
+            raise PermissionDenied("Only the Gym Owner can edit gym details.")
+
+        from apps.tenants.serializers import OwnerGymDetailsUpdateSerializer
+
+        serializer = OwnerGymDetailsUpdateSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        data = serializer.validated_data
+        from apps.accounts.services import record_audit_log
+
+        changes = {}
+        if (
+            "public_contact_phone" in data
+            and data["public_contact_phone"] != tenant.public_contact_phone
+        ):
+            old_val = tenant.public_contact_phone
+            tenant.public_contact_phone = data["public_contact_phone"]
+            changes["public_contact_phone"] = {
+                "old": old_val,
+                "new": tenant.public_contact_phone,
+            }
+
+        if "location" in data and data["location"] != tenant.location:
+            old_val = tenant.location
+            tenant.location = data["location"]
+            changes["location"] = {"old": old_val, "new": tenant.location}
+
+        if changes:
+            tenant.save(update_fields=list(changes.keys()) + ["updated_at"])
+            for field, vals in changes.items():
+                record_audit_log(
+                    actor=request.user,
+                    action_type="gym_details_updated",
+                    affected_record_type="GymTenant",
+                    affected_record_id=str(tenant.id),
+                    gym=tenant,
+                    metadata={
+                        "field": field,
+                        "old_value": vals["old"],
+                        "new_value": vals["new"],
+                    },
+                )
+
+        return Response(
+            {
+                "public_contact_phone": tenant.public_contact_phone,
+                "location": tenant.location,
+            },
+            status=status.HTTP_200_OK,
+        )
+
+
+class PlatformGymDetailsView(APIView):
+    """
+    Super Admin endpoint to edit gym name, address (location), public contact phone,
+    and contact person's name, phone, email.
+    Explicitly ignores/forbids editing subdomain or owner's email.
+    Restricted to Super Admin only.
+    Platform-level audit logged.
+    """
+
+    required_flag = None
+    permission_classes = [IsAuthenticated, RequirePasswordChanged, IsSuperAdmin]
+
+    def patch(self, request, gym_id, *args, **kwargs):
+        from apps.tenants.models import GymTenant
+        from apps.tenants.serializers import (
+            GymTenantSummarySerializer,
+            PlatformGymDetailsUpdateSerializer,
+        )
+
+        try:
+            gym = GymTenant.objects.get(id=gym_id)
+        except GymTenant.DoesNotExist:
+            return Response(
+                {"detail": "Gym not found."}, status=status.HTTP_404_NOT_FOUND
+            )
+
+        serializer = PlatformGymDetailsUpdateSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        data = serializer.validated_data
+        from apps.accounts.services import record_audit_log
+
+        changes = {}
+        allowed_fields = [
+            "name",
+            "location",
+            "public_contact_phone",
+            "contact_name",
+            "contact_phone",
+            "contact_email",
+        ]
+        for field in allowed_fields:
+            if field in data:
+                old_val = getattr(gym, field)
+                new_val = data[field]
+                if old_val != new_val:
+                    setattr(gym, field, new_val)
+                    changes[field] = {"old": old_val, "new": new_val}
+
+        if changes:
+            gym.save(update_fields=list(changes.keys()) + ["updated_at"])
+            for field, vals in changes.items():
+                record_audit_log(
+                    actor=request.user,
+                    action_type="gym_details_platform_updated",
+                    affected_record_type="GymTenant",
+                    affected_record_id=str(gym.id),
+                    gym=None,  # Platform-level
+                    metadata={
+                        "gym_id": str(gym.id),
+                        "gym_subdomain": gym.subdomain,
+                        "field": field,
+                        "old_value": vals["old"],
+                        "new_value": vals["new"],
+                    },
+                )
 
         return Response(GymTenantSummarySerializer(gym).data, status=status.HTTP_200_OK)

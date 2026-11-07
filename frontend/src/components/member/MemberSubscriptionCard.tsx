@@ -7,11 +7,13 @@ import { Card } from "../ui/Card";
 interface MemberSubscriptionCardProps {
   member: Member;
   onlinePaymentAvailable?: boolean;
+  contactLine?: string;
 }
 
 export const MemberSubscriptionCard: React.FC<MemberSubscriptionCardProps> = ({
   member,
   onlinePaymentAvailable = true,
+  contactLine = "",
 }) => {
   const { capabilities } = useAuth();
   const activeSub = member.active_subscription;
@@ -36,7 +38,7 @@ export const MemberSubscriptionCard: React.FC<MemberSubscriptionCardProps> = ({
           <p className="text-xs text-text-muted">
             Waiting for payment.{" "}
             {!onlinePaymentAvailable &&
-              "Online payment is not available at this gym. Please pay at the front desk."}
+              `Online payment is not available at this gym. Please pay at the front desk.${contactLine ? " " + contactLine : ""}`}
           </p>
         </div>
       </Card>
@@ -125,7 +127,7 @@ export const MemberSubscriptionCard: React.FC<MemberSubscriptionCardProps> = ({
         <div className="bg-amber-500/10 border border-amber-500/30 text-amber-500 rounded-lg p-3 text-xs font-medium">
           Waiting for payment.{" "}
           {!onlinePaymentAvailable &&
-            "Online payment is not available at this gym. Please pay at the front desk."}
+            `Online payment is not available at this gym. Please pay at the front desk.${contactLine ? " " + contactLine : ""}`}
         </div>
       )}
 

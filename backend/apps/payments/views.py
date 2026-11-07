@@ -436,9 +436,10 @@ class ChapaCheckoutView(APIView):
             or not config.is_verified
             or not config.is_enabled
         ):
+            contact_line = getattr(gym, "contact_line", "")
             return Response(
                 {
-                    "detail": "Online payment is not available at this gym. Please pay at the front desk."
+                    "detail": f"Online payment is not available at this gym. Please pay at the front desk.{' ' + contact_line if contact_line else ''}"
                 },
                 status=status.HTTP_400_BAD_REQUEST,
             )
@@ -676,9 +677,10 @@ class ChapaCheckoutView(APIView):
                     tx_ref,
                     exc.message,
                 )
+                contact_line = getattr(gym, "contact_line", "")
                 return Response(
                     {
-                        "detail": "We could not start the online payment. Please try again or pay at the front desk."
+                        "detail": f"We could not start the online payment. Please try again or pay at the front desk.{' ' + contact_line if contact_line else ''}"
                     },
                     status=status.HTTP_502_BAD_GATEWAY,
                 )
@@ -1817,6 +1819,9 @@ class GymPaymentPublicStatusView(APIView):
         payload = {
             "online_payment_verified": is_verified,
             "is_enabled": config.is_enabled if config else False,
+            "contact_line": tenant.contact_line,
+            "phone": tenant.public_contact_phone or tenant.contact_phone,
+            "location": tenant.location,
         }
         if hasattr(request, "user") and request.user.is_authenticated:
             payload["use_mock"] = getattr(settings, "CHAPA_USE_MOCK", False)
@@ -2330,11 +2335,12 @@ class BankReceiptReviewDecideView(APIView):
                     },
                 )
 
+                contact_line = getattr(tenant, "contact_line", "")
                 if payment.member and payment.member.user:
                     create_notification(
                         recipient=payment.member.user,
                         notification_type="payment_declined",
-                        message="Payment could not be confirmed, please contact the front desk.",
+                        message=f"Payment could not be confirmed, please contact the front desk.{' ' + contact_line if contact_line else ''}",
                         gym=tenant,
                     )
 

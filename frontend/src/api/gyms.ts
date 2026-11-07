@@ -8,6 +8,7 @@ import type { components } from "../types/api";
 export type CreateGymRequest =
   components["schemas"]["CreateGymRequestRequest"] & {
     owner_email_confirm?: string;
+    public_contact_phone?: string;
   };
 export type CreateGymResponse = components["schemas"]["CreateGymResponse"] & {
   gym_url?: string;
@@ -17,6 +18,7 @@ export type GymTenantSummary = components["schemas"]["GymTenantSummary"] & {
   url?: string;
   lapse_flagged_at?: string | null;
   is_demo?: boolean;
+  public_contact_phone?: string;
 };
 export type ConfirmTLSResponse = components["schemas"]["ConfirmTLSResponse"];
 export type GymPublicEntryResponse =
@@ -31,6 +33,8 @@ export type GymPublicEntryResponse =
       trainer_inclusive: boolean;
     }>;
     has_group_classes?: boolean;
+    public_contact_phone?: string;
+    contact_line?: string;
   };
 export type FirstRunChecklistResponse =
   components["schemas"]["FirstRunChecklistResponse"];
@@ -296,4 +300,41 @@ export interface GymSubscriptionDetails {
 
 export async function getGymSubscription(): Promise<GymSubscriptionDetails> {
   return await apiFetch<GymSubscriptionDetails>("/api/gym/subscription/");
+}
+
+
+export interface GymDetails {
+  public_contact_phone: string;
+  location: string;
+}
+
+export async function getGymDetails(): Promise<GymDetails> {
+  return await apiFetch<GymDetails>("/api/gym/details/");
+}
+
+export async function updateGymDetails(data: {
+  public_contact_phone?: string;
+  location?: string;
+}): Promise<GymDetails> {
+  return await apiFetch<GymDetails>("/api/gym/details/", {
+    method: "PATCH",
+    body: JSON.stringify(data),
+  });
+}
+
+export async function updatePlatformGymDetails(
+  gymId: string,
+  data: {
+    name?: string;
+    location?: string;
+    public_contact_phone?: string;
+    contact_name?: string;
+    contact_phone?: string;
+    contact_email?: string;
+  }
+): Promise<GymTenantSummary> {
+  return await apiFetch<GymTenantSummary>(`/api/platform/gyms/${gymId}/details/`, {
+    method: "PATCH",
+    body: JSON.stringify(data),
+  });
 }

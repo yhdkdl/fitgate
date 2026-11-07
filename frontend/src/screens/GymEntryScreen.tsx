@@ -168,9 +168,11 @@ export const GymEntryScreen: React.FC = () => {
               <span className="font-bold text-base tracking-tight text-text block">
                 {data.name}
               </span>
-              <span className="text-xs text-text-muted">
-                {data.location || "Ethiopia"}
-              </span>
+              {data.location ? (
+                <span className="text-xs text-text-muted">
+                  {data.location}
+                </span>
+              ) : null}
             </div>
           </div>
 
@@ -263,32 +265,38 @@ export const GymEntryScreen: React.FC = () => {
         </div>
 
         {/* Gym Information Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-          <Card className="bg-surface border-border p-6 space-y-2">
-            <h2 className="text-sm font-semibold uppercase tracking-wider text-text-muted">
-              Location & Facility
-            </h2>
-            <p className="text-lg font-bold text-text">
-              {data.location || "Central Location"}
-            </p>
-            <p className="text-sm text-text-muted">
-              Equipped with modern fitness equipment, lockers, and certified
-              trainers.
-            </p>
-          </Card>
+        {(data.location || data.public_contact_phone || data.phone) ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+            {data.location ? (
+              <Card className="bg-surface border-border p-6 space-y-2">
+                <h2 className="text-sm font-semibold uppercase tracking-wider text-text-muted">
+                  Location & Facility
+                </h2>
+                <p className="text-lg font-bold text-text">
+                  {data.location}
+                </p>
+                <p className="text-sm text-text-muted">
+                  Equipped with modern fitness equipment, lockers, and certified
+                  trainers.
+                </p>
+              </Card>
+            ) : null}
 
-          <Card className="bg-surface border-border p-6 space-y-2">
-            <h2 className="text-sm font-semibold uppercase tracking-wider text-text-muted">
-              Contact & Inquiries
-            </h2>
-            <p className="text-lg font-bold text-text">
-              {data.phone || "Front Desk Contact"}
-            </p>
-            <p className="text-sm text-text-muted">
-              Currency accepted: {data.currency || "ETB"}
-            </p>
-          </Card>
-        </div>
+            {(data.public_contact_phone || data.phone) ? (
+              <Card className="bg-surface border-border p-6 space-y-2">
+                <h2 className="text-sm font-semibold uppercase tracking-wider text-text-muted">
+                  Contact & Inquiries
+                </h2>
+                <p className="text-lg font-bold text-text">
+                  {data.public_contact_phone || data.phone}
+                </p>
+                <p className="text-sm text-text-muted">
+                  Currency accepted: {data.currency || "ETB"}
+                </p>
+              </Card>
+            ) : null}
+          </div>
+        ) : null}
 
         {/* Membership Plans Section */}
         <div className="bg-surface border border-border rounded-card p-6 space-y-4">
@@ -364,7 +372,7 @@ export const GymEntryScreen: React.FC = () => {
                 No active plans currently listed online.
               </p>
               <p className="text-xs text-text-muted">
-                Please visit the front desk for available in-person packages.
+                Please visit the front desk for available in-person packages{data.contact_line ? ` ${data.contact_line}` : ""}.
               </p>
             </div>
           )}

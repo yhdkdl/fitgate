@@ -155,3 +155,14 @@ From Sprint 10, check-in directly reads MemberSubscription and verifies valid pl
   - Owner Overview: "Messages from FitGate" card automatically dismissed once "View all messages" is clicked or when viewing the "FitGate messages" screen; persists via local storage until new notices arrive.
   - Support requests: Backend and frontend support request creation and reply payloads accept both `category`/`request_type` and `message`/`body` interchangeably; validation errors clearly displayed.
   - Demo gym credentials: Quick-fill demo credentials panel automatically available on the login screen for demo gyms.
+
+## Fix: Gym Details, Public Contact Phone, Support Replies, and Front-Desk Contact Line (November 5, 2026)
+
+- **Branch:** `fix/gym-details-and-support-replies`
+- **Scope:**
+  - Support replies thread fix: `SupportMessageSerializer` returns full text (`message`/`body`), sender role, sender name, `sender_type` (`platform` vs `gym`), and `sender_label` ("FitGate support" for Super Admin; staff name and role for gym staff) oldest first.
+  - Support reply bell notifications: display request subject and 80-character snippet of the reply body.
+  - Public contact phone: `GymTenant.public_contact_phone` separate from private `contact_phone`; required on Create Gym form; data migration copies existing phones.
+  - Address validation: 3 to 200 characters, trimmed, labeled "Address (shown to members)".
+  - Edit gym details: Gym Owner edits public phone and address in Gym Settings (Owner only; others refused 403). Super Admin edits name, address, public phone, and contact person details on Gym Management (subdomain and Owner email immutable). All edits audit-logged.
+  - Contact line helper: single helper formatting `(Phone: ... · Address: ...)` omitting empty elements and placeholders, attached to gym entry page and front-desk member notices.
