@@ -23,6 +23,12 @@ _Purpose: A dated record of every scope decision, modification, and addition mad
 
 ## 2. Changed
 
+- **Platform Notice Dedicated Architecture & Revenue Bug Fix (November 5, 2026):**
+  - **Replaces Announcement Extension:** Replaces earlier decision to extend tenant-level `Announcement`/`GymNotice` with null gym. Platform notices receive a dedicated `PlatformNotice` model and endpoints separate from gym notices.
+  - **Audience & Targeting:** Super Admin can target "All gyms" or "Selected gyms" (searchable multi-select requiring at least one gym) with an optional show-until date. Platform notices are strictly never sent to Telegram.
+  - **Owner Delivery & Withdrawal:** Targeted gym Owners on every tier receive bell notifications via the shared helper; active unexpired notices display on Owner Home ("Messages from FitGate" card, latest 3) and full list on the "FitGate messages" screen. Suspended or terminated gyms receive nothing. Super Admin can withdraw notices at any time (hidden from Owners, kept in platform audit list).
+  - **Central Revenue Separation:** A gym's own payment to the platform (`payer_type='gym_subscription'`) is never gym revenue. Scoped payment queries and the default payment manager centrally filter to member payments only, eliminating platform fees from all gym-side dashboards, plans, payments screens, CSV exports, financial reports, receipts, and unreconciled sweeps.
+
 - **Tier Allocation Realignment — Notice Board, Telegram Bridge, and Expenses & Reports Move to Growth (November 3, 2026):**
   - **Reversal of Scope Entry:** Reverses earlier scope designation that placed gym notices and expense tracking on Starter. The gym notice board, Telegram channel bridge, and Expenses and Reports screens (expense ledger, voiding, financial report, attendance report) and the equipment "Also record as an expense" option are realigned exclusively to Growth and Pro tiers.
   - **New GymConfig Entitlement Flags:** Introduced `has_notices` (controls gym notice board and Telegram broadcasting) and `has_expenses` (controls expense ledger, financial and attendance reports, and equipment purchase expense recording). Both default to False on Starter and True on Growth and Pro.
@@ -105,6 +111,14 @@ _Purpose: A dated record of every scope decision, modification, and addition mad
 ---
 
 ## 3. Added
+
+- **Support Requests & Communication Inbox (November 5, 2026):**
+  - Two-way communication between gym staff (Owner and Manager) and Super Admin on every tier (tier-exempt, no feature flag).
+  - Reachable from menu item "Contact FitGate", requiring category selection (`system_problem`, `question`, `feature_request`, `billing`, `other`), subject (3–100 chars), message (up to 1,000 chars), and strict privacy warning ("Do not include member names, phone numbers or payment details.").
+  - Throttled to 5 new requests per gym per calendar day and at most 20 messages per thread.
+  - Managed by Super Admin via "Support requests" screen with status workflow (`open`, `in_progress`, `resolved`), thread replies, and platform audit logging. Super Admin sees only gym name and request text, never operational data.
+- **Your FitGate Subscription Card (November 5, 2026):**
+  - Added read-only card in Gym Settings for Gym Owner only, presenting current tier, subscription status, expiration date, and history of platform subscription payments (date, amount, method, reference).
 
 - **Bank receipt verification for staff-recorded member bank transfers (Sprint 12d) (November 3, 2026):**
   - **Overview:** Optional automatic receipt verification for member bank transfers entered by gym staff using the open-source Python package `cheki` (MIT licence, no API key) in direct mode. Direct mode calls public bank verification endpoints (`mb.cbe.com.et` for CBE, `transactioninfo.ethiotelecom.et` for Telebirr) without transmitting receipt references, account numbers, or member information to third-party hosted services.

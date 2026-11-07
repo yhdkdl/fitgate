@@ -1041,3 +1041,61 @@ def validate_reminder_days(value: Any) -> list[int]:
         return [first, second]
 
     return [first]
+
+
+def validate_platform_notice_title(value: str) -> str:
+    """Platform notice title must be 3–100 characters."""
+    if not value or not isinstance(value, str):
+        raise ValidationError(
+            "Platform notice title must be between 3 and 100 characters."
+        )
+    cleaned = value.strip()
+    if len(cleaned) < 3 or len(cleaned) > 100:
+        raise ValidationError(
+            "Platform notice title must be between 3 and 100 characters."
+        )
+    return cleaned
+
+
+def validate_platform_notice_message(value: str) -> str:
+    """Platform notice message must be between 5 and 1,000 characters."""
+    if not value or not isinstance(value, str):
+        raise ValidationError(
+            "Platform notice message must be between 5 and 1,000 characters."
+        )
+    cleaned = value.strip()
+    if len(cleaned) < 5 or len(cleaned) > 1000:
+        raise ValidationError(
+            "Platform notice message must be between 5 and 1,000 characters."
+        )
+    return cleaned
+
+
+def validate_support_subject(value: str) -> str:
+    """Support request subject must be 3–100 characters."""
+    if not value or not isinstance(value, str):
+        raise ValidationError("Subject must be between 3 and 100 characters.")
+    cleaned = value.strip()
+    if len(cleaned) < 3 or len(cleaned) > 100:
+        raise ValidationError("Subject must be between 3 and 100 characters.")
+    return cleaned
+
+
+def validate_support_message(value: str) -> str:
+    """Support request message must be between 5 and 1,000 characters."""
+    if not value or not isinstance(value, str):
+        raise ValidationError("Message must be between 5 and 1,000 characters.")
+    cleaned = value.strip()
+    if len(cleaned) < 5 or len(cleaned) > 1000:
+        raise ValidationError("Message must be between 5 and 1,000 characters.")
+    return cleaned
+
+
+def validate_support_reply(value: str) -> str:
+    """Support thread reply must be between 1 and 1,000 characters."""
+    if not value or not isinstance(value, str):
+        raise ValidationError("Reply message must be between 1 and 1,000 characters.")
+    cleaned = value.strip()
+    if len(cleaned) < 1 or len(cleaned) > 1000:
+        raise ValidationError("Reply message must be between 1 and 1,000 characters.")
+    return cleaned

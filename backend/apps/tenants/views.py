@@ -4,6 +4,7 @@ from datetime import timedelta
 from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import IntegrityError, transaction
+from django.db.models import Q
 from django.http import FileResponse, Http404
 from django.utils import timezone
 from drf_spectacular.utils import OpenApiResponse, extend_schema, inline_serializer
@@ -158,6 +159,24 @@ class CreateGymView(APIView):
                 "Super Admin operations must be performed at the apex platform domain."
             )
         gyms = GymTenant.objects.all().order_by("-created_at")
+        status_param = request.query_params.get("status")
+        if status_param and status_param != "all":
+            if status_param == "awaiting_certificate":
+                gyms = gyms.filter(status=GymTenant.STATUS_PENDING)
+            else:
+                gyms = gyms.filter(status=status_param)
+
+        tier_param = request.query_params.get("tier")
+        if tier_param and tier_param != "all":
+            gyms = gyms.filter(tier=tier_param)
+
+        search_param = request.query_params.get("search")
+        if search_param:
+            search_param = search_param.strip()
+            gyms = gyms.filter(
+                Q(name__icontains=search_param) | Q(subdomain__icontains=search_param)
+            )
+
         serializer = GymTenantSummarySerializer(gyms, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
@@ -224,6 +243,7 @@ class ConfirmGymTLSView(APIView):
 class ListGymsView(APIView):
     """Super Admin endpoint to list all gym tenants."""
 
+    required_flag = None
     permission_classes = [IsAuthenticated, RequirePasswordChanged, IsSuperAdmin]
 
     @extend_schema(
@@ -233,6 +253,24 @@ class ListGymsView(APIView):
     )
     def get(self, request, *args, **kwargs):
         gyms = GymTenant.objects.all().order_by("-created_at")
+        status_param = request.query_params.get("status")
+        if status_param and status_param != "all":
+            if status_param == "awaiting_certificate":
+                gyms = gyms.filter(status=GymTenant.STATUS_PENDING)
+            else:
+                gyms = gyms.filter(status=status_param)
+
+        tier_param = request.query_params.get("tier")
+        if tier_param and tier_param != "all":
+            gyms = gyms.filter(tier=tier_param)
+
+        search_param = request.query_params.get("search")
+        if search_param:
+            search_param = search_param.strip()
+            gyms = gyms.filter(
+                Q(name__icontains=search_param) | Q(subdomain__icontains=search_param)
+            )
+
         serializer = GymTenantSummarySerializer(gyms, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
@@ -881,7 +919,34 @@ class GymSettingsView(APIView):
         if config is None:
             config, _ = GymConfig.objects.get_or_create(gym=gym)
 
-        return Response(GymConfigSerializer(config).data, status=status.HTTP_200_OK)
+        from apps.payments.models import Payment
+
+        past_payments = Payment.all_objects.filter(
+            gym=gym,
+            payer_type=Payment.PAYER_TYPE_GYM_SUBSCRIPTION,
+        ).order_by("-created_at")
+        data = GymConfigSerializer(config).data
+        data["subscription"] = {
+            "tier": gym.tier,
+            "status": gym.status,
+            "subscription_expires_at": (
+                gym.subscription_expires_at.isoformat()
+                if gym.subscription_expires_at
+                else None
+            ),
+            "past_payments": [
+                {
+                    "id": str(p.id),
+                    "date": p.created_at.date().isoformat() if p.created_at else None,
+                    "amount": str(p.amount_etb),
+                    "method": p.method,
+                    "reference": p.bank_reference or p.bank_reference_normalized or "-",
+                    "status": p.status,
+                }
+                for p in past_payments
+            ],
+        }
+        return Response(data, status=status.HTTP_200_OK)
 
     @extend_schema(
         summary="Update gym settings",
@@ -919,7 +984,34 @@ class GymSettingsView(APIView):
             )
             return Response({"detail": msg}, status=status.HTTP_400_BAD_REQUEST)
 
-        return Response(GymConfigSerializer(config).data, status=status.HTTP_200_OK)
+        from apps.payments.models import Payment
+
+        past_payments = Payment.all_objects.filter(
+            gym=gym,
+            payer_type=Payment.PAYER_TYPE_GYM_SUBSCRIPTION,
+        ).order_by("-created_at")
+        data = GymConfigSerializer(config).data
+        data["subscription"] = {
+            "tier": gym.tier,
+            "status": gym.status,
+            "subscription_expires_at": (
+                gym.subscription_expires_at.isoformat()
+                if gym.subscription_expires_at
+                else None
+            ),
+            "past_payments": [
+                {
+                    "id": str(p.id),
+                    "date": p.created_at.date().isoformat() if p.created_at else None,
+                    "amount": str(p.amount_etb),
+                    "method": p.method,
+                    "reference": p.bank_reference or p.bank_reference_normalized or "-",
+                    "status": p.status,
+                }
+                for p in past_payments
+            ],
+        }
+        return Response(data, status=status.HTTP_200_OK)
 
 
 class PlatformGymConfigView(APIView):
@@ -953,7 +1045,34 @@ class PlatformGymConfigView(APIView):
         config = getattr(gym, "config", None)
         if config is None:
             config, _ = GymConfig.objects.get_or_create(gym=gym)
-        return Response(GymConfigSerializer(config).data, status=status.HTTP_200_OK)
+        from apps.payments.models import Payment
+
+        past_payments = Payment.all_objects.filter(
+            gym=gym,
+            payer_type=Payment.PAYER_TYPE_GYM_SUBSCRIPTION,
+        ).order_by("-created_at")
+        data = GymConfigSerializer(config).data
+        data["subscription"] = {
+            "tier": gym.tier,
+            "status": gym.status,
+            "subscription_expires_at": (
+                gym.subscription_expires_at.isoformat()
+                if gym.subscription_expires_at
+                else None
+            ),
+            "past_payments": [
+                {
+                    "id": str(p.id),
+                    "date": p.created_at.date().isoformat() if p.created_at else None,
+                    "amount": str(p.amount_etb),
+                    "method": p.method,
+                    "reference": p.bank_reference or p.bank_reference_normalized or "-",
+                    "status": p.status,
+                }
+                for p in past_payments
+            ],
+        }
+        return Response(data, status=status.HTTP_200_OK)
 
     @extend_schema(
         summary="Update gym entitlements (platform)",
@@ -988,7 +1107,34 @@ class PlatformGymConfigView(APIView):
             )
             return Response({"detail": msg}, status=status.HTTP_400_BAD_REQUEST)
 
-        return Response(GymConfigSerializer(config).data, status=status.HTTP_200_OK)
+        from apps.payments.models import Payment
+
+        past_payments = Payment.all_objects.filter(
+            gym=gym,
+            payer_type=Payment.PAYER_TYPE_GYM_SUBSCRIPTION,
+        ).order_by("-created_at")
+        data = GymConfigSerializer(config).data
+        data["subscription"] = {
+            "tier": gym.tier,
+            "status": gym.status,
+            "subscription_expires_at": (
+                gym.subscription_expires_at.isoformat()
+                if gym.subscription_expires_at
+                else None
+            ),
+            "past_payments": [
+                {
+                    "id": str(p.id),
+                    "date": p.created_at.date().isoformat() if p.created_at else None,
+                    "amount": str(p.amount_etb),
+                    "method": p.method,
+                    "reference": p.bank_reference or p.bank_reference_normalized or "-",
+                    "status": p.status,
+                }
+                for p in past_payments
+            ],
+        }
+        return Response(data, status=status.HTTP_200_OK)
 
 
 class FirstRunChecklistView(APIView):
@@ -1223,12 +1369,6 @@ class GymNoticeListCreateView(APIView):
         has_notices = getattr(config, "has_notices", False) if config else False
 
         if not has_notices:
-            if getattr(request.user, "role", None) == User.ROLE_OWNER:
-                platform_notices = GymNotice.all_objects.filter(
-                    gym__isnull=True
-                ).order_by("-created_at")
-                serializer = GymNoticeSerializer(platform_notices, many=True)
-                return Response(serializer.data, status=status.HTTP_200_OK)
             raise PermissionDenied(
                 "Notice board is not available on this gym's current tier."
             )
@@ -1399,11 +1539,11 @@ class TelegramTestMessageView(APIView):
 
 class PlatformNoticeListCreateView(APIView):
     """
-    Super Admin endpoint to list and post platform-wide announcements.
-    Platform notices have gym=None, appear on every Owner's dashboard,
-    and are never sent to Telegram.
+    Super Admin endpoint to list and post platform notices.
+    Broadcasts announcements to targeted gym Owners across any tier.
     """
 
+    required_flag = None
     permission_classes = [IsAuthenticated, RequirePasswordChanged, IsSuperAdmin]
 
     def get(self, request, *args, **kwargs):
@@ -1411,11 +1551,15 @@ class PlatformNoticeListCreateView(APIView):
             raise PermissionDenied(
                 "Super Admin operations must be performed at the apex platform domain."
             )
-        from apps.tenants.models import GymNotice
-        from apps.tenants.serializers import GymNoticeSerializer
+        from apps.tenants.models import PlatformNotice
+        from apps.tenants.serializers import PlatformNoticeSerializer
 
-        notices = GymNotice.objects.filter(gym__isnull=True).order_by("-created_at")
-        serializer = GymNoticeSerializer(notices, many=True)
+        notices = (
+            PlatformNotice.objects.all()
+            .prefetch_related("target_gyms")
+            .order_by("-created_at")
+        )
+        serializer = PlatformNoticeSerializer(notices, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
     def post(self, request, *args, **kwargs):
@@ -1423,42 +1567,64 @@ class PlatformNoticeListCreateView(APIView):
             raise PermissionDenied(
                 "Super Admin operations must be performed at the apex platform domain."
             )
+        from apps.accounts.models import User
+        from apps.accounts.notifications import create_notification
         from apps.accounts.services import record_audit_log
-        from apps.tenants.models import GymNotice
-        from apps.tenants.serializers import GymNoticeSerializer
+        from apps.tenants.models import GymTenant, PlatformNotice
+        from apps.tenants.serializers import PlatformNoticeSerializer
 
-        serializer = GymNoticeSerializer(data=request.data)
+        serializer = PlatformNoticeSerializer(data=request.data)
         if not serializer.is_valid():
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-        notice = GymNotice.objects.create(
-            gym=None,
-            posted_by=request.user,
-            title=serializer.validated_data["title"],
-            body=serializer.validated_data["body"],
-        )
+        data = serializer.validated_data.copy()
+        target_gyms = data.pop("target_gyms", [])
+        notice = PlatformNotice.objects.create(posted_by=request.user, **data)
+        if target_gyms:
+            notice.target_gyms.set(target_gyms)
+
+        allowed_statuses = [GymTenant.STATUS_ACTIVE, GymTenant.STATUS_PENDING]
+        if notice.audience_type == PlatformNotice.AUDIENCE_ALL:
+            eligible_gyms = GymTenant.objects.filter(status__in=allowed_statuses)
+        else:
+            eligible_gyms = notice.target_gyms.filter(status__in=allowed_statuses)
+
+        target_owners = User.all_objects.filter(
+            gym__in=eligible_gyms,
+            role=User.ROLE_OWNER,
+            is_active=True,
+        ).select_related("gym")
+
+        for owner in target_owners:
+            create_notification(
+                recipient=owner,
+                notification_type="platform_notice",
+                message=f"Platform announcement: {notice.title}",
+                gym=owner.gym,
+            )
 
         record_audit_log(
             actor=request.user,
-            action_type="notice_posted",
-            affected_record_type="GymNotice",
+            action_type="platform_notice_created",
+            affected_record_type="PlatformNotice",
             affected_record_id=str(notice.id),
             gym=None,
             metadata={
                 "title": notice.title,
-                "is_platform_wide": True,
+                "audience_type": notice.audience_type,
+                "target_gym_count": eligible_gyms.count(),
             },
         )
 
-        data = GymNoticeSerializer(notice).data
-        data["telegram_sent"] = False
-        data["telegram_note"] = "Platform-wide notices are never sent to Telegram."
-        return Response(data, status=status.HTTP_201_CREATED)
+        return Response(
+            PlatformNoticeSerializer(notice).data, status=status.HTTP_201_CREATED
+        )
 
 
 class PlatformNoticeDetailView(APIView):
-    """Super Admin endpoint to delete a platform-wide notice."""
+    """Super Admin endpoint to withdraw a platform notice."""
 
+    required_flag = None
     permission_classes = [IsAuthenticated, RequirePasswordChanged, IsSuperAdmin]
 
     def delete(self, request, pk, *args, **kwargs):
@@ -1467,30 +1633,534 @@ class PlatformNoticeDetailView(APIView):
                 "Super Admin operations must be performed at the apex platform domain."
             )
         from apps.accounts.services import record_audit_log
-        from apps.tenants.models import GymNotice
+        from apps.tenants.models import PlatformNotice
 
         try:
-            notice = GymNotice.objects.get(id=pk, gym__isnull=True)
-        except GymNotice.DoesNotExist:
+            notice = PlatformNotice.objects.get(id=pk)
+        except PlatformNotice.DoesNotExist:
             return Response(
                 {"detail": "Platform notice not found."},
                 status=status.HTTP_404_NOT_FOUND,
             )
 
-        title = notice.title
-        notice_id = str(notice.id)
-        notice.delete()
+        notice.is_withdrawn = True
+        notice.withdrawn_at = timezone.now()
+        notice.withdrawn_by = request.user
+        notice.save(
+            update_fields=["is_withdrawn", "withdrawn_at", "withdrawn_by", "updated_at"]
+        )
 
         record_audit_log(
             actor=request.user,
-            action_type="notice_deleted",
-            affected_record_type="GymNotice",
-            affected_record_id=notice_id,
+            action_type="platform_notice_withdrawn",
+            affected_record_type="PlatformNotice",
+            affected_record_id=str(notice.id),
             gym=None,
-            metadata={"title": title, "is_platform_wide": True},
+            metadata={"title": notice.title},
         )
 
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+    def post(self, request, pk, *args, **kwargs):
+        """Allow explicit POST withdraw endpoint."""
+        return self.delete(request, pk, *args, **kwargs)
+
+
+class GymPlatformNoticeListView(APIView):
+    """
+    Gym-side endpoint for Owner to view platform notices from FitGate.
+    Tier-exempt (available on Starter, Growth, etc.).
+    Only for role Owner.
+    Suspended and terminated gyms receive nothing.
+    """
+
+    required_flag = None
+    permission_classes = [IsAuthenticated, RequirePasswordChanged]
+
+    def get(self, request, *args, **kwargs):
+        tenant = getattr(request, "tenant", None)
+        if not tenant:
+            return Response(
+                {"detail": "Tenant required."}, status=status.HTTP_400_BAD_REQUEST
+            )
+        if request.user.role != User.ROLE_OWNER:
+            return Response(
+                {"detail": "Platform notices are accessible to gym Owners only."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        if tenant.status in [GymTenant.STATUS_SUSPENDED, GymTenant.STATUS_TERMINATED]:
+            return Response([], status=status.HTTP_200_OK)
+
+        from django.db.models import Q
+
+        from apps.tenants.models import PlatformNotice
+        from apps.tenants.serializers import PlatformNoticeSerializer
+
+        today = timezone.localdate()
+        notices = (
+            PlatformNotice.objects.filter(is_withdrawn=False)
+            .filter(
+                Q(audience_type=PlatformNotice.AUDIENCE_ALL) | Q(target_gyms=tenant)
+            )
+            .filter(Q(show_until__isnull=True) | Q(show_until__gte=today))
+            .distinct()
+            .order_by("-created_at")
+        )
+
+        serializer = PlatformNoticeSerializer(notices, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+class GymSupportRequestListCreateView(APIView):
+    """
+    Gym staff (Owner and Manager) support request inbox and creation.
+    Tier-exempt (available on every tier).
+    Reception, Trainer, and Member are refused (403).
+    Suspended/terminated gyms cannot send.
+    Limit 5 new requests per gym per calendar day.
+    """
+
+    required_flag = None
+    permission_classes = [IsAuthenticated, RequirePasswordChanged]
+
+    def _check_access(self, request):
+        tenant = getattr(request, "tenant", None)
+        if not tenant:
+            raise PermissionDenied("Gym context is required.")
+        if request.user.role not in [User.ROLE_OWNER, User.ROLE_MANAGER]:
+            raise PermissionDenied(
+                "Contact FitGate is only accessible to gym Owners and Managers."
+            )
+        return tenant
+
+    def get(self, request, *args, **kwargs):
+        tenant = self._check_access(request)
+        from apps.tenants.models import SupportRequest
+        from apps.tenants.serializers import SupportRequestSerializer
+
+        requests = (
+            SupportRequest.objects.filter(gym=tenant)
+            .prefetch_related("messages", "messages__sender")
+            .order_by("-updated_at")
+        )
+        serializer = SupportRequestSerializer(requests, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+    def post(self, request, *args, **kwargs):
+        tenant = self._check_access(request)
+        if tenant.status in [GymTenant.STATUS_SUSPENDED, GymTenant.STATUS_TERMINATED]:
+            raise PermissionDenied(
+                "Suspended or terminated gyms cannot submit support requests."
+            )
+
+        from apps.accounts.models import User
+        from apps.accounts.notifications import create_notification
+        from apps.accounts.services import record_audit_log
+        from apps.tenants.models import SupportMessage, SupportRequest
+        from apps.tenants.serializers import (
+            SupportRequestCreateSerializer,
+            SupportRequestSerializer,
+        )
+
+        # 5 new requests per calendar day limit
+        today = timezone.localdate()
+        today_count = SupportRequest.objects.filter(
+            gym=tenant,
+            created_at__date=today,
+        ).count()
+        if today_count >= 5:
+            return Response(
+                {
+                    "detail": "Your gym has reached the limit of 5 new support requests for today. Please wait until tomorrow or reply to an existing request."
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        serializer = SupportRequestCreateSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        data = serializer.validated_data
+        with transaction.atomic():
+            req = SupportRequest.objects.create(
+                gym=tenant,
+                created_by=request.user,
+                request_type=data["request_type"],
+                subject=data["subject"],
+                status=SupportRequest.STATUS_OPEN,
+            )
+            SupportMessage.objects.create(
+                request=req,
+                sender=request.user,
+                sender_role=request.user.role,
+                message=data["message"],
+            )
+
+        # Platform alert for Super Admin
+        super_admins = User.all_objects.filter(
+            role=User.ROLE_SUPER_ADMIN, is_active=True
+        )
+        for admin in super_admins:
+            create_notification(
+                recipient=admin,
+                notification_type="support_request",
+                message=f"New support request from {tenant.name}: {req.subject}",
+                gym=None,
+            )
+
+        record_audit_log(
+            actor=request.user,
+            action_type="support_request_created",
+            affected_record_type="SupportRequest",
+            affected_record_id=str(req.id),
+            gym=tenant,
+            metadata={"subject": req.subject, "request_type": req.request_type},
+        )
+
+        return Response(
+            SupportRequestSerializer(req).data, status=status.HTTP_201_CREATED
+        )
+
+
+class GymSupportRequestDetailReplyView(APIView):
+    """
+    Gym staff detail view and thread reply.
+    Tier-exempt. Max 20 messages per thread.
+    Gym reply on resolved reopens it.
+    """
+
+    required_flag = None
+    permission_classes = [IsAuthenticated, RequirePasswordChanged]
+
+    def _check_access(self, request, pk):
+        tenant = getattr(request, "tenant", None)
+        if not tenant:
+            raise PermissionDenied("Gym context is required.")
+        if request.user.role not in [User.ROLE_OWNER, User.ROLE_MANAGER]:
+            raise PermissionDenied(
+                "Contact FitGate is only accessible to gym Owners and Managers."
+            )
+        from apps.tenants.models import SupportRequest
+
+        try:
+            req = SupportRequest.objects.prefetch_related(
+                "messages", "messages__sender"
+            ).get(id=pk, gym=tenant)
+        except SupportRequest.DoesNotExist:
+            raise PermissionDenied("Support request not found.")
+        return tenant, req
+
+    def get(self, request, pk, *args, **kwargs):
+        tenant, req = self._check_access(request, pk)
+        from apps.tenants.serializers import SupportRequestSerializer
+
+        return Response(SupportRequestSerializer(req).data, status=status.HTTP_200_OK)
+
+    def post(self, request, pk, *args, **kwargs):
+        tenant, req = self._check_access(request, pk)
+        if tenant.status in [GymTenant.STATUS_SUSPENDED, GymTenant.STATUS_TERMINATED]:
+            raise PermissionDenied(
+                "Suspended or terminated gyms cannot reply to support requests."
+            )
+
+        if req.messages.count() >= 20:
+            return Response(
+                {
+                    "detail": "This thread has reached the maximum limit of 20 messages. Please open a new request if you have further questions."
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        from apps.accounts.models import User
+        from apps.accounts.notifications import create_notification
+        from apps.accounts.services import record_audit_log
+        from apps.tenants.models import SupportMessage, SupportRequest
+        from apps.tenants.serializers import (
+            SupportReplySerializer,
+            SupportRequestSerializer,
+        )
+
+        serializer = SupportReplySerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        with transaction.atomic():
+            SupportMessage.objects.create(
+                request=req,
+                sender=request.user,
+                sender_role=request.user.role,
+                message=serializer.validated_data["message"],
+            )
+            if req.status == SupportRequest.STATUS_RESOLVED:
+                req.status = SupportRequest.STATUS_OPEN
+            req.save(update_fields=["status", "updated_at"])
+
+        # Alert Super Admins
+        super_admins = User.all_objects.filter(
+            role=User.ROLE_SUPER_ADMIN, is_active=True
+        )
+        for admin in super_admins:
+            create_notification(
+                recipient=admin,
+                notification_type="support_message",
+                message=f"New reply from {tenant.name} on '{req.subject}'",
+                gym=None,
+            )
+
+        record_audit_log(
+            actor=request.user,
+            action_type="support_request_replied",
+            affected_record_type="SupportRequest",
+            affected_record_id=str(req.id),
+            gym=tenant,
+            metadata={"subject": req.subject},
+        )
+
+        return Response(SupportRequestSerializer(req).data, status=status.HTTP_200_OK)
+
+
+class PlatformSupportRequestListView(APIView):
+    """
+    Super Admin support requests queue.
+    Filters: status, gym_id, type.
+    Super Admin sees only gym name and request text, never operational data.
+    """
+
+    required_flag = None
+    permission_classes = [IsAuthenticated, RequirePasswordChanged, IsSuperAdmin]
+
+    def get(self, request, *args, **kwargs):
+        if getattr(request, "tenant", None) is not None:
+            raise PermissionDenied(
+                "Super Admin operations must be performed at the apex platform domain."
+            )
+
+        from apps.tenants.models import SupportRequest
+        from apps.tenants.serializers import SupportRequestSerializer
+
+        qs = (
+            SupportRequest.objects.all()
+            .select_related("gym", "created_by")
+            .prefetch_related("messages", "messages__sender")
+            .order_by("-updated_at")
+        )
+
+        status_param = request.query_params.get("status")
+        if status_param:
+            qs = qs.filter(status=status_param)
+
+        gym_id = request.query_params.get("gym_id")
+        if gym_id:
+            qs = qs.filter(gym_id=gym_id)
+
+        req_type = request.query_params.get("type")
+        if req_type:
+            qs = qs.filter(request_type=req_type)
+
+        serializer = SupportRequestSerializer(qs, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+class PlatformSupportRequestDetailReplyView(APIView):
+    """
+    Super Admin view and reply to a support request thread.
+    Dispatches bell notification to gym Owner and creating Manager.
+    """
+
+    required_flag = None
+    permission_classes = [IsAuthenticated, RequirePasswordChanged, IsSuperAdmin]
+
+    def get(self, request, pk, *args, **kwargs):
+        if getattr(request, "tenant", None) is not None:
+            raise PermissionDenied(
+                "Super Admin operations must be performed at the apex platform domain."
+            )
+
+        from apps.tenants.models import SupportRequest
+        from apps.tenants.serializers import SupportRequestSerializer
+
+        try:
+            req = (
+                SupportRequest.objects.select_related("gym", "created_by")
+                .prefetch_related("messages", "messages__sender")
+                .get(id=pk)
+            )
+        except SupportRequest.DoesNotExist:
+            return Response(
+                {"detail": "Support request not found."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        return Response(SupportRequestSerializer(req).data, status=status.HTTP_200_OK)
+
+    def post(self, request, pk, *args, **kwargs):
+        if getattr(request, "tenant", None) is not None:
+            raise PermissionDenied(
+                "Super Admin operations must be performed at the apex platform domain."
+            )
+
+        from apps.accounts.models import User
+        from apps.accounts.notifications import create_notification
+        from apps.accounts.services import record_audit_log
+        from apps.tenants.models import SupportMessage, SupportRequest
+        from apps.tenants.serializers import (
+            SupportReplySerializer,
+            SupportRequestSerializer,
+        )
+
+        try:
+            req = (
+                SupportRequest.objects.select_related("gym", "created_by")
+                .prefetch_related("messages")
+                .get(id=pk)
+            )
+        except SupportRequest.DoesNotExist:
+            return Response(
+                {"detail": "Support request not found."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        if req.messages.count() >= 20:
+            return Response(
+                {"detail": "This thread has reached the maximum limit of 20 messages."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        serializer = SupportReplySerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        with transaction.atomic():
+            SupportMessage.objects.create(
+                request=req,
+                sender=request.user,
+                sender_role="super_admin",
+                message=serializer.validated_data["message"],
+            )
+            if req.status == SupportRequest.STATUS_OPEN:
+                req.status = SupportRequest.STATUS_IN_PROGRESS
+            req.save(update_fields=["status", "updated_at"])
+
+        # Bell notification for Owner and creating Manager
+        recipients = list(
+            User.all_objects.filter(gym=req.gym, role=User.ROLE_OWNER, is_active=True)
+        )
+        if (
+            req.created_by
+            and req.created_by.role == User.ROLE_MANAGER
+            and req.created_by.is_active
+            and req.created_by not in recipients
+        ):
+            recipients.append(req.created_by)
+
+        for user in recipients:
+            create_notification(
+                recipient=user,
+                notification_type="support_reply",
+                message=f"FitGate Support replied to '{req.subject}'",
+                gym=req.gym,
+            )
+
+        record_audit_log(
+            actor=request.user,
+            action_type="support_request_admin_replied",
+            affected_record_type="SupportRequest",
+            affected_record_id=str(req.id),
+            gym=req.gym,
+            metadata={"subject": req.subject},
+        )
+
+        return Response(SupportRequestSerializer(req).data, status=status.HTTP_200_OK)
+
+
+class PlatformSupportRequestStatusView(APIView):
+    """Super Admin change support request status (open, in_progress, resolved)."""
+
+    required_flag = None
+    permission_classes = [IsAuthenticated, RequirePasswordChanged, IsSuperAdmin]
+
+    def patch(self, request, pk, *args, **kwargs):
+        if getattr(request, "tenant", None) is not None:
+            raise PermissionDenied(
+                "Super Admin operations must be performed at the apex platform domain."
+            )
+
+        from apps.accounts.services import record_audit_log
+        from apps.tenants.models import SupportRequest
+        from apps.tenants.serializers import SupportRequestSerializer
+
+        try:
+            req = SupportRequest.objects.get(id=pk)
+        except SupportRequest.DoesNotExist:
+            return Response(
+                {"detail": "Support request not found."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        new_status = request.data.get("status")
+        valid_statuses = [s[0] for s in SupportRequest.STATUS_CHOICES]
+        if new_status not in valid_statuses:
+            return Response(
+                {"detail": f"Status must be one of: {', '.join(valid_statuses)}."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        req.status = new_status
+        req.save(update_fields=["status", "updated_at"])
+
+        record_audit_log(
+            actor=request.user,
+            action_type="support_request_status_changed",
+            affected_record_type="SupportRequest",
+            affected_record_id=str(req.id),
+            gym=req.gym,
+            metadata={"new_status": new_status, "subject": req.subject},
+        )
+
+        return Response(SupportRequestSerializer(req).data, status=status.HTTP_200_OK)
+
+
+class GymSubscriptionView(APIView):
+    """
+    Read-only gym subscription information for Owner.
+    Returns: tier, status, subscription_expires_at, past platform payments.
+    """
+
+    required_flag = None
+    permission_classes = [IsAuthenticated, RequirePasswordChanged, CanEditGymSettings]
+
+    def get(self, request, *args, **kwargs):
+        gym = request.tenant
+        from apps.payments.models import Payment
+
+        past_payments = Payment.all_objects.filter(
+            gym=gym,
+            payer_type=Payment.PAYER_TYPE_GYM_SUBSCRIPTION,
+        ).order_by("-created_at")
+
+        payments_data = [
+            {
+                "id": str(p.id),
+                "date": p.created_at.date().isoformat() if p.created_at else None,
+                "amount": str(p.amount_etb),
+                "method": p.method,
+                "reference": p.bank_reference or p.bank_reference_normalized or "-",
+                "status": p.status,
+            }
+            for p in past_payments
+        ]
+
+        data = {
+            "tier": gym.tier,
+            "status": gym.status,
+            "subscription_expires_at": (
+                gym.subscription_expires_at.isoformat()
+                if gym.subscription_expires_at
+                else None
+            ),
+            "past_payments": payments_data,
+        }
+        return Response(data, status=status.HTTP_200_OK)
 
 
 class GymTerminateView(APIView):
@@ -1501,6 +2171,8 @@ class GymTerminateView(APIView):
     Requires gym to be currently suspended AND suspension must be at least 7 days old.
     Requires typing the exact gym subdomain to confirm.
     """
+
+    required_flag = None
 
     permission_classes = [IsAuthenticated, RequirePasswordChanged, IsSuperAdmin]
 
@@ -1578,6 +2250,8 @@ class GymReinstateView(APIView):
     From suspended, the existing payment and reactivation flow applies.
     """
 
+    required_flag = None
+
     permission_classes = [IsAuthenticated, RequirePasswordChanged, IsSuperAdmin]
 
     def post(self, request, gym_id, *args, **kwargs):
@@ -1641,6 +2315,7 @@ class PlatformAnalyticsOverviewView(APIView):
     Excludes demo and terminated gyms from active gym counts.
     """
 
+    required_flag = None
     permission_classes = [IsAuthenticated, RequirePasswordChanged, IsSuperAdmin]
 
     def get(self, request, *args, **kwargs):
@@ -1738,8 +2413,8 @@ class GymRenewView(APIView):
     the lapse flag clears, and a suspended gym is reactivated.
     """
 
-    permission_classes = [IsAuthenticated, RequirePasswordChanged, IsSuperAdmin]
     required_flag = None
+    permission_classes = [IsAuthenticated, RequirePasswordChanged, IsSuperAdmin]
 
     def post(self, request, gym_id, *args, **kwargs):
         if getattr(request, "tenant", None) is not None:

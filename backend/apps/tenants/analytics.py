@@ -147,7 +147,7 @@ def get_gym_analytics_overview(tenant: GymTenant) -> Dict[str, Any]:
             for item in plan_stats
         ]
 
-    pending_receipt_reviews_count = Payment.all_objects.filter(
+    pending_receipt_reviews_count = Payment.objects.filter(
         gym=tenant,
         status=Payment.STATUS_PENDING_REVIEW,
     ).count()

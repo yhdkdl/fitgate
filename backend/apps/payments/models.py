@@ -10,6 +10,8 @@ from django.core.exceptions import ValidationError
 from django.db import models
 from django.utils import timezone
 
+from apps.tenants.context import get_current_tenant
+from apps.tenants.managers import TenantQuerySet
 from apps.tenants.models import TenantAwareModel
 
 
@@ -200,12 +202,47 @@ class BankReceiptLookupCounter(models.Model):
         verbose_name_plural = "Bank Receipt Lookup Counters"
 
 
+class PaymentQuerySet(TenantQuerySet):
+    """Tenant-aware QuerySet for Payment model."""
+
+    def member_payments(self):
+        return self.filter(payer_type="member")
+
+    def gym_subscriptions(self):
+        return self.unscoped().filter(payer_type="gym_subscription")
+
+
+class PaymentManager(models.Manager.from_queryset(PaymentQuerySet)):
+    """
+    Default manager for Payment.
+    Gym-side queries (when a tenant context is active) strictly return member payments only
+    (payer_type='member').
+    Gym platform subscription payments (payer_type='gym_subscription') are strictly
+    excluded from all gym-side revenue, ledgers, reports, exports, and sweeps.
+    Platform-level operations and Super Admin queries use Payment.all_objects.
+    """
+
+    def get_queryset(self):
+        current_tenant = get_current_tenant()
+        if current_tenant is not None:
+            return (
+                super().get_queryset().filter(gym=current_tenant, payer_type="member")
+            )
+        return super().get_queryset().none()
+
+    def create(self, **kwargs):
+        return self.model.all_objects.create(**kwargs)
+
+
 class Payment(TenantAwareModel):
     """
     Records payments for gym platform subscriptions and member plans.
 
     Tenant-scoped to the paying gym tenant.
     """
+
+    objects = PaymentManager()
+    all_objects = models.Manager()
 
     PAYER_TYPE_GYM_SUBSCRIPTION = "gym_subscription"
     PAYER_TYPE_MEMBER = "member"

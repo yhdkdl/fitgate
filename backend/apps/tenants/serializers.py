@@ -1,6 +1,7 @@
 """Serializers for gym tenant management and Super Admin provisioning."""
 
 from django.conf import settings
+from django.utils import timezone
 from rest_framework import serializers
 from rest_framework.exceptions import PermissionDenied
 
@@ -16,6 +17,9 @@ from apps.tenants.models import (
     DemoRequest,
     GymConfig,
     GymTenant,
+    PlatformNotice,
+    SupportMessage,
+    SupportRequest,
     validate_hex_color,
     validate_subdomain,
 )
@@ -36,6 +40,7 @@ class GymTenantSummarySerializer(serializers.ModelSerializer):
             "url",
             "status",
             "tier",
+            "is_demo",
             "currency",
             "location",
             "contact_name",
@@ -515,3 +520,160 @@ class GymNoticeSerializer(serializers.ModelSerializer):
         from apps.core.validators import validate_notice_body
 
         return validate_notice_body(value)
+
+
+class PlatformNoticeSerializer(serializers.ModelSerializer):
+    posted_by_name = serializers.SerializerMethodField(read_only=True)
+    target_gym_names = serializers.SerializerMethodField(read_only=True)
+    target_gym_ids = serializers.PrimaryKeyRelatedField(
+        many=True,
+        queryset=GymTenant.objects.all(),
+        source="target_gyms",
+        required=False,
+    )
+
+    class Meta:
+        model = PlatformNotice
+        fields = [
+            "id",
+            "title",
+            "message",
+            "posted_by",
+            "posted_by_name",
+            "audience_type",
+            "target_gym_ids",
+            "target_gym_names",
+            "show_until",
+            "is_withdrawn",
+            "withdrawn_at",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = [
+            "id",
+            "posted_by",
+            "posted_by_name",
+            "target_gym_names",
+            "is_withdrawn",
+            "withdrawn_at",
+            "created_at",
+            "updated_at",
+        ]
+
+    def get_posted_by_name(self, obj) -> str:
+        return "FitGate Platform"
+
+    def get_target_gym_names(self, obj) -> list[str]:
+        if obj.audience_type == PlatformNotice.AUDIENCE_ALL:
+            return ["All gyms"]
+        return [g.name for g in obj.target_gyms.all()]
+
+    def validate_title(self, value):
+        from apps.core.validators import validate_platform_notice_title
+
+        return validate_platform_notice_title(value)
+
+    def validate_message(self, value):
+        from apps.core.validators import validate_platform_notice_message
+
+        return validate_platform_notice_message(value)
+
+    def validate(self, attrs):
+        audience_type = attrs.get("audience_type", PlatformNotice.AUDIENCE_ALL)
+        target_gyms = attrs.get("target_gyms", [])
+        if audience_type == PlatformNotice.AUDIENCE_SELECTED and not target_gyms:
+            raise serializers.ValidationError(
+                {"target_gym_ids": ["Please select at least one gym for this notice."]}
+            )
+        show_until = attrs.get("show_until")
+        if show_until:
+            today = timezone.localdate()
+            if show_until < today:
+                raise serializers.ValidationError(
+                    {"show_until": ["Show-until date cannot be in the past."]}
+                )
+        return attrs
+
+
+class SupportMessageSerializer(serializers.ModelSerializer):
+    sender_name = serializers.SerializerMethodField(read_only=True)
+
+    class Meta:
+        model = SupportMessage
+        fields = [
+            "id",
+            "request_id",
+            "sender_id",
+            "sender_name",
+            "sender_role",
+            "message",
+            "created_at",
+        ]
+        read_only_fields = fields
+
+    def get_sender_name(self, obj) -> str:
+        if obj.sender_role == "super_admin":
+            return "FitGate Support"
+        return getattr(obj.sender, "full_name", "") or obj.sender.email
+
+
+class SupportRequestSerializer(serializers.ModelSerializer):
+    gym_name = serializers.CharField(source="gym.name", read_only=True)
+    gym_subdomain = serializers.CharField(source="gym.subdomain", read_only=True)
+    created_by_name = serializers.SerializerMethodField(read_only=True)
+    request_type_display = serializers.CharField(
+        source="get_request_type_display", read_only=True
+    )
+    messages = SupportMessageSerializer(many=True, read_only=True)
+    message_count = serializers.SerializerMethodField(read_only=True)
+
+    class Meta:
+        model = SupportRequest
+        fields = [
+            "id",
+            "gym_id",
+            "gym_name",
+            "gym_subdomain",
+            "created_by_id",
+            "created_by_name",
+            "request_type",
+            "request_type_display",
+            "subject",
+            "status",
+            "message_count",
+            "messages",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = fields
+
+    def get_created_by_name(self, obj) -> str:
+        return getattr(obj.created_by, "full_name", "") or obj.created_by.email
+
+    def get_message_count(self, obj) -> int:
+        return obj.messages.count()
+
+
+class SupportRequestCreateSerializer(serializers.Serializer):
+    request_type = serializers.ChoiceField(choices=SupportRequest.TYPE_CHOICES)
+    subject = serializers.CharField(max_length=100)
+    message = serializers.CharField(max_length=1000)
+
+    def validate_subject(self, value):
+        from apps.core.validators import validate_support_subject
+
+        return validate_support_subject(value)
+
+    def validate_message(self, value):
+        from apps.core.validators import validate_support_message
+
+        return validate_support_message(value)
+
+
+class SupportReplySerializer(serializers.Serializer):
+    message = serializers.CharField(max_length=1000)
+
+    def validate_message(self, value):
+        from apps.core.validators import validate_support_reply
+
+        return validate_support_reply(value)

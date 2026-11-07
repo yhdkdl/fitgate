@@ -131,7 +131,7 @@ export const MemberSubscriptionCard: React.FC<MemberSubscriptionCardProps> = ({
 
       {/* Details Grid */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
-        {capabilities?.has_trainer_module && (
+        {(capabilities == null || capabilities.has_trainer_module) && (
           <div className="space-y-0.5">
             <span className="text-text-muted block">Trainer Included</span>
             <span className="font-semibold text-text">
