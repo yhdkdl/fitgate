@@ -291,8 +291,10 @@ def book_class_session(
         raise ValidationError("Member does not belong to this gym.")
 
     if member.status != "active":
+        contact_line = getattr(gym, "contact_line", "")
+        extra = f" Please contact the front desk{' ' + contact_line if contact_line else ''}."
         raise ValidationError(
-            f"Member is not active (current status: {member.status}). Only active members can book classes."
+            f"Member is not active (current status: {member.status}). Only active members can book classes.{extra}"
         )
 
     with transaction.atomic():

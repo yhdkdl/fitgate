@@ -562,7 +562,7 @@ def process_chapa_webhook(
                                 f"Your payment of {locked_payment.amount_etb} ETB for upgrading to "
                                 f"{locked_payment.plan.name if locked_payment.plan else 'membership'} "
                                 f"was received, but could not be activated automatically because your membership status changed. "
-                                f"Please contact the front desk."
+                                f"Please contact the front desk{' ' + gym.contact_line if getattr(gym, 'contact_line', '') else ''}."
                             ),
                             gym=gym,
                         )

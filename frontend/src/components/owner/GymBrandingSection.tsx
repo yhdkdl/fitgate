@@ -1,5 +1,7 @@
 import React, { useEffect, useState } from "react";
 import {
+  getGymDetails,
+  updateGymDetails,
   getGymSettings,
   getGymSubscription,
   updateGymSettings,
@@ -17,6 +19,9 @@ import { Input } from "../ui/Input";
 import { Spinner } from "../ui/Spinner";
 import {
   focusFirstInvalidField,
+  filterPhoneInput,
+  validatePhone,
+  validateAddress,
   validateHexColor,
   validateReminderDays,
   getTwoLargestReminderDays,
@@ -36,6 +41,12 @@ export const GymBrandingSection: React.FC<GymBrandingSectionProps> = ({
   const [saving, setSaving] = useState(false);
   const [uploadingLogo, setUploadingLogo] = useState(false);
 
+  const [publicContactPhone, setPublicContactPhone] = useState("");
+  const [gymLocation, setGymLocation] = useState("");
+  const [savingDetails, setSavingDetails] = useState(false);
+  const [detailsSuccessMsg, setDetailsSuccessMsg] = useState<string | null>(null);
+  const [detailsErrorMsg, setDetailsErrorMsg] = useState<string | null>(null);
+  const [detailsFieldErrors, setDetailsFieldErrors] = useState<Record<string, string>>({});
   const [brandColor, setBrandColor] = useState("");
   const [logoUrl, setLogoUrl] = useState("");
   const [showUnavailableEquipment, setShowUnavailableEquipment] =
@@ -88,6 +99,17 @@ export const GymBrandingSection: React.FC<GymBrandingSectionProps> = ({
 
         if (user?.role === "owner" && !gymId) {
           try {
+            const det = await getGymDetails();
+            if (isMounted) {
+              setPublicContactPhone(det.public_contact_phone || "");
+              setGymLocation(det.location || "");
+            }
+          } catch {
+            // ignore
+          }
+        }
+        if (user?.role === "owner" && !gymId) {
+          try {
             const sub = await getGymSubscription();
             if (isMounted) setSubscription(sub);
           } catch {
@@ -134,6 +156,40 @@ export const GymBrandingSection: React.FC<GymBrandingSectionProps> = ({
       setErrorMsg(msg);
     } finally {
       setUploadingLogo(false);
+    }
+  };
+
+  const handleSaveDetails = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setDetailsSuccessMsg(null);
+    setDetailsErrorMsg(null);
+    setDetailsFieldErrors({});
+
+    const errors: Record<string, string> = {};
+    const phoneErr = validatePhone(publicContactPhone, true);
+    if (phoneErr) errors.public_contact_phone = phoneErr;
+
+    if (gymLocation.trim()) {
+      const locErr = validateAddress(gymLocation, false);
+      if (locErr) errors.location = locErr;
+    }
+
+    if (Object.keys(errors).length > 0) {
+      setDetailsFieldErrors(errors);
+      return;
+    }
+
+    setSavingDetails(true);
+    try {
+      await updateGymDetails({
+        public_contact_phone: publicContactPhone.trim(),
+        location: gymLocation.trim(),
+      });
+      setDetailsSuccessMsg("Gym details updated successfully.");
+    } catch {
+      setDetailsErrorMsg("Failed to update gym details. Please check your inputs.");
+    } finally {
+      setSavingDetails(false);
     }
   };
 
@@ -505,6 +561,73 @@ export const GymBrandingSection: React.FC<GymBrandingSectionProps> = ({
           </div>
         </form>
       </Card>
+
+            {user?.role === "owner" && !gymId && (
+        <Card className="bg-surface border-border p-6 space-y-4">
+          <div className="border-b border-border pb-3">
+            <h2 className="text-lg font-semibold text-text">
+              Gym details
+            </h2>
+            <p className="text-xs text-text-muted mt-0.5">
+              Manage your gym's public phone number and address displayed to members and on your public entry screen.
+            </p>
+          </div>
+
+          {detailsSuccessMsg && (
+            <Alert variant="success">{detailsSuccessMsg}</Alert>
+          )}
+          {detailsErrorMsg && (
+            <Alert variant="danger">{detailsErrorMsg}</Alert>
+          )}
+
+          <form onSubmit={handleSaveDetails} className="space-y-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <FormField
+                label="Address (shown to members)"
+                htmlFor="gym-owner-location"
+                error={detailsFieldErrors.location}
+                helpText="Physical street address (optional, 3–200 characters)."
+              >
+                <Input
+                  id="gym-owner-location"
+                  value={gymLocation}
+                  onChange={(e) => setGymLocation(e.target.value)}
+                  placeholder="e.g. Bole Atlas, Addis Ababa"
+                  maxLength={200}
+                  error={detailsFieldErrors.location}
+                />
+              </FormField>
+
+              <FormField
+                label="Public Contact Phone (shown to members)"
+                htmlFor="gym-owner-phone"
+                error={detailsFieldErrors.public_contact_phone}
+                required
+                helpText="Displayed on member portal and public entry screen."
+              >
+                <Input
+                  id="gym-owner-phone"
+                  value={publicContactPhone}
+                  onChange={(e) =>
+                    setPublicContactPhone(filterPhoneInput(e.target.value))
+                  }
+                  placeholder="+251911..."
+                  inputMode="tel"
+                  maxLength={20}
+                  error={detailsFieldErrors.public_contact_phone}
+                  required
+                />
+              </FormField>
+            </div>
+
+            <div className="flex justify-end pt-2 border-t border-border">
+              <Button type="submit" disabled={savingDetails}>
+                {savingDetails ? "Saving Details..." : "Save Gym Details"}
+              </Button>
+            </div>
+          </form>
+        </Card>
+      )}
 
       {user?.role === "owner" && !gymId && (
         <Card className="bg-surface border-border p-6 space-y-4">

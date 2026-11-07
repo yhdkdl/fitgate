@@ -93,6 +93,7 @@ class GymTenant(models.Model):
     tier = models.CharField(max_length=20, choices=TIER_CHOICES, default=TIER_STARTER)
     currency = models.CharField(max_length=3, default="ETB")
     location = models.CharField(max_length=255, blank=True, default="")
+    public_contact_phone = models.CharField(max_length=20, blank=True, default="")
     contact_name = models.CharField(max_length=150, blank=True, default="")
     contact_phone = models.CharField(max_length=20, blank=True, default="")
     contact_email = models.EmailField(blank=True, default="")
@@ -103,6 +104,14 @@ class GymTenant(models.Model):
     is_demo = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+
+    @property
+    def contact_line(self) -> str:
+        from apps.tenants.utils import format_gym_contact_line
+
+        return format_gym_contact_line(
+            self.public_contact_phone or self.contact_phone, self.location
+        )
 
     class Meta:
         ordering = ["-created_at"]
@@ -413,6 +422,14 @@ class DemoRequest(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
+    @property
+    def contact_line(self) -> str:
+        from apps.tenants.utils import format_gym_contact_line
+
+        return format_gym_contact_line(
+            self.public_contact_phone or self.contact_phone, self.location
+        )
+
     class Meta:
         ordering = ["-created_at"]
 
@@ -439,6 +456,14 @@ class GymNotice(PlatformTenantAwareModel):
     )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+
+    @property
+    def contact_line(self) -> str:
+        from apps.tenants.utils import format_gym_contact_line
+
+        return format_gym_contact_line(
+            self.public_contact_phone or self.contact_phone, self.location
+        )
 
     class Meta:
         ordering = ["-created_at"]
@@ -494,6 +519,14 @@ class PlatformNotice(models.Model):
     )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+
+    @property
+    def contact_line(self) -> str:
+        from apps.tenants.utils import format_gym_contact_line
+
+        return format_gym_contact_line(
+            self.public_contact_phone or self.contact_phone, self.location
+        )
 
     class Meta:
         ordering = ["-created_at"]

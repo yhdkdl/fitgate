@@ -11,6 +11,7 @@ import {
   suspendGym,
   terminateGym,
   updateGymSettings,
+  updatePlatformGymDetails,
   type CreateGymResponse,
   type GymTenantSummary,
   type PlatformAnalyticsOverview,
@@ -29,6 +30,7 @@ import {
   validatePaymentAmount,
   validatePhone,
   validateSubdomain,
+  validateAddress,
   validateTextLength,
   validateReminderDays,
   getTwoLargestReminderDays,
@@ -47,6 +49,7 @@ export interface GymPrefillData {
   contact_phone?: string;
   contact_email?: string;
   location?: string;
+  public_contact_phone?: string;
 }
 
 interface GymManagementSectionProps {
@@ -73,6 +76,7 @@ export const GymManagementSection: React.FC<GymManagementSectionProps> = ({
   const [subdomain, setSubdomain] = useState("");
   const [tier, setTier] = useState<"starter" | "growth" | "pro">("starter");
   const [location, setLocation] = useState("");
+  const [publicContactPhone, setPublicContactPhone] = useState("");
   const [contactName, setContactName] = useState("");
   const [contactPhone, setContactPhone] = useState("");
   const [contactEmail, setContactEmail] = useState("");
@@ -119,6 +123,18 @@ export const GymManagementSection: React.FC<GymManagementSectionProps> = ({
   const [isRenewing, setIsRenewing] = useState(false);
   const [renewError, setRenewError] = useState<string | null>(null);
 
+  // Edit details modal states
+  const [editingGymDetails, setEditingGymDetails] = useState<GymTenantSummary | null>(null);
+  const [editName, setEditName] = useState("");
+  const [editLocation, setEditLocation] = useState("");
+  const [editPublicPhone, setEditPublicPhone] = useState("");
+  const [editContactName, setEditContactName] = useState("");
+  const [editContactPhone, setEditContactPhone] = useState("");
+  const [editContactEmail, setEditContactEmail] = useState("");
+  const [isSavingDetails, setIsSavingDetails] = useState(false);
+  const [editDetailsError, setEditDetailsError] = useState<string | null>(null);
+  const [editDetailsFieldErrors, setEditDetailsFieldErrors] = useState<Record<string, string>>({});
+
   // Config modal states
   const [selectedGymForConfig, setSelectedGymForConfig] =
     useState<GymTenantSummary | null>(null);
@@ -139,6 +155,86 @@ export const GymManagementSection: React.FC<GymManagementSectionProps> = ({
   const [savingConfig, setSavingConfig] = useState(false);
   const [configSuccessMsg, setConfigSuccessMsg] = useState<string | null>(null);
   const [configErrorMsg, setConfigErrorMsg] = useState<string | null>(null);
+
+  const openEditDetailsModal = (gym: GymTenantSummary) => {
+    setEditingGymDetails(gym);
+    setEditName(gym.name || "");
+    setEditLocation(gym.location || "");
+    setEditPublicPhone(gym.public_contact_phone || gym.contact_phone || "");
+    setEditContactName(gym.contact_name || "");
+    setEditContactPhone(gym.contact_phone || "");
+    setEditContactEmail(gym.contact_email || "");
+    setEditDetailsError(null);
+    setEditDetailsFieldErrors({});
+  };
+
+  const handleSaveGymDetails = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingGymDetails) return;
+    setEditDetailsError(null);
+    setEditDetailsFieldErrors({});
+
+    const errors: Record<string, string> = {};
+    const nameErr = validateName(editName, "Gym name", 2, 100);
+    if (nameErr) errors.name = nameErr;
+
+    if (editLocation.trim()) {
+      const locErr = validateAddress(editLocation, false);
+      if (locErr) errors.location = locErr;
+    }
+
+    const pubPhoneErr = validatePhone(editPublicPhone, true);
+    if (pubPhoneErr) errors.public_contact_phone = pubPhoneErr;
+
+    if (editContactName.trim()) {
+      const cNameErr = validateName(editContactName, "Contact name", 2, 100);
+      if (cNameErr) errors.contact_name = cNameErr;
+    }
+
+    if (editContactPhone.trim()) {
+      const cPhoneErr = validatePhone(editContactPhone, false);
+      if (cPhoneErr) errors.contact_phone = cPhoneErr;
+    }
+
+    if (editContactEmail.trim()) {
+      const cEmailErr = validateEmail(editContactEmail, false);
+      if (cEmailErr) errors.contact_email = cEmailErr;
+    }
+
+    if (Object.keys(errors).length > 0) {
+      setEditDetailsFieldErrors(errors);
+      return;
+    }
+
+    setIsSavingDetails(true);
+    try {
+      await updatePlatformGymDetails(editingGymDetails.id, {
+        name: editName.trim(),
+        location: editLocation.trim(),
+        public_contact_phone: editPublicPhone.trim(),
+        contact_name: editContactName.trim(),
+        contact_phone: editContactPhone.trim(),
+        contact_email: editContactEmail.trim().toLowerCase(),
+      });
+      setEditingGymDetails(null);
+      fetchGyms();
+    } catch (err: unknown) {
+      const errorObj = err as {
+        response?: { data?: Record<string, string[] | string> };
+      };
+      if (errorObj.response?.data) {
+        const serverErrors: Record<string, string> = {};
+        for (const [k, val] of Object.entries(errorObj.response.data)) {
+          serverErrors[k] = Array.isArray(val) ? val[0] : String(val);
+        }
+        setEditDetailsFieldErrors(serverErrors);
+      } else {
+        setEditDetailsError("Failed to update gym details. Please check your inputs.");
+      }
+    } finally {
+      setIsSavingDetails(false);
+    }
+  };
 
   const handleOpenConfig = async (gym: GymTenantSummary) => {
     setSelectedGymForConfig(gym);
@@ -343,6 +439,10 @@ export const GymManagementSection: React.FC<GymManagementSectionProps> = ({
       }
       if (prefillData.contact_phone)
         setContactPhone(filterPhoneInput(prefillData.contact_phone));
+      if (prefillData.public_contact_phone)
+        setPublicContactPhone(filterPhoneInput(prefillData.public_contact_phone));
+      else if (prefillData.contact_phone)
+        setPublicContactPhone(filterPhoneInput(prefillData.contact_phone));
       if (prefillData.contact_email) {
         setContactEmail(prefillData.contact_email);
         setOwnerEmail(prefillData.contact_email);
@@ -488,9 +588,12 @@ export const GymManagementSection: React.FC<GymManagementSectionProps> = ({
     if (subErr) errors.subdomain = subErr;
 
     if (location.trim()) {
-      const locErr = validateTextLength(location, "Location", 0, 100);
+      const locErr = validateAddress(location, false);
       if (locErr) errors.location = locErr;
     }
+
+    const pubPhoneErr = validatePhone(publicContactPhone, true);
+    if (pubPhoneErr) errors.public_contact_phone = pubPhoneErr;
 
     if (contactName.trim()) {
       const cNameErr = validateName(contactName, "Contact name", 2, 100);
@@ -548,6 +651,7 @@ export const GymManagementSection: React.FC<GymManagementSectionProps> = ({
         subdomain: subdomain.trim().toLowerCase(),
         tier,
         location: location.trim(),
+        public_contact_phone: publicContactPhone.trim(),
         contact_name: contactName.trim(),
         contact_phone: contactPhone.trim(),
         contact_email: contactEmail.trim().toLowerCase(),
@@ -568,6 +672,7 @@ export const GymManagementSection: React.FC<GymManagementSectionProps> = ({
       setName("");
       setSubdomain("");
       setLocation("");
+      setPublicContactPhone("");
       setContactName("");
       setContactPhone("");
       setContactEmail("");
@@ -851,6 +956,14 @@ export const GymManagementSection: React.FC<GymManagementSectionProps> = ({
                         >
                           Config
                         </Button>
+                        <Button
+                          size="sm"
+                          variant="secondary"
+                          onClick={() => openEditDetailsModal(gym)}
+                          className="text-xs"
+                        >
+                          Edit details
+                        </Button>
                         {!gym.tls_confirmed_at && (
                           <Button
                             size="sm"
@@ -1031,7 +1144,7 @@ export const GymManagementSection: React.FC<GymManagementSectionProps> = ({
                 </FormField>
 
                 <FormField
-                  label="Location"
+                  label="Address (shown to members)"
                   htmlFor="gym-location"
                   error={fieldErrors.location}
                 >
@@ -1039,9 +1152,32 @@ export const GymManagementSection: React.FC<GymManagementSectionProps> = ({
                     id="gym-location"
                     value={location}
                     onChange={(e) => setLocation(e.target.value)}
-                    placeholder="e.g. Bole Atlas"
-                    maxLength={100}
+                    placeholder="e.g. Bole Atlas, Addis Ababa"
+                    maxLength={200}
                     error={fieldErrors.location}
+                  />
+                </FormField>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <FormField
+                  label="Public Contact Phone (shown to members)"
+                  htmlFor="gym-public-contact-phone"
+                  error={fieldErrors.public_contact_phone}
+                  required
+                  helpText="Displayed to members and on public entry page."
+                >
+                  <Input
+                    id="gym-public-contact-phone"
+                    value={publicContactPhone}
+                    onChange={(e) =>
+                      setPublicContactPhone(filterPhoneInput(e.target.value))
+                    }
+                    placeholder="+251911..."
+                    inputMode="tel"
+                    maxLength={20}
+                    error={fieldErrors.public_contact_phone}
+                    required
                   />
                 </FormField>
               </div>
@@ -1198,6 +1334,173 @@ export const GymManagementSection: React.FC<GymManagementSectionProps> = ({
                   disabled={isSubmitting}
                 >
                   Provision Gym
+                </Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Gym Details Modal */}
+      {editingGymDetails && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm overflow-y-auto">
+          <div className="bg-surface border border-border rounded-xl max-w-lg w-full p-6 space-y-4 shadow-xl">
+            <div className="flex justify-between items-start border-b border-border pb-3">
+              <div>
+                <h3 className="text-lg font-bold text-text">
+                  Edit Gym Details
+                </h3>
+                <p className="text-xs text-text-muted mt-0.5">
+                  Update public contact and contact person information. Subdomain and owner email are immutable.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setEditingGymDetails(null)}
+                className="text-text-muted hover:text-text text-sm"
+              >
+                ✕
+              </button>
+            </div>
+
+            {editDetailsError && (
+              <Alert variant="danger">{editDetailsError}</Alert>
+            )}
+
+            <form onSubmit={handleSaveGymDetails} className="space-y-4">
+              <div className="p-3 bg-surface-2 rounded-lg border border-border space-y-1 text-xs">
+                <div className="flex justify-between">
+                  <span className="text-text-muted">Subdomain:</span>
+                  <span className="font-mono font-medium text-text">{editingGymDetails.subdomain}.fitgate.et</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-text-muted">Owner email:</span>
+                  <span className="font-medium text-text">{editingGymDetails.owner_email || '—'}</span>
+                </div>
+              </div>
+
+              <FormField
+                label="Gym Name"
+                htmlFor="edit-gym-name"
+                error={editDetailsFieldErrors.name}
+                required
+              >
+                <Input
+                  id="edit-gym-name"
+                  value={editName}
+                  onChange={(e) => setEditName(e.target.value)}
+                  placeholder="e.g. Atlas Fitness Club"
+                  maxLength={100}
+                  error={editDetailsFieldErrors.name}
+                  required
+                />
+              </FormField>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <FormField
+                  label="Address (shown to members)"
+                  htmlFor="edit-gym-location"
+                  error={editDetailsFieldErrors.location}
+                  helpText="Street address shown to members (optional)."
+                >
+                  <Input
+                    id="edit-gym-location"
+                    value={editLocation}
+                    onChange={(e) => setEditLocation(e.target.value)}
+                    placeholder="e.g. Bole Atlas, Addis Ababa"
+                    maxLength={200}
+                    error={editDetailsFieldErrors.location}
+                  />
+                </FormField>
+
+                <FormField
+                  label="Public Contact Phone (shown to members)"
+                  htmlFor="edit-gym-public-phone"
+                  error={editDetailsFieldErrors.public_contact_phone}
+                  required
+                  helpText="Displayed on member portal and public entry."
+                >
+                  <Input
+                    id="edit-gym-public-phone"
+                    value={editPublicPhone}
+                    onChange={(e) =>
+                      setEditPublicPhone(filterPhoneInput(e.target.value))
+                    }
+                    placeholder="+251911..."
+                    inputMode="tel"
+                    maxLength={20}
+                    error={editDetailsFieldErrors.public_contact_phone}
+                    required
+                  />
+                </FormField>
+              </div>
+
+              <div className="border-t border-border pt-3 space-y-3">
+                <h4 className="text-xs font-semibold text-text uppercase tracking-wider">
+                  Contact Person Information
+                </h4>
+                <FormField
+                  label="Contact Person Name"
+                  htmlFor="edit-contact-name"
+                  error={editDetailsFieldErrors.contact_name}
+                >
+                  <Input
+                    id="edit-contact-name"
+                    value={editContactName}
+                    onChange={(e) => setEditContactName(e.target.value)}
+                    placeholder="Contact person name"
+                    maxLength={100}
+                    error={editDetailsFieldErrors.contact_name}
+                  />
+                </FormField>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <FormField
+                    label="Contact Person Phone"
+                    htmlFor="edit-contact-phone"
+                    error={editDetailsFieldErrors.contact_phone}
+                  >
+                    <Input
+                      id="edit-contact-phone"
+                      value={editContactPhone}
+                      onChange={(e) =>
+                        setEditContactPhone(filterPhoneInput(e.target.value))
+                      }
+                      placeholder="+251911..."
+                      inputMode="tel"
+                      maxLength={20}
+                      error={editDetailsFieldErrors.contact_phone}
+                    />
+                  </FormField>
+
+                  <FormField
+                    label="Contact Person Email"
+                    htmlFor="edit-contact-email"
+                    error={editDetailsFieldErrors.contact_email}
+                  >
+                    <Input
+                      id="edit-contact-email"
+                      value={editContactEmail}
+                      onChange={(e) => setEditContactEmail(e.target.value)}
+                      placeholder="contact@gym.et"
+                      type="email"
+                      maxLength={100}
+                      error={editDetailsFieldErrors.contact_email}
+                    />
+                  </FormField>
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-3 pt-4 border-t border-border">
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={() => setEditingGymDetails(null)}
+                >
+                  Cancel
+                </Button>
+                <Button type="submit" disabled={isSavingDetails}>
+                  {isSavingDetails ? "Saving..." : "Save changes"}
                 </Button>
               </div>
             </form>

@@ -1099,3 +1099,18 @@ def validate_support_reply(value: str) -> str:
     if len(cleaned) < 1 or len(cleaned) > 1000:
         raise ValidationError("Reply message must be between 1 and 1,000 characters.")
     return cleaned
+
+
+def validate_address(value: Optional[str]) -> str:
+    """
+    Validate address / location text.
+    Must be between 3 and 200 characters when provided.
+    """
+    if not value or not isinstance(value, str):
+        return ""
+    cleaned = value.strip()
+    if not cleaned:
+        return ""
+    if len(cleaned) < 3 or len(cleaned) > 200:
+        raise ValidationError("Address must be between 3 and 200 characters.")
+    return cleaned

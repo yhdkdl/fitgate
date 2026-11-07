@@ -23,6 +23,12 @@ _Purpose: A dated record of every scope decision, modification, and addition mad
 
 ## 2. Changed
 
+- **Public Contact Details, Edit Gym Details & Support Thread Resolution (November 5, 2026):**
+  - **Public Contact Details Separation:** `GymTenant` model introduces `public_contact_phone` separate from `contact_phone` (which remains private for Super Admin and is never exposed to members). Create Gym form requires public contact phone, validated with the shared phone validator. Address is labeled "Address (shown to members)" with a 3–200 character validation rule. Data migration copies old contact phone into public contact phone for existing gyms.
+  - **Edit Gym Details & Audit Logging:** Gym Owner can edit public contact phone and address in Gym Settings (Owner only; other roles denied 403). Super Admin can edit gym name, address, public contact phone, and contact person's name/phone/email on the Gym Management screen (subdomain and Owner email immutable). All edits are audit-logged with actor, field, old and new values.
+  - **Support Thread Message Resolution:** Support messages return full text, sender role, sender name, and sender label ("FitGate support" for Super Admin; staff name and role for gym staff) oldest first. Bell notifications for replies show an 80-character snippet and the request subject.
+  - **Front-Desk Contact Line Helper:** Single helper function in frontend and backend formats `(Phone: ... · Address: ...)`, omitting empty items and never printing empty brackets or placeholders. Appended to all member front-desk messages.
+
 - **Platform Notice Overview Dismissal, Support Request Interoperability & Demo Login Credentials (November 7, 2026):**
   - **Notice Overview Dismissal:** On the Owner Overview screen, active notices in the " Messages from FitGate\ card disappear once the Owner clicks \View all messages\ or visits the dedicated \FitGate messages\ screen. Viewed notices are remembered locally so the card remains dismissed until a new announcement is posted.
 - **Support Request Interoperability:** Backend support request serializers and frontend endpoints accept category and request_type interchangeably, and accept body and message for replies, preventing schema mismatch validation errors.

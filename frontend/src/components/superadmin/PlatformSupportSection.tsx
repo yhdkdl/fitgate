@@ -333,9 +333,16 @@ export const PlatformSupportSection: React.FC = () => {
               </div>
 
               {/* Message Thread */}
-              <div className="space-y-3 max-h-[420px] overflow-y-auto pr-1">
+              <div className="space-y-3 max-h-[420px] overflow-y-auto pr-1" data-testid="support-messages-thread">
                 {activeRequest.messages?.map((msg) => {
-                  const isStaff = msg.sender_type === "gym";
+                  const isStaff = msg.sender_role !== "super_admin" && msg.sender_type !== "platform";
+                  const senderText =
+                    msg.sender_label ||
+                    (isStaff
+                      ? `${msg.sender_name || "Staff"} (${(msg.sender_role || "Staff").replace("_", " ").toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase())})`
+                      : "FitGate support");
+                  const messageText = msg.message || msg.body || "";
+
                   return (
                     <div
                       key={msg.id}
@@ -347,14 +354,14 @@ export const PlatformSupportSection: React.FC = () => {
                     >
                       <div className="flex items-center justify-between text-text-muted font-medium">
                         <span className={isStaff ? "text-text font-semibold" : "text-primary font-semibold"}>
-                          {isStaff ? `${msg.sender_name} (${activeRequest.gym_name})` : "FitGate Platform Support"}
+                          {senderText}
                         </span>
                         <span className="text-[10px]">
                           {new Date(msg.created_at).toLocaleString()}
                         </span>
                       </div>
                       <p className="text-text whitespace-pre-wrap leading-relaxed">
-                        {msg.body}
+                        {messageText}
                       </p>
                     </div>
                   );

@@ -34,6 +34,7 @@ export const MemberSelfSection: React.FC<MemberSelfSectionProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [onlinePaymentAvailable, setOnlinePaymentAvailable] =
     useState<boolean>(true);
+  const [gymContactLine, setGymContactLine] = useState("");
 
   const fetchProfile = async () => {
     setLoading(true);
@@ -56,6 +57,9 @@ export const MemberSelfSection: React.FC<MemberSelfSectionProps> = ({
       .then((res) => {
         if (typeof res?.online_payment_verified === "boolean") {
           setOnlinePaymentAvailable(res.online_payment_verified);
+        }
+        if ((res as { contact_line?: string })?.contact_line) {
+          setGymContactLine((res as { contact_line?: string }).contact_line || "");
         }
       })
       .catch(() => {});
@@ -96,7 +100,7 @@ export const MemberSelfSection: React.FC<MemberSelfSectionProps> = ({
             <p className="text-xs text-text-muted mt-0.5">
               The front desk or manager is checking your payment reference
               against their bank statement. Check-in and activation will unlock
-              once approved.
+              once approved.{gymContactLine ? ` ${gymContactLine}` : ""}
             </p>
           </div>
         </div>
@@ -158,6 +162,7 @@ export const MemberSelfSection: React.FC<MemberSelfSectionProps> = ({
         <MemberSubscriptionCard
           member={profile}
           onlinePaymentAvailable={onlinePaymentAvailable}
+          contactLine={gymContactLine}
         />
       )}
 

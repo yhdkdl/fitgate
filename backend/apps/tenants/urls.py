@@ -12,6 +12,7 @@ from apps.tenants.views import (
     DismissFirstRunChecklistView,
     FirstRunChecklistView,
     GymAnalyticsOverviewView,
+    GymDetailsView,
     GymDetailView,
     GymNoticeDetailView,
     GymNoticeListCreateView,
@@ -27,6 +28,7 @@ from apps.tenants.views import (
     GymTerminateView,
     PlatformAnalyticsOverviewView,
     PlatformGymConfigView,
+    PlatformGymDetailsView,
     PlatformNoticeDetailView,
     PlatformNoticeListCreateView,
     PlatformSupportRequestDetailReplyView,
@@ -231,5 +233,15 @@ urlpatterns = [
         "api/gym/subscription/",
         GymSubscriptionView.as_view(),
         name="gym-subscription",
+    ),
+    path(
+        "api/gym/details/",
+        GymDetailsView.as_view(),
+        name="gym-details",
+    ),
+    path(
+        "api/platform/gyms/<uuid:gym_id>/details/",
+        PlatformGymDetailsView.as_view(),
+        name="platform-gym-details",
     ),
 ]
