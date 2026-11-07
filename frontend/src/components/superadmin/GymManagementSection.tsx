@@ -383,7 +383,7 @@ export const GymManagementSection: React.FC<GymManagementSectionProps> = ({
     return {
       all: gyms.length,
       active: gyms.filter((g) => g.status === "active" && !g.lapse_flagged_at).length,
-      lapsed: gyms.filter((g) => Boolean(g.lapse_flagged_at) || g.status === "lapsed").length,
+      lapsed: gyms.filter((g) => Boolean(g.lapse_flagged_at)).length,
       suspended: gyms.filter((g) => g.status === "suspended").length,
       terminated: gyms.filter((g) => g.status === "terminated").length,
       awaiting_certificate: gyms.filter((g) => !g.tls_confirmed_at && g.status !== "terminated").length,
@@ -395,7 +395,7 @@ export const GymManagementSection: React.FC<GymManagementSectionProps> = ({
       if (statusFilter === "active") {
         if (gym.status !== "active" || gym.lapse_flagged_at) return false;
       } else if (statusFilter === "lapsed") {
-        if (!gym.lapse_flagged_at && gym.status !== "lapsed") return false;
+        if (!gym.lapse_flagged_at) return false;
       } else if (statusFilter === "suspended") {
         if (gym.status !== "suspended") return false;
       } else if (statusFilter === "terminated") {
@@ -436,7 +436,7 @@ export const GymManagementSection: React.FC<GymManagementSectionProps> = ({
         </span>
       );
     }
-    if (gym.lapse_flagged_at || gym.status === "lapsed") {
+    if (gym.lapse_flagged_at) {
       return (
         <span className="inline-flex items-center gap-1.5 text-xs text-yellow-500 font-medium">
           <span className="w-2 h-2 rounded-full bg-yellow-500 shrink-0" />

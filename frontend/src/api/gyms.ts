@@ -223,16 +223,46 @@ export async function getPlatformNotices(): Promise<PlatformNotice[]> {
   return await apiFetch<PlatformNotice[]>("/api/platform/notices/");
 }
 
-export async function createPlatformNotice(data: {
-  title: string;
-  message: string;
-  audience_type: "all" | "selected";
-  target_gym_ids?: string[];
-  show_until?: string | null;
-}): Promise<PlatformNotice> {
+export async function createPlatformNotice(
+  dataOrTitle:
+    | string
+    | {
+        title: string;
+        message?: string;
+        body?: string;
+        audience_type?: "all" | "selected";
+        target_gym_ids?: string[];
+        show_until?: string | null;
+      },
+  maybeBody?: string
+): Promise<PlatformNotice> {
+  let payload: {
+    title: string;
+    message: string;
+    audience_type: "all" | "selected";
+    target_gym_ids: string[];
+    show_until: string | null;
+  };
+  if (typeof dataOrTitle === "string") {
+    payload = {
+      title: dataOrTitle,
+      message: maybeBody || "",
+      audience_type: "all",
+      target_gym_ids: [],
+      show_until: null,
+    };
+  } else {
+    payload = {
+      title: dataOrTitle.title,
+      message: dataOrTitle.message || dataOrTitle.body || "",
+      audience_type: dataOrTitle.audience_type || "all",
+      target_gym_ids: dataOrTitle.target_gym_ids || [],
+      show_until: dataOrTitle.show_until || null,
+    };
+  }
   return await apiFetch<PlatformNotice>("/api/platform/notices/", {
     method: "POST",
-    body: JSON.stringify(data),
+    body: JSON.stringify(payload),
   });
 }
 
@@ -240,6 +270,10 @@ export async function withdrawPlatformNotice(id: string): Promise<PlatformNotice
   return await apiFetch<PlatformNotice>(`/api/platform/notices/${id}/`, {
     method: "PATCH",
   });
+}
+
+export async function deletePlatformNotice(id: string): Promise<void> {
+  await withdrawPlatformNotice(id);
 }
 
 export async function getGymPlatformNotices(): Promise<PlatformNotice[]> {

@@ -38,7 +38,7 @@ import {
   type AuthSyncMessage,
 } from "../utils/authSync";
 
-interface AuthContextType {
+export interface AuthContextType {
   user: UserSummary | UserProfile | null;
   dashboardConfig: DashboardConfig | null;
   capabilities: GymCapabilities | null;
@@ -567,6 +567,8 @@ export function useAuth(): AuthContextType {
       mustChangePassword: false,
       capabilities: null,
       dashboardConfig: null,
+      sessionNotice: null,
+      clearSessionNotice: () => {},
       login: async () => {},
       logout: async () => {},
       updateUser: async () => ({} as UserProfile),

@@ -221,7 +221,7 @@ describe("Sprint 35: Super Admin Dashboard, Analytics, Termination, Notices", ()
         is_platform_wide: true,
         created_at: "2026-01-01T00:00:00Z",
         updated_at: "2026-01-01T00:00:00Z",
-      } as unknown as PlatformNotice,
+      } as unknown as gymsApi.PlatformNotice,
     ]);
 
     render(<NoticeBoardSection userRole="super_admin" />);

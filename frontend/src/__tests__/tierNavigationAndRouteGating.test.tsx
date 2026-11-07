@@ -3,7 +3,7 @@ import { render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { AuthContext, type AuthContextType } from "../context/AuthContext";
 import { DashboardScreen } from "../screens/DashboardScreen";
-import type { GymCapabilities, UserProfile } from "../types/api";
+import type { DashboardConfig, GymCapabilities, UserProfile } from "../api/auth";
 
 const STARTER_CAPABILITIES: GymCapabilities = {
   has_trainer_module: false,
@@ -26,7 +26,7 @@ const GROWTH_CAPABILITIES: GymCapabilities = {
 };
 
 function makeAuthContext(user: Partial<UserProfile>, capabilities: GymCapabilities): AuthContextType {
-  const fullUser: UserProfile = {
+  const fullUser = {
     id: "test-user-id",
     email: "test@fitgate.org",
     full_name: "Test User",
@@ -37,7 +37,7 @@ function makeAuthContext(user: Partial<UserProfile>, capabilities: GymCapabiliti
     is_active: true,
     created_at: new Date().toISOString(),
     ...user,
-  };
+  } as unknown as UserProfile;
 
   return {
     user: fullUser,
@@ -45,8 +45,9 @@ function makeAuthContext(user: Partial<UserProfile>, capabilities: GymCapabiliti
     isLoading: false,
     mustChangePassword: false,
     capabilities,
+    sessionNotice: null,
+    clearSessionNotice: () => {},
     dashboardConfig: {
-      user: fullUser,
       capabilities,
       navigation: [],
       branding: {
@@ -54,7 +55,7 @@ function makeAuthContext(user: Partial<UserProfile>, capabilities: GymCapabiliti
         logo: null,
         brand_color: "#2563EB",
       },
-    },
+    } as unknown as DashboardConfig,
     login: async () => {},
     logout: async () => {},
     updateUser: async () => fullUser,
