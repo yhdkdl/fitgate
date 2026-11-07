@@ -355,7 +355,7 @@ export const GymManagementSection: React.FC<GymManagementSectionProps> = ({
       if (prefillData.name) {
         proposeSubdomain(prefillData.name)
           .then(setSubdomain)
-          .catch(() => {});
+          .catch(() => { });
       }
     }
   }, [prefillData]);
@@ -366,7 +366,7 @@ export const GymManagementSection: React.FC<GymManagementSectionProps> = ({
       const data = await listGyms();
       setGyms(data);
       if (typeof getPlatformAnalyticsOverview === "function") {
-        getPlatformAnalyticsOverview().then(setMetrics).catch(() => {});
+        getPlatformAnalyticsOverview().then(setMetrics).catch(() => { });
       }
     } catch {
       // ignore
@@ -715,11 +715,10 @@ export const GymManagementSection: React.FC<GymManagementSectionProps> = ({
               key={filter.key}
               type="button"
               onClick={() => setStatusFilter(filter.key)}
-              className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors flex items-center gap-1.5 ${
-                statusFilter === filter.key
+              className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors flex items-center gap-1.5 ${statusFilter === filter.key
                   ? "bg-primary text-white"
                   : "bg-surface-2 text-text-muted hover:text-text hover:bg-surface-2/80"
-              }`}
+                }`}
             >
               <span>{filter.label} ({filter.count})</span>
             </button>
@@ -740,11 +739,10 @@ export const GymManagementSection: React.FC<GymManagementSectionProps> = ({
                 key={t.key}
                 type="button"
                 onClick={() => setTierFilter(t.key)}
-                className={`px-3 py-1 rounded text-xs font-medium transition-colors ${
-                  tierFilter === t.key
+                className={`px-3 py-1 rounded text-xs font-medium transition-colors ${tierFilter === t.key
                     ? "bg-surface text-primary shadow-sm"
                     : "text-text-muted hover:text-text"
-                }`}
+                  }`}
               >
                 {t.label}
               </button>

@@ -56,9 +56,10 @@ export const ContactFitGateSection: React.FC = () => {
       setLoading(true);
       setError(null);
       const data = await listGymSupportRequests();
-      setRequests(data);
+      const list = Array.isArray(data) ? data : [];
+      setRequests(list);
       if (activeRequest) {
-        const updated = data.find((r) => r.id === activeRequest.id);
+        const updated = list.find((r) => r.id === activeRequest.id);
         if (updated) setActiveRequest(updated);
       }
     } catch (err: unknown) {
@@ -114,10 +115,18 @@ export const ContactFitGateSection: React.FC = () => {
       await fetchRequests();
       setActiveRequest(newReq);
     } catch (err: unknown) {
-      const msg =
-        (err as { data?: { detail?: string } })?.data?.detail ||
-        "Failed to submit support request.";
-      setFormError(msg);
+      const errData = (err as { data?: Record<string, unknown> })?.data;
+      let msg = (errData?.detail as string) || "";
+      if (!msg && errData) {
+        const firstField = Object.keys(errData)[0];
+        const val = errData[firstField];
+        if (Array.isArray(val) && val.length > 0) {
+          msg = `${val[0]}`;
+        } else if (typeof val === "string") {
+          msg = val;
+        }
+      }
+      setFormError(msg || "Failed to submit support request.");
     } finally {
       setSubmitting(false);
     }
@@ -156,10 +165,18 @@ export const ContactFitGateSection: React.FC = () => {
       setReplyText("");
       await fetchRequests();
     } catch (err: unknown) {
-      const msg =
-        (err as { data?: { detail?: string } })?.data?.detail ||
-        "Failed to send reply.";
-      setReplyError(msg);
+      const errData = (err as { data?: Record<string, unknown> })?.data;
+      let msg = (errData?.detail as string) || "";
+      if (!msg && errData) {
+        const firstField = Object.keys(errData)[0];
+        const val = errData[firstField];
+        if (Array.isArray(val) && val.length > 0) {
+          msg = `${val[0]}`;
+        } else if (typeof val === "string") {
+          msg = val;
+        }
+      }
+      setReplyError(msg || "Failed to send reply.");
     } finally {
       setReplying(false);
     }
@@ -249,7 +266,7 @@ export const ContactFitGateSection: React.FC = () => {
 
                       <div className="flex items-center justify-between text-[11px] text-text-muted">
                         <Badge variant="neutral" className="text-[10px]">
-                          {CATEGORY_LABELS[req.category] || req.category}
+                          {CATEGORY_LABELS[req.category || req.request_type || "other"] || req.category || req.request_type}
                         </Badge>
                         <span>
                           {req.messages?.length || 1} msg &bull;{" "}
@@ -284,8 +301,8 @@ export const ContactFitGateSection: React.FC = () => {
                   <p className="text-xs text-text-muted mt-0.5">
                     Category:{" "}
                     <strong>
-                      {CATEGORY_LABELS[activeRequest.category] ||
-                        activeRequest.category}
+                      {CATEGORY_LABELS[activeRequest.category || activeRequest.request_type || "other"] ||
+                        activeRequest.category || activeRequest.request_type}
                     </strong>{" "}
                     &bull; Created by {activeRequest.created_by_name} on{" "}
                     {new Date(activeRequest.created_at).toLocaleString()}

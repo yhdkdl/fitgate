@@ -22,6 +22,8 @@ export interface SupportRequest {
   gym_id: string;
   gym_name: string;
   category: SupportCategory;
+  request_type?: SupportCategory;
+  request_type_display?: string;
   subject: string;
   status: SupportStatus;
   created_by_name: string;
@@ -35,13 +37,19 @@ export async function listGymSupportRequests(): Promise<SupportRequest[]> {
 }
 
 export async function createGymSupportRequest(payload: {
-  category: SupportCategory;
+  category?: SupportCategory;
+  request_type?: SupportCategory;
   subject: string;
   message: string;
 }): Promise<SupportRequest> {
+  const reqType = payload.category || payload.request_type || "system_problem";
   return await apiFetch<SupportRequest>("/api/gym/support-requests/", {
     method: "POST",
-    body: JSON.stringify(payload),
+    body: JSON.stringify({
+      ...payload,
+      request_type: reqType,
+      category: reqType,
+    }),
   });
 }
 
@@ -57,7 +65,7 @@ export async function replyGymSupportRequest(
 ): Promise<SupportRequest> {
   return await apiFetch<SupportRequest>(`/api/gym/support-requests/${id}/reply/`, {
     method: "POST",
-    body: JSON.stringify({ body }),
+    body: JSON.stringify({ body, message: body }),
   });
 }
 
@@ -92,7 +100,7 @@ export async function replyPlatformSupportRequest(
     `/api/platform/support-requests/${id}/reply/`,
     {
       method: "POST",
-      body: JSON.stringify({ body }),
+      body: JSON.stringify({ body, message: body }),
     }
   );
 }

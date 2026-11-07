@@ -172,7 +172,6 @@ export const PaymentGatewaySection: React.FC<PaymentGatewaySectionProps> = ({
       await createGymReceivingAccount({
         bank: newBank,
         account_number: accNum,
-        account_name: newAccountHolderName.trim() || undefined,
         account_holder_name: newAccountHolderName.trim() || undefined,
       });
       setNewAccountNumber("");
@@ -290,7 +289,7 @@ export const PaymentGatewaySection: React.FC<PaymentGatewaySectionProps> = ({
       if (result.success) {
         setSuccessMsg(
           result.message ||
-            "Chapa connection verified successfully! Online checkout is enabled."
+          "Chapa connection verified successfully! Online checkout is enabled."
         );
         fetchConfig();
         if (onUpdated) onUpdated();
@@ -502,13 +501,12 @@ export const PaymentGatewaySection: React.FC<PaymentGatewaySectionProps> = ({
           </label>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
             <label
-              className={`p-3 rounded-lg border cursor-pointer flex items-start gap-2.5 transition-colors ${
-                (config?.receipt_verification_failure_policy ||
-                  "activate_and_reconcile_later") ===
+              className={`p-3 rounded-lg border cursor-pointer flex items-start gap-2.5 transition-colors ${(config?.receipt_verification_failure_policy ||
+                "activate_and_reconcile_later") ===
                 "activate_and_reconcile_later"
-                  ? "border-primary bg-primary/5"
-                  : "border-border bg-surface"
-              }`}
+                ? "border-primary bg-primary/5"
+                : "border-border bg-surface"
+                }`}
             >
               <input
                 type="radio"
@@ -536,12 +534,11 @@ export const PaymentGatewaySection: React.FC<PaymentGatewaySectionProps> = ({
             </label>
 
             <label
-              className={`p-3 rounded-lg border cursor-pointer flex items-start gap-2.5 transition-colors ${
-                config?.receipt_verification_failure_policy ===
+              className={`p-3 rounded-lg border cursor-pointer flex items-start gap-2.5 transition-colors ${config?.receipt_verification_failure_policy ===
                 "hold_for_approval"
-                  ? "border-primary bg-primary/5"
-                  : "border-border bg-surface"
-              }`}
+                ? "border-primary bg-primary/5"
+                : "border-border bg-surface"
+                }`}
             >
               <input
                 type="radio"
@@ -710,7 +707,7 @@ export const PaymentGatewaySection: React.FC<PaymentGatewaySectionProps> = ({
                         {acc.account_number}
                       </td>
                       <td className="py-2.5 px-3 text-text-muted">
-                        {acc.account_name || acc.account_holder_name || "—"}
+                        {acc.account_holder_name || "—"}
                       </td>
                       <td className="py-2.5 px-3 text-right">
                         <Button

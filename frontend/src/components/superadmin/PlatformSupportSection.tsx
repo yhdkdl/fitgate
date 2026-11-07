@@ -270,7 +270,7 @@ export const PlatformSupportSection: React.FC = () => {
 
                       <div className="flex items-center justify-between text-[11px] text-text-muted">
                         <Badge variant="neutral" className="text-[10px]">
-                          {CATEGORY_LABELS[req.category] || req.category}
+                          {CATEGORY_LABELS[req.category || req.request_type || "other"] || req.category || req.request_type}
                         </Badge>
                         <span>
                           {req.messages?.length || 1} msg &bull;{" "}
@@ -305,8 +305,8 @@ export const PlatformSupportSection: React.FC = () => {
                   <p className="text-xs text-text-muted mt-0.5">
                     Gym: <strong>{activeRequest.gym_name}</strong> &bull; Category:{" "}
                     <strong>
-                      {CATEGORY_LABELS[activeRequest.category] ||
-                        activeRequest.category}
+                      {CATEGORY_LABELS[activeRequest.category || activeRequest.request_type || "other"] ||
+                        activeRequest.category || activeRequest.request_type}
                     </strong>{" "}
                     &bull; Created by {activeRequest.created_by_name}
                   </p>

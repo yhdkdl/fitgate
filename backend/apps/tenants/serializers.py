@@ -624,6 +624,7 @@ class SupportRequestSerializer(serializers.ModelSerializer):
     request_type_display = serializers.CharField(
         source="get_request_type_display", read_only=True
     )
+    category = serializers.CharField(source="request_type", read_only=True)
     messages = SupportMessageSerializer(many=True, read_only=True)
     message_count = serializers.SerializerMethodField(read_only=True)
 
@@ -637,6 +638,7 @@ class SupportRequestSerializer(serializers.ModelSerializer):
             "created_by_id",
             "created_by_name",
             "request_type",
+            "category",
             "request_type_display",
             "subject",
             "status",
@@ -655,9 +657,24 @@ class SupportRequestSerializer(serializers.ModelSerializer):
 
 
 class SupportRequestCreateSerializer(serializers.Serializer):
-    request_type = serializers.ChoiceField(choices=SupportRequest.TYPE_CHOICES)
+    request_type = serializers.CharField(required=False)
+    category = serializers.CharField(required=False)
     subject = serializers.CharField(max_length=100)
     message = serializers.CharField(max_length=1000)
+
+    def validate(self, attrs):
+        req_type = attrs.get("request_type") or attrs.get("category")
+        if not req_type:
+            raise serializers.ValidationError(
+                {"request_type": "This field is required."}
+            )
+        valid_types = [c[0] for c in SupportRequest.TYPE_CHOICES]
+        if req_type not in valid_types:
+            raise serializers.ValidationError(
+                {"request_type": f"Must be one of {valid_types}."}
+            )
+        attrs["request_type"] = req_type
+        return attrs
 
     def validate_subject(self, value):
         from apps.core.validators import validate_support_subject
@@ -671,9 +688,14 @@ class SupportRequestCreateSerializer(serializers.Serializer):
 
 
 class SupportReplySerializer(serializers.Serializer):
-    message = serializers.CharField(max_length=1000)
+    message = serializers.CharField(required=False, max_length=1000)
+    body = serializers.CharField(required=False, max_length=1000)
 
-    def validate_message(self, value):
+    def validate(self, attrs):
+        msg = attrs.get("message") or attrs.get("body")
+        if not msg:
+            raise serializers.ValidationError({"message": "This field is required."})
         from apps.core.validators import validate_support_reply
 
-        return validate_support_reply(value)
+        attrs["message"] = validate_support_reply(msg)
+        return attrs

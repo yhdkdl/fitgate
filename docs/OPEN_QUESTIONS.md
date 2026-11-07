@@ -285,3 +285,10 @@ If less than 90% sure how a requirement should be implemented and the doubt does
       - `SupportRequest` and `SupportMessage` provide two-way ticketing for Owner and Manager to Super Admin (limit 5 new requests/day per gym, at most 20 messages per thread). Super Admin sees only gym name and request text, never gym operational data.
       - Gym subscription payments (`payer_type='gym_subscription'`) are filtered out centrally in the `Payment` default manager so they never appear in any gym-side ledger, dashboard, or report.
     - **Reason for choice:** Completely decouples platform operations from tenant operations, prevents accidental revenue contamination in gym accounting, and provides clean audit trails.
+
+42. **Platform Notice Overview Dismissal and Support Request Interoperability (November 7, 2026)**
+    - **Question/Context:** How long should platform notices remain visible on the Owner Overview screen once viewed, why did gym support requests fail with 'Failed to submit support request', and why were demo credentials missing on login?
+    - **Chosen Solution & Policy:**
+      - **Notice Dismissal on Overview:** Active notices on the Owner Home card are dismissed as soon as the Owner clicks "View all messages" or visits the dedicated "FitGate messages" screen (`/platform-messages`), or clicks the card's dismiss action. Viewed IDs are recorded in client local storage. When Super Admin publishes a new announcement, it is displayed immediately on the Overview until viewed. All notices remain indefinitely archived and readable on the "FitGate messages" screen.
+      - **Support Request Field Interoperability:** Backend serializers (`SupportRequestCreateSerializer`, `SupportReplySerializer`, `SupportRequestSerializer`) accept both `category` and `request_type`, and accept both `message` and `body`. Detailed field errors are surfaced to staff in the submission modal.
+      - **Demo Gym Login Helper:** The demo credentials helper on the login screen displays automatically for demo gyms (`subdomain='demo'` or `is_demo=True`), offering one-click "Fill" for Owner, Manager, Reception, Trainer, and Member demo accounts.

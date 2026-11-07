@@ -4,19 +4,26 @@ import { getGymPlatformNotices, type PlatformNotice } from "../../api/gyms";
 import { Badge } from "../ui/Badge";
 import { Button } from "../ui/Button";
 import { Card } from "../ui/Card";
+import {
+  getSeenPlatformNoticeIds,
+  markPlatformNoticesSeen,
+} from "../../utils/seenNotices";
 
 export const OwnerPlatformMessagesCard: React.FC = () => {
   const [notices, setNotices] = useState<PlatformNotice[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isDismissed, setIsDismissed] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
     let isMounted = true;
     getGymPlatformNotices()
       .then((data) => {
-        if (isMounted) setNotices(data);
+        if (isMounted) setNotices(Array.isArray(data) ? data : []);
       })
-      .catch(() => {})
+      .catch(() => {
+        if (isMounted) setNotices([]);
+      })
       .finally(() => {
         if (isMounted) setLoading(false);
       });
@@ -25,11 +32,25 @@ export const OwnerPlatformMessagesCard: React.FC = () => {
     };
   }, []);
 
-  if (loading || notices.length === 0) {
+  const seenIds = getSeenPlatformNoticeIds();
+  const unreadNotices = notices.filter((n) => !seenIds.includes(n.id));
+
+  if (loading || isDismissed || unreadNotices.length === 0) {
     return null;
   }
 
-  const recentNotices = notices.slice(0, 3);
+  const recentNotices = unreadNotices.slice(0, 3);
+
+  const handleViewAll = () => {
+    markPlatformNoticesSeen(notices.map((n) => n.id));
+    setIsDismissed(true);
+    navigate("/platform-messages");
+  };
+
+  const handleDismiss = () => {
+    markPlatformNoticesSeen(notices.map((n) => n.id));
+    setIsDismissed(true);
+  };
 
   return (
     <Card className="bg-surface border-border p-5 space-y-4">
@@ -40,17 +61,27 @@ export const OwnerPlatformMessagesCard: React.FC = () => {
             Messages from FitGate
           </h2>
           <Badge variant="primary" className="text-[10px]">
-            {notices.length}
+            {unreadNotices.length}
           </Badge>
         </div>
-        <Button
-          size="sm"
-          variant="ghost"
-          onClick={() => navigate("/platform-messages")}
-          className="text-xs text-primary"
-        >
-          View all messages &rarr;
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={handleDismiss}
+            className="text-xs text-text-muted hover:text-text"
+          >
+            Dismiss
+          </Button>
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={handleViewAll}
+            className="text-xs text-primary font-medium"
+          >
+            View all messages &rarr;
+          </Button>
+        </div>
       </div>
 
       <div className="divide-y divide-border/60">

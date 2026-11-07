@@ -257,10 +257,10 @@ export const DashboardScreen: React.FC = () => {
     if (role === "trainer" && capabilities?.has_trainer_module !== false) {
       getTrainerProfileMe()
         .then((t) => setTrainerWorkload(t))
-        .catch(() => {});
+        .catch(() => { });
       getMyClients()
         .then((c) => setTrainerClients(c))
-        .catch(() => {});
+        .catch(() => { });
     }
   }, [role, capabilities?.has_trainer_module]);
 
@@ -641,284 +641,284 @@ export const DashboardScreen: React.FC = () => {
               </p>
             </Card>
           ) : (
-          <div className="space-y-6">
-            <div className="border-b border-border pb-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-              <div>
-                <h2 className="text-xl font-bold text-text">
-                  Trainer Overview
-                </h2>
-                <p className="text-xs text-text-muted">
-                  Your live client workload and measurement tracking overview.
-                </p>
-              </div>
-              <div className="flex items-center gap-2">
-                <Button
-                  size="sm"
-                  variant="secondary"
-                  onClick={() => navigate("/measurements")}
-                >
-                  Member measurements
-                </Button>
-                <Button
-                  size="sm"
-                  variant="primary"
-                  onClick={() => navigate("/my-clients")}
-                >
-                  My clients
-                </Button>
-              </div>
-            </div>
-
-            {/* Overview Stat Cards (Item J: X of Y clients, clients with no measurements) */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <Card className="bg-surface border-border p-5 space-y-1">
-                <span className="text-xs text-text-muted block">
-                  Client Workload
-                </span>
-                <div className="flex items-baseline justify-between">
-                  <span className="text-2xl font-bold text-text">
-                    {trainerWorkload
-                      ? `${trainerWorkload.client_count} of ${trainerWorkload.max_clients}`
-                      : `${trainerClients.length} clients`}
-                  </span>
-                  {trainerWorkload &&
-                  trainerWorkload.client_count >=
-                    trainerWorkload.max_clients ? (
-                    <Badge variant="warning">At Capacity</Badge>
-                  ) : (
-                    <Badge variant="success">Capacity Available</Badge>
-                  )}
-                </div>
-                <p className="text-[11px] text-text-muted mt-1">
-                  Active client assignments
-                </p>
-              </Card>
-
-              <Card className="bg-surface border-border p-5 space-y-1">
-                <span className="text-xs text-text-muted block">
-                  No Measurements Recorded
-                </span>
-                <span className="text-2xl font-bold text-amber-500">
-                  {trainerClients.filter((c) => !c.has_measurements).length}
-                </span>
-                <p className="text-[11px] text-text-muted mt-1">
-                  Assigned clients needing initial intake measurements
-                </p>
-              </Card>
-
-              <Card className="bg-surface border-border p-5 space-y-1">
-                <span className="text-xs text-text-muted block">
-                  Measured Clients
-                </span>
-                <span className="text-2xl font-bold text-primary">
-                  {trainerClients.filter((c) => c.has_measurements).length}
-                </span>
-                <p className="text-[11px] text-text-muted mt-1">
-                  Clients with body composition history
-                </p>
-              </Card>
-            </div>
-
-            {/* Clients with no approved plan this week */}
-            {(() => {
-              const clientsWithoutPlan = trainerClients.filter(
-                (c) => !c.has_approved_plan_this_week
-              );
-              return (
-                <Card className="bg-surface border-border p-5 space-y-4">
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-border pb-3">
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <h3 className="text-sm font-bold text-text uppercase tracking-wider">
-                          Clients with no approved plan this week
-                        </h3>
-                        <Badge
-                          variant={
-                            clientsWithoutPlan.length > 0
-                              ? "warning"
-                              : "success"
-                          }
-                        >
-                          {clientsWithoutPlan.length}
-                        </Badge>
-                      </div>
-                      <p className="text-xs text-text-muted mt-0.5">
-                        Assigned clients needing review or plan generation for
-                        the current week.
-                      </p>
-                    </div>
-                  </div>
-
-                  {clientsWithoutPlan.length === 0 ? (
-                    <div className="text-center py-6 text-text-muted text-xs">
-                      All assigned clients have an approved workout plan for
-                      this week.
-                    </div>
-                  ) : (
-                    <div className="overflow-x-auto">
-                      <table className="w-full text-xs text-left border-collapse">
-                        <thead>
-                          <tr className="border-b border-border text-text-muted">
-                            <th className="py-2 px-3 font-semibold">Client</th>
-                            <th className="py-2 px-3 font-semibold">Status</th>
-                            <th className="py-2 px-3 font-semibold text-right">
-                              Action
-                            </th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-border/50">
-                          {clientsWithoutPlan.map((c) => (
-                            <tr
-                              key={c.assignment_id}
-                              className="hover:bg-surface-2/40 cursor-pointer"
-                              onClick={() =>
-                                navigate(
-                                  `/measurements?memberId=${c.member_id}&tab=training_plans`
-                                )
-                              }
-                            >
-                              <td className="py-2.5 px-3 font-medium text-text">
-                                <div className="flex items-center gap-2.5">
-                                  {c.photo_url ? (
-                                    <AuthenticatedImage
-                                      src={c.photo_url}
-                                      alt={c.member_name}
-                                      className="w-7 h-7 rounded-full object-cover border border-border shrink-0"
-                                    />
-                                  ) : (
-                                    <div className="w-7 h-7 rounded-full bg-primary/20 text-primary font-bold flex items-center justify-center text-[10px] border border-border shrink-0">
-                                      {c.member_name.slice(0, 2).toUpperCase()}
-                                    </div>
-                                  )}
-                                  <span>{c.member_name}</span>
-                                </div>
-                              </td>
-                              <td className="py-2.5 px-3">
-                                {c.plan_status_this_week ===
-                                "pending_review" ? (
-                                  <Badge variant="warning">
-                                    Draft waiting for your review
-                                  </Badge>
-                                ) : (
-                                  <Badge variant="neutral">No draft yet</Badge>
-                                )}
-                              </td>
-                              <td className="py-2.5 px-3 text-right">
-                                <Button
-                                  size="sm"
-                                  variant="secondary"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    navigate(
-                                      `/measurements?memberId=${c.member_id}&tab=training_plans`
-                                    );
-                                  }}
-                                  className="text-xs"
-                                >
-                                  Open Plan &rarr;
-                                </Button>
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  )}
-                </Card>
-              );
-            })()}
-
-            {/* 5 Newest Assigned Clients (Item J) */}
-            <Card className="bg-surface border-border p-5 space-y-4">
-              <div className="flex items-center justify-between">
+            <div className="space-y-6">
+              <div className="border-b border-border pb-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                 <div>
-                  <h3 className="text-sm font-bold text-text uppercase tracking-wider">
-                    Newest Assigned Clients
-                  </h3>
-                  <p className="text-xs text-text-muted mt-0.5">
-                    Your 5 most recently assigned members
+                  <h2 className="text-xl font-bold text-text">
+                    Trainer Overview
+                  </h2>
+                  <p className="text-xs text-text-muted">
+                    Your live client workload and measurement tracking overview.
                   </p>
                 </div>
-                {trainerClients.length > 5 && (
+                <div className="flex items-center gap-2">
                   <Button
                     size="sm"
-                    variant="ghost"
-                    onClick={() => navigate("/my-clients")}
-                    className="text-xs text-primary"
+                    variant="secondary"
+                    onClick={() => navigate("/measurements")}
                   >
-                    View all ({trainerClients.length}) &rarr;
+                    Member measurements
                   </Button>
-                )}
+                  <Button
+                    size="sm"
+                    variant="primary"
+                    onClick={() => navigate("/my-clients")}
+                  >
+                    My clients
+                  </Button>
+                </div>
               </div>
 
-              {trainerClients.length === 0 ? (
-                <div className="text-center py-8 text-text-muted text-xs">
-                  You do not have any assigned clients at this time.
+              {/* Overview Stat Cards (Item J: X of Y clients, clients with no measurements) */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <Card className="bg-surface border-border p-5 space-y-1">
+                  <span className="text-xs text-text-muted block">
+                    Client Workload
+                  </span>
+                  <div className="flex items-baseline justify-between">
+                    <span className="text-2xl font-bold text-text">
+                      {trainerWorkload
+                        ? `${trainerWorkload.client_count} of ${trainerWorkload.max_clients}`
+                        : `${trainerClients.length} clients`}
+                    </span>
+                    {trainerWorkload &&
+                      trainerWorkload.client_count >=
+                      trainerWorkload.max_clients ? (
+                      <Badge variant="warning">At Capacity</Badge>
+                    ) : (
+                      <Badge variant="success">Capacity Available</Badge>
+                    )}
+                  </div>
+                  <p className="text-[11px] text-text-muted mt-1">
+                    Active client assignments
+                  </p>
+                </Card>
+
+                <Card className="bg-surface border-border p-5 space-y-1">
+                  <span className="text-xs text-text-muted block">
+                    No Measurements Recorded
+                  </span>
+                  <span className="text-2xl font-bold text-amber-500">
+                    {trainerClients.filter((c) => !c.has_measurements).length}
+                  </span>
+                  <p className="text-[11px] text-text-muted mt-1">
+                    Assigned clients needing initial intake measurements
+                  </p>
+                </Card>
+
+                <Card className="bg-surface border-border p-5 space-y-1">
+                  <span className="text-xs text-text-muted block">
+                    Measured Clients
+                  </span>
+                  <span className="text-2xl font-bold text-primary">
+                    {trainerClients.filter((c) => c.has_measurements).length}
+                  </span>
+                  <p className="text-[11px] text-text-muted mt-1">
+                    Clients with body composition history
+                  </p>
+                </Card>
+              </div>
+
+              {/* Clients with no approved plan this week */}
+              {(() => {
+                const clientsWithoutPlan = trainerClients.filter(
+                  (c) => !c.has_approved_plan_this_week
+                );
+                return (
+                  <Card className="bg-surface border-border p-5 space-y-4">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-border pb-3">
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <h3 className="text-sm font-bold text-text uppercase tracking-wider">
+                            Clients with no approved plan this week
+                          </h3>
+                          <Badge
+                            variant={
+                              clientsWithoutPlan.length > 0
+                                ? "warning"
+                                : "success"
+                            }
+                          >
+                            {clientsWithoutPlan.length}
+                          </Badge>
+                        </div>
+                        <p className="text-xs text-text-muted mt-0.5">
+                          Assigned clients needing review or plan generation for
+                          the current week.
+                        </p>
+                      </div>
+                    </div>
+
+                    {clientsWithoutPlan.length === 0 ? (
+                      <div className="text-center py-6 text-text-muted text-xs">
+                        All assigned clients have an approved workout plan for
+                        this week.
+                      </div>
+                    ) : (
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-xs text-left border-collapse">
+                          <thead>
+                            <tr className="border-b border-border text-text-muted">
+                              <th className="py-2 px-3 font-semibold">Client</th>
+                              <th className="py-2 px-3 font-semibold">Status</th>
+                              <th className="py-2 px-3 font-semibold text-right">
+                                Action
+                              </th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-border/50">
+                            {clientsWithoutPlan.map((c) => (
+                              <tr
+                                key={c.assignment_id}
+                                className="hover:bg-surface-2/40 cursor-pointer"
+                                onClick={() =>
+                                  navigate(
+                                    `/measurements?memberId=${c.member_id}&tab=training_plans`
+                                  )
+                                }
+                              >
+                                <td className="py-2.5 px-3 font-medium text-text">
+                                  <div className="flex items-center gap-2.5">
+                                    {c.photo_url ? (
+                                      <AuthenticatedImage
+                                        src={c.photo_url}
+                                        alt={c.member_name}
+                                        className="w-7 h-7 rounded-full object-cover border border-border shrink-0"
+                                      />
+                                    ) : (
+                                      <div className="w-7 h-7 rounded-full bg-primary/20 text-primary font-bold flex items-center justify-center text-[10px] border border-border shrink-0">
+                                        {c.member_name.slice(0, 2).toUpperCase()}
+                                      </div>
+                                    )}
+                                    <span>{c.member_name}</span>
+                                  </div>
+                                </td>
+                                <td className="py-2.5 px-3">
+                                  {c.plan_status_this_week ===
+                                    "pending_review" ? (
+                                    <Badge variant="warning">
+                                      Draft waiting for your review
+                                    </Badge>
+                                  ) : (
+                                    <Badge variant="neutral">No draft yet</Badge>
+                                  )}
+                                </td>
+                                <td className="py-2.5 px-3 text-right">
+                                  <Button
+                                    size="sm"
+                                    variant="secondary"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      navigate(
+                                        `/measurements?memberId=${c.member_id}&tab=training_plans`
+                                      );
+                                    }}
+                                    className="text-xs"
+                                  >
+                                    Open Plan &rarr;
+                                  </Button>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                  </Card>
+                );
+              })()}
+
+              {/* 5 Newest Assigned Clients (Item J) */}
+              <Card className="bg-surface border-border p-5 space-y-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="text-sm font-bold text-text uppercase tracking-wider">
+                      Newest Assigned Clients
+                    </h3>
+                    <p className="text-xs text-text-muted mt-0.5">
+                      Your 5 most recently assigned members
+                    </p>
+                  </div>
+                  {trainerClients.length > 5 && (
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => navigate("/my-clients")}
+                      className="text-xs text-primary"
+                    >
+                      View all ({trainerClients.length}) &rarr;
+                    </Button>
+                  )}
                 </div>
-              ) : (
-                <div className="overflow-x-auto">
-                  <table className="w-full text-xs text-left border-collapse">
-                    <thead>
-                      <tr className="border-b border-border text-text-muted">
-                        <th className="py-2 px-3 font-semibold">Client</th>
-                        <th className="py-2 px-3 font-semibold">Phone</th>
-                        <th className="py-2 px-3 font-semibold">
-                          Membership Plan
-                        </th>
-                        <th className="py-2 px-3 font-semibold">
-                          Assigned Date
-                        </th>
-                        <th className="py-2 px-3 font-semibold">
-                          Measurements
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-border/50">
-                      {trainerClients.slice(0, 5).map((c) => (
-                        <tr
-                          key={c.assignment_id}
-                          className="hover:bg-surface-2/40"
-                        >
-                          <td className="py-2.5 px-3 font-medium text-text">
-                            <div className="flex items-center gap-2.5">
-                              {c.photo_url ? (
-                                <AuthenticatedImage
-                                  src={c.photo_url}
-                                  alt={c.member_name}
-                                  className="w-7 h-7 rounded-full object-cover border border-border shrink-0"
-                                />
-                              ) : (
-                                <div className="w-7 h-7 rounded-full bg-primary/20 text-primary font-bold flex items-center justify-center text-[10px] border border-border shrink-0">
-                                  {c.member_name.slice(0, 2).toUpperCase()}
-                                </div>
-                              )}
-                              <span>{c.member_name}</span>
-                            </div>
-                          </td>
-                          <td className="py-2.5 px-3 text-text-muted">
-                            {c.member_phone}
-                          </td>
-                          <td className="py-2.5 px-3 text-text">
-                            {c.plan_name}
-                          </td>
-                          <td className="py-2.5 px-3 text-text-muted">
-                            {new Date(c.assigned_at).toLocaleDateString()}
-                          </td>
-                          <td className="py-2.5 px-3">
-                            {c.has_measurements ? (
-                              <Badge variant="success">Recorded</Badge>
-                            ) : (
-                              <Badge variant="warning">No measurements</Badge>
-                            )}
-                          </td>
+
+                {trainerClients.length === 0 ? (
+                  <div className="text-center py-8 text-text-muted text-xs">
+                    You do not have any assigned clients at this time.
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-xs text-left border-collapse">
+                      <thead>
+                        <tr className="border-b border-border text-text-muted">
+                          <th className="py-2 px-3 font-semibold">Client</th>
+                          <th className="py-2 px-3 font-semibold">Phone</th>
+                          <th className="py-2 px-3 font-semibold">
+                            Membership Plan
+                          </th>
+                          <th className="py-2 px-3 font-semibold">
+                            Assigned Date
+                          </th>
+                          <th className="py-2 px-3 font-semibold">
+                            Measurements
+                          </th>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </Card>
-          </div>
+                      </thead>
+                      <tbody className="divide-y divide-border/50">
+                        {trainerClients.slice(0, 5).map((c) => (
+                          <tr
+                            key={c.assignment_id}
+                            className="hover:bg-surface-2/40"
+                          >
+                            <td className="py-2.5 px-3 font-medium text-text">
+                              <div className="flex items-center gap-2.5">
+                                {c.photo_url ? (
+                                  <AuthenticatedImage
+                                    src={c.photo_url}
+                                    alt={c.member_name}
+                                    className="w-7 h-7 rounded-full object-cover border border-border shrink-0"
+                                  />
+                                ) : (
+                                  <div className="w-7 h-7 rounded-full bg-primary/20 text-primary font-bold flex items-center justify-center text-[10px] border border-border shrink-0">
+                                    {c.member_name.slice(0, 2).toUpperCase()}
+                                  </div>
+                                )}
+                                <span>{c.member_name}</span>
+                              </div>
+                            </td>
+                            <td className="py-2.5 px-3 text-text-muted">
+                              {c.member_phone}
+                            </td>
+                            <td className="py-2.5 px-3 text-text">
+                              {c.plan_name}
+                            </td>
+                            <td className="py-2.5 px-3 text-text-muted">
+                              {new Date(c.assigned_at).toLocaleDateString()}
+                            </td>
+                            <td className="py-2.5 px-3">
+                              {c.has_measurements ? (
+                                <Badge variant="success">Recorded</Badge>
+                              ) : (
+                                <Badge variant="warning">No measurements</Badge>
+                              )}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </Card>
+            </div>
           )
         ) : role === "owner" || role === "manager" ? (
           <SectionErrorBoundary title="Operational Analytics">
@@ -1060,17 +1060,16 @@ export const DashboardScreen: React.FC = () => {
                 item.path === "/dashboard"
                   ? currentPath === "/dashboard"
                   : currentPath === item.path ||
-                    currentPath.startsWith(item.path + "/");
+                  currentPath.startsWith(item.path + "/");
 
               return (
                 <Link
                   key={idx}
                   to={item.path}
-                  className={`flex items-center px-3 py-2 text-sm font-medium rounded-input transition-colors min-h-[44px] ${
-                    isActive
-                      ? "bg-primary text-white shadow-sm font-semibold"
-                      : "text-text hover:bg-surface-2 hover:text-white"
-                  }`}
+                  className={`flex items-center px-3 py-2 text-sm font-medium rounded-input transition-colors min-h-[44px] ${isActive
+                    ? "bg-primary text-white shadow-sm font-semibold"
+                    : "text-text hover:bg-surface-2 hover:text-white"
+                    }`}
                 >
                   {item.label}
                 </Link>
@@ -1092,17 +1091,16 @@ export const DashboardScreen: React.FC = () => {
             item.path === "/dashboard"
               ? currentPath === "/dashboard"
               : currentPath === item.path ||
-                currentPath.startsWith(item.path + "/");
+              currentPath.startsWith(item.path + "/");
 
           return (
             <Link
               key={idx}
               to={item.path}
-              className={`flex flex-col items-center justify-center text-xs px-2 py-1 min-h-[44px] min-w-[44px] transition-colors ${
-                isActive
-                  ? "text-primary font-bold"
-                  : "text-text-muted hover:text-text"
-              }`}
+              className={`flex flex-col items-center justify-center text-xs px-2 py-1 min-h-[44px] min-w-[44px] transition-colors ${isActive
+                ? "text-primary font-bold"
+                : "text-text-muted hover:text-text"
+                }`}
             >
               <span className="font-medium text-center truncate max-w-[70px]">
                 {item.label}
@@ -1115,11 +1113,10 @@ export const DashboardScreen: React.FC = () => {
           <button
             type="button"
             onClick={() => setShowMoreMobile((prev) => !prev)}
-            className={`flex flex-col items-center justify-center text-xs px-2 py-1 min-h-[44px] min-w-[44px] transition-colors ${
-              showMoreMobile
-                ? "text-primary font-bold"
-                : "text-text-muted hover:text-text"
-            }`}
+            className={`flex flex-col items-center justify-center text-xs px-2 py-1 min-h-[44px] min-w-[44px] transition-colors ${showMoreMobile
+              ? "text-primary font-bold"
+              : "text-text-muted hover:text-text"
+              }`}
           >
             <span className="text-base leading-none">•••</span>
             <span className="text-[10px] mt-0.5">More</span>
@@ -1159,11 +1156,10 @@ export const DashboardScreen: React.FC = () => {
                     key={idx}
                     to={item.path}
                     onClick={() => setShowMoreMobile(false)}
-                    className={`flex items-center px-4 py-3 text-sm rounded-lg min-h-[44px] ${
-                      isActive
-                        ? "bg-primary text-white font-semibold"
-                        : "text-text hover:bg-surface-2"
-                    }`}
+                    className={`flex items-center px-4 py-3 text-sm rounded-lg min-h-[44px] ${isActive
+                      ? "bg-primary text-white font-semibold"
+                      : "text-text hover:bg-surface-2"
+                      }`}
                   >
                     {item.label}
                   </Link>

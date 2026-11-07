@@ -23,6 +23,11 @@ _Purpose: A dated record of every scope decision, modification, and addition mad
 
 ## 2. Changed
 
+- **Platform Notice Overview Dismissal, Support Request Interoperability & Demo Login Credentials (November 7, 2026):**
+  - **Notice Overview Dismissal:** On the Owner Overview screen, active notices in the " Messages from FitGate\ card disappear once the Owner clicks \View all messages\ or visits the dedicated \FitGate messages\ screen. Viewed notices are remembered locally so the card remains dismissed until a new announcement is posted.
+- **Support Request Interoperability:** Backend support request serializers and frontend endpoints accept category and request_type interchangeably, and accept body and message for replies, preventing schema mismatch validation errors.
+- **Demo Gym Credentials Helper:** Login screen displays the quick-fill credentials panel for all roles when accessing demo gyms (subdomain='demo' or is_demo=True).
+
 - **Platform Notice Dedicated Architecture & Revenue Bug Fix (November 5, 2026):**
   - **Replaces Announcement Extension:** Replaces earlier decision to extend tenant-level `Announcement`/`GymNotice` with null gym. Platform notices receive a dedicated `PlatformNotice` model and endpoints separate from gym notices.
   - **Audience & Targeting:** Super Admin can target "All gyms" or "Selected gyms" (searchable multi-select requiring at least one gym) with an optional show-until date. Platform notices are strictly never sent to Telegram.

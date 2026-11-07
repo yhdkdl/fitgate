@@ -4,6 +4,7 @@ import { Alert } from "../ui/Alert";
 import { Badge } from "../ui/Badge";
 import { Card } from "../ui/Card";
 import { Spinner } from "../ui/Spinner";
+import { markPlatformNoticesSeen } from "../../utils/seenNotices";
 
 export const FitGateMessagesSection: React.FC = () => {
   const [notices, setNotices] = useState<PlatformNotice[]>([]);
@@ -17,7 +18,11 @@ export const FitGateMessagesSection: React.FC = () => {
         setLoading(true);
         setError(null);
         const data = await getGymPlatformNotices();
-        if (isMounted) setNotices(data);
+        const list = Array.isArray(data) ? data : [];
+        if (isMounted) {
+          setNotices(list);
+          markPlatformNoticesSeen(list.map((n) => n.id));
+        }
       } catch (err: unknown) {
         if (!isMounted) return;
         const msg =

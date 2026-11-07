@@ -375,6 +375,40 @@ export const App: React.FC = () => {
         />
 
         <Route
+          path="/platform-messages"
+          element={
+            <ProtectedRoute allowedRoles={["owner"]}>
+              <DashboardScreen />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/platform-messages/*"
+          element={
+            <ProtectedRoute allowedRoles={["owner"]}>
+              <DashboardScreen />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/support"
+          element={
+            <ProtectedRoute allowedRoles={["owner", "manager"]}>
+              <DashboardScreen />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/support/*"
+          element={
+            <ProtectedRoute allowedRoles={["owner", "manager"]}>
+              <DashboardScreen />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
           path="/membership"
           element={
             <ProtectedRoute allowedRoles={["member"]}>
