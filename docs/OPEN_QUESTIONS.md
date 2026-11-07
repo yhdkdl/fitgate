@@ -277,3 +277,11 @@ If less than 90% sure how a requirement should be implemented and the doubt does
       - Role navigation, screen widgets, action cards, and forms strictly check capabilities. Unauthorized direct URLs (e.g. `/trainers`, `/classes`, `/notices`, `/expenses`, `/assignments`, `/freezes`) automatically redirect to the user's Home without showing an error page.
       - Trainer-inclusive plans on gyms without the trainer module are barred from listing or sale across all channels (cash, bank transfer, Chapa, upgrade quote); Owners see them flagged 'Not available on your tier'; active member subscriptions continue until their expiration date.
     - **Reason for choice:** Establishes a single source of truth for gym capabilities, cleanly seals tier monetization boundaries across both client and server, and prevents broken UI states.
+
+41. **Platform Notices vs. Gym Announcements and Support Inbox Architecture (November 5, 2026)**
+    - **Question/Context:** Why do platform notices have their own model instead of overloading the tenant announcement model, how are targeted gym notices delivered, and how are gym support requests isolated?
+    - **Chosen Solution & Policy:**
+      - `PlatformNotice` is an independent model with `title` (3–100 chars), `message` (up to 1,000 chars), `audience_type` (`all` or `selected`), `target_gyms`, `show_until`, and withdrawal controls. It never broadcasts to Telegram and delivers bell notifications to targeted Owners on every tier (excluding suspended/terminated gyms).
+      - `SupportRequest` and `SupportMessage` provide two-way ticketing for Owner and Manager to Super Admin (limit 5 new requests/day per gym, at most 20 messages per thread). Super Admin sees only gym name and request text, never gym operational data.
+      - Gym subscription payments (`payer_type='gym_subscription'`) are filtered out centrally in the `Payment` default manager so they never appear in any gym-side ledger, dashboard, or report.
+    - **Reason for choice:** Completely decouples platform operations from tenant operations, prevents accidental revenue contamination in gym accounting, and provides clean audit trails.

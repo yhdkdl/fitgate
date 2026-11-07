@@ -986,9 +986,7 @@ class GymPaymentListView(APIView):
                 {"detail": "Gym context missing."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
-        qs = Payment.all_objects.select_related(
-            "member", "plan", "confirmed_by", "receipt"
-        ).filter(gym=tenant)
+        qs = Payment.objects.select_related("member", "plan", "confirmed_by", "receipt")
 
         start_date = request.query_params.get("start_date")
         if start_date:
@@ -1855,9 +1853,8 @@ class UnreconciledBankTransfersView(APIView):
             )
 
         transfers = (
-            Payment.all_objects.select_related("member", "confirmed_by", "receipt")
+            Payment.objects.select_related("member", "confirmed_by", "receipt")
             .filter(
-                gym=tenant,
                 method=Payment.METHOD_BANK_TRANSFER,
                 status=Payment.STATUS_CONFIRMED,
                 is_reconciled=False,
@@ -2237,10 +2234,8 @@ class BankReceiptReviewListView(APIView):
         responses={200: BankReceiptReviewItemSerializer(many=True)},
     )
     def get(self, request):
-        tenant = request.tenant
         reviews = (
-            Payment.all_objects.filter(
-                gym=tenant,
+            Payment.objects.filter(
                 status=Payment.STATUS_PENDING_REVIEW,
             )
             .select_related("member", "plan")

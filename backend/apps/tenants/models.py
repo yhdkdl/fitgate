@@ -448,3 +448,147 @@ class GymNotice(PlatformTenantAwareModel):
     def __str__(self):
         prefix = f"[{self.gym.name}]" if self.gym else "[Platform]"
         return f"{prefix} {self.title}"
+
+
+class PlatformNotice(models.Model):
+    """
+    Super Admin announcements sent to targeted gym Owners.
+    Completely separate from tenant-level GymNotice.
+    Never broadcasts to Telegram.
+    """
+
+    AUDIENCE_ALL = "all"
+    AUDIENCE_SELECTED = "selected"
+    AUDIENCE_CHOICES = [
+        (AUDIENCE_ALL, "All gyms"),
+        (AUDIENCE_SELECTED, "Selected gyms"),
+    ]
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    title = models.CharField(max_length=100)
+    message = models.TextField(max_length=1000)
+    posted_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        related_name="platform_notices_posted",
+    )
+    audience_type = models.CharField(
+        max_length=20,
+        choices=AUDIENCE_CHOICES,
+        default=AUDIENCE_ALL,
+    )
+    target_gyms = models.ManyToManyField(
+        GymTenant,
+        blank=True,
+        related_name="targeted_platform_notices",
+    )
+    show_until = models.DateField(null=True, blank=True)
+    is_withdrawn = models.BooleanField(default=False)
+    withdrawn_at = models.DateTimeField(null=True, blank=True)
+    withdrawn_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="platform_notices_withdrawn",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+        verbose_name = "Platform Notice"
+        verbose_name_plural = "Platform Notices"
+
+    def __str__(self):
+        return f"{self.title} ({self.audience_type})"
+
+
+class SupportRequest(models.Model):
+    """
+    Two-way support request thread between gym staff (Owner/Manager) and Super Admin.
+    Tier-exempt, available on every tier.
+    """
+
+    TYPE_SYSTEM_PROBLEM = "system_problem"
+    TYPE_QUESTION = "question"
+    TYPE_FEATURE_REQUEST = "feature_request"
+    TYPE_BILLING = "billing"
+    TYPE_OTHER = "other"
+
+    TYPE_CHOICES = [
+        (TYPE_SYSTEM_PROBLEM, "Problem with the system"),
+        (TYPE_QUESTION, "Question"),
+        (TYPE_FEATURE_REQUEST, "Feature request"),
+        (TYPE_BILLING, "Billing or subscription"),
+        (TYPE_OTHER, "Other"),
+    ]
+
+    STATUS_OPEN = "open"
+    STATUS_IN_PROGRESS = "in_progress"
+    STATUS_RESOLVED = "resolved"
+
+    STATUS_CHOICES = [
+        (STATUS_OPEN, "Open"),
+        (STATUS_IN_PROGRESS, "In Progress"),
+        (STATUS_RESOLVED, "Resolved"),
+    ]
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    gym = models.ForeignKey(
+        GymTenant,
+        on_delete=models.CASCADE,
+        related_name="support_requests",
+    )
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        related_name="support_requests_created",
+    )
+    request_type = models.CharField(max_length=50, choices=TYPE_CHOICES)
+    subject = models.CharField(max_length=100)
+    status = models.CharField(
+        max_length=20,
+        choices=STATUS_CHOICES,
+        default=STATUS_OPEN,
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-updated_at"]
+        verbose_name = "Support Request"
+        verbose_name_plural = "Support Requests"
+
+    def __str__(self):
+        return f"{self.subject} ({self.gym.name} - {self.status})"
+
+
+class SupportMessage(models.Model):
+    """
+    Individual message in a support request thread.
+    At most 20 messages per request thread.
+    """
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    request = models.ForeignKey(
+        SupportRequest,
+        on_delete=models.CASCADE,
+        related_name="messages",
+    )
+    sender = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        related_name="support_messages_sent",
+    )
+    sender_role = models.CharField(max_length=30)
+    message = models.TextField(max_length=1000)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["created_at"]
+        verbose_name = "Support Message"
+        verbose_name_plural = "Support Messages"
+
+    def __str__(self):
+        return f"Message by {self.sender.email} on {self.request.subject}"

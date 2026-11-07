@@ -16,6 +16,7 @@ export type CreateGymResponse = components["schemas"]["CreateGymResponse"] & {
 export type GymTenantSummary = components["schemas"]["GymTenantSummary"] & {
   url?: string;
   lapse_flagged_at?: string | null;
+  is_demo?: boolean;
 };
 export type ConfirmTLSResponse = components["schemas"]["ConfirmTLSResponse"];
 export type GymPublicEntryResponse =
@@ -50,8 +51,17 @@ export async function createGym(
   });
 }
 
-export async function listGyms(): Promise<GymTenantSummary[]> {
-  return await apiFetch<GymTenantSummary[]>("/api/platform/gyms/");
+export async function listGyms(params?: {
+  status?: string;
+  tier?: string;
+  search?: string;
+}): Promise<GymTenantSummary[]> {
+  const query = new URLSearchParams();
+  if (params?.status && params.status !== "all") query.set("status", params.status);
+  if (params?.tier && params.tier !== "all") query.set("tier", params.tier);
+  if (params?.search) query.set("search", params.search);
+  const qs = query.toString();
+  return await apiFetch<GymTenantSummary[]>(`/api/platform/gyms/${qs ? `?${qs}` : ""}`);
 }
 
 export async function proposeSubdomain(name: string): Promise<string> {
@@ -197,29 +207,59 @@ export async function getPlatformAnalyticsOverview(): Promise<PlatformAnalyticsO
 export interface PlatformNotice {
   id: string;
   title: string;
-  body: string;
-  posted_by_name: string;
-  is_platform_wide: boolean;
+  message: string;
+  body?: string;
+  posted_by_name?: string;
+  audience_type: "all" | "selected";
+  target_gym_ids: string[];
+  target_gym_names?: string[];
+  show_until: string | null;
+  is_withdrawn: boolean;
   created_at: string;
-  updated_at: string;
+  updated_at?: string;
 }
 
 export async function getPlatformNotices(): Promise<PlatformNotice[]> {
   return await apiFetch<PlatformNotice[]>("/api/platform/notices/");
 }
 
-export async function createPlatformNotice(
-  title: string,
-  body: string
-): Promise<PlatformNotice> {
+export async function createPlatformNotice(data: {
+  title: string;
+  message: string;
+  audience_type: "all" | "selected";
+  target_gym_ids?: string[];
+  show_until?: string | null;
+}): Promise<PlatformNotice> {
   return await apiFetch<PlatformNotice>("/api/platform/notices/", {
     method: "POST",
-    body: JSON.stringify({ title, body }),
+    body: JSON.stringify(data),
   });
 }
 
-export async function deletePlatformNotice(id: string): Promise<void> {
-  await apiFetch<void>(`/api/platform/notices/${id}/`, {
-    method: "DELETE",
+export async function withdrawPlatformNotice(id: string): Promise<PlatformNotice> {
+  return await apiFetch<PlatformNotice>(`/api/platform/notices/${id}/`, {
+    method: "PATCH",
   });
+}
+
+export async function getGymPlatformNotices(): Promise<PlatformNotice[]> {
+  return await apiFetch<PlatformNotice[]>("/api/gym/platform-notices/");
+}
+
+export interface GymSubscriptionDetails {
+  tier: "starter" | "growth";
+  subscription_status: string;
+  subscription_expires_at: string | null;
+  past_payments: Array<{
+    id: string;
+    amount_etb: string;
+    payment_method: string;
+    reference: string;
+    created_at: string;
+    status: string;
+  }>;
+}
+
+export async function getGymSubscription(): Promise<GymSubscriptionDetails> {
+  return await apiFetch<GymSubscriptionDetails>("/api/gym/subscription/");
 }

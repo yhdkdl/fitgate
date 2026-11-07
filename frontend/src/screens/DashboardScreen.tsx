@@ -39,6 +39,11 @@ import { AttendanceScannerSection } from "../components/attendance/AttendanceSca
 import { EquipmentSection } from "../components/equipment/EquipmentSection";
 import { AnalyticsOverviewSection } from "../components/analytics/AnalyticsOverviewSection";
 import { NoticeBoardSection } from "../components/notices/NoticeBoardSection";
+import { PlatformNoticesSection } from "../components/superadmin/PlatformNoticesSection";
+import { PlatformSupportSection } from "../components/superadmin/PlatformSupportSection";
+import { ContactFitGateSection } from "../components/support/ContactFitGateSection";
+import { FitGateMessagesSection } from "../components/owner/FitGateMessagesSection";
+import { OwnerPlatformMessagesCard } from "../components/owner/OwnerPlatformMessagesCard";
 import { ExpensesSection } from "../components/expenses/ExpensesSection";
 import { ClassScheduleSection } from "../components/classes/ClassScheduleSection";
 import { useAuth } from "../context/AuthContext";
@@ -67,6 +72,8 @@ const ROLE_NAV_ITEMS: Record<string, NavItem[]> = {
     { label: "Staff", path: "/staff" },
     { label: "Audit log", path: "/audit-log" },
     { label: "Notices", path: "/notices" },
+    { label: "FitGate messages", path: "/platform-messages" },
+    { label: "Contact FitGate", path: "/support" },
     { label: "Settings", path: "/settings" },
   ],
   manager: [
@@ -85,6 +92,7 @@ const ROLE_NAV_ITEMS: Record<string, NavItem[]> = {
     { label: "Staff", path: "/staff" },
     { label: "Audit log", path: "/audit-log" },
     { label: "Notices", path: "/notices" },
+    { label: "Contact FitGate", path: "/support" },
   ],
   reception: [
     { label: "Members", path: "/members" },
@@ -116,6 +124,7 @@ const ROLE_NAV_ITEMS: Record<string, NavItem[]> = {
     { label: "Demo requests", path: "/platform/demo-requests" },
     { label: "Audit log", path: "/platform/audit-log" },
     { label: "Platform Notices", path: "/platform/notices" },
+    { label: "Support requests", path: "/platform/support" },
     { label: "Profile", path: "/profile" },
   ],
 };
@@ -540,7 +549,34 @@ export const DashboardScreen: React.FC = () => {
     if (currentPath === "/platform/notices" && role === "super_admin") {
       return (
         <SectionErrorBoundary title="Platform Notices">
-          <NoticeBoardSection userRole="super_admin" />
+          <PlatformNoticesSection />
+        </SectionErrorBoundary>
+      );
+    }
+
+    // Super Admin: Support requests
+    if (currentPath.startsWith("/platform/support") && role === "super_admin") {
+      return (
+        <SectionErrorBoundary title="Support Requests">
+          <PlatformSupportSection />
+        </SectionErrorBoundary>
+      );
+    }
+
+    // Gym: Contact FitGate (Owner & Manager)
+    if (currentPath.startsWith("/support") && (role === "owner" || role === "manager")) {
+      return (
+        <SectionErrorBoundary title="Contact FitGate">
+          <ContactFitGateSection />
+        </SectionErrorBoundary>
+      );
+    }
+
+    // Gym: FitGate Messages (Owner)
+    if (currentPath.startsWith("/platform-messages") && role === "owner") {
+      return (
+        <SectionErrorBoundary title="FitGate Messages">
+          <FitGateMessagesSection />
         </SectionErrorBoundary>
       );
     }
@@ -583,12 +619,17 @@ export const DashboardScreen: React.FC = () => {
     return (
       <div className="space-y-6">
         {role === "owner" && (
-          <SectionErrorBoundary title="First-run Checklist">
-            <FirstRunChecklistCard
-              key={checklistKey}
-              onOpenBranding={() => navigate("/settings")}
-            />
-          </SectionErrorBoundary>
+          <>
+            <SectionErrorBoundary title="FitGate Messages">
+              <OwnerPlatformMessagesCard />
+            </SectionErrorBoundary>
+            <SectionErrorBoundary title="First-run Checklist">
+              <FirstRunChecklistCard
+                key={checklistKey}
+                onOpenBranding={() => navigate("/settings")}
+              />
+            </SectionErrorBoundary>
+          </>
         )}
 
         {role === "trainer" ? (

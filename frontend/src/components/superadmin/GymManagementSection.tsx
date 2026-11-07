@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   confirmGymTls,
   createGym,
@@ -83,6 +83,13 @@ export const GymManagementSection: React.FC<GymManagementSectionProps> = ({
   const [paymentReference, setPaymentReference] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [confirmingId, setConfirmingId] = useState<string | null>(null);
+
+  // Filters state
+  const [statusFilter, setStatusFilter] = useState<
+    "all" | "active" | "lapsed" | "suspended" | "terminated" | "awaiting_certificate"
+  >("all");
+  const [tierFilter, setTierFilter] = useState<"all" | "starter" | "growth">("all");
+  const [searchQuery, setSearchQuery] = useState("");
 
   // Overview metrics state
   const [metrics, setMetrics] = useState<PlatformAnalyticsOverview | null>(null);
@@ -356,12 +363,11 @@ export const GymManagementSection: React.FC<GymManagementSectionProps> = ({
   const fetchGyms = async () => {
     setIsLoading(true);
     try {
-      const [data, stats] = await Promise.all([
-        listGyms(),
-        getPlatformAnalyticsOverview().catch(() => null),
-      ]);
+      const data = await listGyms();
       setGyms(data);
-      if (stats) setMetrics(stats);
+      if (typeof getPlatformAnalyticsOverview === "function") {
+        getPlatformAnalyticsOverview().then(setMetrics).catch(() => {});
+      }
     } catch {
       // ignore
     } finally {
@@ -372,6 +378,87 @@ export const GymManagementSection: React.FC<GymManagementSectionProps> = ({
   useEffect(() => {
     fetchGyms();
   }, []);
+
+  const counts = useMemo(() => {
+    return {
+      all: gyms.length,
+      active: gyms.filter((g) => g.status === "active" && !g.lapse_flagged_at).length,
+      lapsed: gyms.filter((g) => Boolean(g.lapse_flagged_at) || g.status === "lapsed").length,
+      suspended: gyms.filter((g) => g.status === "suspended").length,
+      terminated: gyms.filter((g) => g.status === "terminated").length,
+      awaiting_certificate: gyms.filter((g) => !g.tls_confirmed_at && g.status !== "terminated").length,
+    };
+  }, [gyms]);
+
+  const filteredGyms = useMemo(() => {
+    return gyms.filter((gym) => {
+      if (statusFilter === "active") {
+        if (gym.status !== "active" || gym.lapse_flagged_at) return false;
+      } else if (statusFilter === "lapsed") {
+        if (!gym.lapse_flagged_at && gym.status !== "lapsed") return false;
+      } else if (statusFilter === "suspended") {
+        if (gym.status !== "suspended") return false;
+      } else if (statusFilter === "terminated") {
+        if (gym.status !== "terminated") return false;
+      } else if (statusFilter === "awaiting_certificate") {
+        if (gym.tls_confirmed_at || gym.status === "terminated") return false;
+      }
+
+      if (tierFilter !== "all") {
+        if (gym.tier?.toLowerCase() !== tierFilter) return false;
+      }
+
+      if (searchQuery.trim()) {
+        const q = searchQuery.toLowerCase().trim();
+        const matchName = gym.name?.toLowerCase().includes(q);
+        const matchSubdomain = gym.subdomain?.toLowerCase().includes(q);
+        if (!matchName && !matchSubdomain) return false;
+      }
+
+      return true;
+    });
+  }, [gyms, statusFilter, tierFilter, searchQuery]);
+
+  const getStatusDisplay = (gym: GymTenantSummary) => {
+    if (gym.status === "terminated") {
+      return (
+        <span className="inline-flex items-center gap-1.5 text-xs text-danger font-medium capitalize">
+          <span className="w-2 h-2 rounded-full bg-danger shrink-0" />
+          terminated
+        </span>
+      );
+    }
+    if (gym.status === "suspended") {
+      return (
+        <span className="inline-flex items-center gap-1.5 text-xs text-amber-500 font-medium capitalize">
+          <span className="w-2 h-2 rounded-full bg-amber-500 shrink-0" />
+          suspended
+        </span>
+      );
+    }
+    if (gym.lapse_flagged_at || gym.status === "lapsed") {
+      return (
+        <span className="inline-flex items-center gap-1.5 text-xs text-yellow-500 font-medium">
+          <span className="w-2 h-2 rounded-full bg-yellow-500 shrink-0" />
+          Lapsed
+        </span>
+      );
+    }
+    if (!gym.tls_confirmed_at) {
+      return (
+        <span className="inline-flex items-center gap-1.5 text-xs text-sky-500 font-medium capitalize">
+          <span className="w-2 h-2 rounded-full bg-sky-500 shrink-0" />
+          awaiting certificate
+        </span>
+      );
+    }
+    return (
+      <span className="inline-flex items-center gap-1.5 text-xs text-success font-medium capitalize">
+        <span className="w-2 h-2 rounded-full bg-success shrink-0" />
+        active
+      </span>
+    );
+  };
 
   const handleTierChange = (selectedTier: "starter" | "growth" | "pro") => {
     setTier(selectedTier);
@@ -606,6 +693,76 @@ export const GymManagementSection: React.FC<GymManagementSectionProps> = ({
         </Alert>
       )}
 
+      {/* Filter and Search Bar */}
+      <div className="flex flex-col gap-3">
+        {/* Status Filters */}
+        <div className="flex flex-wrap items-center gap-2">
+          {(
+            [
+              { key: "all", label: "All", count: counts.all },
+              { key: "active", label: "Active", count: counts.active },
+              { key: "lapsed", label: "Lapsed", count: counts.lapsed },
+              { key: "suspended", label: "Suspended", count: counts.suspended },
+              { key: "terminated", label: "Terminated", count: counts.terminated },
+              {
+                key: "awaiting_certificate",
+                label: "Awaiting certificate",
+                count: counts.awaiting_certificate,
+              },
+            ] as const
+          ).map((filter) => (
+            <button
+              key={filter.key}
+              type="button"
+              onClick={() => setStatusFilter(filter.key)}
+              className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors flex items-center gap-1.5 ${
+                statusFilter === filter.key
+                  ? "bg-primary text-white"
+                  : "bg-surface-2 text-text-muted hover:text-text hover:bg-surface-2/80"
+              }`}
+            >
+              <span>{filter.label} ({filter.count})</span>
+            </button>
+          ))}
+        </div>
+
+        {/* Tier Filter and Search Input */}
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+          <div className="flex items-center gap-1 bg-surface-2 p-1 rounded-lg border border-border">
+            {(
+              [
+                { key: "all", label: "All Tiers" },
+                { key: "starter", label: "Starter" },
+                { key: "growth", label: "Growth" },
+              ] as const
+            ).map((t) => (
+              <button
+                key={t.key}
+                type="button"
+                onClick={() => setTierFilter(t.key)}
+                className={`px-3 py-1 rounded text-xs font-medium transition-colors ${
+                  tierFilter === t.key
+                    ? "bg-surface text-primary shadow-sm"
+                    : "text-text-muted hover:text-text"
+                }`}
+              >
+                {t.label}
+              </button>
+            ))}
+          </div>
+
+          <div className="relative flex-1 sm:max-w-xs">
+            <Input
+              type="text"
+              placeholder="Search gym or subdomain..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="text-xs py-1.5"
+            />
+          </div>
+        </div>
+      </div>
+
       {/* Gym Tenants Table */}
       <Card className="bg-surface border-border overflow-hidden p-0">
         <div className="overflow-x-auto">
@@ -631,24 +788,35 @@ export const GymManagementSection: React.FC<GymManagementSectionProps> = ({
                     Loading gym tenants...
                   </td>
                 </tr>
-              ) : gyms.length === 0 ? (
+              ) : filteredGyms.length === 0 ? (
                 <tr>
                   <td
                     colSpan={7}
                     className="px-4 py-8 text-center text-text-muted"
                   >
-                    No gym tenants registered yet. Click &quot;Create New
-                    Gym&quot; to provision the first one.
+                    {gyms.length === 0
+                      ? "No gym tenants registered yet. Click 'Create New Gym' to provision the first one."
+                      : "No gym tenants match the selected filters."}
                   </td>
                 </tr>
               ) : (
-                gyms.map((gym) => (
+                filteredGyms.map((gym) => (
                   <tr
                     key={gym.id}
                     className="hover:bg-surface-2/40 transition-colors"
                   >
                     <td className="px-4 py-3 font-medium text-text">
-                      {gym.name}
+                      <div className="flex items-center gap-2">
+                        <span>{gym.name}</span>
+                        {gym.is_demo && (
+                          <Badge
+                            variant="neutral"
+                            className="text-[10px] uppercase font-bold tracking-wider"
+                          >
+                            Demo
+                          </Badge>
+                        )}
+                      </div>
                     </td>
                     <td className="px-4 py-3 font-mono text-xs text-primary">
                       {gym.subdomain}
@@ -660,24 +828,7 @@ export const GymManagementSection: React.FC<GymManagementSectionProps> = ({
                       <Badge variant="primary">{gym.tier.toUpperCase()}</Badge>
                     </td>
                     <td className="px-4 py-3">
-                      <div className="flex flex-col gap-1 items-start">
-                        <Badge
-                          variant={
-                            gym.status === "active"
-                              ? "success"
-                              : gym.status === "terminated"
-                              ? "danger"
-                              : "warning"
-                          }
-                        >
-                          {gym.status}
-                        </Badge>
-                        {gym.lapse_flagged_at && (
-                          <Badge variant="warning">
-                            Lapsed
-                          </Badge>
-                        )}
-                      </div>
+                      {getStatusDisplay(gym)}
                     </td>
                     <td className="px-4 py-3">
                       {gym.tls_confirmed_at ? (
@@ -1334,15 +1485,6 @@ export const GymManagementSection: React.FC<GymManagementSectionProps> = ({
                     className="rounded border-border text-primary focus:ring-primary w-4 h-4"
                   />
                   <span>Expenses & Reports</span>
-                </label>
-                <label className="flex items-center gap-2 cursor-pointer text-sm text-text">
-                  <input
-                    type="checkbox"
-                    checked={hasGroupClasses}
-                    onChange={(e) => setHasGroupClasses(e.target.checked)}
-                    className="rounded border-border text-primary focus:ring-primary w-4 h-4"
-                  />
-                  <span>Group Classes</span>
                 </label>
               </div>
 

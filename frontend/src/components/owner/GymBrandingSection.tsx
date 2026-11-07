@@ -1,12 +1,15 @@
 import React, { useEffect, useState } from "react";
 import {
   getGymSettings,
+  getGymSubscription,
   updateGymSettings,
   uploadGymLogo,
+  type GymSubscriptionDetails,
 } from "../../api/gyms";
 import { testTelegramBroadcast } from "../../api/notices";
 import { useAuth } from "../../context/AuthContext";
 import { Alert } from "../ui/Alert";
+import { Badge } from "../ui/Badge";
 import { Button } from "../ui/Button";
 import { Card } from "../ui/Card";
 import { FormField } from "../ui/FormField";
@@ -49,6 +52,9 @@ export const GymBrandingSection: React.FC<GymBrandingSectionProps> = ({
   const [freezeDaysAllowed, setFreezeDaysAllowed] = useState<number>(0);
   const [freezeDaysCap, setFreezeDaysCap] = useState<number>(30);
   const [gymTier, setGymTier] = useState<string>("");
+  const [subscription, setSubscription] = useState<GymSubscriptionDetails | null>(
+    null
+  );
 
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -79,6 +85,15 @@ export const GymBrandingSection: React.FC<GymBrandingSectionProps> = ({
           res.freeze_days_cap !== undefined ? res.freeze_days_cap : 30
         );
         setGymTier((res as { tier?: string }).tier || "");
+
+        if (user?.role === "owner" && !gymId) {
+          try {
+            const sub = await getGymSubscription();
+            if (isMounted) setSubscription(sub);
+          } catch {
+            // ignore
+          }
+        }
       } catch (err: unknown) {
         if (!isMounted) return;
         const msg =
@@ -234,7 +249,8 @@ export const GymBrandingSection: React.FC<GymBrandingSectionProps> = ({
   }
 
   return (
-    <Card className="bg-surface border-border p-6 space-y-6">
+    <div className="space-y-6">
+      <Card className="bg-surface border-border p-6 space-y-6">
       <div className="border-b border-border pb-3">
         <h2 className="text-lg font-bold text-text">
           Gym Branding & Operational Settings
@@ -489,5 +505,103 @@ export const GymBrandingSection: React.FC<GymBrandingSectionProps> = ({
         </div>
       </form>
     </Card>
-  );
+
+    {user?.role === "owner" && !gymId && (
+      <Card className="bg-surface border-border p-6 space-y-4">
+        <div className="flex items-center justify-between border-b border-border pb-3">
+          <div>
+            <h2 className="text-lg font-semibold text-text">
+              Your FitGate subscription
+            </h2>
+            <p className="text-xs text-text-muted mt-0.5">
+              Overview of your gym's current tier, subscription status, and past platform payments.
+            </p>
+          </div>
+          {subscription && (
+            <Badge
+              variant={
+                subscription.subscription_status === "active"
+                  ? "success"
+                  : subscription.subscription_status === "terminated"
+                  ? "danger"
+                  : "warning"
+              }
+            >
+              {subscription.subscription_status}
+            </Badge>
+          )}
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div className="bg-surface-2 p-3 rounded-lg border border-border">
+            <span className="text-xs text-text-muted block">Tier</span>
+            <span className="text-base font-bold text-text uppercase">
+              {subscription?.tier || gymTier || "—"}
+            </span>
+          </div>
+          <div className="bg-surface-2 p-3 rounded-lg border border-border">
+            <span className="text-xs text-text-muted block">Status</span>
+            <span className="text-base font-bold text-text capitalize">
+              {subscription?.subscription_status || "—"}
+            </span>
+          </div>
+          <div className="bg-surface-2 p-3 rounded-lg border border-border">
+            <span className="text-xs text-text-muted block">Expires on</span>
+            <span className="text-base font-bold text-text">
+              {subscription?.subscription_expires_at
+                ? new Date(subscription.subscription_expires_at).toLocaleDateString()
+                : "No expiration"}
+            </span>
+          </div>
+        </div>
+
+        <div className="space-y-2 pt-2">
+          <h3 className="text-sm font-semibold text-text">Past Platform Payments</h3>
+          {subscription && subscription.past_payments && subscription.past_payments.length > 0 ? (
+            <div className="overflow-x-auto border border-border rounded-lg">
+              <table className="w-full text-left text-xs text-text">
+                <thead className="bg-surface-2 text-text-muted border-b border-border font-medium">
+                  <tr>
+                    <th className="px-3 py-2">Date</th>
+                    <th className="px-3 py-2">Amount (ETB)</th>
+                    <th className="px-3 py-2">Method</th>
+                    <th className="px-3 py-2">Reference</th>
+                    <th className="px-3 py-2">Status</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border">
+                  {subscription.past_payments.map((p) => (
+                    <tr key={p.id} className="hover:bg-surface-2/40">
+                      <td className="px-3 py-2 font-mono">
+                        {new Date(p.created_at).toLocaleDateString()}
+                      </td>
+                      <td className="px-3 py-2 font-semibold">
+                        ETB {p.amount_etb}
+                      </td>
+                      <td className="px-3 py-2 capitalize">{p.payment_method}</td>
+                      <td className="px-3 py-2 font-mono text-text-muted">
+                        {p.reference || "—"}
+                      </td>
+                      <td className="px-3 py-2">
+                        <Badge
+                          variant={p.status === "completed" ? "success" : "neutral"}
+                        >
+                          {p.status}
+                        </Badge>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <div className="text-xs text-text-muted bg-surface-2 p-3 rounded border border-border">
+              No past platform payments on record.
+            </div>
+          )}
+        </div>
+      </Card>
+    )}
+  </div>
+);
 };

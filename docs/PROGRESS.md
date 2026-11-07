@@ -87,6 +87,8 @@ Sprint 38 is NOT to be started at all. The order is:
 
 ## Current
 
+- `fix/platform-communications`: Dedicated PlatformNotice model with targeting and withdrawal, two-way support inbox for Owner/Manager to Super Admin, central gym subscription payment revenue separation in Payment default manager, Owner "Your FitGate subscription" card, and Super Admin gym list filters with counts.
+
 - Sprint 35: Super Admin platform dashboard (role enable/disable per gym, tenant list with lapse flags, renewal endpoint/modal, suspension endpoint/modal, gym termination/reinstatement, reminder days inputs, platform notices, platform metrics) completed (tag `sprint-35-done`).
 - Sprint 36: Tier feature-flag enforcement (contract test, tier-gate regression, notices/expenses realignment, capabilities single source of truth, and frontend render gating) completed (tag `sprint-36-done`).
 

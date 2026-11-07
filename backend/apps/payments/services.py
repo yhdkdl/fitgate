@@ -2269,6 +2269,7 @@ def flag_unreconciled_transfers(days: int = 7) -> Dict[str, int]:
     with transaction.atomic():
         unreconciled_payments = list(
             Payment.all_objects.select_for_update().filter(
+                payer_type=Payment.PAYER_TYPE_MEMBER,
                 method=Payment.METHOD_BANK_TRANSFER,
                 status=Payment.STATUS_CONFIRMED,
                 is_reconciled=False,

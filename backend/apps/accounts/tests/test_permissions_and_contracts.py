@@ -225,11 +225,11 @@ class TestPermissionsAndProjectContracts:
             tier_gated_count == 43
         ), f"Expected 43 tier-gated views, found {tier_gated_count}."
         assert (
-            tier_exempt_count == 79
-        ), f"Expected 79 tier-exempt views, found {tier_exempt_count}."
+            tier_exempt_count == 93
+        ), f"Expected 93 tier-exempt views, found {tier_exempt_count}."
         assert (
-            len(app_views) == 122
-        ), f"Expected 122 total views, found {len(app_views)}."
+            len(app_views) == 136
+        ), f"Expected 136 total views, found {len(app_views)}."
 
     def test_anonymous_access_returns_401_for_all_non_allowany_views(self):
         """

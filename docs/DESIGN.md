@@ -122,6 +122,13 @@ One shared validation rule set applies across frontend (`src/utils/validators.ts
 | **Second reminder** (`member_reminder_days` / `subscription_reminder_days`) | Optional whole number. Must be smaller than first reminder. | 1 to 90 days (< first reminder). | Integer / Nullable | "Second reminder must be smaller than the first reminder." |
 | **Freeze Days Allowed** (`freeze_days_allowed`) | Whole number (integer). | 0 to `freeze_days_cap` (default 30). | Integer | "Cannot exceed maximum freeze allowance cap of {cap} days." / "Starter gyms cannot use membership freeze." / "Freeze days allowed cannot be negative." |
 | **Gym Entitlements** (`tier`, `has_*`, `freeze_days_cap`, `payment_grace_days`, `subscription_reminder_days`) | Restricted fields. | Modifiable by Super Admin only. | Permission-gated | "Only Super Admin can modify gym entitlements." (403 Forbidden) |
+| **Platform Notice Title** (`title`) | Text. | 3 to 100 characters. | Trimmed plain data | "Platform notice title must be between 3 and 100 characters." |
+| **Platform Notice Message** (`message`) | Text. | 5 to 1,000 characters. | Trimmed plain data | "Platform notice message must be between 5 and 1,000 characters." |
+| **Platform Notice Audience** (`audience_type`, `target_gyms`) | Selection (`all` or `selected`) and gym UUIDs. | If `selected`, at least 1 gym must be chosen. | Choice / List of UUIDs | "Please select at least one gym for this notice." |
+| **Platform Notice Show Until** (`show_until`) | Valid date (YYYY-MM-DD). | Optional, must be today or in the future. | ISO Date or null | "Show-until date cannot be in the past." |
+| **Support Request Subject** (`subject`) | Text. | 3 to 100 characters. | Trimmed plain data | "Subject must be between 3 and 100 characters." |
+| **Support Request Message** (`message`) | Text. | 5 to 1,000 characters. | Trimmed plain data | "Message must be between 5 and 1,000 characters." |
+| **Support Request Reply** (`message`) | Text. | 1 to 1,000 characters. | Trimmed plain data | "Reply message must be between 1 and 1,000 characters." |
 
 ### Form Behavior & Accessibility
 
