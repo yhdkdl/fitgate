@@ -302,7 +302,7 @@ Upon creation, an invitation email containing a secure password setup token is g
 Run this PowerShell command to extract the invitation link:
 
 ```powershell
-docker compose logs backend | Select-String "set-password"
+  docker compose logs backend --tail=100
 ```
 
 Look for the link formatted as:
