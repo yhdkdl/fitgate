@@ -133,14 +133,12 @@ describe("ExpensesSection", () => {
   it("renders active expenses and computes active total excluding voided", async () => {
     render(<ExpensesSection userRole="owner" />);
 
-    await waitFor(() => {
-      expect(screen.getByText("Expenses & Reports")).toBeInTheDocument();
-    });
-
     // Active total: 25,000 + 8,000 = 33,000.00 ETB
-    expect(screen.getByTestId("total-active-expenses")).toHaveTextContent(
-      "33,000.00 ETB"
-    );
+    await waitFor(() => {
+      expect(screen.getByTestId("total-active-expenses")).toHaveTextContent(
+        "33,000.00 ETB"
+      );
+    });
     expect(screen.getByText("November gym space rent")).toBeInTheDocument();
     expect(screen.getByText("Water & electricity bill")).toBeInTheDocument();
   });

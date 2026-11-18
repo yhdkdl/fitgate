@@ -140,7 +140,7 @@ class Command(BaseCommand):
                         owner = User.all_objects.filter(
                             gym=gym, role=User.ROLE_OWNER, is_active=True
                         ).first()
-                        if owner and owner.email:
+                        if owner and owner.email and not gym.is_demo:
                             send_fitgate_email(
                                 subject=f"FitGate: Your gym platform subscription for {gym.name} expires in {days_until_gym_expiry} days",
                                 message=(
@@ -222,7 +222,7 @@ class Command(BaseCommand):
                         continue
 
                     # Send reminder email strictly through send_fitgate_email
-                    if member_user and member_user.email:
+                    if member_user and member_user.email and not gym.is_demo:
                         send_fitgate_email(
                             subject=f"Your membership at {gym.name} expires in {days_left} day{'s' if days_left != 1 else ''}",
                             message=(

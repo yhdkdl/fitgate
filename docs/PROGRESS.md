@@ -85,12 +85,13 @@ Sprint 38 is NOT to be started at all. The order is:
 8. Staging refresh by owner
 9. Sprint 38 (cPanel production hardening, only when explicitly authorized)
 
+- Sprint 35: Super Admin platform dashboard (role enable/disable per gym, tenant list with lapse flags, renewal endpoint/modal, suspension endpoint/modal, gym termination/reinstatement, reminder days inputs, platform notices, platform metrics) completed (tag `sprint-35-done`).
+- Sprint 36: Tier feature-flag enforcement (contract test, tier-gate regression, notices/expenses realignment, capabilities single source of truth, and frontend render gating) completed (tag `sprint-36-done`).
+- Sprint 37a: Demo gym environment (`feature/sprint-37a-demo-gym`) — Deterministic, realistic demo showcase on `demo` subdomain with archive-and-recreate reset mechanism (renaming previous demo gym to `demo-archive-N`, `.archived.N` email suffix, `terminated` status, carried-over `tls_confirmed_at`), `ALLOW_DEMO_SEED=True` execution guard, zero live external calls, comprehensive Growth tier seed data (90 members across active, frozen, expired, pending, expiring soon, queued, and upgraded states; equipment with prices and total investment; expenses with voided audit entry; group classes with bookings and attendances; bank receipts with pending review; training plans with approved AI workouts; pre-created role accounts at `@demo.local` with `DEMO_PASSWORD`), centralized platform revenue/count exclusion for demo gyms, and expandable click-to-fill Demo credentials login helper card on Login screen.
+
 ## Current
 
 - `fix/platform-communications`: Dedicated PlatformNotice model with targeting and withdrawal, two-way support inbox for Owner/Manager to Super Admin, central gym subscription payment revenue separation in Payment default manager, Owner "Your FitGate subscription" card, and Super Admin gym list filters with counts.
-
-- Sprint 35: Super Admin platform dashboard (role enable/disable per gym, tenant list with lapse flags, renewal endpoint/modal, suspension endpoint/modal, gym termination/reinstatement, reminder days inputs, platform notices, platform metrics) completed (tag `sprint-35-done`).
-- Sprint 36: Tier feature-flag enforcement (contract test, tier-gate regression, notices/expenses realignment, capabilities single source of truth, and frontend render gating) completed (tag `sprint-36-done`).
 
 ## Open manual steps
 
