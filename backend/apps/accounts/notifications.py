@@ -188,6 +188,7 @@ def send_fitgate_email(
     recipient_list: List[str],
     gym: Optional[Any] = None,
     fail_silently: bool = False,
+    html_message: Optional[str] = None,
     **kwargs,
 ) -> int:
     """
@@ -285,6 +286,16 @@ def send_fitgate_email(
     # 4. Rate caps check
     check_and_increment_email_rate_caps(gym=gym)
 
+    if not html_message:
+        from apps.accounts.email_templates import render_gym_email_html
+
+        html_message = render_gym_email_html(
+            headline=subject,
+            body_text_or_paragraphs=message,
+            gym=gym_obj,
+            badge_text="NOTIFICATION",
+        )
+
     from_email = build_from_email(gym)
     sent_count = send_mail(
         subject=subject,
@@ -292,6 +303,7 @@ def send_fitgate_email(
         from_email=from_email,
         recipient_list=effective_recipients,
         fail_silently=fail_silently,
+        html_message=html_message,
         **kwargs,
     )
 
@@ -333,17 +345,34 @@ def notify_account_locked(user) -> None:
     ).first()
 
     if owner and owner.email:
+        from apps.accounts.email_templates import render_gym_email_html
+
+        subject = f"FitGate Alert: Account locked for {user.email}"
+        message = (
+            f"Hello,\n\n"
+            f"The account for {user.email} in gym '{user.gym.name}' has been temporarily "
+            f"locked following {user.failed_login_count} consecutive failed login attempts.\n"
+            f"The lockout will expire at {user.locked_until}.\n"
+        )
+        html_msg = render_gym_email_html(
+            headline="Security Alert: Account Locked",
+            body_text_or_paragraphs=message,
+            gym=user.gym,
+            badge_text="SECURITY ALERT",
+            detail_rows=[
+                ("Account Email", user.email),
+                ("Failed Attempts", str(user.failed_login_count)),
+                ("Lockout Expires", str(user.locked_until)),
+            ],
+            notice_text="The account has been temporarily locked to protect against unauthorized access.",
+        )
         send_fitgate_email(
-            subject=f"FitGate Alert: Account locked for {user.email}",
-            message=(
-                f"Hello,\n\n"
-                f"The account for {user.email} in gym '{user.gym.name}' has been temporarily "
-                f"locked following {user.failed_login_count} consecutive failed login attempts.\n"
-                f"The lockout will expire at {user.locked_until}.\n"
-            ),
+            subject=subject,
+            message=message,
             recipient_list=[owner.email],
             gym=user.gym,
             fail_silently=False,
+            html_message=html_msg,
         )
     else:
         logger.warning(
@@ -362,6 +391,8 @@ def send_password_reset_email(user, link: str) -> None:
     - expiry duration (PASSWORD_RESET_TOKEN_MINUTES)
     - notice to ignore if not requested
     """
+    from apps.accounts.email_templates import render_gym_email_html
+
     minutes = getattr(settings, "PASSWORD_RESET_TOKEN_MINUTES", 60)
     subject = "FitGate: Reset your password"
     message = (
@@ -372,12 +403,29 @@ def send_password_reset_email(user, link: str) -> None:
         f"This link will expire in {minutes} minutes.\n\n"
         f"If you did not request a password reset, you can safely ignore this email.\n"
     )
+    html_msg = render_gym_email_html(
+        headline="Password Reset Request",
+        body_text_or_paragraphs=[
+            f"We received a request to reset the password for your FitGate account ({user.email}).",
+            f"Click the button below to choose a new password. This secure link is valid for {minutes} minutes.",
+        ],
+        gym=user.gym,
+        badge_text="SECURITY",
+        action_url=link,
+        action_label="Reset Password",
+        detail_rows=[
+            ("Account Email", user.email),
+            ("Link Validity", f"{minutes} Minutes"),
+        ],
+        notice_text="If you did not request a password reset, you can safely ignore this email. Your current password remains secure.",
+    )
     send_fitgate_email(
         subject=subject,
         message=message,
         recipient_list=[user.email],
         gym=user.gym,
         fail_silently=False,
+        html_message=html_msg,
     )
 
 
@@ -387,6 +435,8 @@ def send_owner_welcome_email(owner, gym, invite_link: str) -> None:
 
     Crucial: Must never contain any password.
     """
+    from apps.accounts.email_templates import render_gym_email_html
+
     subject = f"Welcome to FitGate — Set up your account for {gym.name}"
     message = (
         f"Hello {owner.full_name or 'there'},\n\n"
@@ -396,12 +446,31 @@ def send_owner_welcome_email(owner, gym, invite_link: str) -> None:
         f"This link is valid for 7 days. Once your password is set and your domain's security certificate is verified, you can log in to manage your gym.\n\n"
         f"Welcome aboard,\nThe FitGate Team\n"
     )
+    html_msg = render_gym_email_html(
+        headline=f"Welcome to {gym.name}",
+        body_text_or_paragraphs=[
+            f"Hello {owner.full_name or 'there'},",
+            f"Your gym '{gym.name}' has been created on the FitGate platform.",
+            "To get started, please set your secure account password using the button below.",
+        ],
+        gym=gym,
+        badge_text="GYM OWNER",
+        action_url=invite_link,
+        action_label="Set Up Owner Account",
+        detail_rows=[
+            ("Account Role", "Gym Owner"),
+            ("Gym Name", gym.name),
+            ("Link Expiration", "7 Days"),
+        ],
+        notice_text="This invitation is valid for 7 days. Once your password is set, you can sign in to the management dashboard.",
+    )
     send_fitgate_email(
         subject=subject,
         message=message,
         recipient_list=[owner.email],
         gym=gym,
         fail_silently=False,
+        html_message=html_msg,
     )
 
 
@@ -410,6 +479,7 @@ def send_staff_invite_email(user, gym, invite_link: str) -> None:
     Send invitation email to newly invited staff member (Manager, Trainer, or Reception)
     containing single-use set-password link. Never contains a password.
     """
+    from apps.accounts.email_templates import render_gym_email_html
     from apps.accounts.models import User
 
     role_display = dict(User.ROLE_CHOICES).get(user.role, user.role.capitalize())
@@ -422,12 +492,31 @@ def send_staff_invite_email(user, gym, invite_link: str) -> None:
         f"This link is valid for 7 days. Once your password is set, you can sign in to the staff portal.\n\n"
         f"Welcome aboard,\nThe FitGate Team\n"
     )
+    html_msg = render_gym_email_html(
+        headline=f"Staff Invitation: {gym.name}",
+        body_text_or_paragraphs=[
+            f"Hello {user.full_name or 'there'},",
+            f"You have been invited to join '{gym.name}' as a {role_display}.",
+            "Click the button below to activate your staff profile and choose your password.",
+        ],
+        gym=gym,
+        badge_text=f"STAFF: {role_display.upper()}",
+        action_url=invite_link,
+        action_label="Activate Staff Account",
+        detail_rows=[
+            ("Staff Role", role_display),
+            ("Gym", gym.name),
+            ("Link Expiration", "7 Days"),
+        ],
+        notice_text="This invitation link is valid for 7 days. Never share this link with anyone.",
+    )
     send_fitgate_email(
         subject=subject,
         message=message,
         recipient_list=[user.email],
         gym=gym,
         fail_silently=False,
+        html_message=html_msg,
     )
 
 
@@ -435,6 +524,8 @@ def send_member_verification_email(user, gym, verify_link: str) -> None:
     """
     Send email verification link to newly self-registered gym member.
     """
+    from apps.accounts.email_templates import render_gym_email_html
+
     subject = f"Verify your email address for {gym.name}"
     message = (
         f"Hello {user.full_name or 'there'},\n\n"
@@ -445,12 +536,31 @@ def send_member_verification_email(user, gym, verify_link: str) -> None:
         f"This verification link is valid for 24 hours.\n\n"
         f"Best regards,\nThe {gym.name} Team\n"
     )
+    html_msg = render_gym_email_html(
+        headline=f"Verify Your Email for {gym.name}",
+        body_text_or_paragraphs=[
+            f"Hello {user.full_name or 'there'},",
+            f"Thank you for registering at '{gym.name}'.",
+            "Please confirm your email address by clicking the verification button below to activate your membership.",
+        ],
+        gym=gym,
+        badge_text="EMAIL VERIFICATION",
+        action_url=verify_link,
+        action_label="Verify Email Address",
+        detail_rows=[
+            ("Member", user.full_name or user.email),
+            ("Gym", gym.name),
+            ("Link Validity", "24 Hours"),
+        ],
+        notice_text="This verification link will expire in 24 hours.",
+    )
     send_fitgate_email(
         subject=subject,
         message=message,
         recipient_list=[user.email],
         gym=gym,
         fail_silently=False,
+        html_message=html_msg,
     )
 
 
@@ -458,6 +568,8 @@ def send_member_invite_email(user, gym, invite_link: str) -> None:
     """
     Send invitation email with set-password link to staff-registered member.
     """
+    from apps.accounts.email_templates import render_gym_email_html
+
     subject = f"Welcome to {gym.name} — Set up your member account"
     message = (
         f"Hello {user.full_name or 'there'},\n\n"
@@ -468,12 +580,31 @@ def send_member_invite_email(user, gym, invite_link: str) -> None:
         f"subscription, and check-in QR codes.\n\n"
         f"Welcome aboard,\nThe {gym.name} Team\n"
     )
+    html_msg = render_gym_email_html(
+        headline=f"Welcome to {gym.name}",
+        body_text_or_paragraphs=[
+            f"Hello {user.full_name or 'there'},",
+            f"You have been registered as a member at '{gym.name}'.",
+            "To access the member portal, view your subscription, and generate your check-in QR badge, please activate your account below.",
+        ],
+        gym=gym,
+        badge_text="MEMBER PORTAL",
+        action_url=invite_link,
+        action_label="Activate Member Account",
+        detail_rows=[
+            ("Member Name", user.full_name or user.email),
+            ("Gym", gym.name),
+            ("Link Expiration", "7 Days"),
+        ],
+        notice_text="This activation link is valid for 7 days. Once set, you can log in at any time.",
+    )
     send_fitgate_email(
         subject=subject,
         message=message,
         recipient_list=[user.email],
         gym=gym,
         fail_silently=False,
+        html_message=html_msg,
     )
 
 
