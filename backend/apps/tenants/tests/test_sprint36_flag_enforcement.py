@@ -424,16 +424,18 @@ class TestTierGatedFeatureRegression:
         assert r_tg.status_code == 403
         assert "Telegram integration is not available" in str(r_tg.data)
 
-        # 3. Super Admin creates a platform-wide notice (gym=None)
-        _ = GymNotice.all_objects.create(
-            gym=None,
+        # 3. Super Admin creates a platform-wide notice
+        from apps.tenants.models import PlatformNotice
+
+        _ = PlatformNotice.objects.create(
             title="Scheduled Platform Maintenance",
-            body="FitGate will perform maintenance on Sunday night.",
+            message="FitGate will perform maintenance on Sunday night.",
             posted_by=starter_owner,
+            audience_type=PlatformNotice.AUDIENCE_ALL,
         )
 
-        # 4. Starter owner DOES receive the platform notice on /api/gym/notices/
-        r_list = starter_client.get("/api/gym/notices/")
+        # 4. Starter owner DOES receive the platform notice on /api/gym/platform-notices/
+        r_list = starter_client.get("/api/gym/platform-notices/")
         assert r_list.status_code == 200
         titles = [n["title"] for n in r_list.data]
         assert "Scheduled Platform Maintenance" in titles
@@ -617,10 +619,7 @@ class TestTierGatedFeatureRegression:
 
         # Access refused while on Starter
         r_notice = client.get("/api/gym/notices/")
-        assert r_notice.status_code == 200
-        # Platform notices only, gym notices excluded
-        notice_ids = [n["id"] for n in r_notice.data]
-        assert str(notice.id) not in notice_ids
+        assert r_notice.status_code == 403
 
         r_exp = client.get("/api/gym/expenses/")
         assert r_exp.status_code == 403

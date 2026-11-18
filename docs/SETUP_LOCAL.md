@@ -93,7 +93,7 @@ Copy-Item .env.example .env
 | `POSTGRES_PORT`                  | Required            | Host port mapped to PostgreSQL                            | `5432`                                                                                      | Uses 5432                                            |
 | `DATABASE_URL`                   | Required            | Full database connection string                           | `postgres://postgres:postgres@postgres:5432/fitgate_dev`                                    | Backend cannot reach database                        |
 | `REDIS_URL`                      | Required            | Redis connection string for cache                         | `redis://redis:6379/1`                                                                      | Cache and token blocklist fail                       |
-| `PGADMIN_DEFAULT_EMAIL`          | Required            | Login email for pgAdmin UI                                | `admin@fitgate.localhost`                                                                   | pgAdmin container fails to start                     |
+| `PGADMIN_DEFAULT_EMAIL`          | Required            | Login email for pgAdmin UI                                | `admin@fitgate.org`                                                                         | pgAdmin container fails to start                     |
 | `PGADMIN_DEFAULT_PASSWORD`       | Required            | Login password for pgAdmin UI                             | `admin`                                                                                     | pgAdmin container fails to start                     |
 | `PGADMIN_PORT`                   | Required            | Host port mapped to pgAdmin                               | `5050`                                                                                      | Uses 5050                                            |
 | `VITE_API_URL`                   | Required            | Backend API URL for frontend                              | `http://localhost:8000`                                                                     | Frontend API calls fail                              |
@@ -244,7 +244,7 @@ This command reads `SUPERADMIN_EMAIL` (`admin@fitgate.localhost`) and `SUPERADMI
 | **Gym Tenant Subdomain**  | `http://<gym>.localhost:5173`     | e.g. `http://demo.localhost:5173` or `http://bole-power.localhost:5173`         |
 | **Backend REST API**      | `http://localhost:8000/api/`      | Django REST Framework endpoints                                                 |
 | **OpenAPI Documentation** | `http://localhost:8000/api/docs/` | Interactive Swagger UI API documentation                                        |
-| **pgAdmin 4 Database UI** | `http://localhost:5050`           | Email: `admin@fitgate.localhost`, Password: `admin` (auto-connects to database) |
+| **pgAdmin 4 Database UI** | `http://localhost:5050`           | Email: `admin@fitgate.org`, Password: `admin` (auto-connects to database)       |
 
 ### The RFC 6761 `*.localhost` Explanation
 

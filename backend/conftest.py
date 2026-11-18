@@ -70,23 +70,25 @@ try:
 
     def _safe_execute_sql_flush(self, sql_list):
         """
-        Disable accounts_auditlog immutability trigger around execute_sql_flush
+        Disable immutability triggers around execute_sql_flush
         so TransactionTestCase post-teardown table flushes can succeed cleanly.
         Never embedded in database migrations.
         """
-        try:
-            with self.connection.cursor() as cursor:
-                cursor.execute("ALTER TABLE accounts_auditlog DISABLE TRIGGER ALL;")
-        except Exception:
-            pass
+        for tbl in ("accounts_auditlog", "payments_receipt", "payments_paymentreversal"):
+            try:
+                with self.connection.cursor() as cursor:
+                    cursor.execute(f"ALTER TABLE {tbl} DISABLE TRIGGER ALL;")
+            except Exception:
+                pass
         try:
             return _orig_execute_sql_flush(self, sql_list)
         finally:
-            try:
-                with self.connection.cursor() as cursor:
-                    cursor.execute("ALTER TABLE accounts_auditlog ENABLE TRIGGER ALL;")
-            except Exception:
-                pass
+            for tbl in ("accounts_auditlog", "payments_receipt", "payments_paymentreversal"):
+                try:
+                    with self.connection.cursor() as cursor:
+                        cursor.execute(f"ALTER TABLE {tbl} ENABLE TRIGGER ALL;")
+                except Exception:
+                    pass
 
     BaseDatabaseOperations.execute_sql_flush = _safe_execute_sql_flush
 except Exception:

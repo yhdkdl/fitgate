@@ -245,14 +245,14 @@ class TestRBACPermissionMatrixEveryRole:
         assert resp_profile.status_code == 200
         assert resp_profile.data["email"] == manager_user.email
 
-        # Allowed (Sprint 6): Invite a Trainer account
-        resp_invite_trainer = client.post(
+        # Allowed (Sprint 6): Invite a Reception account
+        resp_invite_reception = client.post(
             "/api/gym/staff/",
-            {"email": "invited_trainer@bolehub.com", "role": "trainer"},
+            {"email": "invited_reception@bolehub.com", "role": "reception"},
             format="json",
         )
-        assert resp_invite_trainer.status_code == 201
-        assert resp_invite_trainer.data["user"]["role"] == "trainer"
+        assert resp_invite_reception.status_code == 201
+        assert resp_invite_reception.data["user"]["role"] == "reception"
 
         # Denied (403, Sprint 6): Manager cannot invite a Manager account
         resp_invite_mgr = client.post(
@@ -429,7 +429,7 @@ class TestEntitlementsVsSettingsEnforcement:
             "has_multi_branch": True,
             "freeze_days_allowed": 45,
             "payment_grace_days": 10,
-            "subscription_reminder_days": [21, 14, 7],
+            "subscription_reminder_days": [14, 7],
         }
         resp = client.patch(url, payload, format="json")
         assert resp.status_code == 200
@@ -440,7 +440,7 @@ class TestEntitlementsVsSettingsEnforcement:
         assert resp.data["has_multi_branch"] is True
         assert resp.data["freeze_days_allowed"] == 45
         assert resp.data["payment_grace_days"] == 10
-        assert resp.data["subscription_reminder_days"] == [21, 14, 7]
+        assert resp.data["subscription_reminder_days"] == [14, 7]
 
 
 @pytest.mark.django_db
@@ -661,6 +661,7 @@ class TestOwnerSettingsAllowListAndIntrospection:
             "location",
             "contact_name",
             "contact_phone",
+            "public_contact_phone",
             "contact_email",
             "subscription_expires_at",
             "tls_confirmed_at",

@@ -386,6 +386,7 @@ class GymSettingsUpdateSerializer(serializers.Serializer):
         "payment_grace_days",
         "subscription_reminder_days",
         "freeze_days_cap",
+        "disabled_roles",
     }
 
     brand_color = serializers.CharField(
@@ -549,6 +550,9 @@ class GymNoticeSerializer(serializers.ModelSerializer):
 class PlatformNoticeSerializer(serializers.ModelSerializer):
     posted_by_name = serializers.SerializerMethodField(read_only=True)
     target_gym_names = serializers.SerializerMethodField(read_only=True)
+    is_platform_wide = serializers.SerializerMethodField(read_only=True)
+    telegram_sent = serializers.BooleanField(default=False, read_only=True)
+    body = serializers.CharField(source="message", required=False)
     target_gym_ids = serializers.PrimaryKeyRelatedField(
         many=True,
         queryset=GymTenant.objects.all(),
@@ -556,14 +560,26 @@ class PlatformNoticeSerializer(serializers.ModelSerializer):
         required=False,
     )
 
+    def get_is_platform_wide(self, obj) -> bool:
+        return getattr(obj, "audience_type", None) == PlatformNotice.AUDIENCE_ALL
+
+    def to_internal_value(self, data):
+        data = data.copy() if hasattr(data, "copy") else dict(data)
+        if "body" in data and "message" not in data:
+            data["message"] = data["body"]
+        return super().to_internal_value(data)
+
     class Meta:
         model = PlatformNotice
         fields = [
             "id",
             "title",
             "message",
+            "body",
             "posted_by",
             "posted_by_name",
+            "is_platform_wide",
+            "telegram_sent",
             "audience_type",
             "target_gym_ids",
             "target_gym_names",

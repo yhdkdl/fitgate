@@ -23,7 +23,7 @@ def gym_tenant_a(db):
         status=GymTenant.STATUS_ACTIVE,
         tls_confirmed_at=timezone.now(),
     )
-    GymConfig.objects.update_or_create(gym=gym)
+    GymConfig.objects.update_or_create(gym=gym, defaults={"has_notices": True})
     return gym
 
 
@@ -35,7 +35,7 @@ def gym_tenant_b(db):
         status=GymTenant.STATUS_ACTIVE,
         tls_confirmed_at=timezone.now(),
     )
-    GymConfig.objects.update_or_create(gym=gym)
+    GymConfig.objects.update_or_create(gym=gym, defaults={"has_notices": True})
     return gym
 
 

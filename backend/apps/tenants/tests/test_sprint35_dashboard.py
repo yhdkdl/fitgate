@@ -404,7 +404,7 @@ class TestPlatformAnalyticsAndNotices:
         # 2. Gym Owner sees the platform notice in their notices list
         owner = create_user(active_gym, User.ROLE_OWNER, "owner_pnotice@gym.com")
         auth_client(api_client, owner, active_gym)
-        res_list = api_client.get("/api/gym/notices/")
+        res_list = api_client.get("/api/gym/platform-notices/")
         assert res_list.status_code == 200
         titles = [n["title"] for n in res_list.data]
         assert "System Maintenance Notice" in titles
@@ -414,14 +414,12 @@ class TestPlatformAnalyticsAndNotices:
             active_gym, User.ROLE_TRAINER, "trainer_pnotice@gym.com"
         )
         auth_client(api_client, trainer_user, active_gym)
-        res_trainer = api_client.get("/api/gym/notices/")
-        assert res_trainer.status_code == 200
-        trainer_titles = [n["title"] for n in res_trainer.data]
-        assert "System Maintenance Notice" not in trainer_titles
+        res_trainer = api_client.get("/api/gym/platform-notices/")
+        assert res_trainer.status_code == 403
 
         # 4. Gym Owner cannot delete platform notice
         auth_client(api_client, owner, active_gym)
-        res_del = api_client.delete(f"/api/gym/notices/{notice_id}/")
+        res_del = api_client.delete(f"/api/platform/notices/{notice_id}/")
         assert res_del.status_code == 403
 
         # 5. Super Admin can delete platform notice

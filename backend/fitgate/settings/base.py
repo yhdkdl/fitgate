@@ -34,7 +34,7 @@ SECRET_KEY = env("SECRET_KEY", default=env.str("DJANGO_SECRET_KEY", default=""))
 if not SECRET_KEY:
     SECRET_KEY = env("SECRET_KEY")
 DOMAIN = env("DOMAIN")
-JWT_SIGNING_KEY = env("JWT_SIGNING_KEY", default=SECRET_KEY)
+JWT_SIGNING_KEY = env("JWT_SIGNING_KEY", default="") or SECRET_KEY
 
 # JWT Lifetimes & Lockout (configurable settings)
 JWT_ACCESS_TOKEN_LIFETIME = timedelta(minutes=15)

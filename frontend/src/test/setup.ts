@@ -1,6 +1,52 @@
 import "@testing-library/jest-dom";
 
+class LocalStorageMock {
+  private store: Record<string, string> = {};
+  clear() {
+    this.store = {};
+  }
+  getItem(key: string) {
+    return this.store[key] ?? null;
+  }
+  setItem(key: string, value: string) {
+    this.store[key] = String(value);
+  }
+  removeItem(key: string) {
+    delete this.store[key];
+  }
+  get length() {
+    return Object.keys(this.store).length;
+  }
+  key(index: number) {
+    return Object.keys(this.store)[index] ?? null;
+  }
+}
+
+const mockLocalStorage = new LocalStorageMock();
+const mockSessionStorage = new LocalStorageMock();
+
+Object.defineProperty(globalThis, "localStorage", {
+  value: mockLocalStorage,
+  writable: true,
+  configurable: true,
+});
+Object.defineProperty(globalThis, "sessionStorage", {
+  value: mockSessionStorage,
+  writable: true,
+  configurable: true,
+});
+
 if (typeof window !== "undefined") {
+  Object.defineProperty(window, "localStorage", {
+    value: mockLocalStorage,
+    writable: true,
+    configurable: true,
+  });
+  Object.defineProperty(window, "sessionStorage", {
+    value: mockSessionStorage,
+    writable: true,
+    configurable: true,
+  });
   if (!window.URL.createObjectURL) {
     window.URL.createObjectURL = () => "blob:mock-url";
   }

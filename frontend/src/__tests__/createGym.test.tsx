@@ -160,6 +160,10 @@ describe("GymManagementSection", () => {
       screen.getByLabelText(/bank reference/i),
       "CBE-REF-001"
     );
+    await userEvent.type(
+      screen.getByLabelText(/public contact phone/i),
+      "+251911223344"
+    );
 
     fireEvent.click(screen.getByRole("button", { name: /provision gym/i }));
 

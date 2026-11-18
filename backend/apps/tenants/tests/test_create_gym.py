@@ -626,6 +626,7 @@ class TestCreateGymSuite:
             "owner_email": "owner@failhost.com",
             "payment_amount": "12000.00",
             "payment_reference": "TX-FAIL-UAPI",
+            "public_contact_phone": "+251911223344",
         }
 
         initial_gyms = GymTenant.objects.count()
@@ -674,6 +675,7 @@ class TestCreateGymSuite:
             "owner_email": "owner@racegym.com",
             "payment_amount": "12000.00",
             "payment_reference": "TX-RACE-001",
+            "public_contact_phone": "+251911223344",
         }
 
         with patch(

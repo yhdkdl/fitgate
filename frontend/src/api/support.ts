@@ -11,6 +11,9 @@ export type SupportStatus = "open" | "in_progress" | "resolved";
 
 export interface SupportMessage {
   id: string;
+  request?: string;
+  request_id?: string;
+  sender_id?: string;
   sender_type?: "gym" | "platform";
   sender_role?: string;
   sender_name?: string;
@@ -30,6 +33,7 @@ export interface SupportRequest {
   subject: string;
   status: SupportStatus;
   created_by_name: string;
+  created_by_role?: string;
   created_at: string;
   updated_at: string;
   messages: SupportMessage[];
