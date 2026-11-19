@@ -3,6 +3,21 @@
 @tailwind utilities;
 
 :root {
+  --bg: #f8fafc;
+  --surface: #ffffff;
+  --surface-2: #f1f5f9;
+  --border: #e2e8f0;
+  --primary: #2563eb;
+  --primary-hover: #1d4ed8;
+  --ring: #60a5fa;
+  --text: #0f172a;
+  --text-muted: #64748b;
+  --success: #16a34a;
+  --warning: #d97706;
+  --danger: #dc2626;
+}
+
+.theme-dark {
   --bg: #070b14;
   --surface: #0e1626;
   --surface-2: #141f33;
