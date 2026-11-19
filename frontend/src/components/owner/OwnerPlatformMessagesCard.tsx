@@ -53,11 +53,11 @@ export const OwnerPlatformMessagesCard: React.FC = () => {
   };
 
   return (
-    <Card className="bg-surface border-border p-5 space-y-4">
-      <div className="flex items-center justify-between border-b border-border pb-3">
+    <Card className="bg-[#12151B] border border-white/10 rounded-2xl p-5 space-y-4 shadow-xl text-white">
+      <div className="flex items-center justify-between border-b border-white/5 pb-3">
         <div className="flex items-center gap-2">
-          <span className="w-2 h-2 rounded-full bg-primary shrink-0" />
-          <h2 className="text-sm font-bold text-text uppercase tracking-wider">
+          <span className="w-2 h-2 rounded-full bg-lime-400 shrink-0 shadow-[0_0_8px_rgba(163,230,53,0.5)]" />
+          <h2 className="text-sm font-bold text-white uppercase tracking-wider">
             Messages from FitGate
           </h2>
           <Badge variant="primary" className="text-[10px]">
@@ -69,7 +69,7 @@ export const OwnerPlatformMessagesCard: React.FC = () => {
             size="sm"
             variant="ghost"
             onClick={handleDismiss}
-            className="text-xs text-text-muted hover:text-text"
+            className="text-xs text-slate-400 hover:text-white"
           >
             Dismiss
           </Button>
@@ -77,23 +77,23 @@ export const OwnerPlatformMessagesCard: React.FC = () => {
             size="sm"
             variant="ghost"
             onClick={handleViewAll}
-            className="text-xs text-primary font-medium"
+            className="text-xs text-lime-400 font-bold hover:underline"
           >
             View all messages &rarr;
           </Button>
         </div>
       </div>
 
-      <div className="divide-y divide-border/60">
+      <div className="divide-y divide-white/5">
         {recentNotices.map((n) => (
           <div key={n.id} className="py-2.5 first:pt-0 last:pb-0 space-y-1">
             <div className="flex items-center justify-between">
-              <h3 className="text-xs font-semibold text-text">{n.title}</h3>
-              <span className="text-[11px] text-text-muted">
+              <h3 className="text-xs font-semibold text-white">{n.title}</h3>
+              <span className="text-[11px] text-slate-400">
                 {new Date(n.created_at).toLocaleDateString()}
               </span>
             </div>
-            <p className="text-xs text-text-muted line-clamp-2">{n.message}</p>
+            <p className="text-xs text-slate-400 line-clamp-2">{n.message}</p>
           </div>
         ))}
       </div>
