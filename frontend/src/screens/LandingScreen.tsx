@@ -13,11 +13,14 @@ import {
   Flame,
   QrCode,
   ShieldCheck,
+  Star,
+  Users,
   X,
   Zap,
 } from "lucide-react";
 import { PLATFORM_PRICING_TIERS } from "../config/platformPricing";
 import { buildTenantUrl, validateSubdomain } from "../utils/tenant";
+import LightRays from "../components/ui/LightRays";
 
 export const LandingScreen: React.FC = () => {
   const [gymSubdomain, setGymSubdomain] = useState("");
@@ -53,7 +56,7 @@ export const LandingScreen: React.FC = () => {
     if (!validation.valid || !validation.subdomain) {
       setGymError(
         validation.error ||
-          "Please enter a valid gym subdomain (letters, numbers, and hyphens only)."
+        "Please enter a valid gym subdomain (letters, numbers, and hyphens only)."
       );
       return;
     }
@@ -77,10 +80,10 @@ export const LandingScreen: React.FC = () => {
       : `.${currentHost}${currentPort}`;
 
   return (
-    <div className="min-h-screen bg-[#070A11] text-slate-100 selection:bg-[#A3E635] selection:text-slate-950 flex flex-col font-sans">
-      {/* Top Utility Announcement Ribbon */}
-      <div className="bg-[#0D1424] border-b border-slate-800/80 px-4 py-2 text-xs text-slate-400">
-        <div className="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-3">
+    <div className="min-h-screen bg-[#070A11] text-slate-100 selection:bg-[#A3E635] selection:text-slate-950 flex flex-col font-sans w-full overflow-x-hidden">
+      {/* Top Utility Announcement Ribbon - Full Width */}
+      <div className="w-full bg-[#0D1424] border-b border-slate-800/80 px-4 sm:px-8 lg:px-12 py-2.5 text-xs text-slate-400">
+        <div className="w-full max-w-[1600px] mx-auto flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-4">
             <span className="flex items-center gap-1.5 text-slate-300">
               <span className="w-2 h-2 rounded-full bg-[#A3E635] animate-pulse" />
@@ -104,9 +107,9 @@ export const LandingScreen: React.FC = () => {
         </div>
       </div>
 
-      {/* Main Sticky Header */}
-      <header className="sticky top-0 z-40 bg-[#070A11]/95 backdrop-blur-md border-b border-slate-800/80">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between">
+      {/* Main Sticky Header - Full Width */}
+      <header className="sticky top-0 z-40 bg-[#070A11]/95 backdrop-blur-md border-b border-slate-800/80 w-full">
+        <div className="w-full max-w-[1600px] mx-auto px-4 sm:px-8 lg:px-12 h-20 flex items-center justify-between">
           <Link
             to="/"
             className="flex items-center gap-3 text-white hover:text-[#A3E635] transition-colors focus-visible:ring-2 focus-visible:ring-[#A3E635] rounded-lg p-1"
@@ -169,11 +172,41 @@ export const LandingScreen: React.FC = () => {
         </div>
       </header>
 
-      <main className="flex-1">
-        {/* Hero Section */}
-        <section className="relative overflow-hidden py-16 sm:py-24 border-b border-slate-800/80 bg-gradient-to-b from-[#070A11] via-[#0B101C] to-[#070A11]">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
+      <main className="flex-1 w-full">
+        {/* Hero Section with React Bits <LightRays /> Background - Full Width */}
+        <section className="relative overflow-hidden w-full border-b border-slate-800/80 bg-[#070A11] min-h-[85vh] flex flex-col justify-center">
+          {/* Background: WebGL2 LightRays & Atmospheric Glows */}
+          <div className="absolute inset-0 pointer-events-none z-0 overflow-hidden">
+            <LightRays
+              raysOrigin="top-center"
+              raysColor="#A3E635"
+              raysSpeed={0.8}
+              lightSpread={0.65}
+              rayLength={3.2}
+              rayDensity={1.2}
+              glow={0.55}
+              haze={0.3}
+              atmosphere={0.85}
+              intensity={1.15}
+              followMouse={true}
+              mouseInfluence={0.12}
+              noiseAmount={0.04}
+              distortion={0.06}
+              pulsating={false}
+              cursorShadow={true}
+              clickPulse={true}
+              intro={true}
+              lightMode={false}
+              opacity={0.8}
+            />
+            {/* Ambient gradients to blend seamlessly into carbon obsidian */}
+            <div className="absolute inset-0 bg-gradient-to-t from-[#070A11] via-transparent to-black/30 pointer-events-none" />
+            <div className="absolute inset-0 bg-gradient-to-b from-transparent via-[#070A11]/40 to-[#070A11] pointer-events-none" />
+          </div>
+
+          {/* Foreground Hero Content */}
+          <div className="relative z-10 w-full max-w-[1600px] mx-auto px-4 sm:px-8 lg:px-12 py-16 sm:py-24">
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 lg:gap-16 items-center">
               {/* Left Column: Powerful Copy */}
               <div className="lg:col-span-7 space-y-6">
                 <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-[#A3E635]/10 border border-[#A3E635]/30 text-xs font-bold uppercase tracking-wider text-[#A3E635]">
@@ -181,12 +214,12 @@ export const LandingScreen: React.FC = () => {
                   <span>Train Hard. Operate Smarter.</span>
                 </div>
 
-                <h1 className="text-4xl sm:text-6xl font-black tracking-tight text-white uppercase leading-[1.08]">
+                <h1 className="text-4xl sm:text-6xl xl:text-7xl font-black tracking-tight text-white uppercase leading-[1.06]">
                   The Modern All-in-One{" "}
                   <span className="text-[#A3E635]">Operating System</span> for Gyms
                 </h1>
 
-                <p className="text-base sm:text-lg text-slate-400 font-normal leading-relaxed max-w-2xl">
+                <p className="text-base sm:text-lg text-slate-300/90 font-normal leading-relaxed max-w-2xl">
                   Replace paper attendance registers, unverified member access,
                   and manual cash tracking with FitGate. Equip trainers, automate
                   QR check-ins, generate AI workout plans, and accept digital
@@ -196,7 +229,7 @@ export const LandingScreen: React.FC = () => {
                 <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4 pt-2">
                   <Link
                     to="/request-demo"
-                    className="inline-flex items-center justify-center gap-2 px-7 py-4 text-base font-extrabold uppercase tracking-wider text-slate-950 bg-[#A3E635] hover:bg-[#BEF264] rounded-xl shadow-xl shadow-[#A3E635]/30 transition-all focus-visible:ring-2 focus-visible:ring-[#A3E635] min-h-[48px]"
+                    className="inline-flex items-center justify-center gap-2 px-8 py-4 text-base font-extrabold uppercase tracking-wider text-slate-950 bg-[#A3E635] hover:bg-[#BEF264] rounded-xl shadow-xl shadow-[#A3E635]/30 transition-all focus-visible:ring-2 focus-visible:ring-[#A3E635] min-h-[50px]"
                   >
                     <span>Request a Demo</span>
                     <ArrowRight className="w-5 h-5" />
@@ -204,7 +237,7 @@ export const LandingScreen: React.FC = () => {
 
                   <a
                     href="#find-gym"
-                    className="inline-flex items-center justify-center gap-2 px-7 py-4 text-base font-bold text-white bg-slate-900/90 hover:bg-slate-800 border border-slate-700/80 hover:border-slate-500 rounded-xl transition-all focus-visible:ring-2 focus-visible:ring-[#A3E635] min-h-[48px]"
+                    className="inline-flex items-center justify-center gap-2 px-8 py-4 text-base font-bold text-white bg-slate-900/90 hover:bg-slate-800 border border-slate-700/80 hover:border-slate-500 rounded-xl transition-all focus-visible:ring-2 focus-visible:ring-[#A3E635] min-h-[50px] backdrop-blur-xs"
                   >
                     <span>Go to My Gym</span>
                     <ExternalLink className="w-4 h-4 text-slate-400" />
@@ -212,42 +245,68 @@ export const LandingScreen: React.FC = () => {
                 </div>
 
                 {/* Key Pillars */}
-                <div className="pt-6 grid grid-cols-3 gap-4 border-t border-slate-800/80">
+                <div className="pt-6 grid grid-cols-3 gap-6 border-t border-slate-800/80 max-w-xl">
                   <div>
-                    <div className="text-2xl sm:text-3xl font-black text-white">99.9%</div>
-                    <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider mt-0.5">
+                    <div className="text-2xl sm:text-4xl font-black text-white">99.9%</div>
+                    <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider mt-1">
                       System Uptime
                     </div>
                   </div>
                   <div>
-                    <div className="text-2xl sm:text-3xl font-black text-[#A3E635]">2.4s</div>
-                    <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider mt-0.5">
+                    <div className="text-2xl sm:text-4xl font-black text-[#A3E635]">2.4s</div>
+                    <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider mt-1">
                       QR Entry Speed
                     </div>
                   </div>
                   <div>
-                    <div className="text-2xl sm:text-3xl font-black text-white">100%</div>
-                    <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider mt-0.5">
+                    <div className="text-2xl sm:text-4xl font-black text-white">100%</div>
+                    <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider mt-1">
                       Audit-Proof
                     </div>
                   </div>
                 </div>
               </div>
 
-              {/* Right Column: Athletic Hero Graphic with Floating Glass Cards */}
+              {/* Right Column: Athletic Hero Graphic with Floating Cards & Vertical Highlights */}
               <div className="lg:col-span-5 relative">
-                <div className="relative mx-auto max-w-md lg:max-w-none">
+                <div className="relative mx-auto max-w-lg lg:max-w-none">
                   {/* Outer Glow Ring */}
-                  <div className="absolute -inset-1.5 bg-gradient-to-tr from-[#A3E635]/30 to-blue-500/20 rounded-3xl blur-xl opacity-75" />
+                  <div className="absolute -inset-2 bg-gradient-to-tr from-[#A3E635]/30 to-blue-500/20 rounded-3xl blur-2xl opacity-75" />
 
                   {/* Main Hero Athletic Image */}
                   <div className="relative rounded-2xl overflow-hidden border border-slate-800 bg-slate-900 shadow-2xl">
                     <img
                       src="https://images.unsplash.com/photo-1534438327276-14e5300c3a48?auto=format&fit=crop&w=1200&q=80"
                       alt="Athletic Gym Performance"
-                      className="w-full h-[440px] object-cover object-center filter brightness-95 contrast-105"
+                      className="w-full h-[460px] object-cover object-center filter brightness-95 contrast-105"
                     />
                     <div className="absolute inset-0 bg-gradient-to-t from-[#070A11] via-transparent to-black/30" />
+
+                    {/* Integrated Right-Side Highlight Pillars (Reflected from reference UI) */}
+                    <div className="absolute bottom-4 right-4 left-4 p-4 rounded-xl bg-slate-950/80 backdrop-blur-md border border-slate-800/90 grid grid-cols-2 gap-3 text-left">
+                      <div className="flex items-center gap-2.5">
+                        <div className="w-8 h-8 rounded-lg bg-[#A3E635]/20 text-[#A3E635] flex items-center justify-center shrink-0">
+                          <Users className="w-4 h-4" />
+                        </div>
+                        <div>
+                          <div className="text-xs font-bold text-white uppercase tracking-wider">
+                            Trainer Tools
+                          </div>
+                          <div className="text-[10px] text-slate-400">Rosters &amp; Metrics</div>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2.5">
+                        <div className="w-8 h-8 rounded-lg bg-[#A3E635]/20 text-[#A3E635] flex items-center justify-center shrink-0">
+                          <Bot className="w-4 h-4" />
+                        </div>
+                        <div>
+                          <div className="text-xs font-bold text-white uppercase tracking-wider">
+                            AI Ethiopian
+                          </div>
+                          <div className="text-[10px] text-slate-400">Personalized Plans</div>
+                        </div>
+                      </div>
+                    </div>
                   </div>
 
                   {/* Floating Micro-Card 1: Dynamic QR Badge */}
@@ -266,7 +325,7 @@ export const LandingScreen: React.FC = () => {
                   </div>
 
                   {/* Floating Micro-Card 2: Digital Telebirr & Chapa */}
-                  <div className="absolute -bottom-4 -right-4 sm:-right-6 bg-slate-900/95 border border-slate-700/80 rounded-xl p-3.5 shadow-2xl backdrop-blur-md flex items-center gap-3 max-w-[260px]">
+                  <div className="absolute -top-4 -right-4 sm:-right-6 bg-slate-900/95 border border-slate-700/80 rounded-xl p-3.5 shadow-2xl backdrop-blur-md flex items-center gap-3 max-w-[260px]">
                     <div className="w-10 h-10 rounded-lg bg-blue-500/20 text-blue-400 flex items-center justify-center shrink-0 border border-blue-500/40">
                       <CreditCard className="w-5 h-5" />
                     </div>
@@ -282,74 +341,76 @@ export const LandingScreen: React.FC = () => {
                 </div>
               </div>
             </div>
+          </div>
+        </section>
 
-            {/* Bottom 4-Item Feature Ribbon */}
-            <div className="mt-16 pt-10 border-t border-slate-800/80 grid grid-cols-2 md:grid-cols-4 gap-4">
-              <div className="bg-slate-900/60 border border-slate-800/90 rounded-xl p-4 flex items-center gap-3.5 hover:border-[#A3E635]/40 transition-colors">
-                <div className="w-10 h-10 rounded-lg bg-[#A3E635]/15 text-[#A3E635] flex items-center justify-center shrink-0">
-                  <ShieldCheck className="w-5 h-5" />
+        {/* Full-Width 4-Item Feature Strip (Directly Inspired by Reference UI) */}
+        <div className="w-full bg-[#0B101C] border-b border-slate-800/80 py-6">
+          <div className="w-full max-w-[1600px] mx-auto px-4 sm:px-8 lg:px-12 grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="bg-slate-900/60 border border-slate-800/90 rounded-xl p-4 flex items-center gap-3.5 hover:border-[#A3E635]/40 transition-colors">
+              <div className="w-10 h-10 rounded-lg bg-[#A3E635]/15 text-[#A3E635] flex items-center justify-center shrink-0">
+                <ShieldCheck className="w-5 h-5" />
+              </div>
+              <div>
+                <div className="text-sm font-bold text-white uppercase tracking-wider">
+                  RFC 6761 Subdomains
                 </div>
-                <div>
-                  <div className="text-sm font-bold text-white uppercase tracking-wider">
-                    RFC 6761 Subdomains
-                  </div>
-                  <div className="text-xs text-slate-400">
-                    Dedicated web address
-                  </div>
+                <div className="text-xs text-slate-400">
+                  Dedicated web address
                 </div>
               </div>
+            </div>
 
-              <div className="bg-slate-900/60 border border-slate-800/90 rounded-xl p-4 flex items-center gap-3.5 hover:border-[#A3E635]/40 transition-colors">
-                <div className="w-10 h-10 rounded-lg bg-[#A3E635]/15 text-[#A3E635] flex items-center justify-center shrink-0">
-                  <Zap className="w-5 h-5" />
+            <div className="bg-slate-900/60 border border-slate-800/90 rounded-xl p-4 flex items-center gap-3.5 hover:border-[#A3E635]/40 transition-colors">
+              <div className="w-10 h-10 rounded-lg bg-[#A3E635]/15 text-[#A3E635] flex items-center justify-center shrink-0">
+                <Zap className="w-5 h-5" />
+              </div>
+              <div>
+                <div className="text-sm font-bold text-white uppercase tracking-wider">
+                  Offline-First Gate
                 </div>
-                <div>
-                  <div className="text-sm font-bold text-white uppercase tracking-wider">
-                    Offline-First Gate
-                  </div>
-                  <div className="text-xs text-slate-400">
-                    Zero queue bottlenecks
-                  </div>
+                <div className="text-xs text-slate-400">
+                  Zero queue bottlenecks
                 </div>
               </div>
+            </div>
 
-              <div className="bg-slate-900/60 border border-slate-800/90 rounded-xl p-4 flex items-center gap-3.5 hover:border-[#A3E635]/40 transition-colors">
-                <div className="w-10 h-10 rounded-lg bg-[#A3E635]/15 text-[#A3E635] flex items-center justify-center shrink-0">
-                  <Bot className="w-5 h-5" />
+            <div className="bg-slate-900/60 border border-slate-800/90 rounded-xl p-4 flex items-center gap-3.5 hover:border-[#A3E635]/40 transition-colors">
+              <div className="w-10 h-10 rounded-lg bg-[#A3E635]/15 text-[#A3E635] flex items-center justify-center shrink-0">
+                <Bot className="w-5 h-5" />
+              </div>
+              <div>
+                <div className="text-sm font-bold text-white uppercase tracking-wider">
+                  AI Ethiopian Plans
                 </div>
-                <div>
-                  <div className="text-sm font-bold text-white uppercase tracking-wider">
-                    AI Ethiopian Plans
-                  </div>
-                  <div className="text-xs text-slate-400">
-                    Custom nutrition &amp; lifts
-                  </div>
+                <div className="text-xs text-slate-400">
+                  Custom nutrition &amp; lifts
                 </div>
               </div>
+            </div>
 
-              <div className="bg-slate-900/60 border border-slate-800/90 rounded-xl p-4 flex items-center gap-3.5 hover:border-[#A3E635]/40 transition-colors">
-                <div className="w-10 h-10 rounded-lg bg-[#A3E635]/15 text-[#A3E635] flex items-center justify-center shrink-0">
-                  <Building2 className="w-5 h-5" />
+            <div className="bg-slate-900/60 border border-slate-800/90 rounded-xl p-4 flex items-center gap-3.5 hover:border-[#A3E635]/40 transition-colors">
+              <div className="w-10 h-10 rounded-lg bg-[#A3E635]/15 text-[#A3E635] flex items-center justify-center shrink-0">
+                <Building2 className="w-5 h-5" />
+              </div>
+              <div>
+                <div className="text-sm font-bold text-white uppercase tracking-wider">
+                  Multi-Branch Ready
                 </div>
-                <div>
-                  <div className="text-sm font-bold text-white uppercase tracking-wider">
-                    Multi-Branch Ready
-                  </div>
-                  <div className="text-xs text-slate-400">
-                    Seamless member roaming
-                  </div>
+                <div className="text-xs text-slate-400">
+                  Seamless member roaming
                 </div>
               </div>
             </div>
           </div>
-        </section>
+        </div>
 
-        {/* Features Section: Spec §1 & §3 with Athletic Images */}
+        {/* Features Section: Spec §1 & §3 with Athletic Images - Full Width Flow */}
         <section
           id="features"
-          className="py-16 sm:py-24 border-b border-slate-800/80 bg-[#070A11]"
+          className="w-full py-20 sm:py-28 border-b border-slate-800/80 bg-[#070A11]"
         >
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="w-full max-w-[1600px] mx-auto px-4 sm:px-8 lg:px-12">
             <div className="text-center max-w-3xl mx-auto mb-16">
               <span className="text-xs font-bold uppercase tracking-widest text-[#A3E635] block mb-2">
                 Core Gym Management Suite
@@ -367,7 +428,7 @@ export const LandingScreen: React.FC = () => {
               {/* Feature 1: Membership Management */}
               <div className="group bg-slate-900/80 border border-slate-800 rounded-2xl overflow-hidden hover:border-[#A3E635]/50 transition-all shadow-xl flex flex-col justify-between">
                 <div>
-                  <div className="h-48 overflow-hidden relative">
+                  <div className="h-52 overflow-hidden relative">
                     <img
                       src="https://images.unsplash.com/photo-1571902943202-507ec2618e8f?auto=format&fit=crop&w=800&q=80"
                       alt="Gym Membership Management"
@@ -399,7 +460,7 @@ export const LandingScreen: React.FC = () => {
               {/* Feature 2: Contactless QR Check-In */}
               <div className="group bg-slate-900/80 border border-slate-800 rounded-2xl overflow-hidden hover:border-[#A3E635]/50 transition-all shadow-xl flex flex-col justify-between">
                 <div>
-                  <div className="h-48 overflow-hidden relative">
+                  <div className="h-52 overflow-hidden relative">
                     <img
                       src="https://images.unsplash.com/photo-1517838277536-f5f99be501cd?auto=format&fit=crop&w=800&q=80"
                       alt="QR Check-in Turnstile"
@@ -431,7 +492,7 @@ export const LandingScreen: React.FC = () => {
               {/* Feature 3: Trainer Tools */}
               <div className="group bg-slate-900/80 border border-slate-800 rounded-2xl overflow-hidden hover:border-[#A3E635]/50 transition-all shadow-xl flex flex-col justify-between">
                 <div>
-                  <div className="h-48 overflow-hidden relative">
+                  <div className="h-52 overflow-hidden relative">
                     <img
                       src="https://images.unsplash.com/photo-1581009146145-b5ef050c2e1e?auto=format&fit=crop&w=800&q=80"
                       alt="Personal Trainer and Body Metrics"
@@ -463,7 +524,7 @@ export const LandingScreen: React.FC = () => {
               {/* Feature 4: AI Personal Training Plans */}
               <div className="group bg-slate-900/80 border border-slate-800 rounded-2xl overflow-hidden hover:border-[#A3E635]/50 transition-all shadow-xl flex flex-col justify-between">
                 <div>
-                  <div className="h-48 overflow-hidden relative">
+                  <div className="h-52 overflow-hidden relative">
                     <img
                       src="https://images.unsplash.com/photo-1583454110551-21f2fa2afe61?auto=format&fit=crop&w=800&q=80"
                       alt="AI Personal Training Workouts"
@@ -495,7 +556,7 @@ export const LandingScreen: React.FC = () => {
               {/* Feature 5: Integrated Payments */}
               <div className="group bg-slate-900/80 border border-slate-800 rounded-2xl overflow-hidden hover:border-[#A3E635]/50 transition-all shadow-xl flex flex-col justify-between">
                 <div>
-                  <div className="h-48 overflow-hidden relative">
+                  <div className="h-52 overflow-hidden relative">
                     <img
                       src="https://images.unsplash.com/photo-1556742049-0a67c5574f73?auto=format&fit=crop&w=800&q=80"
                       alt="Digital Payments Telebirr Chapa"
@@ -527,7 +588,7 @@ export const LandingScreen: React.FC = () => {
               {/* Feature 6: Multi-Branch Management */}
               <div className="group bg-slate-900/80 border border-slate-800 rounded-2xl overflow-hidden hover:border-[#A3E635]/50 transition-all shadow-xl flex flex-col justify-between">
                 <div>
-                  <div className="h-48 overflow-hidden relative">
+                  <div className="h-52 overflow-hidden relative">
                     <img
                       src="https://images.unsplash.com/photo-1540497077202-7c8a3999166f?auto=format&fit=crop&w=800&q=80"
                       alt="Multi Branch Gym Facilities"
@@ -559,22 +620,22 @@ export const LandingScreen: React.FC = () => {
           </div>
         </section>
 
-        {/* Motivational Social Proof & Ethiopian Gym Stats */}
-        <section className="py-20 border-b border-slate-800/80 bg-gradient-to-r from-[#080C14] via-[#0E1524] to-[#080C14]">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
+        {/* Motivational Social Proof & Ethiopian Gym Stats - Full Width */}
+        <section className="w-full py-20 sm:py-28 border-b border-slate-800/80 bg-gradient-to-r from-[#080C14] via-[#0E1524] to-[#080C14]">
+          <div className="w-full max-w-[1600px] mx-auto px-4 sm:px-8 lg:px-12">
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 lg:gap-16 items-center">
               <div className="lg:col-span-6 relative">
                 <div className="rounded-2xl overflow-hidden border border-slate-800 relative shadow-2xl">
                   <img
                     src="https://images.unsplash.com/photo-1517836357463-d25dfeac3438?auto=format&fit=crop&w=1000&q=80"
                     alt="Discipline Focus Strong Consistent"
-                    className="w-full h-[380px] object-cover object-center filter brightness-90"
+                    className="w-full h-[400px] sm:h-[460px] object-cover object-center filter brightness-90"
                   />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black via-black/40 to-transparent flex flex-col justify-end p-8">
-                    <span className="text-xs font-bold text-[#A3E635] uppercase tracking-widest mb-1">
+                  <div className="absolute inset-0 bg-gradient-to-t from-black via-black/40 to-transparent flex flex-col justify-end p-8 sm:p-10">
+                    <span className="text-xs font-bold text-[#A3E635] uppercase tracking-widest mb-1.5">
                       Our Operating Manifesto
                     </span>
-                    <div className="text-3xl sm:text-4xl font-black text-white uppercase tracking-tight leading-tight">
+                    <div className="text-3xl sm:text-5xl font-black text-white uppercase tracking-tight leading-tight">
                       Discipline &bull; Focus &bull; Strong &bull; Consistent
                     </div>
                   </div>
@@ -585,36 +646,36 @@ export const LandingScreen: React.FC = () => {
                 <span className="text-xs font-bold uppercase tracking-widest text-[#A3E635] block">
                   Built for Serious Facility Operators
                 </span>
-                <h2 className="text-3xl sm:text-4xl font-black text-white uppercase leading-tight">
+                <h2 className="text-3xl sm:text-5xl font-black text-white uppercase leading-tight">
                   Trusted by Forward-Thinking Ethiopian Gym Owners
                 </h2>
-                <p className="text-slate-400 text-base leading-relaxed">
+                <p className="text-slate-400 text-base sm:text-lg leading-relaxed">
                   FitGate automates recurring membership sweeps, eliminates gate
                   fraud with dynamic 90-second QR codes, and delivers automated
                   Telegram broadcast sweeps to ensure zero revenue leakage.
                 </p>
 
-                <div className="grid grid-cols-2 gap-6 pt-4 border-t border-slate-800">
+                <div className="grid grid-cols-2 gap-6 pt-6 border-t border-slate-800">
                   <div className="space-y-1">
-                    <div className="text-3xl font-black text-white">150K+</div>
+                    <div className="text-3xl sm:text-4xl font-black text-white">150K+</div>
                     <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
                       Check-ins Logged
                     </div>
                   </div>
                   <div className="space-y-1">
-                    <div className="text-3xl font-black text-[#A3E635]">12+</div>
+                    <div className="text-3xl sm:text-4xl font-black text-[#A3E635]">12+</div>
                     <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
                       Supported Ethiopian Banks
                     </div>
                   </div>
                   <div className="space-y-1">
-                    <div className="text-3xl font-black text-[#A3E635]">99.98%</div>
+                    <div className="text-3xl sm:text-4xl font-black text-[#A3E635]">99.98%</div>
                     <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
                       Platform Uptime
                     </div>
                   </div>
                   <div className="space-y-1">
-                    <div className="text-3xl font-black text-white">24/7</div>
+                    <div className="text-3xl sm:text-4xl font-black text-white">24/7</div>
                     <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
                       Automated Telegram Alerts
                     </div>
@@ -625,12 +686,100 @@ export const LandingScreen: React.FC = () => {
           </div>
         </section>
 
-        {/* How It Works Section */}
+        {/* Member Testimonials & Real Owner Reviews (Peak Fitness Aesthetic) - Full Width */}
+        <section className="w-full py-20 sm:py-28 border-b border-slate-800/80 bg-[#070A11]">
+          <div className="w-full max-w-[1600px] mx-auto px-4 sm:px-8 lg:px-12">
+            <div className="text-center max-w-3xl mx-auto mb-16">
+              <span className="text-xs font-bold uppercase tracking-widest text-[#A3E635] block mb-2">
+                Operational Track Record
+              </span>
+              <h2 className="text-3xl sm:text-5xl font-black tracking-tight text-white uppercase">
+                What Our Gym Partners Say
+              </h2>
+              <p className="text-slate-400 text-base sm:text-lg mt-3">
+                See how fitness clubs across Addis Ababa transformed entrance gate speed and automated billing.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+              {/* Review 1 */}
+              <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-8 flex flex-col justify-between hover:border-[#A3E635]/40 transition-all shadow-xl">
+                <div>
+                  <div className="flex items-center gap-1 text-[#A3E635] mb-4">
+                    {[...Array(5)].map((_, i) => (
+                      <Star key={i} className="w-4 h-4 fill-[#A3E635]" />
+                    ))}
+                  </div>
+                  <p className="text-sm text-slate-300 leading-relaxed mb-6 italic">
+                    &quot;FitGate completely transformed our front desk. The dynamic QR scanner cleared morning entrance bottlenecks and eliminated non-member access right from day one.&quot;
+                  </p>
+                </div>
+                <div className="flex items-center gap-3 pt-4 border-t border-slate-800">
+                  <div className="w-10 h-10 rounded-full bg-[#A3E635]/20 text-[#A3E635] flex items-center justify-center font-bold text-sm">
+                    DM
+                  </div>
+                  <div>
+                    <div className="text-sm font-bold text-white">Dawit Mengistu</div>
+                    <div className="text-xs text-slate-400">Owner, Bole Medhanialem Fitness</div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Review 2 */}
+              <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-8 flex flex-col justify-between hover:border-[#A3E635]/40 transition-all shadow-xl">
+                <div>
+                  <div className="flex items-center gap-1 text-[#A3E635] mb-4">
+                    {[...Array(5)].map((_, i) => (
+                      <Star key={i} className="w-4 h-4 fill-[#A3E635]" />
+                    ))}
+                  </div>
+                  <p className="text-sm text-slate-300 leading-relaxed mb-6 italic">
+                    &quot;Telebirr, CBE Birr, and Chapa integration saved us countless hours of manual bank reconciliation. Cash receipts and digital settlements stay 100% auditable.&quot;
+                  </p>
+                </div>
+                <div className="flex items-center gap-3 pt-4 border-t border-slate-800">
+                  <div className="w-10 h-10 rounded-full bg-[#A3E635]/20 text-[#A3E635] flex items-center justify-center font-bold text-sm">
+                    ST
+                  </div>
+                  <div>
+                    <div className="text-sm font-bold text-white">Selamawit Tadesse</div>
+                    <div className="text-xs text-slate-400">Operations Manager, Kazanchis Hub</div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Review 3 */}
+              <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-8 flex flex-col justify-between hover:border-[#A3E635]/40 transition-all shadow-xl">
+                <div>
+                  <div className="flex items-center gap-1 text-[#A3E635] mb-4">
+                    {[...Array(5)].map((_, i) => (
+                      <Star key={i} className="w-4 h-4 fill-[#A3E635]" />
+                    ))}
+                  </div>
+                  <p className="text-sm text-slate-300 leading-relaxed mb-6 italic">
+                    &quot;Our coaches actively log measurements and generate customized workout routines using the AI plan builder. Client engagement and retention rose noticeably.&quot;
+                  </p>
+                </div>
+                <div className="flex items-center gap-3 pt-4 border-t border-slate-800">
+                  <div className="w-10 h-10 rounded-full bg-[#A3E635]/20 text-[#A3E635] flex items-center justify-center font-bold text-sm">
+                    MB
+                  </div>
+                  <div>
+                    <div className="text-sm font-bold text-white">Michael Bekele</div>
+                    <div className="text-xs text-slate-400">Head Trainer, Atlas Performance</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* How It Works Section - Full Width */}
         <section
           id="how-it-works"
-          className="py-16 sm:py-24 border-b border-slate-800/80 bg-[#070A11]"
+          className="w-full py-20 sm:py-28 border-b border-slate-800/80 bg-gradient-to-b from-[#070A11] via-[#0B101C] to-[#070A11]"
         >
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="w-full max-w-[1600px] mx-auto px-4 sm:px-8 lg:px-12">
             <div className="text-center max-w-3xl mx-auto mb-16">
               <span className="text-xs font-bold uppercase tracking-widest text-[#A3E635] block mb-2">
                 Rapid Onboarding
@@ -722,12 +871,12 @@ export const LandingScreen: React.FC = () => {
           </div>
         </section>
 
-        {/* Pricing Section */}
+        {/* Pricing Section - Full Width */}
         <section
           id="pricing"
-          className="py-16 sm:py-24 border-b border-slate-800/80 bg-gradient-to-b from-[#070A11] via-[#0A0F1A] to-[#070A11]"
+          className="w-full py-20 sm:py-28 border-b border-slate-800/80 bg-[#070A11]"
         >
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="w-full max-w-[1600px] mx-auto px-4 sm:px-8 lg:px-12">
             <div className="text-center max-w-3xl mx-auto mb-16">
               <span className="text-xs font-bold uppercase tracking-widest text-[#A3E635] block mb-2">
                 Transparent Subscriptions
@@ -748,11 +897,10 @@ export const LandingScreen: React.FC = () => {
                   return (
                     <div
                       key={tier.id}
-                      className={`rounded-2xl p-8 flex flex-col justify-between transition-all ${
-                        isPopular
+                      className={`rounded-2xl p-8 sm:p-10 flex flex-col justify-between transition-all ${isPopular
                           ? "bg-slate-900 border-2 border-[#A3E635] shadow-2xl shadow-[#A3E635]/15 relative"
                           : "bg-slate-900/80 border border-slate-800"
-                      }`}
+                        }`}
                     >
                       <div>
                         {tier.badge && (
@@ -810,11 +958,10 @@ export const LandingScreen: React.FC = () => {
                       <div>
                         <Link
                           to="/request-demo"
-                          className={`w-full inline-flex items-center justify-center gap-2 px-6 py-3.5 text-sm font-extrabold uppercase tracking-wider rounded-xl transition-all focus-visible:ring-2 focus-visible:ring-[#A3E635] min-h-[46px] ${
-                            isPopular
+                          className={`w-full inline-flex items-center justify-center gap-2 px-6 py-4 text-sm font-extrabold uppercase tracking-wider rounded-xl transition-all focus-visible:ring-2 focus-visible:ring-[#A3E635] min-h-[48px] ${isPopular
                               ? "bg-[#A3E635] text-slate-950 hover:bg-[#BEF264] shadow-lg shadow-[#A3E635]/25"
                               : "bg-slate-800 text-white hover:bg-slate-700 border border-slate-700"
-                          }`}
+                            }`}
                         >
                           <span>Request a Demo</span>
                           <ArrowRight className="w-4 h-4" />
@@ -828,12 +975,12 @@ export const LandingScreen: React.FC = () => {
           </div>
         </section>
 
-        {/* "Go to My Gym" Box Section */}
+        {/* "Go to My Gym" Box Section - Full Width */}
         <section
           id="find-gym"
-          className="py-16 sm:py-24 bg-[#070A11] border-b border-slate-800/80"
+          className="w-full py-20 sm:py-28 bg-[#070A11] border-b border-slate-800/80"
         >
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="w-full max-w-[1600px] mx-auto px-4 sm:px-8 lg:px-12">
             <div className="max-w-xl mx-auto bg-slate-900 border border-slate-800 rounded-2xl p-8 sm:p-10 shadow-2xl relative overflow-hidden">
               <div className="absolute top-0 right-0 w-32 h-32 bg-[#A3E635]/5 rounded-bl-full pointer-events-none" />
 
@@ -908,9 +1055,9 @@ export const LandingScreen: React.FC = () => {
           </div>
         </section>
 
-        {/* High-Impact Pre-Footer Banner */}
-        <section className="bg-[#A3E635] py-12 sm:py-16 text-slate-950">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        {/* High-Impact Pre-Footer Banner - Full Width */}
+        <section className="w-full bg-[#A3E635] py-14 sm:py-18 text-slate-950">
+          <div className="w-full max-w-[1600px] mx-auto px-4 sm:px-8 lg:px-12">
             <div className="flex flex-col md:flex-row items-center justify-between gap-6 text-center md:text-left">
               <div>
                 <h3 className="text-2xl sm:text-4xl font-black uppercase tracking-tight">
@@ -922,7 +1069,7 @@ export const LandingScreen: React.FC = () => {
               </div>
               <Link
                 to="/request-demo"
-                className="inline-flex items-center justify-center gap-2 px-8 py-4 rounded-xl text-base font-black uppercase tracking-wider bg-slate-950 text-white hover:bg-slate-900 shadow-xl transition-all min-h-[48px]"
+                className="inline-flex items-center justify-center gap-2 px-8 py-4 rounded-xl text-base font-black uppercase tracking-wider bg-slate-950 text-white hover:bg-slate-900 shadow-xl transition-all min-h-[50px]"
               >
                 <span>Request a Demo</span>
                 <ArrowRight className="w-5 h-5" />
@@ -932,9 +1079,9 @@ export const LandingScreen: React.FC = () => {
         </section>
       </main>
 
-      {/* Modern High-End Footer */}
-      <footer className="bg-[#05070D] border-t border-slate-800/80 py-12">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-8">
+      {/* Modern High-End Footer - Full Width */}
+      <footer className="w-full bg-[#05070D] border-t border-slate-800/80 py-14">
+        <div className="w-full max-w-[1600px] mx-auto px-4 sm:px-8 lg:px-12 space-y-8">
           <div className="flex flex-col md:flex-row items-center justify-between gap-6 pb-8 border-b border-slate-800/80">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-xl bg-[#A3E635] flex items-center justify-center text-slate-950 font-black">
