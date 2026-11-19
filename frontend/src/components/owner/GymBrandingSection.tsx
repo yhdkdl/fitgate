@@ -18,6 +18,13 @@ import { FormField } from "../ui/FormField";
 import { Input } from "../ui/Input";
 import { Spinner } from "../ui/Spinner";
 import {
+  ExternalLink,
+  Eye,
+  Palette,
+  QrCode,
+  Sparkles,
+} from "lucide-react";
+import {
   focusFirstInvalidField,
   filterPhoneInput,
   validatePhone,
@@ -26,6 +33,13 @@ import {
   validateReminderDays,
   getTwoLargestReminderDays,
 } from "../../utils/validators";
+import {
+  BRAND_COLOR_PRESETS,
+  HERO_IMAGE_PRESETS,
+  getGymLandingCustomization,
+  saveGymLandingCustomization,
+  resolveHeroImage,
+} from "../../utils/gymLandingCustomization";
 
 interface GymBrandingSectionProps {
   gymId?: string;
@@ -67,6 +81,13 @@ export const GymBrandingSection: React.FC<GymBrandingSectionProps> = ({
     null
   );
 
+  // Landing page appearance customizer state
+  const [heroMotto, setHeroMotto] = useState("Train Hard. Stay Strong.");
+  const [heroSubtitle, setHeroSubtitle] = useState("");
+  const [heroImagePreset, setHeroImagePreset] = useState("modern-iron");
+  const [customHeroImage, setCustomHeroImage] = useState("");
+  const [operatingHours, setOperatingHours] = useState("Mon - Sun: 6:00 AM - 10:00 PM");
+
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
@@ -96,6 +117,15 @@ export const GymBrandingSection: React.FC<GymBrandingSectionProps> = ({
           res.freeze_days_cap !== undefined ? res.freeze_days_cap : 30
         );
         setGymTier((res as { tier?: string }).tier || "");
+
+        // Load landing customization
+        const targetId = gymId || user?.gym_id;
+        const landing = getGymLandingCustomization(targetId);
+        if (landing.heroMotto) setHeroMotto(landing.heroMotto);
+        if (landing.heroSubtitle) setHeroSubtitle(landing.heroSubtitle);
+        if (landing.heroImagePreset) setHeroImagePreset(landing.heroImagePreset);
+        if (landing.customHeroImage) setCustomHeroImage(landing.customHeroImage);
+        if (landing.operatingHours) setOperatingHours(landing.operatingHours);
 
         if (user?.role === "owner" && !gymId) {
           try {
@@ -131,7 +161,7 @@ export const GymBrandingSection: React.FC<GymBrandingSectionProps> = ({
     return () => {
       isMounted = false;
     };
-  }, [gymId]);
+  }, [gymId, user]);
 
   const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -265,6 +295,16 @@ export const GymBrandingSection: React.FC<GymBrandingSectionProps> = ({
         gymId
       );
 
+      // Save custom landing appearance
+      const targetId = gymId || user?.gym_id;
+      saveGymLandingCustomization(targetId, {
+        heroMotto: heroMotto.trim() || undefined,
+        heroSubtitle: heroSubtitle.trim() || undefined,
+        heroImagePreset,
+        customHeroImage: customHeroImage.trim() || undefined,
+        operatingHours: operatingHours.trim() || undefined,
+      });
+
       setSuccessMsg("Gym settings and branding updated successfully.");
       if (onUpdated) onUpdated();
     } catch (err: unknown) {
@@ -304,15 +344,54 @@ export const GymBrandingSection: React.FC<GymBrandingSectionProps> = ({
     );
   }
 
+  const currentPreviewCover = resolveHeroImage({
+    heroImagePreset,
+    customHeroImage,
+  });
+
   return (
     <div className="space-y-6">
+      {/* Quick Launch & Live Landing Page Preview Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-5 rounded-2xl bg-gradient-to-r from-slate-900 via-[#0B1324] to-slate-900 border border-slate-800 text-white shadow-xl">
+        <div className="space-y-1">
+          <div className="flex items-center gap-2">
+            <span
+              className="w-2.5 h-2.5 rounded-full animate-pulse"
+              style={{ backgroundColor: brandColor || "#A3E635" }}
+            />
+            <h3 className="text-base font-black uppercase tracking-wider text-white">
+              Public Gym Landing Page
+            </h3>
+          </div>
+          <p className="text-xs text-slate-400 max-w-xl">
+            Your gym has its own dedicated portal with athletic full-screen styling, animated WebGL light rays, and direct member registration.
+          </p>
+        </div>
+        <div className="flex items-center gap-3">
+          <a
+            href="/entry?preview=true"
+            target="_blank"
+            rel="noreferrer"
+            className="inline-flex items-center justify-center gap-2 px-5 py-2.5 text-xs font-black uppercase tracking-wider rounded-xl shadow-lg transition"
+            style={{
+              backgroundColor: brandColor || "#A3E635",
+              color: "#020617",
+            }}
+          >
+            <Eye className="w-4 h-4" />
+            <span>Preview Landing Page</span>
+            <ExternalLink className="w-3.5 h-3.5 opacity-70" />
+          </a>
+        </div>
+      </div>
+
       <Card className="bg-surface border-border p-6 space-y-6">
         <div className="border-b border-border pb-3">
           <h2 className="text-lg font-bold text-text">
             Gym Branding & Operational Settings
           </h2>
           <p className="text-xs text-text-muted mt-1">
-            Configure your portal's visual identity (brand accent, logo) and
+            Configure your portal&apos;s visual identity (brand accent, logo) and
             member reminder frequencies.
           </p>
         </div>
@@ -330,26 +409,53 @@ export const GymBrandingSection: React.FC<GymBrandingSectionProps> = ({
                 helpText="Used as a high-contrast accent highlight on your public portal."
                 error={fieldErrors.brand_color_text}
               >
-                <div className="flex items-center gap-3">
-                  <input
-                    type="color"
-                    value={
-                      brandColor.startsWith("#") && brandColor.length === 7
-                        ? brandColor
-                        : "#2563EB"
-                    }
-                    onChange={(e) => setBrandColor(e.target.value.toUpperCase())}
-                    className="w-11 h-11 rounded-lg border border-border bg-surface-2 cursor-pointer p-1"
-                  />
-                  <Input
-                    id="brand_color_text"
-                    value={brandColor}
-                    onChange={(e) => setBrandColor(e.target.value)}
-                    placeholder="#2563EB"
-                    maxLength={7}
-                    error={fieldErrors.brand_color_text}
-                    className="font-mono text-sm"
-                  />
+                <div className="space-y-2">
+                  <div className="flex items-center gap-3">
+                    <input
+                      type="color"
+                      value={
+                        brandColor.startsWith("#") && brandColor.length === 7
+                          ? brandColor
+                          : "#2563EB"
+                      }
+                      onChange={(e) => setBrandColor(e.target.value.toUpperCase())}
+                      className="w-11 h-11 rounded-lg border border-border bg-surface-2 cursor-pointer p-1"
+                    />
+                    <Input
+                      id="brand_color_text"
+                      value={brandColor}
+                      onChange={(e) => setBrandColor(e.target.value)}
+                      placeholder="#2563EB"
+                      maxLength={7}
+                      error={fieldErrors.brand_color_text}
+                      className="font-mono text-sm"
+                    />
+                  </div>
+
+                  {/* Preset Swatches */}
+                  <div className="flex flex-wrap items-center gap-1.5 pt-1">
+                    <span className="text-[11px] font-semibold text-text-muted mr-1">
+                      Presets:
+                    </span>
+                    {BRAND_COLOR_PRESETS.map((preset) => (
+                      <button
+                        key={preset.hex}
+                        type="button"
+                        onClick={() => setBrandColor(preset.hex)}
+                        className={`px-2 py-0.5 text-[11px] font-semibold rounded-md border flex items-center gap-1 transition ${
+                          brandColor.toUpperCase() === preset.hex.toUpperCase()
+                            ? "border-slate-900 bg-slate-200 text-slate-900 font-bold"
+                            : "border-border bg-surface-2 text-text hover:bg-surface"
+                        }`}
+                      >
+                        <span
+                          className="w-2.5 h-2.5 rounded-full border border-black/20"
+                          style={{ backgroundColor: preset.hex }}
+                        />
+                        <span>{preset.name}</span>
+                      </button>
+                    ))}
+                  </div>
                 </div>
               </FormField>
 
@@ -409,8 +515,172 @@ export const GymBrandingSection: React.FC<GymBrandingSectionProps> = ({
             </div>
           </div>
 
+          {/* Landing Page Content Customizer Section */}
+          <div className="pt-6 border-t border-border space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-base font-bold text-text flex items-center gap-2">
+                  <Palette className="w-4 h-4 text-primary" />
+                  <span>Landing Page Content &amp; Imagery</span>
+                </h3>
+                <p className="text-xs text-text-muted">
+                  Personalize your public banner headline, hero photography, and operating schedule.
+                </p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <FormField
+                id="hero_motto"
+                label="Hero Motto Tag"
+                helpText="Short motivational badge on top of your headline."
+              >
+                <Input
+                  id="hero_motto"
+                  value={heroMotto}
+                  onChange={(e) => setHeroMotto(e.target.value)}
+                  placeholder="e.g. Train Hard. Stay Strong."
+                />
+              </FormField>
+
+              <FormField
+                id="operating_hours"
+                label="Operating Schedule"
+                helpText="Displayed on your top announcement ribbon and location section."
+              >
+                <Input
+                  id="operating_hours"
+                  value={operatingHours}
+                  onChange={(e) => setOperatingHours(e.target.value)}
+                  placeholder="e.g. Mon - Sun: 6:00 AM - 10:00 PM"
+                />
+              </FormField>
+            </div>
+
+            <FormField
+              id="hero_subtitle"
+              label="Hero Welcome Pitch"
+              helpText="Brief description explaining your gym's environment and member experience."
+            >
+              <textarea
+                id="hero_subtitle"
+                rows={2}
+                value={heroSubtitle}
+                onChange={(e) => setHeroSubtitle(e.target.value)}
+                placeholder="e.g. Modern equipment, certified trainers, and touchless entrance gates for Addis Ababa fitness enthusiasts."
+                className="w-full text-xs rounded-input border border-border bg-surface-2 p-3 text-text focus:ring-2 focus:ring-primary focus:outline-none"
+              />
+            </FormField>
+
+            {/* Hero Cover Photography Selector */}
+            <div className="space-y-2">
+              <label className="text-xs font-semibold uppercase tracking-wider text-text block">
+                Hero Cover Photography
+              </label>
+              <p className="text-xs text-text-muted">
+                Choose a curated athletic preset or specify your gym&apos;s custom facility photo URL.
+              </p>
+
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 pt-1">
+                {HERO_IMAGE_PRESETS.map((preset) => (
+                  <button
+                    key={preset.id}
+                    type="button"
+                    onClick={() => {
+                      setHeroImagePreset(preset.id);
+                      setCustomHeroImage("");
+                    }}
+                    className={`relative rounded-xl overflow-hidden border-2 transition text-left group ${
+                      heroImagePreset === preset.id && !customHeroImage
+                        ? "border-primary ring-2 ring-primary/30"
+                        : "border-border hover:border-slate-500"
+                    }`}
+                  >
+                    <img
+                      src={preset.url}
+                      alt={preset.name}
+                      className="w-full h-20 object-cover group-hover:scale-105 transition duration-300"
+                    />
+                    <div className="p-1.5 bg-surface text-[10px] font-semibold text-text truncate">
+                      {preset.name}
+                    </div>
+                  </button>
+                ))}
+              </div>
+
+              <div className="pt-2">
+                <Input
+                  id="custom_hero_image"
+                  value={customHeroImage}
+                  onChange={(e) => setCustomHeroImage(e.target.value)}
+                  placeholder="Or enter custom image URL: https://..."
+                  className="text-xs font-mono"
+                />
+              </div>
+            </div>
+
+            {/* Live Interactive Hero Mockup */}
+            <div className="rounded-xl overflow-hidden border border-slate-800 bg-[#070A11] p-4 text-white space-y-3">
+              <div className="flex items-center justify-between text-xs text-slate-400 pb-2 border-b border-slate-800">
+                <span className="font-bold uppercase tracking-wider flex items-center gap-1.5">
+                  <Sparkles className="w-3.5 h-3.5" style={{ color: brandColor || "#A3E635" }} />
+                  <span>Real-Time Landing Hero Preview</span>
+                </span>
+                <span className="text-[11px]">Dynamic WebGL Rays Enabled</span>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-12 gap-4 items-center">
+                <div className="md:col-span-8 space-y-2">
+                  <span
+                    className="inline-block px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider"
+                    style={{
+                      backgroundColor: `${brandColor || "#A3E635"}22`,
+                      color: brandColor || "#A3E635",
+                    }}
+                  >
+                    {heroMotto || "Train Hard. Stay Strong."}
+                  </span>
+                  <div className="text-xl font-black uppercase tracking-tight">
+                    Welcome to <span style={{ color: brandColor || "#A3E635" }}>Your Gym</span>
+                  </div>
+                  <p className="text-xs text-slate-400 line-clamp-2">
+                    {heroSubtitle ||
+                      "Fast QR check-ins, automated training programs, and certified trainer support."}
+                  </p>
+                  <div className="flex items-center gap-2 pt-1">
+                    <span
+                      className="px-3 py-1.5 rounded-lg text-xs font-bold text-slate-950 uppercase"
+                      style={{ backgroundColor: brandColor || "#A3E635" }}
+                    >
+                      Choose Plan
+                    </span>
+                    <span className="px-3 py-1.5 rounded-lg text-xs font-bold text-white bg-slate-800 border border-slate-700">
+                      Member Login
+                    </span>
+                  </div>
+                </div>
+
+                <div className="md:col-span-4">
+                  <div className="rounded-lg overflow-hidden border border-slate-800 relative h-28">
+                    <img
+                      src={currentPreviewCover}
+                      alt="Cover Preview"
+                      className="w-full h-full object-cover"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent flex items-end p-2">
+                      <span className="text-[10px] font-bold text-slate-200 flex items-center gap-1">
+                        <QrCode className="w-3 h-3 text-[#A3E635]" />
+                        <span>Instant QR Gate</span>
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
           {/* Freeze Days Allowed & Member Reminder Days */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-2 border-t border-border">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4 border-t border-border">
             {(capabilities?.has_freeze || (gymTier && gymTier !== "starter")) && (
               <FormField
                 id="freeze_days_allowed"
@@ -518,7 +788,7 @@ export const GymBrandingSection: React.FC<GymBrandingSectionProps> = ({
             </label>
           </div>
 
-          {/* Telegram Channel Bridge (Sprint 28) */}
+          {/* Telegram Channel Bridge */}
           <div className="pt-4 border-t border-border space-y-3">
             <FormField
               id="telegram_channel"
@@ -562,14 +832,14 @@ export const GymBrandingSection: React.FC<GymBrandingSectionProps> = ({
         </form>
       </Card>
 
-            {user?.role === "owner" && !gymId && (
+      {user?.role === "owner" && !gymId && (
         <Card className="bg-surface border-border p-6 space-y-4">
           <div className="border-b border-border pb-3">
             <h2 className="text-lg font-semibold text-text">
               Gym details
             </h2>
             <p className="text-xs text-text-muted mt-0.5">
-              Manage your gym's public phone number and address displayed to members and on your public entry screen.
+              Manage your gym&apos;s public phone number and address displayed to members and on your public entry screen.
             </p>
           </div>
 
@@ -637,7 +907,7 @@ export const GymBrandingSection: React.FC<GymBrandingSectionProps> = ({
                 Your FitGate subscription
               </h2>
               <p className="text-xs text-text-muted mt-0.5">
-                Overview of your gym's current tier, subscription status, and past platform payments.
+                Overview of your gym&apos;s current tier, subscription status, and past platform payments.
               </p>
             </div>
             {subscription && (
