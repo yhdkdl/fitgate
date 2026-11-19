@@ -141,6 +141,24 @@ class Command(BaseCommand):
                             gym=gym, role=User.ROLE_OWNER, is_active=True
                         ).first()
                         if owner and owner.email and not gym.is_demo:
+                            from apps.accounts.email_templates import render_gym_email_html
+
+                            html_msg = render_gym_email_html(
+                                headline="FitGate Subscription Expiry Notice",
+                                body_text_or_paragraphs=[
+                                    f"Hello {owner.full_name or 'Gym Owner'},",
+                                    f"Your annual platform subscription for '{gym.name}' expires on {gym.subscription_expires_at.date()} ({days_until_gym_expiry} days remaining).",
+                                    "Please ensure payment is settled to maintain uninterrupted platform software access.",
+                                ],
+                                gym=gym,
+                                badge_text="PLATFORM RENEWAL",
+                                detail_rows=[
+                                    ("Gym Name", gym.name),
+                                    ("Platform Expiry Date", str(gym.subscription_expires_at.date())),
+                                    ("Days Remaining", f"{days_until_gym_expiry} Days"),
+                                ],
+                                notice_text="Failure to renew before expiration may cause service suspension.",
+                            )
                             send_fitgate_email(
                                 subject=f"FitGate: Your gym platform subscription for {gym.name} expires in {days_until_gym_expiry} days",
                                 message=(
@@ -152,6 +170,7 @@ class Command(BaseCommand):
                                 ),
                                 recipient_list=[owner.email],
                                 gym=gym,
+                                html_message=html_msg,
                             )
                             create_notification(
                                 recipient=owner,
@@ -223,6 +242,25 @@ class Command(BaseCommand):
 
                     # Send reminder email strictly through send_fitgate_email
                     if member_user and member_user.email and not gym.is_demo:
+                        from apps.accounts.email_templates import render_gym_email_html
+
+                        html_msg = render_gym_email_html(
+                            headline="Membership Expiration Notice",
+                            body_text_or_paragraphs=[
+                                f"Hello {sub.member.full_name},",
+                                f"Your membership plan at {gym.name} will expire on {sub.end_date} ({days_left} day{'s' if days_left != 1 else ''} left).",
+                                "Please renew your membership plan to maintain uninterrupted gym access, group class bookings, and digital check-in.",
+                            ],
+                            gym=gym,
+                            badge_text="MEMBERSHIP EXPIRING",
+                            detail_rows=[
+                                ("Member Name", sub.member.full_name),
+                                ("Gym", gym.name),
+                                ("Expiration Date", str(sub.end_date)),
+                                ("Days Remaining", f"{days_left} Days"),
+                            ],
+                            notice_text="Renewing your membership ensures continuous access without re-registration or activation delays.",
+                        )
                         send_fitgate_email(
                             subject=f"Your membership at {gym.name} expires in {days_left} day{'s' if days_left != 1 else ''}",
                             message=(
@@ -234,6 +272,7 @@ class Command(BaseCommand):
                             ),
                             recipient_list=[member_user.email],
                             gym=gym,
+                            html_message=html_msg,
                         )
                         create_notification(
                             recipient=member_user,
