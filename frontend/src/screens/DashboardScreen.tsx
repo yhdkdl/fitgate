@@ -46,7 +46,6 @@ import { FitGateMessagesSection } from "../components/owner/FitGateMessagesSecti
 import { OwnerPlatformMessagesCard } from "../components/owner/OwnerPlatformMessagesCard";
 import { ExpensesSection } from "../components/expenses/ExpensesSection";
 import { ClassScheduleSection } from "../components/classes/ClassScheduleSection";
-import { DashboardHero } from "../components/dashboard/DashboardHero";
 import { ExternalLink } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { getTenantFromHostname } from "../utils/tenant";
@@ -1167,16 +1166,6 @@ export const DashboardScreen: React.FC = () => {
           </div>
         </header>
 
-        {/* Full-Width Antigravity Hero Section (from sidebar to right edge) */}
-        {(currentPath === "/dashboard" || currentPath === "/" || currentPath === "") && (
-          <section className="w-full bg-white border-b border-border overflow-hidden">
-            <DashboardHero
-              gymName={gymBranding?.name}
-              tenant={tenant}
-              brandColor={safeBrandColor}
-            />
-          </section>
-        )}
 
         {/* Dynamic Page Content: Full width until the sidebar */}
         <main className="flex-1 p-6 sm:p-8 space-y-6 overflow-y-auto w-full">
