@@ -897,7 +897,8 @@ export const LandingScreen: React.FC = () => {
                   return (
                     <div
                       key={tier.id}
-                      className={`rounded-2xl p-8 sm:p-10 flex flex-col justify-between transition-all ${isPopular
+                      className={`rounded-2xl p-8 sm:p-10 flex flex-col justify-between transition-all ${
+                        isPopular
                           ? "bg-slate-900 border-2 border-[#A3E635] shadow-2xl shadow-[#A3E635]/15 relative"
                           : "bg-slate-900/80 border border-slate-800"
                         }`}
@@ -958,7 +959,8 @@ export const LandingScreen: React.FC = () => {
                       <div>
                         <Link
                           to="/request-demo"
-                          className={`w-full inline-flex items-center justify-center gap-2 px-6 py-4 text-sm font-extrabold uppercase tracking-wider rounded-xl transition-all focus-visible:ring-2 focus-visible:ring-[#A3E635] min-h-[48px] ${isPopular
+                          className={`w-full inline-flex items-center justify-center gap-2 px-6 py-4 text-sm font-extrabold uppercase tracking-wider rounded-xl transition-all focus-visible:ring-2 focus-visible:ring-[#A3E635] min-h-[48px] ${
+                            isPopular
                               ? "bg-[#A3E635] text-slate-950 hover:bg-[#BEF264] shadow-lg shadow-[#A3E635]/25"
                               : "bg-slate-800 text-white hover:bg-slate-700 border border-slate-700"
                             }`}
