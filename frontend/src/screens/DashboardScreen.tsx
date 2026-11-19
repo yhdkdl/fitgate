@@ -46,7 +46,7 @@ import { FitGateMessagesSection } from "../components/owner/FitGateMessagesSecti
 import { OwnerPlatformMessagesCard } from "../components/owner/OwnerPlatformMessagesCard";
 import { ExpensesSection } from "../components/expenses/ExpensesSection";
 import { ClassScheduleSection } from "../components/classes/ClassScheduleSection";
-import { ExternalLink } from "lucide-react";
+import { ExternalLink, Search, Flame } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { getTenantFromHostname } from "../utils/tenant";
 
@@ -177,6 +177,40 @@ export const DashboardScreen: React.FC = () => {
     has_group_classes?: boolean;
   } | null>(null);
 
+  const safeBrandColor = getSafeBrandColor(gymBranding?.brand_color);
+
+  const ACCENT_PRESETS = useMemo(() => {
+    const presets = [
+      { name: "Neon Lime", hex: "#A3E635" },
+      { name: "Electric Cyan", hex: "#06B6D4" },
+      { name: "Sunset Amber", hex: "#F59E0B" },
+      { name: "Hot Magenta", hex: "#EC4899" },
+      { name: "Royal Violet", hex: "#8B5CF6" },
+    ];
+    if (safeBrandColor && !presets.some((p) => p.hex.toLowerCase() === safeBrandColor.toLowerCase())) {
+      presets.unshift({ name: "Gym Brand", hex: safeBrandColor });
+    }
+    return presets;
+  }, [safeBrandColor]);
+
+  const [accentColor, setAccentColor] = useState<string>(() => {
+    try {
+      return localStorage.getItem("fitgate_accent_color") || "#A3E635";
+    } catch {
+      return "#A3E635";
+    }
+  });
+  const [searchQuery, setSearchQuery] = useState("");
+
+  const handleSelectAccent = (hex: string) => {
+    setAccentColor(hex);
+    try {
+      localStorage.setItem("fitgate_accent_color", hex);
+    } catch {
+      // Storage unavailable
+    }
+  };
+
   const role = user?.role || "member";
   const userRoleNav = useMemo<
     Array<{ label: string; path: string; icon?: React.ReactNode }>
@@ -286,8 +320,6 @@ export const DashboardScreen: React.FC = () => {
       isMounted = false;
     };
   }, [tenant, checklistKey]);
-
-  const safeBrandColor = getSafeBrandColor(gymBranding?.brand_color);
 
   const handleLogout = async () => {
     await logout();
@@ -958,24 +990,30 @@ export const DashboardScreen: React.FC = () => {
 
   return (
     <div
-      className="min-h-screen bg-bg text-text flex flex-col md:flex-row pb-20 md:pb-0 w-full"
-      style={{ ["--brand-accent" as string]: safeBrandColor }}
+      className="theme-dark theme-kinora min-h-screen bg-[#080B0F] text-slate-100 flex flex-col md:flex-row pb-20 md:pb-0 w-full font-sans"
+      style={{
+        ["--brand-accent" as string]: accentColor,
+        ["--accent-glow" as string]: `${accentColor}33`,
+      }}
     >
       {/* Desktop Pinned Left Sidebar (Static across all dashboard screens) */}
-      <aside className="hidden md:flex flex-col w-64 border-r border-border bg-surface shrink-0 min-h-screen sticky top-0 h-screen overflow-y-auto justify-between p-4 z-20">
-        <div className="space-y-6">
+      <aside className="hidden md:flex flex-col w-64 border-r border-white/5 bg-[#0C0F14] shrink-0 min-h-screen sticky top-0 h-screen overflow-y-auto justify-between p-4 z-20">
+        <div className="space-y-5">
           {/* Gym / Platform Branding at Top of Sidebar */}
-          <div className="flex items-center gap-3 px-2 pt-1 pb-4 border-b border-border/80">
+          <div className="flex items-center gap-3 px-2 pt-1 pb-4 border-b border-white/5">
             {role === "super_admin" ? (
               <div className="flex items-center gap-2.5">
-                <div className="w-9 h-9 rounded-lg bg-primary text-white font-black text-base flex items-center justify-center shadow-xs">
+                <div
+                  className="w-9 h-9 rounded-xl text-black font-black text-base flex items-center justify-center shadow-lg"
+                  style={{ backgroundColor: accentColor }}
+                >
                   FG
                 </div>
                 <div>
-                  <span className="font-extrabold text-base tracking-tight text-text block leading-tight">
+                  <span className="font-extrabold text-base tracking-tight text-white block leading-tight">
                     FitGate Platform
                   </span>
-                  <span className="text-[11px] font-semibold text-text-muted">
+                  <span className="text-[11px] font-semibold text-slate-400">
                     Apex Governance
                   </span>
                 </div>
@@ -985,14 +1023,14 @@ export const DashboardScreen: React.FC = () => {
                 <img
                   src={gymBranding.logo}
                   alt={`${gymBranding.name || tenant} logo`}
-                  className="w-9 h-9 rounded-lg object-cover border border-border"
+                  className="w-9 h-9 rounded-xl object-cover border border-white/10"
                 />
                 <div>
-                  <span className="font-extrabold text-base tracking-tight text-text block leading-tight">
+                  <span className="font-extrabold text-base tracking-tight text-white block leading-tight">
                     {gymBranding.name || "FitGate Gym"}
                   </span>
                   {tenant && (
-                    <span className="text-[11px] font-mono text-text-muted">
+                    <span className="text-[11px] font-mono text-slate-400">
                       {tenant}.fitgate
                     </span>
                   )}
@@ -1001,20 +1039,19 @@ export const DashboardScreen: React.FC = () => {
             ) : (
               <div className="flex items-center gap-2.5">
                 <div
-                  className="w-9 h-9 rounded-lg font-black text-base flex items-center justify-center border text-white shadow-xs"
+                  className="w-9 h-9 rounded-xl font-black text-base flex items-center justify-center text-black shadow-lg"
                   style={{
-                    backgroundColor: safeBrandColor,
-                    borderColor: safeBrandColor,
+                    backgroundColor: accentColor,
                   }}
                 >
                   {(gymBranding?.name || tenant || "FG").charAt(0).toUpperCase()}
                 </div>
                 <div>
-                  <span className="font-extrabold text-base tracking-tight text-text block leading-tight">
+                  <span className="font-extrabold text-base tracking-tight text-white block leading-tight">
                     {gymBranding?.name || "FitGate"}
                   </span>
                   {tenant && (
-                    <span className="text-[11px] font-mono text-text-muted">
+                    <span className="text-[11px] font-mono text-slate-400">
                       {tenant}.fitgate
                     </span>
                   )}
@@ -1025,7 +1062,7 @@ export const DashboardScreen: React.FC = () => {
 
           {/* Navigation list */}
           <div className="space-y-1">
-            <div className="text-xs font-semibold uppercase tracking-wider text-text-muted px-3 mb-2">
+            <div className="text-[11px] font-bold uppercase tracking-wider text-slate-500 px-3 mb-2">
               Navigation
             </div>
             <nav className="space-y-1">
@@ -1040,12 +1077,21 @@ export const DashboardScreen: React.FC = () => {
                   <Link
                     key={idx}
                     to={item.path}
-                    className={`flex items-center px-3.5 py-2.5 text-sm font-semibold rounded-input transition-colors min-h-[44px] ${isActive
-                      ? "bg-slate-900 text-white shadow-xs"
-                      : "text-text hover:bg-surface-2 hover:text-slate-900"
+                    className={`flex items-center justify-between px-3.5 py-2.5 text-sm font-semibold rounded-xl transition-all duration-200 min-h-[44px] ${isActive
+                      ? "bg-white/[0.08] text-white shadow-xs border border-white/10"
+                      : "text-slate-400 hover:text-white hover:bg-white/[0.03]"
                       }`}
                   >
-                    {item.label}
+                    <span>{item.label}</span>
+                    {isActive && (
+                      <span
+                        className="w-1.5 h-1.5 rounded-full"
+                        style={{
+                          backgroundColor: accentColor,
+                          boxShadow: `0 0 8px ${accentColor}`,
+                        }}
+                      />
+                    )}
                   </Link>
                 );
               })}
@@ -1057,29 +1103,61 @@ export const DashboardScreen: React.FC = () => {
                   href="/entry?preview=true"
                   target="_blank"
                   rel="noreferrer"
-                  className="flex items-center justify-between px-3 py-2 text-xs font-bold uppercase tracking-wider text-slate-700 bg-slate-100 hover:bg-slate-200 border border-slate-200 rounded-lg transition-colors"
+                  className="flex items-center justify-between px-3 py-2 text-xs font-bold uppercase tracking-wider text-slate-300 bg-[#141822] hover:bg-[#1A202E] border border-white/10 rounded-xl transition-colors"
                 >
                   <span className="flex items-center gap-1.5">
-                    <ExternalLink className="w-3.5 h-3.5 text-slate-500" />
+                    <ExternalLink className="w-3.5 h-3.5 text-slate-400" />
                     <span>View Landing Page</span>
                   </span>
-                  <span className="text-[10px] bg-slate-200 px-1.5 py-0.5 rounded text-slate-600 font-mono">
+                  <span className="text-[10px] bg-white/10 px-1.5 py-0.5 rounded text-slate-300 font-mono">
                     Public
                   </span>
                 </a>
               </div>
             )}
+
+            {/* Operations Streak Tracker (Kinora style) */}
+            <div className="pt-3 px-1">
+              <div className="bg-[#12151C] border border-white/5 rounded-xl p-3 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
+                    <Flame className="w-3.5 h-3.5" style={{ color: accentColor }} />
+                    Current Streak
+                  </span>
+                  <span className="text-xs font-mono font-bold text-white">
+                    12 Days
+                  </span>
+                </div>
+                <div className="flex items-center justify-between pt-1">
+                  {["M", "T", "W", "T", "F", "S", "S"].map((d, i) => (
+                    <div key={i} className="flex flex-col items-center gap-1">
+                      <span className="text-[9px] font-bold text-slate-500">{d}</span>
+                      <span
+                        className={`w-1.5 h-1.5 rounded-full ${
+                          i < 5 ? "shadow-[0_0_6px]" : "bg-white/10"
+                        }`}
+                        style={
+                          i < 5
+                            ? { backgroundColor: accentColor, color: accentColor }
+                            : {}
+                        }
+                      />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
           </div>
         </div>
 
         {/* User Profile & Logout at Bottom of Sidebar */}
-        <div className="pt-4 border-t border-border/80 px-2 space-y-3">
+        <div className="pt-4 border-t border-white/5 px-2 space-y-3">
           <div className="flex items-center justify-between">
             <div className="min-w-0 pr-2">
-              <span className="text-sm font-bold text-text truncate block">
+              <span className="text-sm font-bold text-white truncate block">
                 {user?.full_name || user?.email?.split("@")[0]}
               </span>
-              <span className="text-xs text-text-muted capitalize block">
+              <span className="text-xs text-slate-400 capitalize block">
                 {user?.role}
               </span>
             </div>
@@ -1089,7 +1167,7 @@ export const DashboardScreen: React.FC = () => {
           <div className="flex items-center gap-2 pt-1">
             <Link
               to="/profile"
-              className="flex-1 inline-flex items-center justify-center px-3 py-1.5 text-xs font-semibold bg-surface-2 border border-border text-text rounded-input hover:bg-border/60 transition min-h-[38px]"
+              className="flex-1 inline-flex items-center justify-center px-3 py-1.5 text-xs font-semibold bg-white/5 border border-white/10 text-slate-200 rounded-xl hover:bg-white/10 transition min-h-[38px]"
             >
               Profile
             </Link>
@@ -1097,7 +1175,7 @@ export const DashboardScreen: React.FC = () => {
               variant="secondary"
               size="sm"
               onClick={handleLogout}
-              className="flex-1 text-xs font-semibold text-text-muted hover:text-danger min-h-[38px]"
+              className="flex-1 text-xs font-semibold text-slate-400 hover:text-red-400 min-h-[38px] bg-white/5 border-white/10"
             >
               Log out
             </Button>
@@ -1106,41 +1184,74 @@ export const DashboardScreen: React.FC = () => {
       </aside>
 
       {/* Main Workspace: Fills remaining width until the sidebar */}
-      <div className="flex-1 flex flex-col min-w-0 w-full overflow-hidden">
+      <div className="flex-1 flex flex-col min-w-0 w-full overflow-hidden bg-[#080B0F]">
         {/* Top Header Bar across the main workspace */}
-        <header className="border-b border-border bg-surface px-6 sm:px-8 py-3.5 sticky top-0 z-30 flex items-center justify-between">
-          <div className="flex items-center gap-3">
+        <header className="border-b border-white/5 bg-[#0C0F14]/90 backdrop-blur-md px-4 sm:px-6 lg:px-8 py-3 sticky top-0 z-30 flex items-center justify-between gap-3 flex-wrap sm:flex-nowrap">
+          <div className="flex items-center gap-3 min-w-0">
             {/* Mobile view brand display */}
             <div className="md:hidden flex items-center gap-2">
-              <span className="font-extrabold text-base tracking-tight text-text">
+              <span className="font-extrabold text-base tracking-tight text-white truncate max-w-[150px]">
                 {gymBranding?.name || "FitGate"}
               </span>
               {tenant && (
-                <span className="text-xs font-mono text-text-muted bg-surface-2 px-1.5 py-0.5 rounded border border-border">
+                <span className="text-xs font-mono text-slate-400 bg-white/5 px-1.5 py-0.5 rounded border border-white/10 shrink-0">
                   {tenant}
                 </span>
               )}
             </div>
 
             {/* Desktop current section breadcrumb */}
-            <div className="hidden md:flex items-center gap-2 text-sm font-medium text-text-muted">
-              <span>{gymBranding?.name || (role === "super_admin" ? "FitGate Platform" : "Gym Portal")}</span>
-              <span>/</span>
-              <span className="text-text font-bold capitalize">
+            <div className="hidden md:flex items-center gap-2 text-sm font-medium text-slate-400 min-w-0">
+              <span className="truncate max-w-[160px]">{gymBranding?.name || (role === "super_admin" ? "FitGate Platform" : "Gym Portal")}</span>
+              <span className="text-slate-600 shrink-0">/</span>
+              <span className="text-white font-bold capitalize truncate">
                 {userRoleNav.find(n => n.path === currentPath || (n.path !== "/dashboard" && currentPath.startsWith(n.path)))?.label || "Overview"}
               </span>
             </div>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2.5 sm:gap-3 shrink-0">
+            {/* Search Input (Kinora pill style) */}
+            <div className="hidden xl:flex items-center gap-2 bg-[#141820] border border-white/10 rounded-full px-3.5 py-1.5 text-xs text-slate-200">
+              <Search className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+              <input
+                type="text"
+                placeholder="Search anything..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="bg-transparent border-none outline-none text-xs text-white placeholder-slate-500 w-28 focus:w-44 transition-all"
+              />
+            </div>
+
+            {/* Live Accent Theme Selector (Kinora 00:03 style) */}
+            <div className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#141820] border border-white/10">
+              <span className="text-[10px] uppercase font-bold text-slate-400 mr-0.5">
+                Theme
+              </span>
+              {ACCENT_PRESETS.map((preset) => (
+                <button
+                  key={preset.hex}
+                  type="button"
+                  title={preset.name}
+                  onClick={() => handleSelectAccent(preset.hex)}
+                  className={`w-3.5 h-3.5 rounded-full transition-transform hover:scale-125 ${
+                    accentColor === preset.hex
+                      ? "ring-2 ring-white scale-110"
+                      : "opacity-75 hover:opacity-100"
+                  }`}
+                  style={{ backgroundColor: preset.hex }}
+                />
+              ))}
+            </div>
+
             {role !== "super_admin" && (
               <a
                 href="/entry?preview=true"
                 target="_blank"
                 rel="noreferrer"
-                className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 border border-slate-200 transition"
+                className="hidden md:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold text-slate-200 bg-[#161A22] hover:bg-[#1E232E] border border-white/10 transition shrink-0"
               >
-                <ExternalLink className="w-3.5 h-3.5 text-slate-500" />
+                <ExternalLink className="w-3.5 h-3.5 text-slate-400" />
                 <span>Preview Landing Page</span>
               </a>
             )}
@@ -1150,7 +1261,7 @@ export const DashboardScreen: React.FC = () => {
             <div className="md:hidden flex items-center gap-2">
               <Link
                 to="/profile"
-                className="inline-flex items-center justify-center px-2.5 py-1 text-xs bg-surface-2 border border-border text-text rounded-input min-h-[36px]"
+                className="inline-flex items-center justify-center px-2.5 py-1 text-xs bg-white/5 border border-white/10 text-white rounded-xl min-h-[36px]"
               >
                 Profile
               </Link>
@@ -1158,7 +1269,7 @@ export const DashboardScreen: React.FC = () => {
                 variant="secondary"
                 size="sm"
                 onClick={handleLogout}
-                className="text-xs text-text-muted hover:text-danger min-h-[36px] px-2.5"
+                className="text-xs text-slate-400 hover:text-red-400 min-h-[36px] px-2.5 bg-white/5 border-white/10"
               >
                 Log out
               </Button>
@@ -1166,9 +1277,8 @@ export const DashboardScreen: React.FC = () => {
           </div>
         </header>
 
-
         {/* Dynamic Page Content: Full width until the sidebar */}
-        <main className="flex-1 p-6 sm:p-8 space-y-6 overflow-y-auto w-full">
+        <main className="flex-1 p-4 sm:p-6 lg:p-8 space-y-6 overflow-y-auto w-full min-w-0 max-w-full">
           {renderCurrentPage()}
         </main>
       </div>
