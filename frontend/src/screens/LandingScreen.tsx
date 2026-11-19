@@ -10,10 +10,11 @@ import {
   CreditCard,
   Dumbbell,
   ExternalLink,
+  Flame,
   QrCode,
-  Sparkles,
-  Users,
+  ShieldCheck,
   X,
+  Zap,
 } from "lucide-react";
 import { PLATFORM_PRICING_TIERS } from "../config/platformPricing";
 import { buildTenantUrl, validateSubdomain } from "../utils/tenant";
@@ -76,23 +77,49 @@ export const LandingScreen: React.FC = () => {
       : `.${currentHost}${currentPort}`;
 
   return (
-    <div className="min-h-screen bg-bg text-text selection:bg-primary selection:text-white flex flex-col font-sans">
-      {/* Top Navigation */}
-      <header className="sticky top-0 z-40 bg-surface/90 backdrop-blur border-b border-border">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 sm:h-20 flex items-center justify-between">
+    <div className="min-h-screen bg-[#070A11] text-slate-100 selection:bg-[#A3E635] selection:text-slate-950 flex flex-col font-sans">
+      {/* Top Utility Announcement Ribbon */}
+      <div className="bg-[#0D1424] border-b border-slate-800/80 px-4 py-2 text-xs text-slate-400">
+        <div className="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-4">
+            <span className="flex items-center gap-1.5 text-slate-300">
+              <span className="w-2 h-2 rounded-full bg-[#A3E635] animate-pulse" />
+              <span>Addis Ababa, Ethiopia</span>
+            </span>
+            <span className="hidden sm:inline-block text-slate-600">&bull;</span>
+            <span className="hidden sm:inline-block">Tel: +251 911 223 344</span>
+            <span className="hidden md:inline-block text-slate-600">&bull;</span>
+            <span className="hidden md:inline-block">Chapa, Telebirr &amp; CBE Birr Integrated</span>
+          </div>
+
+          <div className="flex items-center gap-4">
+            <span className="text-[#A3E635] font-semibold">RFC 6761 Multi-Tenant Engine</span>
+            <Link
+              to="/request-demo"
+              className="text-white hover:text-[#A3E635] transition font-bold"
+            >
+              Book Setup &rarr;
+            </Link>
+          </div>
+        </div>
+      </div>
+
+      {/* Main Sticky Header */}
+      <header className="sticky top-0 z-40 bg-[#070A11]/95 backdrop-blur-md border-b border-slate-800/80">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between">
           <Link
             to="/"
-            className="flex items-center gap-3 text-text hover:text-primary transition-colors focus-visible:ring-2 focus-visible:ring-ring rounded-lg p-1"
+            className="flex items-center gap-3 text-white hover:text-[#A3E635] transition-colors focus-visible:ring-2 focus-visible:ring-[#A3E635] rounded-lg p-1"
             aria-label="FitGate Platform Home"
           >
-            <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center text-white shadow-md shadow-primary/20">
-              <Dumbbell className="w-6 h-6" />
+            <div className="w-11 h-11 rounded-xl bg-[#A3E635] flex items-center justify-center text-slate-950 font-black shadow-lg shadow-[#A3E635]/20">
+              <Dumbbell className="w-6 h-6 stroke-[2.5]" />
             </div>
             <div>
-              <span className="text-xl font-bold tracking-tight block leading-tight">
-                FitGate
+              <span className="text-2xl font-black tracking-tight block leading-tight text-white">
+                FIT<span className="text-[#A3E635]">GATE</span>
               </span>
-              <span className="text-xs text-text-muted font-normal block leading-tight">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 block leading-tight">
                 Gym Operating System
               </span>
             </div>
@@ -101,29 +128,29 @@ export const LandingScreen: React.FC = () => {
           {/* Desktop Navigation */}
           <nav
             aria-label="Platform navigation"
-            className="hidden md:flex items-center gap-6 text-sm text-text-muted"
+            className="hidden md:flex items-center gap-8 text-sm font-semibold tracking-wide text-slate-300"
           >
             <a
               href="#features"
-              className="hover:text-text transition-colors py-2 focus-visible:ring-2 focus-visible:ring-ring rounded"
+              className="hover:text-[#A3E635] transition-colors py-2 focus-visible:ring-2 focus-visible:ring-[#A3E635] rounded"
             >
               Features
             </a>
             <a
               href="#how-it-works"
-              className="hover:text-text transition-colors py-2 focus-visible:ring-2 focus-visible:ring-ring rounded"
+              className="hover:text-[#A3E635] transition-colors py-2 focus-visible:ring-2 focus-visible:ring-[#A3E635] rounded"
             >
               How It Works
             </a>
             <a
               href="#pricing"
-              className="hover:text-text transition-colors py-2 focus-visible:ring-2 focus-visible:ring-ring rounded"
+              className="hover:text-[#A3E635] transition-colors py-2 focus-visible:ring-2 focus-visible:ring-[#A3E635] rounded"
             >
               Pricing
             </a>
             <a
               href="#find-gym"
-              className="hover:text-text transition-colors py-2 focus-visible:ring-2 focus-visible:ring-ring rounded"
+              className="hover:text-[#A3E635] transition-colors py-2 focus-visible:ring-2 focus-visible:ring-[#A3E635] rounded"
             >
               Go to My Gym
             </a>
@@ -133,9 +160,10 @@ export const LandingScreen: React.FC = () => {
           <div className="flex items-center gap-3">
             <Link
               to="/request-demo"
-              className="inline-flex items-center justify-center px-4 py-2 text-sm font-semibold text-white bg-primary hover:bg-primary-hover active:bg-primary-hover rounded-xl shadow-sm transition-colors focus-visible:ring-2 focus-visible:ring-ring min-h-[44px]"
+              className="inline-flex items-center justify-center gap-2 px-5 py-2.5 text-sm font-extrabold uppercase tracking-wider text-slate-950 bg-[#A3E635] hover:bg-[#BEF264] active:bg-[#A3E635] rounded-xl shadow-lg shadow-[#A3E635]/25 transition-all focus-visible:ring-2 focus-visible:ring-[#A3E635] min-h-[44px]"
             >
-              Request a Demo
+              <span>Request a Demo</span>
+              <ArrowRight className="w-4 h-4" />
             </Link>
           </div>
         </div>
@@ -143,185 +171,455 @@ export const LandingScreen: React.FC = () => {
 
       <main className="flex-1">
         {/* Hero Section */}
-        <section className="relative overflow-hidden py-16 sm:py-24 border-b border-border/40">
+        <section className="relative overflow-hidden py-16 sm:py-24 border-b border-slate-800/80 bg-gradient-to-b from-[#070A11] via-[#0B101C] to-[#070A11]">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="max-w-3xl mx-auto text-center">
-              <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-surface-2 border border-border text-xs text-primary font-medium mb-6">
-                <Sparkles className="w-4 h-4" />
-                <span>Purpose-Built for Ethiopian Fitness Centers</span>
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
+              {/* Left Column: Powerful Copy */}
+              <div className="lg:col-span-7 space-y-6">
+                <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-[#A3E635]/10 border border-[#A3E635]/30 text-xs font-bold uppercase tracking-wider text-[#A3E635]">
+                  <Flame className="w-4 h-4" />
+                  <span>Train Hard. Operate Smarter.</span>
+                </div>
+
+                <h1 className="text-4xl sm:text-6xl font-black tracking-tight text-white uppercase leading-[1.08]">
+                  The Modern All-in-One{" "}
+                  <span className="text-[#A3E635]">Operating System</span> for Gyms
+                </h1>
+
+                <p className="text-base sm:text-lg text-slate-400 font-normal leading-relaxed max-w-2xl">
+                  Replace paper attendance registers, unverified member access,
+                  and manual cash tracking with FitGate. Equip trainers, automate
+                  QR check-ins, generate AI workout plans, and accept digital
+                  payments under your gym&apos;s own dedicated web address.
+                </p>
+
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4 pt-2">
+                  <Link
+                    to="/request-demo"
+                    className="inline-flex items-center justify-center gap-2 px-7 py-4 text-base font-extrabold uppercase tracking-wider text-slate-950 bg-[#A3E635] hover:bg-[#BEF264] rounded-xl shadow-xl shadow-[#A3E635]/30 transition-all focus-visible:ring-2 focus-visible:ring-[#A3E635] min-h-[48px]"
+                  >
+                    <span>Request a Demo</span>
+                    <ArrowRight className="w-5 h-5" />
+                  </Link>
+
+                  <a
+                    href="#find-gym"
+                    className="inline-flex items-center justify-center gap-2 px-7 py-4 text-base font-bold text-white bg-slate-900/90 hover:bg-slate-800 border border-slate-700/80 hover:border-slate-500 rounded-xl transition-all focus-visible:ring-2 focus-visible:ring-[#A3E635] min-h-[48px]"
+                  >
+                    <span>Go to My Gym</span>
+                    <ExternalLink className="w-4 h-4 text-slate-400" />
+                  </a>
+                </div>
+
+                {/* Key Pillars */}
+                <div className="pt-6 grid grid-cols-3 gap-4 border-t border-slate-800/80">
+                  <div>
+                    <div className="text-2xl sm:text-3xl font-black text-white">99.9%</div>
+                    <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider mt-0.5">
+                      System Uptime
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-2xl sm:text-3xl font-black text-[#A3E635]">2.4s</div>
+                    <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider mt-0.5">
+                      QR Entry Speed
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-2xl sm:text-3xl font-black text-white">100%</div>
+                    <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider mt-0.5">
+                      Audit-Proof
+                    </div>
+                  </div>
+                </div>
               </div>
-              <h1 className="text-3xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight text-text leading-tight sm:leading-tight mb-6">
-                The Modern All-in-One Operating System for Gyms
-              </h1>
-              <p className="text-base sm:text-lg text-text-muted leading-relaxed mb-8">
-                Replace paper attendance registers, unverified member access,
-                and manual cash tracking with FitGate. Equip trainers, automate
-                QR check-ins, generate AI workout plans, and accept digital
-                payments under your gym&apos;s own dedicated web address.
-              </p>
-              <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-                <Link
-                  to="/request-demo"
-                  className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-3.5 text-base font-semibold text-white bg-primary hover:bg-primary-hover rounded-xl shadow-lg shadow-primary/25 transition-all focus-visible:ring-2 focus-visible:ring-ring min-h-[44px]"
-                >
-                  Request a Demo
-                  <ArrowRight className="w-5 h-5" />
-                </Link>
-                <a
-                  href="#find-gym"
-                  className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-3.5 text-base font-semibold text-text bg-surface-2 hover:bg-surface border border-border rounded-xl transition-colors focus-visible:ring-2 focus-visible:ring-ring min-h-[44px]"
-                >
-                  Go to My Gym
-                  <ExternalLink className="w-4 h-4 text-text-muted" />
-                </a>
+
+              {/* Right Column: Athletic Hero Graphic with Floating Glass Cards */}
+              <div className="lg:col-span-5 relative">
+                <div className="relative mx-auto max-w-md lg:max-w-none">
+                  {/* Outer Glow Ring */}
+                  <div className="absolute -inset-1.5 bg-gradient-to-tr from-[#A3E635]/30 to-blue-500/20 rounded-3xl blur-xl opacity-75" />
+
+                  {/* Main Hero Athletic Image */}
+                  <div className="relative rounded-2xl overflow-hidden border border-slate-800 bg-slate-900 shadow-2xl">
+                    <img
+                      src="https://images.unsplash.com/photo-1534438327276-14e5300c3a48?auto=format&fit=crop&w=1200&q=80"
+                      alt="Athletic Gym Performance"
+                      className="w-full h-[440px] object-cover object-center filter brightness-95 contrast-105"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-[#070A11] via-transparent to-black/30" />
+                  </div>
+
+                  {/* Floating Micro-Card 1: Dynamic QR Badge */}
+                  <div className="absolute -top-4 -left-4 sm:-left-6 bg-slate-900/95 border border-slate-700/80 rounded-xl p-3.5 shadow-2xl backdrop-blur-md flex items-center gap-3 max-w-[240px]">
+                    <div className="w-10 h-10 rounded-lg bg-[#A3E635]/20 text-[#A3E635] flex items-center justify-center shrink-0 border border-[#A3E635]/40">
+                      <QrCode className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <div className="text-xs font-bold text-white uppercase tracking-wider">
+                        90s Dynamic QR
+                      </div>
+                      <div className="text-[11px] text-slate-400 font-medium">
+                        Instant entrance scan
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Floating Micro-Card 2: Digital Telebirr & Chapa */}
+                  <div className="absolute -bottom-4 -right-4 sm:-right-6 bg-slate-900/95 border border-slate-700/80 rounded-xl p-3.5 shadow-2xl backdrop-blur-md flex items-center gap-3 max-w-[260px]">
+                    <div className="w-10 h-10 rounded-lg bg-blue-500/20 text-blue-400 flex items-center justify-center shrink-0 border border-blue-500/40">
+                      <CreditCard className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <div className="text-xs font-bold text-white uppercase tracking-wider">
+                        Chapa &amp; Telebirr
+                      </div>
+                      <div className="text-[11px] text-slate-400 font-medium">
+                        Zero manual reconciliation
+                      </div>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
 
-            {/* Quick Feature Highlights Banner */}
-            <div className="mt-12 sm:mt-16 grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4 max-w-4xl mx-auto text-center">
-              <div className="bg-surface border border-border rounded-card p-4">
-                <QrCode className="w-6 h-6 text-primary mx-auto mb-2" />
-                <div className="text-sm font-semibold text-text">
-                  QR Check-In
+            {/* Bottom 4-Item Feature Ribbon */}
+            <div className="mt-16 pt-10 border-t border-slate-800/80 grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div className="bg-slate-900/60 border border-slate-800/90 rounded-xl p-4 flex items-center gap-3.5 hover:border-[#A3E635]/40 transition-colors">
+                <div className="w-10 h-10 rounded-lg bg-[#A3E635]/15 text-[#A3E635] flex items-center justify-center shrink-0">
+                  <ShieldCheck className="w-5 h-5" />
                 </div>
-                <div className="text-xs text-text-muted">
-                  Instant validation
-                </div>
-              </div>
-              <div className="bg-surface border border-border rounded-card p-4">
-                <Users className="w-6 h-6 text-primary mx-auto mb-2" />
-                <div className="text-sm font-semibold text-text">
-                  Trainer Tools
-                </div>
-                <div className="text-xs text-text-muted">
-                  Body metrics & logs
+                <div>
+                  <div className="text-sm font-bold text-white uppercase tracking-wider">
+                    RFC 6761 Subdomains
+                  </div>
+                  <div className="text-xs text-slate-400">
+                    Dedicated web address
+                  </div>
                 </div>
               </div>
-              <div className="bg-surface border border-border rounded-card p-4">
-                <CreditCard className="w-6 h-6 text-primary mx-auto mb-2" />
-                <div className="text-sm font-semibold text-text">
-                  Chapa & Cash
+
+              <div className="bg-slate-900/60 border border-slate-800/90 rounded-xl p-4 flex items-center gap-3.5 hover:border-[#A3E635]/40 transition-colors">
+                <div className="w-10 h-10 rounded-lg bg-[#A3E635]/15 text-[#A3E635] flex items-center justify-center shrink-0">
+                  <Zap className="w-5 h-5" />
                 </div>
-                <div className="text-xs text-text-muted">
-                  Telebirr & CBE Birr
+                <div>
+                  <div className="text-sm font-bold text-white uppercase tracking-wider">
+                    Offline-First Gate
+                  </div>
+                  <div className="text-xs text-slate-400">
+                    Zero queue bottlenecks
+                  </div>
                 </div>
               </div>
-              <div className="bg-surface border border-border rounded-card p-4">
-                <Building2 className="w-6 h-6 text-primary mx-auto mb-2" />
-                <div className="text-sm font-semibold text-text">
-                  Multi-Branch
+
+              <div className="bg-slate-900/60 border border-slate-800/90 rounded-xl p-4 flex items-center gap-3.5 hover:border-[#A3E635]/40 transition-colors">
+                <div className="w-10 h-10 rounded-lg bg-[#A3E635]/15 text-[#A3E635] flex items-center justify-center shrink-0">
+                  <Bot className="w-5 h-5" />
                 </div>
-                <div className="text-xs text-text-muted">Unified network</div>
+                <div>
+                  <div className="text-sm font-bold text-white uppercase tracking-wider">
+                    AI Ethiopian Plans
+                  </div>
+                  <div className="text-xs text-slate-400">
+                    Custom nutrition &amp; lifts
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-slate-900/60 border border-slate-800/90 rounded-xl p-4 flex items-center gap-3.5 hover:border-[#A3E635]/40 transition-colors">
+                <div className="w-10 h-10 rounded-lg bg-[#A3E635]/15 text-[#A3E635] flex items-center justify-center shrink-0">
+                  <Building2 className="w-5 h-5" />
+                </div>
+                <div>
+                  <div className="text-sm font-bold text-white uppercase tracking-wider">
+                    Multi-Branch Ready
+                  </div>
+                  <div className="text-xs text-slate-400">
+                    Seamless member roaming
+                  </div>
+                </div>
               </div>
             </div>
           </div>
         </section>
 
-        {/* Features Section */}
+        {/* Features Section: Spec §1 & §3 with Athletic Images */}
         <section
           id="features"
-          className="py-16 sm:py-24 border-b border-border/40"
+          className="py-16 sm:py-24 border-b border-slate-800/80 bg-[#070A11]"
         >
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="text-center max-w-2xl mx-auto mb-14">
-              <h2 className="text-2xl sm:text-4xl font-bold tracking-tight text-text mb-3">
+            <div className="text-center max-w-3xl mx-auto mb-16">
+              <span className="text-xs font-bold uppercase tracking-widest text-[#A3E635] block mb-2">
+                Core Gym Management Suite
+              </span>
+              <h2 className="text-3xl sm:text-5xl font-black tracking-tight text-white uppercase">
                 Everything You Need to Run Your Gym
               </h2>
-              <p className="text-text-muted text-base">
+              <p className="text-slate-400 text-base sm:text-lg mt-3">
                 FitGate brings your entire facility onto a unified, secure cloud
                 platform designed specifically for Ethiopian fitness operations.
               </p>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
               {/* Feature 1: Membership Management */}
-              <div className="bg-surface border border-border rounded-card p-6 flex flex-col">
-                <div className="w-12 h-12 rounded-xl bg-surface-2 border border-border flex items-center justify-center text-primary mb-4">
-                  <CalendarCheck className="w-6 h-6" />
+              <div className="group bg-slate-900/80 border border-slate-800 rounded-2xl overflow-hidden hover:border-[#A3E635]/50 transition-all shadow-xl flex flex-col justify-between">
+                <div>
+                  <div className="h-48 overflow-hidden relative">
+                    <img
+                      src="https://images.unsplash.com/photo-1571902943202-507ec2618e8f?auto=format&fit=crop&w=800&q=80"
+                      alt="Gym Membership Management"
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 filter brightness-90"
+                    />
+                    <div className="absolute top-3 left-3 w-10 h-10 rounded-lg bg-black/70 backdrop-blur-xs flex items-center justify-center text-[#A3E635] border border-slate-700">
+                      <CalendarCheck className="w-5 h-5" />
+                    </div>
+                  </div>
+                  <div className="p-6">
+                    <h3 className="text-xl font-bold text-white mb-2 group-hover:text-[#A3E635] transition-colors">
+                      Membership Management
+                    </h3>
+                    <p className="text-sm text-slate-400 leading-relaxed">
+                      Easily create customized membership plans, register new
+                      members at the front desk or self-service, monitor
+                      expirations, and handle membership freeze requests smoothly.
+                    </p>
+                  </div>
                 </div>
-                <h3 className="text-lg font-semibold text-text mb-2">
-                  Membership Management
-                </h3>
-                <p className="text-sm text-text-muted leading-relaxed">
-                  Easily create customized membership plans, register new
-                  members at the front desk or self-service, monitor
-                  expirations, and handle membership freeze requests smoothly.
-                </p>
+                <div className="px-6 pb-6">
+                  <span className="inline-flex items-center gap-1.5 text-xs font-bold text-[#A3E635] uppercase tracking-wider">
+                    <span>Manage Plans &amp; Expiries</span>
+                    <ArrowRight className="w-3.5 h-3.5" />
+                  </span>
+                </div>
               </div>
 
               {/* Feature 2: Contactless QR Check-In */}
-              <div className="bg-surface border border-border rounded-card p-6 flex flex-col">
-                <div className="w-12 h-12 rounded-xl bg-surface-2 border border-border flex items-center justify-center text-primary mb-4">
-                  <QrCode className="w-6 h-6" />
+              <div className="group bg-slate-900/80 border border-slate-800 rounded-2xl overflow-hidden hover:border-[#A3E635]/50 transition-all shadow-xl flex flex-col justify-between">
+                <div>
+                  <div className="h-48 overflow-hidden relative">
+                    <img
+                      src="https://images.unsplash.com/photo-1517838277536-f5f99be501cd?auto=format&fit=crop&w=800&q=80"
+                      alt="QR Check-in Turnstile"
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 filter brightness-90"
+                    />
+                    <div className="absolute top-3 left-3 w-10 h-10 rounded-lg bg-black/70 backdrop-blur-xs flex items-center justify-center text-[#A3E635] border border-slate-700">
+                      <QrCode className="w-5 h-5" />
+                    </div>
+                  </div>
+                  <div className="p-6">
+                    <h3 className="text-xl font-bold text-white mb-2 group-hover:text-[#A3E635] transition-colors">
+                      QR Check-in &amp; Attendance
+                    </h3>
+                    <p className="text-sm text-slate-400 leading-relaxed">
+                      Eliminate manual sign-in books with dynamic QR passes.
+                      Front-desk reception scans member codes in seconds, verifies
+                      active subscription status, and prevents unauthorized entry.
+                    </p>
+                  </div>
                 </div>
-                <h3 className="text-lg font-semibold text-text mb-2">
-                  QR Check-in & Attendance
-                </h3>
-                <p className="text-sm text-text-muted leading-relaxed">
-                  Eliminate manual sign-in books with dynamic QR passes.
-                  Front-desk reception scans member codes in seconds, verifies
-                  active subscription status, and prevents unauthorized entry.
-                </p>
+                <div className="px-6 pb-6">
+                  <span className="inline-flex items-center gap-1.5 text-xs font-bold text-[#A3E635] uppercase tracking-wider">
+                    <span>Offline-First Gate Engine</span>
+                    <ArrowRight className="w-3.5 h-3.5" />
+                  </span>
+                </div>
               </div>
 
               {/* Feature 3: Trainer Tools */}
-              <div className="bg-surface border border-border rounded-card p-6 flex flex-col">
-                <div className="w-12 h-12 rounded-xl bg-surface-2 border border-border flex items-center justify-center text-primary mb-4">
-                  <Dumbbell className="w-6 h-6" />
+              <div className="group bg-slate-900/80 border border-slate-800 rounded-2xl overflow-hidden hover:border-[#A3E635]/50 transition-all shadow-xl flex flex-col justify-between">
+                <div>
+                  <div className="h-48 overflow-hidden relative">
+                    <img
+                      src="https://images.unsplash.com/photo-1581009146145-b5ef050c2e1e?auto=format&fit=crop&w=800&q=80"
+                      alt="Personal Trainer and Body Metrics"
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 filter brightness-90"
+                    />
+                    <div className="absolute top-3 left-3 w-10 h-10 rounded-lg bg-black/70 backdrop-blur-xs flex items-center justify-center text-[#A3E635] border border-slate-700">
+                      <Dumbbell className="w-5 h-5" />
+                    </div>
+                  </div>
+                  <div className="p-6">
+                    <h3 className="text-xl font-bold text-white mb-2 group-hover:text-[#A3E635] transition-colors">
+                      Trainer Tools &amp; Body Metrics
+                    </h3>
+                    <p className="text-sm text-slate-400 leading-relaxed">
+                      Empower trainers with client rosters and standardized body
+                      measurement tracking (weight, height, waist, neck, hip) to
+                      professionally record progress and calculate estimates.
+                    </p>
+                  </div>
                 </div>
-                <h3 className="text-lg font-semibold text-text mb-2">
-                  Trainer Tools & Body Metrics
-                </h3>
-                <p className="text-sm text-text-muted leading-relaxed">
-                  Empower trainers with client rosters and standardized body
-                  measurement tracking (weight, height, waist, neck, hip) to
-                  professionally record progress and calculate estimates.
-                </p>
+                <div className="px-6 pb-6">
+                  <span className="inline-flex items-center gap-1.5 text-xs font-bold text-[#A3E635] uppercase tracking-wider">
+                    <span>Roster &amp; Metric Logs</span>
+                    <ArrowRight className="w-3.5 h-3.5" />
+                  </span>
+                </div>
               </div>
 
               {/* Feature 4: AI Personal Training Plans */}
-              <div className="bg-surface border border-border rounded-card p-6 flex flex-col">
-                <div className="w-12 h-12 rounded-xl bg-surface-2 border border-border flex items-center justify-center text-primary mb-4">
-                  <Bot className="w-6 h-6" />
+              <div className="group bg-slate-900/80 border border-slate-800 rounded-2xl overflow-hidden hover:border-[#A3E635]/50 transition-all shadow-xl flex flex-col justify-between">
+                <div>
+                  <div className="h-48 overflow-hidden relative">
+                    <img
+                      src="https://images.unsplash.com/photo-1583454110551-21f2fa2afe61?auto=format&fit=crop&w=800&q=80"
+                      alt="AI Personal Training Workouts"
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 filter brightness-90"
+                    />
+                    <div className="absolute top-3 left-3 w-10 h-10 rounded-lg bg-black/70 backdrop-blur-xs flex items-center justify-center text-[#A3E635] border border-slate-700">
+                      <Bot className="w-5 h-5" />
+                    </div>
+                  </div>
+                  <div className="p-6">
+                    <h3 className="text-xl font-bold text-white mb-2 group-hover:text-[#A3E635] transition-colors">
+                      AI Personal Training Plans
+                    </h3>
+                    <p className="text-sm text-slate-400 leading-relaxed">
+                      Generate customized workout plans based on individual member
+                      goals, equipment, and medical background, certified and
+                      approved by professional gym trainers before delivery.
+                    </p>
+                  </div>
                 </div>
-                <h3 className="text-lg font-semibold text-text mb-2">
-                  AI Personal Training Plans
-                </h3>
-                <p className="text-sm text-text-muted leading-relaxed">
-                  Generate customized workout plans based on individual member
-                  goals, equipment, and medical background, certified and
-                  approved by professional gym trainers before delivery.
-                </p>
+                <div className="px-6 pb-6">
+                  <span className="inline-flex items-center gap-1.5 text-xs font-bold text-[#A3E635] uppercase tracking-wider">
+                    <span>Trainer-Approved AI</span>
+                    <ArrowRight className="w-3.5 h-3.5" />
+                  </span>
+                </div>
               </div>
 
               {/* Feature 5: Integrated Payments */}
-              <div className="bg-surface border border-border rounded-card p-6 flex flex-col">
-                <div className="w-12 h-12 rounded-xl bg-surface-2 border border-border flex items-center justify-center text-primary mb-4">
-                  <CreditCard className="w-6 h-6" />
+              <div className="group bg-slate-900/80 border border-slate-800 rounded-2xl overflow-hidden hover:border-[#A3E635]/50 transition-all shadow-xl flex flex-col justify-between">
+                <div>
+                  <div className="h-48 overflow-hidden relative">
+                    <img
+                      src="https://images.unsplash.com/photo-1556742049-0a67c5574f73?auto=format&fit=crop&w=800&q=80"
+                      alt="Digital Payments Telebirr Chapa"
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 filter brightness-90"
+                    />
+                    <div className="absolute top-3 left-3 w-10 h-10 rounded-lg bg-black/70 backdrop-blur-xs flex items-center justify-center text-[#A3E635] border border-slate-700">
+                      <CreditCard className="w-5 h-5" />
+                    </div>
+                  </div>
+                  <div className="p-6">
+                    <h3 className="text-xl font-bold text-white mb-2 group-hover:text-[#A3E635] transition-colors">
+                      Online &amp; Manual Payments
+                    </h3>
+                    <p className="text-sm text-slate-400 leading-relaxed">
+                      Accept seamless digital payments via Chapa supporting
+                      Telebirr, CBE Birr, and cards, alongside verified manual cash
+                      recording with full audit logs and receipt tracking.
+                    </p>
+                  </div>
                 </div>
-                <h3 className="text-lg font-semibold text-text mb-2">
-                  Online & Manual Payments
-                </h3>
-                <p className="text-sm text-text-muted leading-relaxed">
-                  Accept seamless digital payments via Chapa supporting
-                  Telebirr, CBE Birr, and cards, alongside verified manual cash
-                  recording with full audit logs and receipt tracking.
-                </p>
+                <div className="px-6 pb-6">
+                  <span className="inline-flex items-center gap-1.5 text-xs font-bold text-[#A3E635] uppercase tracking-wider">
+                    <span>Cash, Chapa &amp; Banks</span>
+                    <ArrowRight className="w-3.5 h-3.5" />
+                  </span>
+                </div>
               </div>
 
               {/* Feature 6: Multi-Branch Management */}
-              <div className="bg-surface border border-border rounded-card p-6 flex flex-col">
-                <div className="w-12 h-12 rounded-xl bg-surface-2 border border-border flex items-center justify-center text-primary mb-4">
-                  <Building2 className="w-6 h-6" />
+              <div className="group bg-slate-900/80 border border-slate-800 rounded-2xl overflow-hidden hover:border-[#A3E635]/50 transition-all shadow-xl flex flex-col justify-between">
+                <div>
+                  <div className="h-48 overflow-hidden relative">
+                    <img
+                      src="https://images.unsplash.com/photo-1540497077202-7c8a3999166f?auto=format&fit=crop&w=800&q=80"
+                      alt="Multi Branch Gym Facilities"
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 filter brightness-90"
+                    />
+                    <div className="absolute top-3 left-3 w-10 h-10 rounded-lg bg-black/70 backdrop-blur-xs flex items-center justify-center text-[#A3E635] border border-slate-700">
+                      <Building2 className="w-5 h-5" />
+                    </div>
+                  </div>
+                  <div className="p-6">
+                    <h3 className="text-xl font-bold text-white mb-2 group-hover:text-[#A3E635] transition-colors">
+                      Multi-Branch Gym Networks
+                    </h3>
+                    <p className="text-sm text-slate-400 leading-relaxed">
+                      Operate multiple gym facilities under one unified domain.
+                      Configure branch-scoped staff accounts and offer all-access
+                      plans allowing members to roam across locations seamlessly.
+                    </p>
+                  </div>
                 </div>
-                <h3 className="text-lg font-semibold text-text mb-2">
-                  Multi-Branch Gym Networks
-                </h3>
-                <p className="text-sm text-text-muted leading-relaxed">
-                  Operate multiple gym facilities under one unified domain.
-                  Configure branch-scoped staff accounts and offer all-access
-                  plans allowing members to roam across locations seamlessly.
+                <div className="px-6 pb-6">
+                  <span className="inline-flex items-center gap-1.5 text-xs font-bold text-[#A3E635] uppercase tracking-wider">
+                    <span>Centralized Governance</span>
+                    <ArrowRight className="w-3.5 h-3.5" />
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* Motivational Social Proof & Ethiopian Gym Stats */}
+        <section className="py-20 border-b border-slate-800/80 bg-gradient-to-r from-[#080C14] via-[#0E1524] to-[#080C14]">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
+              <div className="lg:col-span-6 relative">
+                <div className="rounded-2xl overflow-hidden border border-slate-800 relative shadow-2xl">
+                  <img
+                    src="https://images.unsplash.com/photo-1517836357463-d25dfeac3438?auto=format&fit=crop&w=1000&q=80"
+                    alt="Discipline Focus Strong Consistent"
+                    className="w-full h-[380px] object-cover object-center filter brightness-90"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black via-black/40 to-transparent flex flex-col justify-end p-8">
+                    <span className="text-xs font-bold text-[#A3E635] uppercase tracking-widest mb-1">
+                      Our Operating Manifesto
+                    </span>
+                    <div className="text-3xl sm:text-4xl font-black text-white uppercase tracking-tight leading-tight">
+                      Discipline &bull; Focus &bull; Strong &bull; Consistent
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="lg:col-span-6 space-y-6">
+                <span className="text-xs font-bold uppercase tracking-widest text-[#A3E635] block">
+                  Built for Serious Facility Operators
+                </span>
+                <h2 className="text-3xl sm:text-4xl font-black text-white uppercase leading-tight">
+                  Trusted by Forward-Thinking Ethiopian Gym Owners
+                </h2>
+                <p className="text-slate-400 text-base leading-relaxed">
+                  FitGate automates recurring membership sweeps, eliminates gate
+                  fraud with dynamic 90-second QR codes, and delivers automated
+                  Telegram broadcast sweeps to ensure zero revenue leakage.
                 </p>
+
+                <div className="grid grid-cols-2 gap-6 pt-4 border-t border-slate-800">
+                  <div className="space-y-1">
+                    <div className="text-3xl font-black text-white">150K+</div>
+                    <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
+                      Check-ins Logged
+                    </div>
+                  </div>
+                  <div className="space-y-1">
+                    <div className="text-3xl font-black text-[#A3E635]">12+</div>
+                    <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
+                      Supported Ethiopian Banks
+                    </div>
+                  </div>
+                  <div className="space-y-1">
+                    <div className="text-3xl font-black text-[#A3E635]">99.98%</div>
+                    <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
+                      Platform Uptime
+                    </div>
+                  </div>
+                  <div className="space-y-1">
+                    <div className="text-3xl font-black text-white">24/7</div>
+                    <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
+                      Automated Telegram Alerts
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
@@ -330,67 +628,95 @@ export const LandingScreen: React.FC = () => {
         {/* How It Works Section */}
         <section
           id="how-it-works"
-          className="py-16 sm:py-24 bg-surface/50 border-b border-border/40"
+          className="py-16 sm:py-24 border-b border-slate-800/80 bg-[#070A11]"
         >
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="text-center max-w-2xl mx-auto mb-14">
-              <h2 className="text-2xl sm:text-4xl font-bold tracking-tight text-text mb-3">
+            <div className="text-center max-w-3xl mx-auto mb-16">
+              <span className="text-xs font-bold uppercase tracking-widest text-[#A3E635] block mb-2">
+                Rapid Onboarding
+              </span>
+              <h2 className="text-3xl sm:text-5xl font-black tracking-tight text-white uppercase">
                 How It Works
               </h2>
-              <p className="text-text-muted text-base">
+              <p className="text-slate-400 text-base sm:text-lg mt-3">
                 Getting started with FitGate is simple, guided, and requires
                 zero hardware installation or software maintenance.
               </p>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-8 relative">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
               {/* Step 1 */}
-              <div className="bg-surface border border-border rounded-card p-6 relative flex flex-col">
-                <div className="w-10 h-10 rounded-full bg-primary/20 text-primary font-bold flex items-center justify-center mb-4 text-base border border-primary/30">
-                  1
+              <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-8 relative flex flex-col justify-between hover:border-[#A3E635]/40 transition-all shadow-xl">
+                <div>
+                  <div className="w-12 h-12 rounded-xl bg-[#A3E635]/15 text-[#A3E635] font-black flex items-center justify-center mb-6 text-xl border border-[#A3E635]/30">
+                    1
+                  </div>
+                  <h3 className="text-2xl font-bold text-white mb-3">
+                    Request a Demo
+                  </h3>
+                  <p className="text-sm text-slate-400 leading-relaxed">
+                    Submit your gym name, location, and contact information. Our
+                    team will walk you through the platform and help you select
+                    the right tier for your gym.
+                  </p>
                 </div>
-                <h3 className="text-lg font-semibold text-text mb-2">
-                  Request a Demo
-                </h3>
-                <p className="text-sm text-text-muted leading-relaxed">
-                  Submit your gym name, location, and contact information. Our
-                  team will walk you through the platform and help you select
-                  the right tier for your gym.
-                </p>
+                <div className="pt-6 mt-6 border-t border-slate-800/80">
+                  <Link
+                    to="/request-demo"
+                    className="text-xs font-bold uppercase tracking-wider text-[#A3E635] hover:text-[#BEF264] flex items-center gap-1.5"
+                  >
+                    <span>Start Demo Intake</span>
+                    <ArrowRight className="w-3.5 h-3.5" />
+                  </Link>
+                </div>
               </div>
 
               {/* Step 2 */}
-              <div className="bg-surface border border-border rounded-card p-6 relative flex flex-col">
-                <div className="w-10 h-10 rounded-full bg-primary/20 text-primary font-bold flex items-center justify-center mb-4 text-base border border-primary/30">
-                  2
+              <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-8 relative flex flex-col justify-between hover:border-[#A3E635]/40 transition-all shadow-xl">
+                <div>
+                  <div className="w-12 h-12 rounded-xl bg-[#A3E635]/15 text-[#A3E635] font-black flex items-center justify-center mb-6 text-xl border border-[#A3E635]/30">
+                    2
+                  </div>
+                  <h3 className="text-2xl font-bold text-white mb-3">
+                    Setup After Payment
+                  </h3>
+                  <p className="text-sm text-slate-400 leading-relaxed">
+                    Upon bank transfer payment confirmation, Super Admin
+                    provisions your isolated tenant database, sets up your
+                    branding and branches, and issues your owner access
+                    credentials.
+                  </p>
                 </div>
-                <h3 className="text-lg font-semibold text-text mb-2">
-                  Setup After Payment
-                </h3>
-                <p className="text-sm text-text-muted leading-relaxed">
-                  Upon bank transfer payment confirmation, Super Admin
-                  provisions your isolated tenant database, sets up your
-                  branding and branches, and issues your owner access
-                  credentials.
-                </p>
+                <div className="pt-6 mt-6 border-t border-slate-800/80">
+                  <span className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                    Auto-Provisioned in &lt;15 Mins
+                  </span>
+                </div>
               </div>
 
               {/* Step 3 */}
-              <div className="bg-surface border border-border rounded-card p-6 relative flex flex-col">
-                <div className="w-10 h-10 rounded-full bg-primary/20 text-primary font-bold flex items-center justify-center mb-4 text-base border border-primary/30">
-                  3
+              <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-8 relative flex flex-col justify-between hover:border-[#A3E635]/40 transition-all shadow-xl">
+                <div>
+                  <div className="w-12 h-12 rounded-xl bg-[#A3E635]/15 text-[#A3E635] font-black flex items-center justify-center mb-6 text-xl border border-[#A3E635]/30">
+                    3
+                  </div>
+                  <h3 className="text-2xl font-bold text-white mb-3">
+                    Your Gym Gets Its Own Address
+                  </h3>
+                  <p className="text-sm text-slate-400 leading-relaxed">
+                    Your gym launches at its dedicated web address (e.g.,{" "}
+                    <code className="text-xs bg-slate-950 px-2 py-0.5 rounded text-[#A3E635] font-mono border border-slate-800">
+                      yourgym.fitgate.tebebtech.com
+                    </code>
+                    ). Members and staff sign in right away from any phone,
+                    tablet, or PC.
+                  </p>
                 </div>
-                <h3 className="text-lg font-semibold text-text mb-2">
-                  Your Gym Gets Its Own Address
-                </h3>
-                <p className="text-sm text-text-muted leading-relaxed">
-                  Your gym launches at its dedicated web address (e.g.,{" "}
-                  <code className="text-xs bg-surface-2 px-1 py-0.5 rounded text-text">
-                    yourgym.fitgate.tebebtech.com
-                  </code>
-                  ). Members and staff sign in right away from any phone,
-                  tablet, or PC.
-                </p>
+                <div className="pt-6 mt-6 border-t border-slate-800/80">
+                  <span className="text-xs font-bold uppercase tracking-wider text-[#A3E635]">
+                    Custom White-Label Portal
+                  </span>
+                </div>
               </div>
             </div>
           </div>
@@ -399,14 +725,17 @@ export const LandingScreen: React.FC = () => {
         {/* Pricing Section */}
         <section
           id="pricing"
-          className="py-16 sm:py-24 border-b border-border/40"
+          className="py-16 sm:py-24 border-b border-slate-800/80 bg-gradient-to-b from-[#070A11] via-[#0A0F1A] to-[#070A11]"
         >
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="text-center max-w-2xl mx-auto mb-14">
-              <h2 className="text-2xl sm:text-4xl font-bold tracking-tight text-text mb-3">
+            <div className="text-center max-w-3xl mx-auto mb-16">
+              <span className="text-xs font-bold uppercase tracking-widest text-[#A3E635] block mb-2">
+                Transparent Subscriptions
+              </span>
+              <h2 className="text-3xl sm:text-5xl font-black tracking-tight text-white uppercase">
                 Simple, Predictable Yearly Pricing
               </h2>
-              <p className="text-text-muted text-base">
+              <p className="text-slate-400 text-base sm:text-lg mt-3">
                 All plans are billed yearly in Ethiopian Birr. Includes cloud
                 hosting, SSL security, regular automated backups, and support.
               </p>
@@ -419,39 +748,39 @@ export const LandingScreen: React.FC = () => {
                   return (
                     <div
                       key={tier.id}
-                      className={`rounded-card p-6 sm:p-8 flex flex-col justify-between transition-all ${
+                      className={`rounded-2xl p-8 flex flex-col justify-between transition-all ${
                         isPopular
-                          ? "bg-surface-2 border-2 border-primary shadow-xl shadow-primary/10 relative"
-                          : "bg-surface border border-border"
+                          ? "bg-slate-900 border-2 border-[#A3E635] shadow-2xl shadow-[#A3E635]/15 relative"
+                          : "bg-slate-900/80 border border-slate-800"
                       }`}
                     >
                       <div>
                         {tier.badge && (
-                          <span className="inline-block px-3 py-1 rounded-full text-xs font-semibold uppercase tracking-wider bg-primary/20 text-primary border border-primary/30 mb-4">
+                          <span className="inline-block px-3.5 py-1 rounded-full text-xs font-extrabold uppercase tracking-wider bg-[#A3E635] text-slate-950 mb-4 shadow-sm">
                             {tier.badge}
                           </span>
                         )}
-                        <h3 className="text-2xl font-bold text-text mb-1">
+                        <h3 className="text-3xl font-black text-white uppercase mb-1">
                           {tier.name}
                         </h3>
-                        <p className="text-sm text-text-muted mb-6">
+                        <p className="text-sm text-slate-400 mb-6">
                           {tier.tagline}
                         </p>
 
-                        <div className="mb-6 pb-6 border-b border-border">
-                          <span className="text-3xl sm:text-4xl font-extrabold text-text">
+                        <div className="mb-6 pb-6 border-b border-slate-800">
+                          <span className="text-4xl sm:text-5xl font-black text-white">
                             {tier.pricePerYearETB.toLocaleString()}
                           </span>
-                          <span className="text-text-muted text-sm ml-2">
+                          <span className="text-[#A3E635] font-bold text-sm ml-2 uppercase">
                             ETB / year
                           </span>
-                          <div className="text-xs text-text-muted mt-1">
-                            Placeholder pricing · Billed annually
+                          <div className="text-xs text-slate-500 mt-1">
+                            Transparent yearly rate &bull; No hidden fees
                           </div>
                         </div>
 
                         <div className="space-y-3 mb-8">
-                          <div className="text-xs font-semibold uppercase tracking-wider text-text-muted">
+                          <div className="text-xs font-bold uppercase tracking-wider text-slate-400">
                             What&apos;s Included
                           </div>
                           {tier.features.map((feature, idx) => (
@@ -460,15 +789,15 @@ export const LandingScreen: React.FC = () => {
                               className="flex items-start gap-2.5 text-sm"
                             >
                               {feature.included ? (
-                                <Check className="w-4 h-4 text-success shrink-0 mt-0.5" />
+                                <Check className="w-4 h-4 text-[#A3E635] shrink-0 mt-0.5" />
                               ) : (
-                                <X className="w-4 h-4 text-text-muted/40 shrink-0 mt-0.5" />
+                                <X className="w-4 h-4 text-slate-600 shrink-0 mt-0.5" />
                               )}
                               <span
                                 className={
                                   feature.included
-                                    ? "text-text"
-                                    : "text-text-muted/60"
+                                    ? "text-slate-200"
+                                    : "text-slate-500 line-through"
                                 }
                               >
                                 {feature.name}
@@ -481,13 +810,14 @@ export const LandingScreen: React.FC = () => {
                       <div>
                         <Link
                           to="/request-demo"
-                          className={`w-full inline-flex items-center justify-center px-4 py-3 text-sm font-semibold rounded-xl transition-colors focus-visible:ring-2 focus-visible:ring-ring min-h-[44px] ${
+                          className={`w-full inline-flex items-center justify-center gap-2 px-6 py-3.5 text-sm font-extrabold uppercase tracking-wider rounded-xl transition-all focus-visible:ring-2 focus-visible:ring-[#A3E635] min-h-[46px] ${
                             isPopular
-                              ? "bg-primary text-white hover:bg-primary-hover shadow-md shadow-primary/20"
-                              : "bg-surface-2 text-text hover:bg-border border border-border"
+                              ? "bg-[#A3E635] text-slate-950 hover:bg-[#BEF264] shadow-lg shadow-[#A3E635]/25"
+                              : "bg-slate-800 text-white hover:bg-slate-700 border border-slate-700"
                           }`}
                         >
-                          Request a Demo
+                          <span>Request a Demo</span>
+                          <ArrowRight className="w-4 h-4" />
                         </Link>
                       </div>
                     </div>
@@ -501,18 +831,20 @@ export const LandingScreen: React.FC = () => {
         {/* "Go to My Gym" Box Section */}
         <section
           id="find-gym"
-          className="py-16 sm:py-24 bg-surface/30 border-b border-border/40"
+          className="py-16 sm:py-24 bg-[#070A11] border-b border-slate-800/80"
         >
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="max-w-xl mx-auto bg-surface border border-border rounded-card p-6 sm:p-10 shadow-lg">
-              <div className="text-center mb-6">
-                <div className="w-12 h-12 rounded-xl bg-primary/20 text-primary mx-auto flex items-center justify-center mb-3">
-                  <Building2 className="w-6 h-6" />
+            <div className="max-w-xl mx-auto bg-slate-900 border border-slate-800 rounded-2xl p-8 sm:p-10 shadow-2xl relative overflow-hidden">
+              <div className="absolute top-0 right-0 w-32 h-32 bg-[#A3E635]/5 rounded-bl-full pointer-events-none" />
+
+              <div className="text-center mb-8">
+                <div className="w-14 h-14 rounded-2xl bg-[#A3E635]/15 text-[#A3E635] mx-auto flex items-center justify-center mb-4 border border-[#A3E635]/30">
+                  <Building2 className="w-7 h-7" />
                 </div>
-                <h2 className="text-2xl font-bold text-text mb-2">
+                <h2 className="text-2xl sm:text-3xl font-black text-white uppercase mb-2">
                   Go to My Gym
                 </h2>
-                <p className="text-sm text-text-muted">
+                <p className="text-sm text-slate-400">
                   Already using FitGate? Type your gym&apos;s subdomain name to
                   jump straight to your member or staff portal.
                 </p>
@@ -522,12 +854,12 @@ export const LandingScreen: React.FC = () => {
                 <div>
                   <label
                     htmlFor="gym-subdomain-input"
-                    className="block text-sm font-medium text-text mb-1"
+                    className="block text-xs font-bold uppercase tracking-wider text-slate-300 mb-2"
                   >
                     Gym Subdomain
                   </label>
-                  <div className="flex rounded-input shadow-sm border border-border focus-within:ring-2 focus-within:ring-ring bg-surface-2">
-                    <span className="inline-flex items-center px-3 rounded-l-input text-text-muted text-xs select-none">
+                  <div className="flex rounded-xl shadow-sm border border-slate-700 bg-slate-950 focus-within:ring-2 focus-within:ring-[#A3E635] overflow-hidden">
+                    <span className="inline-flex items-center px-3.5 text-slate-400 text-xs font-mono select-none bg-slate-900/60 border-r border-slate-800">
                       https://
                     </span>
                     <input
@@ -544,10 +876,10 @@ export const LandingScreen: React.FC = () => {
                       aria-describedby={
                         gymError ? "gym-subdomain-error" : undefined
                       }
-                      className="block w-full min-w-0 flex-1 border-0 bg-transparent py-2.5 px-3 text-text placeholder-text-muted/60 text-sm focus:ring-0 focus:outline-none min-h-[44px]"
+                      className="block w-full min-w-0 flex-1 border-0 bg-transparent py-3 px-3.5 text-white placeholder-slate-500 text-sm focus:ring-0 focus:outline-none min-h-[44px]"
                       aria-label="Gym Subdomain"
                     />
-                    <span className="inline-flex items-center px-3 rounded-r-input text-text-muted text-xs select-none bg-surface border-l border-border">
+                    <span className="inline-flex items-center px-3.5 text-slate-400 text-xs font-mono select-none bg-slate-900/60 border-l border-slate-800">
                       {domainPreview}
                     </span>
                   </div>
@@ -557,67 +889,84 @@ export const LandingScreen: React.FC = () => {
                   <div
                     id="gym-subdomain-error"
                     role="alert"
-                    className="p-3 text-sm rounded-lg bg-danger/10 border border-danger/30 text-danger flex items-center gap-2"
+                    className="p-3.5 text-sm rounded-xl bg-red-950/40 border border-red-500/30 text-red-300 flex items-center gap-2"
                   >
-                    <AlertCircle className="w-4 h-4 shrink-0" />
+                    <AlertCircle className="w-4 h-4 shrink-0 text-red-400" />
                     <span>{gymError}</span>
                   </div>
                 )}
 
                 <button
                   type="submit"
-                  className="w-full inline-flex items-center justify-center gap-2 px-4 py-3 text-sm font-semibold text-white bg-primary hover:bg-primary-hover active:bg-primary-hover rounded-xl shadow transition-colors focus-visible:ring-2 focus-visible:ring-ring min-h-[44px]"
+                  className="w-full inline-flex items-center justify-center gap-2 px-6 py-3.5 text-sm font-extrabold uppercase tracking-wider text-slate-950 bg-[#A3E635] hover:bg-[#BEF264] active:bg-[#A3E635] rounded-xl shadow-lg shadow-[#A3E635]/20 transition-all focus-visible:ring-2 focus-visible:ring-[#A3E635] min-h-[46px]"
                 >
-                  Go to Gym
+                  <span>Go to Gym</span>
                   <ArrowRight className="w-4 h-4" />
                 </button>
               </form>
             </div>
           </div>
         </section>
-      </main>
 
-      {/* Footer */}
-      <footer className="bg-surface border-t border-border py-8 sm:py-12">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-6">
-            <div className="flex items-center gap-2 text-text font-bold text-lg">
-              <Dumbbell className="w-5 h-5 text-primary" />
-              <span>FitGate</span>
-              <span className="text-xs text-text-muted font-normal ml-2">
-                All-in-One Gym Operating System
-              </span>
-            </div>
-
-            <div className="flex flex-wrap items-center justify-center gap-6 text-sm text-text-muted">
-              <a
-                href="#features"
-                className="hover:text-text transition-colors py-2"
-              >
-                Features
-              </a>
-              <a
-                href="#how-it-works"
-                className="hover:text-text transition-colors py-2"
-              >
-                How It Works
-              </a>
-              <a
-                href="#pricing"
-                className="hover:text-text transition-colors py-2"
-              >
-                Pricing
-              </a>
+        {/* High-Impact Pre-Footer Banner */}
+        <section className="bg-[#A3E635] py-12 sm:py-16 text-slate-950">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="flex flex-col md:flex-row items-center justify-between gap-6 text-center md:text-left">
+              <div>
+                <h3 className="text-2xl sm:text-4xl font-black uppercase tracking-tight">
+                  Ready to Elevate Your Fitness Center?
+                </h3>
+                <p className="text-slate-900 font-semibold text-sm sm:text-base mt-1">
+                  Join leading Ethiopian gyms streamlining member check-in and automated billing today.
+                </p>
+              </div>
               <Link
                 to="/request-demo"
-                className="hover:text-text transition-colors py-2"
+                className="inline-flex items-center justify-center gap-2 px-8 py-4 rounded-xl text-base font-black uppercase tracking-wider bg-slate-950 text-white hover:bg-slate-900 shadow-xl transition-all min-h-[48px]"
               >
+                <span>Request a Demo</span>
+                <ArrowRight className="w-5 h-5" />
+              </Link>
+            </div>
+          </div>
+        </section>
+      </main>
+
+      {/* Modern High-End Footer */}
+      <footer className="bg-[#05070D] border-t border-slate-800/80 py-12">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-8">
+          <div className="flex flex-col md:flex-row items-center justify-between gap-6 pb-8 border-b border-slate-800/80">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-[#A3E635] flex items-center justify-center text-slate-950 font-black">
+                <Dumbbell className="w-5 h-5 stroke-[2.5]" />
+              </div>
+              <div>
+                <span className="text-xl font-black tracking-tight text-white block">
+                  FIT<span className="text-[#A3E635]">GATE</span>
+                </span>
+                <span className="text-xs text-slate-400">
+                  All-in-One Gym Operating System
+                </span>
+              </div>
+            </div>
+
+            <div className="flex flex-wrap items-center justify-center gap-6 text-sm font-semibold text-slate-400">
+              <a href="#features" className="hover:text-[#A3E635] transition-colors py-1">
+                Features
+              </a>
+              <a href="#how-it-works" className="hover:text-[#A3E635] transition-colors py-1">
+                How It Works
+              </a>
+              <a href="#pricing" className="hover:text-[#A3E635] transition-colors py-1">
+                Pricing
+              </a>
+              <Link to="/request-demo" className="hover:text-[#A3E635] transition-colors py-1">
                 Request a Demo
               </Link>
               {/* Discreet Platform Sign In link for Super Admin */}
               <Link
                 to="/login"
-                className="text-text-muted/80 hover:text-text underline text-xs py-2 focus-visible:ring-2 focus-visible:ring-ring rounded"
+                className="text-slate-500 hover:text-white underline text-xs py-1 focus-visible:ring-2 focus-visible:ring-[#A3E635] rounded"
                 aria-label="Platform sign in"
               >
                 Platform sign in
@@ -625,8 +974,14 @@ export const LandingScreen: React.FC = () => {
             </div>
           </div>
 
-          <div className="mt-8 pt-6 border-t border-border/60 text-center text-xs text-text-muted">
-            © 2026 FitGate Platform. All rights reserved.
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-slate-500">
+            <div>
+              &copy; 2026 FitGate Platform. All rights reserved. Designed for Ethiopian Gyms.
+            </div>
+            <div className="flex items-center gap-6">
+              <span>Security: RFC 6761 &bull; AutoSSL</span>
+              <span>Payments: Chapa &bull; Telebirr &bull; CBE Birr</span>
+            </div>
           </div>
         </div>
       </footer>
