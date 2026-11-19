@@ -46,6 +46,7 @@ import { FitGateMessagesSection } from "../components/owner/FitGateMessagesSecti
 import { OwnerPlatformMessagesCard } from "../components/owner/OwnerPlatformMessagesCard";
 import { ExpensesSection } from "../components/expenses/ExpensesSection";
 import { ClassScheduleSection } from "../components/classes/ClassScheduleSection";
+import { DashboardHero } from "../components/dashboard/DashboardHero";
 import { useAuth } from "../context/AuthContext";
 import { getTenantFromHostname } from "../utils/tenant";
 
@@ -957,129 +958,197 @@ export const DashboardScreen: React.FC = () => {
 
   return (
     <div
-      className="min-h-screen bg-bg text-text flex flex-col pb-20 md:pb-0"
+      className="min-h-screen bg-bg text-text flex flex-col md:flex-row pb-20 md:pb-0 w-full"
       style={{ ["--brand-accent" as string]: safeBrandColor }}
     >
-      {/* Top Header */}
-      <header className="border-b border-border bg-surface px-4 py-3 sm:px-6 sticky top-0 z-30">
-        <div className="max-w-7xl mx-auto flex items-center justify-between">
-          <div className="flex items-center gap-3">
+      {/* Desktop Pinned Left Sidebar (Static across all dashboard screens) */}
+      <aside className="hidden md:flex flex-col w-64 border-r border-border bg-surface shrink-0 min-h-screen sticky top-0 h-screen overflow-y-auto justify-between p-4 z-20">
+        <div className="space-y-6">
+          {/* Gym / Platform Branding at Top of Sidebar */}
+          <div className="flex items-center gap-3 px-2 pt-1 pb-4 border-b border-border/80">
             {role === "super_admin" ? (
-              <div className="flex items-center gap-2">
-                <div className="w-9 h-9 rounded-lg bg-primary/20 text-primary font-bold text-lg flex items-center justify-center border border-primary/30">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-lg bg-primary text-white font-black text-base flex items-center justify-center shadow-xs">
                   FG
                 </div>
                 <div>
-                  <span className="font-bold text-base tracking-tight text-text">
+                  <span className="font-extrabold text-base tracking-tight text-text block leading-tight">
                     FitGate Platform
                   </span>
-                  <span className="ml-2 text-xs text-text-muted bg-surface-2 px-2 py-0.5 rounded border border-border">
-                    Apex Admin
+                  <span className="text-[11px] font-semibold text-text-muted">
+                    Apex Governance
                   </span>
                 </div>
               </div>
             ) : gymBranding?.logo ? (
-              <img
-                src={gymBranding.logo}
-                alt={`${gymBranding.name || tenant} logo`}
-                className="w-9 h-9 rounded-lg object-cover border border-border"
-              />
-            ) : (
-              <div
-                className="w-9 h-9 rounded-lg font-bold text-lg flex items-center justify-center border text-white"
-                style={{
-                  backgroundColor: safeBrandColor,
-                  borderColor: safeBrandColor,
-                }}
-              >
-                {(gymBranding?.name || tenant || "FG").charAt(0).toUpperCase()}
-              </div>
-            )}
-
-            {role !== "super_admin" && (
-              <div>
-                <span className="font-bold text-base tracking-tight text-text">
-                  {gymBranding?.name || "FitGate"}
-                </span>
-                {tenant && (
-                  <span
-                    className="ml-2 text-xs text-text-muted bg-surface-2 px-2 py-0.5 rounded border border-border"
-                    style={{
-                      borderLeftColor: safeBrandColor,
-                      borderLeftWidth: "3px",
-                    }}
-                  >
-                    {tenant}
+              <div className="flex items-center gap-2.5">
+                <img
+                  src={gymBranding.logo}
+                  alt={`${gymBranding.name || tenant} logo`}
+                  className="w-9 h-9 rounded-lg object-cover border border-border"
+                />
+                <div>
+                  <span className="font-extrabold text-base tracking-tight text-text block leading-tight">
+                    {gymBranding.name || "FitGate Gym"}
                   </span>
-                )}
+                  {tenant && (
+                    <span className="text-[11px] font-mono text-text-muted">
+                      {tenant}.fitgate
+                    </span>
+                  )}
+                </div>
+              </div>
+            ) : (
+              <div className="flex items-center gap-2.5">
+                <div
+                  className="w-9 h-9 rounded-lg font-black text-base flex items-center justify-center border text-white shadow-xs"
+                  style={{
+                    backgroundColor: safeBrandColor,
+                    borderColor: safeBrandColor,
+                  }}
+                >
+                  {(gymBranding?.name || tenant || "FG").charAt(0).toUpperCase()}
+                </div>
+                <div>
+                  <span className="font-extrabold text-base tracking-tight text-text block leading-tight">
+                    {gymBranding?.name || "FitGate"}
+                  </span>
+                  {tenant && (
+                    <span className="text-[11px] font-mono text-text-muted">
+                      {tenant}.fitgate
+                    </span>
+                  )}
+                </div>
               </div>
             )}
           </div>
 
-          <div className="flex items-center gap-2 sm:gap-4">
-            <div className="hidden sm:flex flex-col items-end">
-              <span className="text-sm font-medium text-text">
-                {user?.full_name || user?.email}
-              </span>
-              <div className="flex items-center gap-1 mt-0.5">
-                <Badge variant="primary">{user?.role}</Badge>
-              </div>
+          {/* Navigation list */}
+          <div className="space-y-1">
+            <div className="text-xs font-semibold uppercase tracking-wider text-text-muted px-3 mb-2">
+              Navigation
             </div>
+            <nav className="space-y-1">
+              {userRoleNav.map((item, idx) => {
+                const isActive =
+                  item.path === "/dashboard"
+                    ? currentPath === "/dashboard"
+                    : currentPath === item.path ||
+                    currentPath.startsWith(item.path + "/");
 
-            <NotificationCenter />
+                return (
+                  <Link
+                    key={idx}
+                    to={item.path}
+                    className={`flex items-center px-3.5 py-2.5 text-sm font-semibold rounded-input transition-colors min-h-[44px] ${isActive
+                      ? "bg-slate-900 text-white shadow-xs"
+                      : "text-text hover:bg-surface-2 hover:text-slate-900"
+                      }`}
+                  >
+                    {item.label}
+                  </Link>
+                );
+              })}
+            </nav>
+          </div>
+        </div>
 
+        {/* User Profile & Logout at Bottom of Sidebar */}
+        <div className="pt-4 border-t border-border/80 px-2 space-y-3">
+          <div className="flex items-center justify-between">
+            <div className="min-w-0 pr-2">
+              <span className="text-sm font-bold text-text truncate block">
+                {user?.full_name || user?.email?.split("@")[0]}
+              </span>
+              <span className="text-xs text-text-muted capitalize block">
+                {user?.role}
+              </span>
+            </div>
+            <Badge variant="primary">{user?.role}</Badge>
+          </div>
+
+          <div className="flex items-center gap-2 pt-1">
             <Link
               to="/profile"
-              className="inline-flex items-center justify-center px-3 py-1.5 text-sm bg-surface-2 border border-border text-text rounded-input hover:bg-border/60 min-h-[44px]"
+              className="flex-1 inline-flex items-center justify-center px-3 py-1.5 text-xs font-semibold bg-surface-2 border border-border text-text rounded-input hover:bg-border/60 transition min-h-[38px]"
             >
               Profile
             </Link>
-
             <Button
               variant="secondary"
               size="sm"
               onClick={handleLogout}
-              className="text-text-muted hover:text-danger min-h-[44px]"
+              className="flex-1 text-xs font-semibold text-text-muted hover:text-danger min-h-[38px]"
             >
               Log out
             </Button>
           </div>
         </div>
-      </header>
+      </aside>
 
-      {/* Main content wrapper with desktop sidebar and responsive content */}
-      <div className="flex flex-1 max-w-7xl w-full mx-auto">
-        {/* Desktop Sidebar */}
-        <aside className="hidden md:flex flex-col w-60 border-r border-border bg-surface/50 p-4 shrink-0">
-          <div className="text-xs font-semibold uppercase tracking-wider text-text-muted px-3 mb-2">
-            Navigation
+      {/* Main Workspace: Fills remaining width until the sidebar */}
+      <div className="flex-1 flex flex-col min-w-0 w-full overflow-hidden">
+        {/* Top Header Bar across the main workspace */}
+        <header className="border-b border-border bg-surface px-6 sm:px-8 py-3.5 sticky top-0 z-30 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            {/* Mobile view brand display */}
+            <div className="md:hidden flex items-center gap-2">
+              <span className="font-extrabold text-base tracking-tight text-text">
+                {gymBranding?.name || "FitGate"}
+              </span>
+              {tenant && (
+                <span className="text-xs font-mono text-text-muted bg-surface-2 px-1.5 py-0.5 rounded border border-border">
+                  {tenant}
+                </span>
+              )}
+            </div>
+
+            {/* Desktop current section breadcrumb */}
+            <div className="hidden md:flex items-center gap-2 text-sm font-medium text-text-muted">
+              <span>{gymBranding?.name || (role === "super_admin" ? "FitGate Platform" : "Gym Portal")}</span>
+              <span>/</span>
+              <span className="text-text font-bold capitalize">
+                {userRoleNav.find(n => n.path === currentPath || (n.path !== "/dashboard" && currentPath.startsWith(n.path)))?.label || "Overview"}
+              </span>
+            </div>
           </div>
-          <nav className="space-y-1">
-            {userRoleNav.map((item, idx) => {
-              const isActive =
-                item.path === "/dashboard"
-                  ? currentPath === "/dashboard"
-                  : currentPath === item.path ||
-                  currentPath.startsWith(item.path + "/");
 
-              return (
-                <Link
-                  key={idx}
-                  to={item.path}
-                  className={`flex items-center px-3 py-2 text-sm font-medium rounded-input transition-colors min-h-[44px] ${isActive
-                    ? "bg-primary text-white shadow-sm font-semibold"
-                    : "text-text hover:bg-surface-2 hover:text-white"
-                    }`}
-                >
-                  {item.label}
-                </Link>
-              );
-            })}
-          </nav>
-        </aside>
+          <div className="flex items-center gap-3">
+            <NotificationCenter />
 
-        {/* Dynamic Page Content */}
-        <main className="flex-1 p-4 sm:p-6 lg:p-8 space-y-6 overflow-y-auto">
+            {/* Mobile profile link */}
+            <div className="md:hidden flex items-center gap-2">
+              <Link
+                to="/profile"
+                className="inline-flex items-center justify-center px-2.5 py-1 text-xs bg-surface-2 border border-border text-text rounded-input min-h-[36px]"
+              >
+                Profile
+              </Link>
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={handleLogout}
+                className="text-xs text-text-muted hover:text-danger min-h-[36px] px-2.5"
+              >
+                Log out
+              </Button>
+            </div>
+          </div>
+        </header>
+
+        {/* Full-Width Antigravity Hero Section (from sidebar to right edge) */}
+        {(currentPath === "/dashboard" || currentPath === "/" || currentPath === "") && (
+          <section className="w-full bg-white border-b border-border overflow-hidden">
+            <DashboardHero
+              gymName={gymBranding?.name}
+              tenant={tenant}
+              brandColor={safeBrandColor}
+            />
+          </section>
+        )}
+
+        {/* Dynamic Page Content: Full width until the sidebar */}
+        <main className="flex-1 p-6 sm:p-8 space-y-6 overflow-y-auto w-full">
           {renderCurrentPage()}
         </main>
       </div>
