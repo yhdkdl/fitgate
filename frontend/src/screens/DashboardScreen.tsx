@@ -47,6 +47,7 @@ import { OwnerPlatformMessagesCard } from "../components/owner/OwnerPlatformMess
 import { ExpensesSection } from "../components/expenses/ExpensesSection";
 import { ClassScheduleSection } from "../components/classes/ClassScheduleSection";
 import { DashboardHero } from "../components/dashboard/DashboardHero";
+import { ExternalLink } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { getTenantFromHostname } from "../utils/tenant";
 
@@ -1050,6 +1051,25 @@ export const DashboardScreen: React.FC = () => {
                 );
               })}
             </nav>
+
+            {role !== "super_admin" && (
+              <div className="pt-3 px-1">
+                <a
+                  href="/entry?preview=true"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="flex items-center justify-between px-3 py-2 text-xs font-bold uppercase tracking-wider text-slate-700 bg-slate-100 hover:bg-slate-200 border border-slate-200 rounded-lg transition-colors"
+                >
+                  <span className="flex items-center gap-1.5">
+                    <ExternalLink className="w-3.5 h-3.5 text-slate-500" />
+                    <span>View Landing Page</span>
+                  </span>
+                  <span className="text-[10px] bg-slate-200 px-1.5 py-0.5 rounded text-slate-600 font-mono">
+                    Public
+                  </span>
+                </a>
+              </div>
+            )}
           </div>
         </div>
 
@@ -1114,6 +1134,17 @@ export const DashboardScreen: React.FC = () => {
           </div>
 
           <div className="flex items-center gap-3">
+            {role !== "super_admin" && (
+              <a
+                href="/entry?preview=true"
+                target="_blank"
+                rel="noreferrer"
+                className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 border border-slate-200 transition"
+              >
+                <ExternalLink className="w-3.5 h-3.5 text-slate-500" />
+                <span>Preview Landing Page</span>
+              </a>
+            )}
             <NotificationCenter />
 
             {/* Mobile profile link */}
